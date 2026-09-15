@@ -1174,14 +1174,16 @@
       "parent_effort": "OE-reporting",
       "sources": [
         "https://github.com/DIGI-UW/OpenELIS-Global-2/blob/codex/reporting-ui/specs/479-reporting-mvp/plan.md",
-        "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4292"
+        "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4292",
+        "https://reporting.catalyst.openelis-global.org/__review/target.json",
+        "https://reporting.catalyst.openelis-global.org/reporting-evidence/20260914-review-8005/"
       ],
       "id": "OE-native-reporting",
       "title": "Native OpenELIS reporting",
       "status": "Native ten-PR delivery in progress; Referrals available in UAT; Non-Conformance and full acceptance pending",
       "next_deliverable": "Follow the existing native reporting plan and current PR ownership; qualify the CSV output needed by lanes 1 and 2.",
       "acceptance": "Native plan/tasks and live UAT own full reporting acceptance; these pathways do not duplicate that checklist.",
-      "evidence": "Native owner confirmed the ten replacement PRs and cleanup ownership; #4306 identifies their GitHub stack. #4291/#4292/#4295 await coverage/disposition. Native runtime and human UAT remain with that effort."
+      "evidence": "Native owner confirmed the ten replacement PRs and cleanup ownership; #4306 identifies their GitHub stack. #4291/#4292/#4295 await coverage/disposition. Native runtime and human UAT remain with that effort. Public deployment receipt verifies app/frontend/backend 8005e4c (20260914T234348Z-8005e4cc0b2b); updated receipt reports public checks and CI passed, with human acceptance pending. Six published report/queue CSV downloads independently match manifest hashes and parsed values; video inspection remains with the native owner."
     },
     {
       "last_checked": "2026-09-14",
@@ -1199,7 +1201,8 @@
       "dependencies": [
         "OE-native-reporting"
       ],
-      "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted."
+      "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
+      "evidence": "Four synthetic reporting result identities verified locally; native public CSVs preserve repeated values, 30/90-minute turnaround and separate Result IDs. All six report/queue files match their published hashes. Existing Catalyst Superset has only Hive connections with upload disabled; the separate upload destination and actual CSV-to-dashboard journey remain pending."
     },
     {
       "last_checked": "2026-09-14",
@@ -1249,13 +1252,14 @@
       ],
       "id": "OE-lane-4",
       "title": "Lane 4 · OpenELIS FHIR analytics in Catalyst",
-      "status": "Reference Spark path exists; reporting-instance connection unverified",
+      "status": "Reporting-instance FHIR emission/routing missing from verified local pathway",
       "next_deliverable": "Check the same reporting instance's FHIR field coverage early, then verify its real pipeline, query and rendered dashboard.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
-      "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted."
+      "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
+      "evidence": "The reporting stack maps the FHIR host to loopback. Its four known synthetic Observation IDs are absent from the separate Catalyst HAPI store; native owner has no normal-emission proof. Preserve actual-source lineage rather than seeding a matching substitute."
     }
   ]
 }
