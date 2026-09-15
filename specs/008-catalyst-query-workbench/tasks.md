@@ -32,6 +32,28 @@ family here. Its context must support both Dataset origins; file imports must
 not acquire fabricated SQL provenance. Shared identity/per-user authorization
 remain a later production milestone in the integration roadmap.
 
+## Immediate four-pathway test checkpoint
+
+Owner direction, 15 September: prioritize four runnable paths for a short owner
+test. Run a bounded smoke per lane, record its first failing step, fix that
+integration, and repeat the path. This advances FP-003 through FP-009 without
+replacing full local/server acceptance. CSV tests do not depend on AI availability.
+
+Observed on local harness `f0ff2c7` / Catalyst `f548e04`:
+
+| Lane | Working step | Next obstacle to resolve |
+| --- | --- | --- |
+| 1 | Superset dashboard 32 reopens with table/chart values 1158→30 and 1159→90; screenshot inspected. | Native reporting containers are stopped; restore with the native owner procedure and repeat fresh export/upload. |
+| 2 | Saved CSV opens with both exact rows; chart controls open without AI; Superset table 71 and count 69 render the records and count 2. | Chart 67 reproduces the PostgreSQL total grouping error. Integrate/deploy merged Catalyst #134, republish, and verify total 120. |
+| 3 | PostgreSQL support is merged. | Reporting PostgreSQL connection is absent from the live source picker/API. Configure and test question, explicit Run, save, and publication. |
+| 4 | Existing Spark source is available. | Reporting-instance FHIR emission/routing remains unverified; coordinate with native owner. Separate existing cohort does not prove this lane. |
+
+Restored retained Catalyst services through the lifecycle wrapper without seeding.
+Libraries retain 73 Datasets, 72 charts, and 65 dashboards. Superset renders saved
+results. Full startup/health failed because the model backend is unreachable;
+this blocks question preparation for lanes 3/4. No new export, import, query,
+or publication ran in this restoration check. Raw evidence stays outside Git.
+
 ## Current local reporting checkpoint
 
 On 15 September, the retained local stack was updated through the lifecycle
