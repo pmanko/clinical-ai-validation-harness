@@ -33,22 +33,34 @@
           <p class="section-kicker">Documentation · OpenMRS integration · updated 15 September 2026</p>
           <h1 id="doc-title">What we are contributing to OpenMRS.</h1>
           <p>
-            Three pull requests carry the ChartSearchAI dual-provider work into the OpenMRS repositories. Bundled inference and
-            Med Agent Hub become two explicit providers behind one clinical-answer contract, and QueryStore becomes the single
-            owner of complete, question-aware patient context. They merge in the order below.
+            If you maintain or follow the OpenMRS chart-search modules, this page is for you. It lists what our three open
+            pull requests change, why they are proposed in a particular order, and what has been reviewed so far. Nothing on
+            this page is merged yet; it describes branches under review and the tests that check them.
           </p>
           <div class="doc-meta">
-            <span>Heads: QueryStore <span class="sha">cfced36</span> · ChartSearchAI <span class="sha">d46f517</span> · ESM <span class="sha">77f61c8</span></span>
-            <span>Sequence and acceptance: <a href="https://github.com/pmanko/clinical-ai-validation-harness/pull/181">upstream merge roadmap</a></span>
+            <span>Status: under review · heads QueryStore <span class="sha">cfced36</span>, ChartSearchAI <span class="sha">d46f517</span>, ESM <span class="sha">77f61c8</span></span>
+            <span>How we sequence the work: <a href="https://github.com/pmanko/clinical-ai-validation-harness/pull/181">upstream merge roadmap</a></span>
           </div>
         </div>
       </section>
 
       <section class="section doc-section" aria-labelledby="chain-title">
         <div class="page-width">
-          <p class="section-kicker">Merge order</p>
-          <h2 id="chain-title">Three pull requests, one dependency chain.</h2>
-          <p class="section-lead">Each arrow is a real dependency, not a preference: the backend compiles against types the QueryStore change adds, and the interface renders events the backend change defines.</p>
+          <p class="section-kicker">In plain words</p>
+          <h2 id="chain-title">Three repositories, three pull requests.</h2>
+          <p class="section-lead">
+            <strong>QueryStore</strong> is the OpenMRS module that indexes a patient's records so they can be searched and read
+            back quickly. <strong>ChartSearchAI</strong> is the module that answers a clinician's question about a chart using a
+            language model, either one bundled with the module or an optional external service (Med Agent Hub). The
+            <strong>ChartSearchAI ESM</strong> is the piece of the OpenMRS web interface that shows the question, the answer,
+            the records it drew on and the checks that ran.
+          </p>
+          <p class="section-lead">
+            The changes let ChartSearchAI use either answer source through one shared set of rules, and give QueryStore one
+            well-defined way to hand over a patient's records with an honest statement of whether the set is complete. They
+            are proposed in the order below because each depends on the one before it: the backend compiles against types
+            the QueryStore change adds, and the interface renders events the backend change defines.
+          </p>
           <div class="chain">
             <article class="chain-node">
               <p class="repo">openmrs-module-querystore</p>
@@ -57,7 +69,7 @@
                 <dt>Size</dt><dd>+4,675 / -104 · 60 files</dd>
                 <dt>Tests</dt><dd>API 525 · OMOD 53 · 0 failures</dd>
                 <dt>CI</dt><dd><span class="pill pill-ok">Java 8 / 11 / 17 / 21 green</span></dd>
-                <dt>Review</dt><dd>Three maintainer rounds; every thread answered</dd>
+                <dt>Review</dt><dd>Three maintainer rounds so far; every thread has a reply</dd>
                 <dt>State</dt><dd><span class="pill pill-ok">Mergeable</span></dd>
               </dl>
             </article>
@@ -72,7 +84,7 @@
                 <dt>Size</dt><dd>+10,983 / -343 · 97 files</dd>
                 <dt>Tests</dt><dd>API 2,126 · OMOD 198 · 0 failures</dd>
                 <dt>CI</dt><dd><span class="pill pill-ok">Paired Java 11 / 17 / 21 green</span></dd>
-                <dt>Review</dt><dd>Awaiting the maintainer's first pass</dd>
+                <dt>Review</dt><dd>Not yet reviewed by the maintainer</dd>
                 <dt>State</dt><dd><span class="pill pill-wait">Resync scheduled after #68 publishes</span></dd>
               </dl>
             </article>
@@ -87,7 +99,7 @@
                 <dt>Size</dt><dd>+8,075 / -1,837 · 39 files</dd>
                 <dt>Tests</dt><dd>462 tests · lint · TypeScript · build</dd>
                 <dt>CI</dt><dd><span class="pill pill-ok">Build green</span></dd>
-                <dt>Review</dt><dd>Awaiting the maintainer's first pass</dd>
+                <dt>Review</dt><dd>Not yet reviewed by the maintainer</dd>
                 <dt>State</dt><dd><span class="pill pill-ok">Mergeable, current with main</span></dd>
               </dl>
             </article>
@@ -98,8 +110,8 @@
       <section class="section doc-section openmrs-section" aria-labelledby="qs-title">
         <div class="page-width">
           <p class="section-kicker">QueryStore #68</p>
-          <h2 id="qs-title">One authorized read surface for the patient record, with completeness that cannot be faked.</h2>
-          <p class="section-lead">The store owns record projection, dates, completeness and question-aware selection. It owns no prompt composition and no model policy.</p>
+          <h2 id="qs-title">One authorized way to read a patient's records, which says when the set is incomplete.</h2>
+          <p class="section-lead">QueryStore takes on record projection, dates, completeness and question-aware selection. It does not compose prompts and knows nothing about models; that stays with the module asking.</p>
           <div class="catalogue">
             <div class="group">
               <h3>Read API</h3>
@@ -136,7 +148,7 @@
             </div>
           </div>
           <div class="guarantees">
-            <h3>Guarantees a reviewer can hold us to</h3>
+            <h3>What the tests pin down</h3>
             <ul>
               <li>A handled backend failure is never reported as a complete empty chart.</li>
               <li>Paging never links to a request the same controller rejects.</li>
@@ -149,8 +161,8 @@
       <section class="section doc-section" aria-labelledby="csa-title">
         <div class="page-width">
           <p class="section-kicker">ChartSearchAI #157</p>
-          <h2 id="csa-title">One clinical-answer contract, two explicit providers, no silent switching.</h2>
-          <p class="section-lead">Bundled inference stays the default. Med Agent Hub is one separately configured provider stream. ChartSearchAI keeps authorization, prompt assembly, sessions, audit and persistence.</p>
+          <h2 id="csa-title">Two ways to produce an answer, one set of rules for both.</h2>
+          <p class="section-lead">The bundled model stays the default for a fresh installation. Med Agent Hub is a separately configured option, never a silent fallback. ChartSearchAI keeps authorization, prompt assembly, sessions, audit and persistence in either case.</p>
           <div class="catalogue">
             <div class="group">
               <h3>Provider boundary</h3>
@@ -200,11 +212,11 @@
             </div>
           </div>
           <div class="guarantees">
-            <h3>Guarantees a reviewer can hold us to</h3>
+            <h3>What the tests pin down</h3>
             <ul>
               <li>Provider selection never changes silently; changing provider starts a new conversation.</li>
               <li>Final citations, temporal checks, medication safety, audit records and restored sessions use one provider-neutral contract.</li>
-              <li>Paired CI builds this branch against the exact QueryStore source under review until #68 publishes; the paired jobs leave with the merge.</li>
+              <li>Until #68 publishes, continuous integration builds this branch against the exact QueryStore source under review; those paired jobs are removed once the published dependency exists.</li>
             </ul>
           </div>
         </div>
@@ -213,8 +225,8 @@
       <section class="section doc-section openmrs-section" aria-labelledby="esm-title">
         <div class="page-width">
           <p class="section-kicker">ChartSearchAI ESM #23</p>
-          <h2 id="esm-title">The same visible answer, checking, evidence and safety behaviour for both providers.</h2>
-          <p class="section-lead">The interface half of the backend's wire contract. Low-confidence, edited, rejected and withheld output stays inspectable; nothing important lives only in a tooltip.</p>
+          <h2 id="esm-title">The same answer, checking, evidence and safety display, whichever source answered.</h2>
+          <p class="section-lead">The interface half of the backend change. Low-confidence, edited, rejected and withheld output stays visible for a person to review; nothing important lives only in a tooltip.</p>
           <div class="catalogue">
             <div class="group">
               <h3>Turn lifecycle</h3>
@@ -249,7 +261,7 @@
             </div>
           </div>
           <div class="guarantees">
-            <h3>Guarantees a reviewer can hold us to</h3>
+            <h3>What the tests pin down</h3>
             <ul>
               <li>Both providers produce the same lifecycle semantics on screen.</li>
               <li>Provider selection survives refresh and session hydration.</li>
@@ -274,7 +286,7 @@
               </tbody>
             </table>
           </div>
-          <p class="ledger-note">Threads are answered with the fixing commit and the test that failed before it, then left open for the maintainer to resolve. Every behaviour change above had a test that failed on the unfixed code.</p>
+          <p class="ledger-note">Each thread carries a reply naming the commit and, where behaviour changed, the test that failed before the fix; threads are left open for the maintainer to resolve. For the two September rounds, every behaviour change was covered this way. Review is ongoing, and later rounds may find more.</p>
         </div>
       </section>
 
@@ -282,7 +294,7 @@
         <div class="page-width">
           <p class="section-kicker">Not carried, by decision</p>
           <h2 id="dropped-title">What the nine earlier pull requests had that these do not.</h2>
-          <p class="section-lead">All nine were closed on 14 September 2026 with a note explaining the successor. Two carried unique work that was set aside deliberately.</p>
+          <p class="section-lead">Nine earlier pull requests from May and June were closed on 14 September 2026, each with a note pointing at its successor. Most of their content lives on in the three above in a different shape; two ideas were set aside on purpose and are listed first.</p>
           <div class="dropped">
             <article><h3>Runtime swap of the bundled model, per-request override</h3><p>#22, #25. Replaced by provider selection and hub product profiles; the bundled engine is configured through global properties.</p></article>
             <article><h3>Frozen-session chart in a stable prompt prefix</h3><p>#20. Prompt-prefix reuse is deferred in the dual-provider roadmap and returns as its own change.</p></article>
@@ -293,7 +305,7 @@
           </div>
           <div class="doc-sources">
             <p>Sources: the three pull requests, their continuous-integration results, and the integration branches as read on 15 September 2026. The merge sequence, acceptance criteria and iteration log live in the <a href="https://github.com/pmanko/clinical-ai-validation-harness/pull/181">upstream merge roadmap</a>; the requirements authority remains the dual-provider parity roadmap in the <a href="https://pmanko.github.io/clinical-ai-validation-harness/">project documentation</a>.</p>
-            <p>This page catalogues what is being merged. It does not redefine it, and it makes no claim of deployment acceptance or clinical validation beyond the tests named above.</p>
+            <p>This page describes what is proposed, not what is decided: the maintainers of these repositories review and merge on their own schedule, and the branches may change in response. Test counts and continuous-integration results are the checks named above and nothing more; this page makes no claim about clinical validation or about how the software performs in a deployment.</p>
           </div>
         </div>
       </section>
