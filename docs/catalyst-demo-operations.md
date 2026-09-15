@@ -93,6 +93,44 @@ the isolated stack. Those connections survive container restart but must be
 restored if either container is recreated. Inspect the live network and Caddy
 configuration before changing them; the proxy serves other applications too.
 
+## Native CSV reporting uploads
+
+Lane 1 uses Superset's native **Database Connections → Upload file to database →
+Upload CSV** flow. It needs a writable connection separate from both the
+OpenELIS operational database and Superset metadata. On the local demo, the
+connection **Reporting CSV uploads** uses database `catalyst_imports` on the
+existing PostgreSQL service `superset-metadata-db`, with schema `report_uploads`.
+The database name denotes a separate database, despite the service's existing
+name. Its login has no superuser, role-creation or database-creation privileges.
+Other Catalyst analytics connections remain read-only and uploads stay disabled.
+
+To provision the same destination on another environment, use that environment's
+PostgreSQL administrator to create a dedicated login and database owned by it,
+then create the upload schema as that login. Use a generated environment-specific
+password, never a checked-in credential. In Superset, register the PostgreSQL
+connection, enable **Allow file uploads to database**, and set the connection's
+extra configuration to `{"schemas_allowed_for_file_upload": ["report_uploads"]}`.
+Do not use the metadata database or an OpenELIS database as the upload target;
+do not alter an existing connection to point at new data. This is operator
+configuration, not a new Catalyst upload API.
+
+For each native export, choose a new table name, explicitly select `report_uploads`,
+and leave the dataframe-index option off. In Columns, keep identifier columns as
+strings (for example `{"Accession Number":"str","Result ID":"str"}`). Review
+numeric/mixed-value columns for the actual file rather than assuming every result
+is numeric. A raw-record table must preserve the exported column order and each
+result row. Aggregated charts must name the selected measurement and grouping.
+
+The 14 September local import baseline used the native team's published server
+CSV from backend `8005e4c`, uploaded into local Superset as `report_uploads.oe_results_202605_8005`. Its two result IDs, `1158` and
+`1159`, retain value `450` and distinct result-to-validation times of `30` and
+`90` minutes. This is native Superset file upload; it does not implement lane 2's
+Catalyst Dataset import. A fresh export from the local reporting instance is
+still required for the complete local lane; this check does not establish
+server/final owner acceptance. Raw files,
+setup receipts and screenshots remain outside Git. The integration task register
+owns current validation status.
+
 ## Shared model router
 
 Catalyst intentionally consumes an external model router. The harness owns the
