@@ -34,6 +34,13 @@ remain a later production milestone in the integration roadmap.
 
 ## Immediate four-pathway test checkpoint
 
+Follow the [workflow acceptance boundary](../openelis-reporting-catalyst-integration.md#workflow-acceptance-and-scope).
+The next lane-3 action is manual correction of the retained failed proposal,
+explicit execution, record verification, save/reopen and Dashboard publication.
+Model errors below are observations, not a model-tuning backlog. Older performance
+investigations in this register do not block this delivery. All lane acceptance
+still requires the complete recorded journey and verified final outputs.
+
 Owner direction, 15 September: prioritize four runnable paths for a short owner
 test. Run a bounded smoke per lane, record its first failing step, fix that
 integration, and repeat the path. This advances FP-003 through FP-009 without
@@ -49,7 +56,7 @@ acceptance is claimed.
 | --- | --- | --- |
 | 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Browser file attachment, broader fixtures, paced recording and server journey remain. API upload is partial evidence, not the complete recorded user journey. |
 | 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks now pass in both themes. The complete native-file recording, remaining visual review, broader failures and server validation remain. |
-| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Resolve query quality and prove question/refinement; manual execution does not complete that journey. |
+| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Use the supported manual correction path, verify records, and continue through save/reopen and publication. Retain model errors as limitations, not an accuracy gate. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
 Retained services and model router were restored through existing launchers,
@@ -137,8 +144,10 @@ PostgreSQL. A read-only check of the reporting source exposes 525 declared
 relationships across the same 380 relations. All five hosted checks passed and
 #136 merged as `a385f5e`; harness #183 pins that exact revision. The enriched
 initial prompt measures 83,348 tokens (85,396 with output allowance), within the
-98,304 serving context. Deployment and the repeated model journey remain pending;
-metadata coverage alone does not close FP-004.
+98,304 serving context. The merged harness #183 (`ea8f153`) deployed this revision locally with health
+and retained-state checks. Subsequent model turns still chose wrong joins; these
+are limitations to preserve while testing human recovery, not a reason to repeat
+model coaching. Metadata coverage alone does not close FP-004.
 Exact requests remain in local generation evidence;
 raw inspection copies are outside Git. Managed router startup also timed out;
 the existing foreground launcher is serving successfully, but durable startup

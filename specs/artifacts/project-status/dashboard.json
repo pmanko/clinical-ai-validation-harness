@@ -24,7 +24,7 @@
       "title": "Catalyst",
       "status": "Four-pathway testing in progress",
       "summary": "Current Catalyst release evidence stays in its delivery register. The four-pathway initiative adds imported Datasets and ordinary PostgreSQL without duplicating the approved Workbench or AI-design roadmap.",
-      "evidence": "Native export recovered. Fresh native CSV imports with type-error recovery and renders a browser-built table/grouped-count dashboard. Earlier CSV summaries render count 2, average 60 and total 120. Reporting PostgreSQL manual query/save/Superset table work; E4B now fits the full schema, but real model refinements still return wrong joins/zero rows. Generic CSV browser tests pass in both themes; complete native-file recordings, FHIR routing, server journeys and owner acceptance remain. Exact evidence is in the delivery register.",
+      "evidence": "Native export recovered. Fresh native CSV imports with type-error recovery and renders a browser-built table/grouped-count dashboard. Earlier CSV summaries render count 2, average 60 and total 120. Reporting PostgreSQL manual query/save/Superset table work; Model errors are recorded; manual correction is the accepted recovery path to test next, not a model-optimization gate. Generic CSV browser tests pass in both themes; complete native-file recordings, FHIR routing, server journeys and owner acceptance remain. Exact evidence is in the delivery register.",
       "actions": [
         [
           "Review the current delivery checkpoint",
@@ -37,7 +37,7 @@
       "title": "OpenELIS\u2013Catalyst reporting",
       "status": "Four-pathway testing in progress",
       "summary": "Native CSV/Superset, CSV imported into Catalyst, native PostgreSQL, and FHIR/Spark are complementary starting points. One roadmap coordinates the existing product efforts.",
-      "evidence": "Native export recovered. Fresh native CSV imports with type-error recovery and renders a browser-built table/grouped-count dashboard. Earlier CSV summaries render count 2, average 60 and total 120. Reporting PostgreSQL manual query/save/Superset table work; E4B now fits the full schema, but real model refinements still return wrong joins/zero rows. Generic CSV browser tests pass in both themes; complete native-file recordings, FHIR routing, server journeys and owner acceptance remain. Exact evidence is in the delivery register.",
+      "evidence": "Native export recovered. Fresh native CSV imports with type-error recovery and renders a browser-built table/grouped-count dashboard. Earlier CSV summaries render count 2, average 60 and total 120. Reporting PostgreSQL manual query/save/Superset table work; Model errors are recorded; manual correction is the accepted recovery path to test next, not a model-optimization gate. Generic CSV browser tests pass in both themes; complete native-file recordings, FHIR routing, server journeys and owner acceptance remain. Exact evidence is in the delivery register.",
       "actions": [
         [
           "Open the parent roadmap",
