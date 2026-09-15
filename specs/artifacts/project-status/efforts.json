@@ -1149,7 +1149,7 @@
       "id": "OE-reporting",
       "title": "OpenELIS\u2013Catalyst four reporting pathways",
       "status": "Four-pathway testing: native export recovered; CSV summaries repaired locally",
-      "next_deliverable": "Complete fresh CSV paths, resolve PostgreSQL model context, and connect normal reporting FHIR emission.",
+      "next_deliverable": "Complete browser CSV journeys, resolve PostgreSQL query quality, and connect normal reporting FHIR emission.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1176,7 +1176,7 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
       ],
-      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full AI question path exceeds model context; native FHIR routing is being connected. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; file-picker automation remains unverified."
+      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full-schema E4B preparation now fits a scoped 98,304-token context; real refinements still chose wrong relations/joins and returned zero rows. Native FHIR connection awaits approval. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; file-picker automation remains unverified."
     },
     {
       "last_checked": "2026-09-15",
@@ -1260,13 +1260,13 @@
       ],
       "id": "OE-lane-3",
       "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
-      "status": "Manual PostgreSQL query through Superset verified; AI context limit exposed",
-      "next_deliverable": "Resolve complete-schema model capacity, then prove question/refinement and the full native-source journey.",
+      "status": "Full-schema model preparation works; query/refinement accuracy still fails",
+      "next_deliverable": "Resolve observed relation/join errors, retain the failed case, then prove the complete question-to-dashboard journey.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Restricted openelis-reporting connection discovers 380 readable clinlims relations. Browser schema search retains the question. Manual execution returned result IDs1154/1155/1158/1159 with values450 and saved/reopened Dataset1dd3de0a-6754-4cc2-9097-56a49cb3c8dd. AI preparation fails because63582 input tokens exceed24576 configured context. Manual proof does not complete the question journey. Its published table dashboard renders all four exact result/analysis/value rows through the configured reporting database; screenshot inspected. Full AI question/refinement remains unverified."
+      "evidence": "All 380 readable relations remain available. Manual query/save/Superset proof is retained. The existing Faster question preparation profile now fits 63,561\u201367,183 prompt tokens in a scoped 98,304-token E4B context. Four real model turns retained a wrong relation or join despite refinements; executed turns returned zero rows. Full rendered requests confirm instructions reached the model. The task register records exact session evidence and the missing foreign-key metadata finding. This does not pass the staff question/refinement journey."
     },
     {
       "last_checked": "2026-09-15",

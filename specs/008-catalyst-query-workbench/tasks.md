@@ -49,8 +49,8 @@ acceptance is claimed.
 | --- | --- | --- |
 | 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Browser file attachment, broader fixtures, paced recording and server journey remain. API upload is partial evidence, not the complete recorded user journey. |
 | 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Browser file-picker automation, narrow/theme review, broader failures and server validation remain. |
-| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Model preparation rejects the complete schema: 63,582 input tokens exceed 24,576 configured context. Resolve model capacity, then prove the complete question/refinement journey. Manual execution does not complete that journey. |
-| 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native owner is connecting the retained app using the existing Catalyst network/certificates, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
+| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Resolve query quality and prove question/refinement; manual execution does not complete that journey. |
+| 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
 Retained services and model router were restored through existing launchers,
 without seeding or replacing data. A newly opened manual session still requires
@@ -106,12 +106,34 @@ browser-control surface does not support file attachment, so initial upload/type
 review/save used the actual application endpoints, not browser controls. The
 remaining browser-file-picker check is explicit, not treated as passed.
 
-Dashboard validation also passed its five model tests and production status
-build. Cached GGUF metadata declares Gemma E4B context 131,072 and Qwen 14B context
-32,768; the existing serving configuration is 24,576. The proposed existing
-E4B-only profile/larger-context test is awaiting owner preference. FHIR runtime
-connection remains pending the native task's approval review; normal emission
-has not run. These are not four-pathway or server acceptance claims.
+PostgreSQL model smoke (15 September): the existing Faster question preparation
+profile used Gemma E4B with a scoped 98,304-token serving context; other presets
+and the product default were unchanged. All 380 readable relations remain in the
+request. The cached model limit is 131,072; Qwen 14B remains at its existing
+24,576 serving context. The 27 router-policy, 12 status-renderer and five dashboard model tests pass;
+the production status build, documentation drift and diff checks pass.
+
+Session `0dd94174-67aa-4c18-8dea-4235f98e7277` preserves four real model turns.
+The first used 63,561 prompt tokens and 141.8 seconds across model invocations;
+subsequent turns used 65,941–67,183 tokens and 16.8–25.2 seconds. Full rendered
+request evidence confirms the current refinement and all relations reached the
+model without truncation. Capacity is resolved for this tested profile, but
+query quality is not: the first query selected analyzer messages; the first
+refinement retained that relation. Explicit analyst join guidance changed to
+laboratory results but incorrectly joined sample_item.sampitem_id instead of
+sample_item.id. A targeted correction still retained the wrong join. Explicit
+browser execution of turns 1, 3 and 4 returned zero rows; turn 2 was not executed.
+No SQL was manually replaced in this session and no successful Dataset is claimed.
+
+PostgreSQL discovery currently supplies readable columns/types/comments but no
+foreign-key relationship metadata. This is an observed enrichment gap to assess,
+not proof that adding it alone will fix model behavior. Retain this failed case
+when validating any remedy. Exact requests remain in local generation evidence;
+raw inspection copies are outside Git. Managed router startup also timed out;
+the existing foreground launcher is serving successfully, but durable startup
+has not been verified. FHIR connection remains pending the native task's approval
+review; normal reporting emission has not run. Four-pathway and server acceptance
+remain open.
 
 ## Current local reporting checkpoint
 
