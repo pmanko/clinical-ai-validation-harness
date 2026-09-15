@@ -30,20 +30,20 @@
     "triage": "Active lanes, dependency order and older disposition candidates. Titles and mergeability alone do not establish safe closure or production readiness."
   },
   "counts": {
-    "total": 299,
+    "total": 301,
     "byState": {
       "closed": 38,
-      "merged": 215,
+      "merged": 217,
       "open": 46
     },
     "byRepository": {
       "DIGI-UW/OpenELIS-Global-2": 26,
-      "DIGI-UW/catalyst-ai": 108,
+      "DIGI-UW/catalyst-ai": 109,
       "DIGI-UW/openelis-work": 12,
       "openmrs/openmrs-esm-chartsearchai": 6,
       "openmrs/openmrs-module-chartsearchai": 9,
       "openmrs/openmrs-module-querystore": 2,
-      "pmanko/clinical-ai-validation-harness": 119,
+      "pmanko/clinical-ai-validation-harness": 120,
       "pmanko/med-agent-hub": 15,
       "pmanko/openmrs-module-chartsearchai": 2
     },
@@ -69,7 +69,7 @@
       "Older OpenMRS contribution": 9,
       "OpenELIS application work": 13,
       "OpenELIS reporting design readiness": 1,
-      "OpenELIS reporting pathways": 20,
+      "OpenELIS reporting pathways": 22,
       "OpenMRS chart context and QueryStore integration": 1,
       "OpenMRS dual-provider integration": 5,
       "Program planning and inventory": 2,
@@ -87,6 +87,60 @@
     }
   },
   "pullRequests": [
+    {
+      "id": "pmanko/clinical-ai-validation-harness#178",
+      "repository": "pmanko/clinical-ai-validation-harness",
+      "number": 178,
+      "title": "Integrate PostgreSQL support and the local reporting checkpoint",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/178",
+      "state": "merged",
+      "draft": false,
+      "author": "pmanko",
+      "head": "codex/reporting-local-checkpoint",
+      "headSha": "a9dabcd7a86eecb732b56ce2af1b4e64571a07ed",
+      "base": "main",
+      "baseSha": null,
+      "createdAt": "2026-09-15T01:56:29Z",
+      "updatedAt": "2026-09-15T02:01:32Z",
+      "mergedAt": "2026-09-15T02:01:30Z",
+      "closedAt": "2026-09-15T02:01:30Z",
+      "mergeCommitSha": "8cd70a5b28f1810effaa0ebde73d93ed3e6dc903",
+      "effort": "OpenELIS reporting pathways",
+      "effortGroup": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting"
+      ],
+      "currentSignal": "Merged; all recorded hosted checks passed. Deployment and owner acceptance remain separate.",
+      "nextAction": "Continue the existing integration roadmap; no merge action remains.",
+      "metadataCheckedAt": "2026-09-15T02:01:32Z"
+    },
+    {
+      "id": "DIGI-UW/catalyst-ai#130",
+      "repository": "DIGI-UW/catalyst-ai",
+      "number": 130,
+      "title": "Publish query Datasets against their own backing source",
+      "url": "https://github.com/DIGI-UW/catalyst-ai/pull/130",
+      "state": "merged",
+      "draft": false,
+      "author": "pmanko",
+      "head": "codex/source-aware-publication",
+      "headSha": "6ad1d096bb121c13b78d4d69faf6f70d8fca6646",
+      "base": "main",
+      "baseSha": null,
+      "createdAt": "2026-09-15T02:22:48Z",
+      "updatedAt": "2026-09-15T02:28:47Z",
+      "mergedAt": "2026-09-15T02:28:47Z",
+      "closedAt": "2026-09-15T02:28:47Z",
+      "mergeCommitSha": "3b8882fc6dc8e16f3b55f289bf8c22d2636c539c",
+      "effort": "OpenELIS reporting pathways",
+      "effortGroup": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting"
+      ],
+      "currentSignal": "Merged; all recorded hosted checks passed. Deployment and owner acceptance remain separate.",
+      "nextAction": "Continue the existing integration roadmap; no merge action remains.",
+      "metadataCheckedAt": "2026-09-15T02:28:47Z"
+    },
     {
       "id": "DIGI-UW/OpenELIS-Global-2#4285",
       "repository": "DIGI-UW/OpenELIS-Global-2",

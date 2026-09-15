@@ -1148,8 +1148,8 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS–Catalyst four reporting pathways",
-      "status": "Mock approved; local saved-report CSV example verified; PostgreSQL support merged",
-      "next_deliverable": "Integrate the merged PostgreSQL source and source-aware publication, then imported Datasets through the existing roadmap.",
+      "status": "Mock approved; local CSV example verified; PostgreSQL and query publication merged",
+      "next_deliverable": "Integrate the merged publication revision and implement imported Datasets; verify the native source when its connection handoff is available.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1164,9 +1164,11 @@
         "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4292",
         "https://github.com/DIGI-UW/catalyst-ai/pull/128",
         "https://github.com/DIGI-UW/catalyst-ai/pull/129",
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/177"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/177",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/130",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/178"
       ],
-      "evidence": "Catalyst #128 design approved and merged; #129 connection support merged as 6513c88 with all five CI checks passing. Local native saved-period rerun and Superset dashboard32 verified. Server and owner acceptance remain open."
+      "evidence": "Catalyst #128 mock approved; #129 PostgreSQL and #130 source-aware query publication merged. #130 passed all five CI checks; local native CSV/Superset dashboard32 verified. No full lane acceptance or new runtime deployment claimed."
     },
     {
       "last_checked": "2026-09-14",
@@ -1231,7 +1233,8 @@
       "last_checked": "2026-09-14",
       "implementation_owner": null,
       "related_pull_requests": [
-        "https://github.com/DIGI-UW/catalyst-ai/pull/129"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/129",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/130"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1240,13 +1243,13 @@
       ],
       "id": "OE-lane-3",
       "title": "Lane 3 · OpenELIS PostgreSQL in Catalyst",
-      "status": "PostgreSQL connection and editor support merged; source integration remains",
-      "next_deliverable": "Deploy the merged connection support with the reporting OpenELIS source, verify question/refinement/save/reopen, and implement correct backing-connection publication.",
+      "status": "PostgreSQL and source-aware query publication merged; native source integration remains",
+      "next_deliverable": "Deploy the merged revision, connect the reporting OpenELIS source, then verify question/refinement/save/reopen and Superset rendering.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Catalyst #129 merged6513c88; all five hosted CI checks passed. Local tests include real PostgreSQL metadata, types, parameters, timeout, errors and recovery. No runtime deployment or full lane acceptance claimed."
+      "evidence": "Catalyst #129 merged6513c88 and #130 merged3b8882f; all five checks passed for each. Publication preserves legacy SQL and refuses to redirect old connections. Native runtime deployment and rendered-value acceptance remain open."
     },
     {
       "last_checked": "2026-09-14",
