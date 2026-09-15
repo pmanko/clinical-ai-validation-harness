@@ -402,6 +402,9 @@ video:focus-visible {
 }
 
 .hub-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
   margin-top: 30px;
 }
 

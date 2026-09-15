@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="What the three OpenClinAI pull requests carry into the OpenMRS QueryStore, ChartSearchAI and ChartSearchAI ESM repositories: one clinical-answer contract with two providers, complete question-aware patient context, and the review record behind them."
+    />
+    <meta name="theme-color" content="#4b2e83" />
+    <meta property="og:title" content="OpenMRS upstream contributions · Open Clinical AI" />
+    <meta
+      property="og:description"
+      content="A catalogue of the ChartSearchAI dual-provider work being merged into the OpenMRS repositories, in merge order, with the review ledger."
+    />
+    <meta property="og:url" content="https://openclinai.org/docs/openmrs-upstream/" />
+    <meta property="og:type" content="article" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="canonical" href="https://openclinai.org/docs/openmrs-upstream/" />
+    <title>OpenMRS upstream contributions · Open Clinical AI</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260915-upstream" />
+    <link rel="stylesheet" href="page.css?v=20260915" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Open Clinical AI home">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span>Open Clinical AI</span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a href="/#project">Overview</a>
+        <a href="/#openmrs">Chart Search</a>
+        <a href="/#catalyst">Catalyst</a>
+        <a href="/#evidence">Evidence</a>
+        <a href="/docs/openmrs-upstream/" aria-current="page">OpenMRS upstream</a>
+      </nav>
+      <details class="nav-toggle">
+        <summary>Menu</summary>
+        <nav aria-label="Primary navigation">
+          <a href="/#project">Overview</a>
+          <a href="/#openmrs">Chart Search</a>
+          <a href="/#catalyst">Catalyst</a>
+          <a href="/#evidence">Evidence</a>
+          <a href="/docs/openmrs-upstream/" aria-current="page">OpenMRS upstream</a>
+          <a href="https://reports.openclinai.org/">Evaluation reports <span aria-hidden="true">&#8599;</span></a>
+        </nav>
+      </details>
+      <div class="header-actions">
+        <a class="button button-secondary" href="https://reports.openclinai.org/">Evaluation reports</a>
+        <a class="button button-primary" href="https://openmrs.openclinai.org/">OpenMRS demo <span aria-hidden="true">&#8599;</span></a>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="doc-intro" aria-labelledby="doc-title">
+        <div class="page-width">
+          <p class="section-kicker">Documentation · OpenMRS integration · updated 15 September 2026</p>
+          <h1 id="doc-title">What we are contributing to OpenMRS.</h1>
+          <p>
+            Three pull requests carry the ChartSearchAI dual-provider work into the OpenMRS repositories. Bundled inference and
+            Med Agent Hub become two explicit providers behind one clinical-answer contract, and QueryStore becomes the single
+            owner of complete, question-aware patient context. They merge in the order below.
+          </p>
+          <div class="doc-meta">
+            <span>Heads: QueryStore <span class="sha">cfced36</span> · ChartSearchAI <span class="sha">d46f517</span> · ESM <span class="sha">77f61c8</span></span>
+            <span>Sequence and acceptance: <a href="https://github.com/pmanko/clinical-ai-validation-harness/pull/181">upstream merge roadmap</a></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section doc-section" aria-labelledby="chain-title">
+        <div class="page-width">
+          <p class="section-kicker">Merge order</p>
+          <h2 id="chain-title">Three pull requests, one dependency chain.</h2>
+          <p class="section-lead">Each arrow is a real dependency, not a preference: the backend compiles against types the QueryStore change adds, and the interface renders events the backend change defines.</p>
+          <div class="chain">
+            <article class="chain-node">
+              <p class="repo">openmrs-module-querystore</p>
+              <h3><a href="https://github.com/openmrs/openmrs-module-querystore/pull/68">#68 Patient-record read API and context slice</a></h3>
+              <dl>
+                <dt>Size</dt><dd>+4,675 / -104 · 60 files</dd>
+                <dt>Tests</dt><dd>API 525 · OMOD 53 · 0 failures</dd>
+                <dt>CI</dt><dd><span class="pill pill-ok">Java 8 / 11 / 17 / 21 green</span></dd>
+                <dt>Review</dt><dd>Three maintainer rounds; every thread answered</dd>
+                <dt>State</dt><dd><span class="pill pill-ok">Mergeable</span></dd>
+              </dl>
+            </article>
+            <div class="chain-arrow" aria-hidden="true">
+              <svg width="44" height="18" viewBox="0 0 44 18"><path d="M2 9h36M31 2l8 7-8 7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+              publishes the <code>querystore-api</code> snapshot #157 compiles against
+            </div>
+            <article class="chain-node">
+              <p class="repo">openmrs-module-chartsearchai</p>
+              <h3><a href="https://github.com/openmrs/openmrs-module-chartsearchai/pull/157">#157 Dual-provider clinical answer boundary</a></h3>
+              <dl>
+                <dt>Size</dt><dd>+10,983 / -343 · 97 files</dd>
+                <dt>Tests</dt><dd>API 2,126 · OMOD 198 · 0 failures</dd>
+                <dt>CI</dt><dd><span class="pill pill-ok">Paired Java 11 / 17 / 21 green</span></dd>
+                <dt>Review</dt><dd>Awaiting the maintainer's first pass</dd>
+                <dt>State</dt><dd><span class="pill pill-wait">Resync scheduled after #68 publishes</span></dd>
+              </dl>
+            </article>
+            <div class="chain-arrow" aria-hidden="true">
+              <svg width="44" height="18" viewBox="0 0 44 18"><path d="M2 9h36M31 2l8 7-8 7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+              defines the <code>/chat/stream</code> events the interface renders
+            </div>
+            <article class="chain-node">
+              <p class="repo">openmrs-esm-chartsearchai</p>
+              <h3><a href="https://github.com/openmrs/openmrs-esm-chartsearchai/pull/23">#23 Provider-neutral answer lifecycle</a></h3>
+              <dl>
+                <dt>Size</dt><dd>+8,075 / -1,837 · 39 files</dd>
+                <dt>Tests</dt><dd>462 tests · lint · TypeScript · build</dd>
+                <dt>CI</dt><dd><span class="pill pill-ok">Build green</span></dd>
+                <dt>Review</dt><dd>Awaiting the maintainer's first pass</dd>
+                <dt>State</dt><dd><span class="pill pill-ok">Mergeable, current with main</span></dd>
+              </dl>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section doc-section openmrs-section" aria-labelledby="qs-title">
+        <div class="page-width">
+          <p class="section-kicker">QueryStore #68</p>
+          <h2 id="qs-title">One authorized read surface for the patient record, with completeness that cannot be faked.</h2>
+          <p class="section-lead">The store owns record projection, dates, completeness and question-aware selection. It owns no prompt composition and no model policy.</p>
+          <div class="catalogue">
+            <div class="group">
+              <h3>Read API</h3>
+              <ul>
+                <li><code>GET /ws/rest/v1/querystore/patientrecord</code> in three modes: the full chart by <code>patient</code>; a ranked top-K by <code>patient</code> and <code>q</code>, or <code>q</code> alone; a context slice with <code>mode=context</code>.</li>
+                <li>Every mode requires the OpenMRS <code>Get Patients</code> privilege. Unknown modes and malformed typed parameters return 400.</li>
+                <li>Paging honours the live <code>webservices.rest.maxResultsAbsolute</code> ceiling: an oversized <code>limit</code> is clamped, a ranked window that would extend past the ceiling returns 400, and <code>links</code> carry the effective page size.</li>
+                <li>All three exits send <code>Cache-Control: private, no-cache, must-revalidate</code>; the full chart also carries an ETag for revalidation.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Completeness</h3>
+              <ul>
+                <li><code>chartTruncated</code> comes only from the backend's explicit signal: an Elasticsearch size limit, failed shard, timeout or early termination; a MySQL per-table read failure; a Lucene per-index failure or an index the enumerator could not open.</li>
+                <li><code>projectionComplete</code> reports the deployment-wide bootstrap state; a failed lazy projection for one patient is disclosed on the read instead of returning an empty chart marked complete.</li>
+                <li>Snapshot identity and the ETag include both completeness bits, so a cache cannot serve a partial chart as the complete one.</li>
+                <li>The warning logged for an incomplete read names the signal that fired, so an operator chasing it looks at cluster health or paging, whichever applies.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Dates</h3>
+              <ul>
+                <li>Each record carries <code>clinicalDate</code> and <code>dateKind</code> (<code>clinical_event</code>, <code>administrative</code>, <code>unknown</code>) beside the sort date, so a temporal consumer never reads an administrative date as an event.</li>
+                <li>Providers of custom record types must declare <code>date_kind</code>; the architecture record carries the re-bootstrap advisory for deployments indexed before the fields existed.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Context slice</h3>
+              <ul>
+                <li><code>getContextSlice(patient, question, request)</code> returns tier-tagged records: mandatory clinical core, recency anchor, typed completeness, similarity.</li>
+                <li>Each page carries <code>chartSnapshotId</code> (the same complete-chart fingerprint the full read publishes), <code>sliceId</code>, <code>effectiveTypes</code> and <code>temporalApplied</code>; a consumer combining a ledger with a later slice must match the snapshot.</li>
+                <li>Selection is deterministic when interpretation is off. <code>interpret=true</code> adds typed and temporal cues; lab-panel expansion and stopword stripping run in the store, and words that carry clinical meaning (negation, status, laterality, body site) are protected.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="guarantees">
+            <h3>Guarantees a reviewer can hold us to</h3>
+            <ul>
+              <li>A handled backend failure is never reported as a complete empty chart.</li>
+              <li>Paging never links to a request the same controller rejects.</li>
+              <li>Existing in-JVM <code>QueryStoreService</code> implementations keep working unchanged.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section doc-section" aria-labelledby="csa-title">
+        <div class="page-width">
+          <p class="section-kicker">ChartSearchAI #157</p>
+          <h2 id="csa-title">One clinical-answer contract, two explicit providers, no silent switching.</h2>
+          <p class="section-lead">Bundled inference stays the default. Med Agent Hub is one separately configured provider stream. ChartSearchAI keeps authorization, prompt assembly, sessions, audit and persistence.</p>
+          <div class="catalogue">
+            <div class="group">
+              <h3>Provider boundary</h3>
+              <ul>
+                <li><code>ClinicalAnswerProvider</code> with bundled and hub implementations; a registry driven by <code>chartsearchai.providers.enabled</code> (default <code>bundled</code>).</li>
+                <li><code>GET /providers</code> lists enabled providers with readiness and a reason when unavailable; a picker is requested only when more than one is enabled.</li>
+                <li>An unknown, disabled or unready selection fails with an explicit turn error. There is no cross-provider fallback.</li>
+                <li>Declared capabilities gate optional features: answer check, review, In-Depth, structured blocks, multi-turn context, token streaming.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Turn lifecycle</h3>
+              <ul>
+                <li>One request, event and envelope model for Answer, validation, In-Depth, final evidence, errors and cancellation; a validator enforces stage order.</li>
+                <li>Three text channels stay distinct on the stream: a provisional preview with its own citation numbering, committed reasoning, and the answer.</li>
+                <li>Cancellation reaches a running inference. A terminal event is always delivered, and it waits for audit persistence, so a save failure emits one error rather than a success followed by an error.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Conversations</h3>
+              <ul>
+                <li>Persistent clinical conversations and turns with Hibernate mappings and Liquibase changesets; a conversation is bound to one provider.</li>
+                <li><code>POST /chat/new</code>, <code>GET /chat</code>, <code>POST /chat/stream</code>; a restored session hydrates the same lifecycle the live stream produced.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Context and budgets</h3>
+              <ul>
+                <li>Query-scoped chart selection is delegated to QueryStore's context slice; the turn abstains on a truncated chart or when mandatory evidence cannot fit.</li>
+                <li>Exact token budgets from the inference server; an oversized prompt is rejected explicitly instead of being silently cut.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Safety and evidence</h3>
+              <ul>
+                <li>The safety badge reports the validation that actually ran, so it means the same thing on both providers.</li>
+                <li>Medication-rule and cross-reactivity findings are reported separately; a check with missing data, failed reads or partial scope reports <em>limited</em> or <em>unavailable</em> rather than a clean result.</li>
+                <li>The five answer-limit statements and the safety chip ride on every envelope-bearing event and on the persisted turn; In-Depth validation summaries are persisted for reload and review.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Hub pathway</h3>
+              <ul>
+                <li>One OpenAI-shaped chat completion request with extension fields (<code>patient</code>, <code>session</code>, <code>request_id</code>, <code>require_product_profile</code>, <code>context</code>), answered as completion chunks mapped onto the turn events.</li>
+                <li>The hub's validation, In-Depth and safety results are relayed, not reinterpreted in Java; <code>GET /models</code> relays hub product profiles.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="guarantees">
+            <h3>Guarantees a reviewer can hold us to</h3>
+            <ul>
+              <li>Provider selection never changes silently; changing provider starts a new conversation.</li>
+              <li>Final citations, temporal checks, medication safety, audit records and restored sessions use one provider-neutral contract.</li>
+              <li>Paired CI builds this branch against the exact QueryStore source under review until #68 publishes; the paired jobs leave with the merge.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section doc-section openmrs-section" aria-labelledby="esm-title">
+        <div class="page-width">
+          <p class="section-kicker">ChartSearchAI ESM #23</p>
+          <h2 id="esm-title">The same visible answer, checking, evidence and safety behaviour for both providers.</h2>
+          <p class="section-lead">The interface half of the backend's wire contract. Low-confidence, edited, rejected and withheld output stays inspectable; nothing important lives only in a tooltip.</p>
+          <div class="catalogue">
+            <div class="group">
+              <h3>Turn lifecycle</h3>
+              <ul>
+                <li>One reducer for Answer, validation, In-Depth, final evidence, errors and cancellation, driven by <code>/chat/stream</code>.</li>
+                <li>Token streaming: answer and reasoning deltas accumulate while answering, the final event restates the whole answer; the preview is shown with its markers stripped and cleared at the first committed delta.</li>
+                <li>Stale or post-terminal events cannot leave the interface pending; the chat store outlives the panel.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Provider choice</h3>
+              <ul>
+                <li>A provider picker appears only when discovery returns more than one enabled provider.</li>
+                <li>An explicit or restored choice that becomes unavailable stays selected and visibly unavailable; only a deliberate switch changes provider, and it starts a new conversation.</li>
+                <li>A product-profile picker is backed entirely by Med Agent Hub metadata.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Evidence and safety rendering</h3>
+              <ul>
+                <li>Citation chips with per-finding severity badges and per-kind reference titles; a misattributed marker is struck through and does not navigate.</li>
+                <li>The five answer-limit statements render on both providers, reconciled with the upstream change that introduced them.</li>
+                <li>Medication-safety status reads <em>Checked</em>, <em>Limited safety check</em> or <em>Safety check unavailable</em>, with package id, version, review state and provenance visible without hover.</li>
+                <li>A rejected In-Depth section shows the concrete validation reason; low-confidence and edited content stay available for manual review.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Contract fixtures</h3>
+              <ul>
+                <li>The shared dual-provider conformance fixture is mirrored into the ESM and pinned by tests, byte-identical to the copies in QueryStore, ChartSearchAI and Med Agent Hub.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="guarantees">
+            <h3>Guarantees a reviewer can hold us to</h3>
+            <ul>
+              <li>Both providers produce the same lifecycle semantics on screen.</li>
+              <li>Provider selection survives refresh and session hydration.</li>
+              <li>Cancellation and errors always reach a terminal state.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section doc-section" aria-labelledby="ledger-title">
+        <div class="page-width">
+          <p class="section-kicker">Review ledger</p>
+          <h2 id="ledger-title">Every maintainer round, and what answered it.</h2>
+          <div class="ledger-wrap">
+            <table class="ledger">
+              <thead><tr><th>Round</th><th>Pull request</th><th>Threads</th><th>Answered</th><th>Commits</th></tr></thead>
+              <tbody>
+                <tr><td>5 to 6 Aug 2026</td><td>QueryStore #68</td><td>10</td><td>8 Sep 2026</td><td><span class="sha">8dc6ef9</span> and the paging remediation: strict <code>mode</code>, typed-parameter 400s, <code>chartTruncated</code> on the plain read, per-backend completeness overrides</td></tr>
+                <tr><td>9 Sep 2026</td><td>QueryStore #68</td><td>7</td><td>14 Sep 2026</td><td><span class="sha">d675fe9</span> Lucene enumerator skip disclosed · <span class="sha">3057478</span> failed cold touch disclosed · <span class="sha">1b1c995</span> laterality stopwords · <span class="sha">ba6bfc1</span> dead overloads · <span class="sha">d8c1e17</span> live page ceiling and paging docs · <span class="sha">d10e9e4</span> architecture-record corrections</td></tr>
+                <tr><td>15 Sep 2026</td><td>QueryStore #68</td><td>5</td><td>15 Sep 2026</td><td><span class="sha">69e12fe</span> incomplete-read warning names its cause · <span class="sha">87619c4</span> body-site stopwords · <span class="sha">936bee7</span> unused constructors · <span class="sha">cfced36</span> cache headers and the property-pinned ceiling test</td></tr>
+                <tr><td>none yet</td><td>ChartSearchAI #157 · ESM #23</td><td>0</td><td>Automated review only</td><td>Awaiting the maintainer; #157 resyncs when #68 publishes</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="ledger-note">Threads are answered with the fixing commit and the test that failed before it, then left open for the maintainer to resolve. Every behaviour change above had a test that failed on the unfixed code.</p>
+        </div>
+      </section>
+
+      <section class="section doc-section openmrs-section" aria-labelledby="dropped-title">
+        <div class="page-width">
+          <p class="section-kicker">Not carried, by decision</p>
+          <h2 id="dropped-title">What the nine earlier pull requests had that these do not.</h2>
+          <p class="section-lead">All nine were closed on 14 September 2026 with a note explaining the successor. Two carried unique work that was set aside deliberately.</p>
+          <div class="dropped">
+            <article><h3>Runtime swap of the bundled model, per-request override</h3><p>#22, #25. Replaced by provider selection and hub product profiles; the bundled engine is configured through global properties.</p></article>
+            <article><h3>Frozen-session chart in a stable prompt prefix</h3><p>#20. Prompt-prefix reuse is deferred in the dual-provider roadmap and returns as its own change.</p></article>
+            <article><h3>Reflective QueryStore access without the Maven dependency</h3><p>#19. Reverted to the typed bridge; the paired build proves the pinned pair instead.</p></article>
+            <article><h3>Startup provisioning of privileges and role bindings</h3><p>#21. Privileges are declared in <code>config.xml</code>; role binding is a deployment concern.</p></article>
+            <article><h3>QueryStoreClient seam</h3><p>#72. Superseded by direct typed consumption of the context slice.</p></article>
+            <article><h3>LM Studio picker grouping, inline per-model picker, legacy multi-turn client</h3><p>ESM #11, #10, #9. Superseded by the provider picker, the hub-profile picker and the turn lifecycle.</p></article>
+          </div>
+          <div class="doc-sources">
+            <p>Sources: the three pull requests, their continuous-integration results, and the integration branches as read on 15 September 2026. The merge sequence, acceptance criteria and iteration log live in the <a href="https://github.com/pmanko/clinical-ai-validation-harness/pull/181">upstream merge roadmap</a>; the requirements authority remains the dual-provider parity roadmap in the <a href="https://pmanko.github.io/clinical-ai-validation-harness/">project documentation</a>.</p>
+            <p>This page catalogues what is being merged. It does not redefine it, and it makes no claim of deployment acceptance or clinical validation beyond the tests named above.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="page-width footer-grid">
+        <div>
+          <a class="brand footer-brand" href="/">
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
+            <span>Open Clinical AI</span>
+          </a>
+          <p>Open-source tools for clinical AI integration and evaluation.</p>
+        </div>
+        <nav aria-label="Project links">
+          <a href="https://pmanko.github.io/clinical-ai-validation-harness/">Project documentation</a>
+          <a href="/docs/openmrs-upstream/">OpenMRS upstream contributions</a>
+          <a href="https://github.com/pmanko/clinical-ai-validation-harness">Validation harness (GitHub)</a>
+          <a href="https://github.com/pmanko/med-agent-hub">Med Agent Hub</a>
+          <a href="https://openmrs.org/">OpenMRS</a>
+          <a href="https://digi.uw.edu/">DIGI at UW</a>
+        </nav>
+        <p class="footer-disclaimer">For research and demonstration only. AI output may be inaccurate and is not a substitute for clinical judgment.</p>
+      </div>
+    </footer>
+  </body>
+</html>
