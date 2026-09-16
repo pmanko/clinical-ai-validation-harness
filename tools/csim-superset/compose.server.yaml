@@ -1,0 +1,12 @@
+# Only Superset joins the existing proxy network. The synthetic database
+# remains on the separate local network without any published database port.
+services:
+  superset:
+    networks:
+      local:
+      proxy:
+        aliases: [csim-superset]
+networks:
+  proxy:
+    external: true
+    name: catalyst-demo_default
