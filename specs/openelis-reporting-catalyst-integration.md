@@ -9,8 +9,10 @@ native PostgreSQL and FHIR/Spark each reach a saved Catalyst Dataset/Dashboard
 and rendered Superset result. The PostgreSQL recording selected the approved
 Gemma 12B/Qwen profile, but the full native catalog exceeded context preparation
 before either model ran; the supported manual SQL correction then completed the
-journey. The FHIR/Spark recording ran both Gemma 12B generation and Qwen review.
-This is workflow evidence, not model-performance acceptance. Four private paced
+journey. The local FHIR/Spark recording ran both Gemma 12B generation and Qwen
+review. Separate server PostgreSQL/Spark proofs used manual SQL without model
+requests; server provenance retains its existing E4B default profile. This is
+workflow evidence, not model-performance acceptance. Four private paced
 cuts and their hashes are retained; the final lane-2 concatenated cut still needs
 normal-speed review. Public media/references and explicit owner acceptance remain
 open. Native PR #4323 also remains a separate upstream review/merge concern. This
@@ -159,7 +161,7 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Local recording and server rendering pass through the supported manual-correction workflow. Context preparation rejected the full catalog before model calls, so no model-quality claim is made. Server Dashboard `catalyst-5e39c16f…` renders IDs 1154/1155 at 450. FP-004 and FP-005 own detailed evidence. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131/#132 are merged. Fresh local recording and retained server proof verify the same native CSV through review, immutable Dataset reload, table/count publication and rendered Superset. Public media and owner acceptance remain. FP-006 and FP-005. |
 | 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Local recording and retained server Dashboard `catalyst-0899ee92…` pass with IDs 1154/1155, values 450 and count 2. Final full-cut review, publication and owner acceptance remain. FP-007 owns detailed evidence. |
-| 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Native scoped replay produced 15 resources without changing clinical rows; Data Pipes refresh, Gemma 12B generation, Qwen review, explicit execution, save/publication and server Dashboard `catalyst-dea5186c…` rendering pass. Upstream native review, publication and owner acceptance remain. FP-008. |
+| 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Native scoped replay produced 15 resources without changing clinical rows. The local recording ran Gemma 12B generation and Qwen review; separate manual-SQL server verification rendered Dashboard `catalyst-dea5186c…`. Upstream native review, publication and owner acceptance remain. FP-008. |
 | 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | Four fresh local pathway recordings and hashes are retained. Lane 1, 3 and 4 cuts passed normal-speed review; the final concatenated lane-2 cut still needs playback review. Owner acceptance remains. FP-009. |
 | 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | All four server routes have browser-rendered proof at harness `812451c`, Catalyst `6ba0008` and native preview `ac64004`. Public media/references, final lane-2 cut review and owner acceptance remain. FP-010. |
 
