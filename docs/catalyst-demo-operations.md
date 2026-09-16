@@ -131,6 +131,57 @@ server/final owner acceptance. Raw files,
 setup receipts and screenshots remain outside Git. The integration task register
 owns current validation status.
 
+## Native OpenELIS reporting connection
+
+The four-pathway demo uses one retained reporting OpenELIS instance per environment.
+Its direct PostgreSQL connection is ordinary Catalyst source configuration, not a
+separate application or authorization project. Provision it with:
+
+```bash
+python3 scripts/provision-reporting-source.py \
+  --database-container reporting-uat-db-1 --admin clinlims \
+  --host reporting-uat-db-1 \
+  --registry /home/ubuntu/catalyst-release-config/reporting-sources/data-sources.json
+```
+
+For the existing local setup use `--database-container reporting-mvp-iteration1-db-1
+--admin postgres --host host.docker.internal --port 15439` and registry
+`/Users/pmanko/code/catalyst-local-config/sources/data-sources.json`.
+The administrator differs between these environments; the application login is
+not assumed to be an administrator.
+
+A new synthetic-demo reader uses `catalyst_reporting_reader` / `catalyst-demo`.
+Existing registry credentials are preserved, including existing published Dashboard
+connections. An explicit `REPORTING_DEMO_PASSWORD` overrides the password; changing
+it also requires updating existing Superset connections. This is demo configuration,
+not a production credential recommendation. The command grants schema usage and
+SELECT on the reporting database's tables and views, including future tables made
+by current owners/migration roles. Rerun after adding schemas or migration roles.
+It preserves other sources and refuses to retarget an existing source identity.
+No fixture reset, reseed or application restart occurs.
+
+Keep the source directory outside the checkout and mount it read-only at
+`/app/config/extra`. On the server, declare the existing `reporting-uat_default`
+network as an external network in the persistent isolated override, and attach
+Gateway, Superset and its importer as well as their existing application network.
+Use the stable database service name, not a container IP. These declarations must
+survive container recreation; an ad hoc `docker network connect` is insufficient.
+
+After checking that no query, import or recording is active, source the existing
+environment and run `scripts/catalyst-mvp.sh source-update` from the owning
+checkout. It applies configuration only to Gateway and Superset using existing
+images; data services, models and unrelated deployments are untouched. Then check
+source discovery, readable schema, a real query and rendered publication. A login
+or HTTP health response alone does not establish a working reporting pathway.
+
+The owner permits a tested exact native reporting branch revision on the preview
+server before upstream merge. Record its revision and checks and preserve retained
+data; preview deployment and upstream release acceptance are separate facts.
+The requested local query-lane recordings explicitly select
+`catalyst-query-gemma-4-12b-qwen2.5-14b-checked` and retain evidence of both roles.
+CSV workflows make no model calls. Manual SQL correction remains valid; model
+accuracy tuning and performance benchmarking remain outside this checkpoint.
+
 ## Shared model router
 
 Catalyst intentionally consumes an external model router. The harness owns the
