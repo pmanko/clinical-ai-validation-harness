@@ -22,9 +22,9 @@ their own scope. Plan approval does not mark implementation or acceptance done.
 | FP-005 | Resolve publication by actual Dataset backing connection and declared dialect. Preserve exact saved artifacts, deterministic bundles, retry/receipts and verify PostgreSQL/Spark rendering. | Query-backed source resolution and dialect-aware compiler merged in Catalyst #130; imported-file publication follows FP-006 | 403 Gateway tests including real PostgreSQL, 50 final focused checks, legacy bundle byte parity and all five CI checks pass at 6ad1d09 | Catalyst #130 merged as 3b8882f | Code deployed locally at c91ae23; imported table rendering verified below; native query-backed rendering remains | Pending |
 | FP-006 | Add origin-aware Dataset contracts and CSV upload/review/confirmation with durable import storage. Verify types/order/values, no fabricated SQL, invalid/empty/interrupted import, retry, reload/restart and existing saved artifacts. | CSV upload/type review, durable drafts, immutable PostgreSQL storage and raw-table publication implemented in Catalyst #131; grouping remains FP-007 | Latest 70 focused backend checks including real PostgreSQL, 306 UI checks across full/retry runs, real Gateway import browser journeys in light/dark; desktop/narrow screenshots inspected; all five hosted checks pass at 0011cd7 | Catalyst #131 merged as c91ae23; upload-size repair #132 merged as 4d41978 with all five checks green | Retained local a988bb8/c91ae23 verified through wrapper health, unchanged mounts/ports and both-theme browser checks. Native May6 CSV yields exact 1158→30 and 1159→90 rows in Catalyst and Superset chart 65. Server and broader fixtures remain | Pending |
 | FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Approved controls and aligned mock/contracts implemented in Catalyst #133; #134 repairs PostgreSQL publication for an ungrouped whole-file summary and advances its mapping revision | #133: 440 Gateway, 309 UI, 26 component and five real CSV/browser checks. #134: 443 Gateway checks against PostgreSQL plus all five hosted checks; count/sum/average regression uses 122 persisted rows beyond the preview bound | #133 merged as f548e04; #134 merged as a15ecb8 | Retained runtime at harness f0ff2c7/Catalyst f548e04 preserves saved artifacts. Native Superset shows count 2 and average 60; ungrouped total exposed the repaired adapter defect. A 101-row table proves native pagination. Apply a15ecb8 and verify total 120 plus retained results next | Chart-control design approved 14 September; application/lane acceptance pending |
-| FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Reporting app connected to the existing FHIR proxy; scoped emission and pipeline ingestion pending | Native FHIR API returns all four retained result identities, dates, final status and 450 copies/ml values. App-to-store metadata succeeds; those Observations remain absent in HAPI | Runtime configuration repair; no new product revision | Reporting/login return 200; database/web containers and retained result rows unchanged. End-to-end lane remains unproven | Pending |
+| FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Native selected-sample replay in OpenELIS #4323; existing pipeline and Catalyst path used unchanged | Samples 1154/1157 emitted 15 resources. All four result IDs, dates, values, units and status match native FHIR, Spark and rendered Superset; clinical rows unchanged. Dataset save, dashboard reload and actual import checked | Native #4323 remains open at cc6a1b8; locally tested application fa70a8c. Catalyst #138 already merged | Local selected-record path verified; broader visual/fixture review, server and video pending | Pending |
 | FP-009 | Exercise four complete local journeys, compare approved mocks at desktop/narrow and light/dark, inspect rendered values, retain drafts/state, record findings and owner review. | Pending | Pending | Pending | Pending | Pending |
-| FP-010 | Deploy compatible reviewed revisions with retained data; prove four server journeys and deliver the [four-pathway videos and openclinai.org review checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation), including readable recordings, live playback, local evidence links and reconciled authoritative documents. | Existing homepage draft explains four pathways and separates earlier videos; four new recordings remain pending | 10 landing tests passed; desktop and 390px review-frame screenshots inspected | Homepage draft in harness #183 | Local preview only; public section/server recordings pending | Pending |
+| FP-010 | Deploy compatible reviewed revisions with retained data; prove four server journeys and deliver the [four-pathway videos and openclinai.org review checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation), including readable recordings, live playback, local evidence links and reconciled authoritative documents. | Existing homepage draft explains four pathways and separates earlier videos; native export and lane-2 server journeys captured | 10 landing tests passed; desktop and 390px review-frame screenshots inspected | Homepage draft in harness #183; server release #189; branding repair Catalyst #139 merged | Server release retained state/health verified; native export and lane-2 raw recordings pass. Remaining lanes, final cuts and public section pending | Pending |
 
 AI-assisted Widget/Dashboard refinement remains the existing
 [Follow-on A](#follow-on-milestones-after-current-delivery), not another task
@@ -68,32 +68,69 @@ before/after state, receipts and screenshots live in the existing private eviden
 folder under `table-warning-*`, `qa-pagination-1101-*` and
 `table-publication-repair.json`.
 
-Server readiness, 15 September: the owning checkout is clean at harness
-`0befb80` / Catalyst `bb783c8`; the reporting UAT services are running separately.
-The Catalyst PostgreSQL service has only `postgres` and
-`catalyst_superset_metadata`; CSV import configuration is absent. Provision the
-separate import database/role and upload destination using the existing operations
-guide during the server iteration. This was read-only inspection; no server
-update or four-pathway acceptance is claimed. The owner subsequently authorized
-the FHIR connection repair; it is applied and verified as recorded below.
-The separate website task owns landing changes;
-this effort supplies verified evidence and current status records.
+Server deployment and lane-2 proof, 15 September: harness #189 (`f049df6`)
+and Catalyst #138 (`364c5bc`) are deployed through the owning wrapper. Strict
+repository checks and wrapper health pass. The original five Datasets, six
+Widgets and five Dashboards, and every storage mount, were preserved. With
+explicit owner confirmation, the separate `catalyst_imports` database and scoped
+writer, read-only publication and native-upload accounts were provisioned on the
+existing PostgreSQL service. Clinical databases and Superset metadata were retained.
+
+A real browser run against the server reporting instance exported the May5 CSV,
+saved and reopened its report definition, verified the fresh-period requirement,
+and reopened its queue. The CSV checksum is `c6ace94933a1e2377d28d3d89bf96995e46474b0009c6594c8eece8e1cad56f4`.
+A second browser run uploaded those bytes in Catalyst, reviewed text identifiers,
+saved/reloaded the Dataset, created a full table and accession-grouped count,
+saved/reloaded arrangement and explicitly published. The importer ran from the
+server's owning checkout and returned bundle
+`4e94f6960d8d45c55fc8fae5b662366d678e5a092b298be4f979b7f2a76d6f69`.
+[Server Superset](https://catalyst.openelis-global.org/catalyst-dashboards/superset/dashboard/catalyst-0899ee92-2deb-47b9-a84b-6e518a8f382a/)
+renders distinct IDs 1154/1155, both 450, and grouped count 2. The screenshot was
+inspected; no SQL/model request occurred. The two recorded tests passed in 1.6
+and 2.0 minutes. Raw video, traces and receipts remain outside Git under the
+existing private evidence folder's `capture/native-export-server` and
+`capture/lane2-server`. This is selected-record proof, not complete fixture,
+video/publication or owner acceptance.
+
+The rendered server screenshot exposed a doubled Superset branding URL prefix.
+Catalyst #139 merged as `6ba0008` after 38 assembly tests, lint and all five hosted
+checks passed. This integration pins that repair; live visual confirmation remains
+pending. Native #4323 remains open at `cc6a1b8`; its failed backend check has been
+sent to the native owner. Lane-1 server upload, native PostgreSQL server access,
+FHIR server replay, broader visual review and final paced recordings remain open.
+The separate website task owns landing changes; this effort supplies verified
+evidence and current status records.
 
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
 | 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Native-file browser upload, raw table and grouped-count Dashboard now pass (Dashboard 40; details below). Broader fixtures, paced recording and server journey remain. |
 | 2 | Existing imported CSV retains both rows. Repaired publication renders IDs 1154/1155 with value 450 and no false warning; the 1,101-row regression table reaches its last row through pagination. Screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks pass in both themes and the native-file browser journey now reaches Superset (details below). Complete the paced recording, broader failures and server validation. |
 | 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Manual correction now passes through save/reopen, publication and exact Superset rendering. Complete the broader lane demonstration, server run and paced recording; retain model errors as limitations, not an accuracy gate. |
-| 4 | Reporting app now reaches the existing HAPI proxy on the Catalyst network. Its native FHIR facade correctly returns results 1154/1155/1158/1159; login/reporting readiness and retained values pass. | Publish the existing reporting records through the native transform and run the pipeline. HAPI still lacks those four Observations. No seeding/backfill or clinical emission has been performed. |
+| 4 | Native samples 1154/1157 emitted through the existing transform; Data Pipes refreshed; manual Spark query returns all four distinct reporting results. Saved Dataset/dashboard imports and renders those exact records in Superset. | Merge native repair #4323 after checks; complete broader local review, paced recording and server journey. Selected replay does not prove future automatic emission. |
 
 The FHIR connection repair reused the existing proxy/network and restarted only
-native reporting's app. Read-only native FHIR responses preserve result IDs
-1154/1155 on May 5 and 1158/1159 on May 6, all final at 450 copies/ml. Samples
-1154 and 1157 contain exactly these four results. The remaining native repair
-is bounded replay through the existing sample transform: the current HTTP
-backfill cannot select samples, and re-saving Observations assigns today's
-result date. Native implementation owns that repair; this register tracks its
-integration outcome. No model tuning or clinical-record rewrite is required.
+native reporting's app. OpenELIS PR #4323 adds selected-sample replay through the
+existing transform; local application revision `fa70a8c` emitted samples 1154 and
+1157 (15 resources). The four Observations match native results 1154/1155 on May 5
+and 1158/1159 on May 6, all final at 450 copies/ml. Full native result, analysis,
+sample and sample-item rows are unchanged before/after replay.
+
+After the existing Data Pipes refresh, the previous manual session correctly
+rejected its stale catalog. A fresh session with identical human-authored SQL
+returned the four records without model requests. FHIR specimen accessions carry
+`-1` (sample-item sort order); CSV accessions are parent orders. Result identity
+uses the native-to-FHIR UUID mapping, not accession text equality.
+
+Browser verification saved the Dataset and full-row table, reopened the saved
+Dashboard after reload, explicitly published, and ran the owning harness importer.
+Superset dashboard `cc95f6ea-4621-467a-9fe4-f0b5f0754fea` renders all four UUIDs,
+values, units, statuses and dates; screenshot inspected. Bundle:
+`9300cfa4918e5f32a0aa079c3d4fffa2a3e6d95946ab8beeac0c98f665b4a22f`.
+Private evidence: `native-fhir-read/spark-record-proof.json`,
+`dashboard-publication.json` and `dashboard-import.json` in the existing
+four-pathway evidence folder. Native PR #4323 is open at `cc6a1b8`; this is local
+proof, not merged/server deployment or owner acceptance. Automatic future FHIR
+emission, broader fixtures and final recordings remain separate checks.
 
 Retained services and model router were restored through existing launchers,
 without seeding or replacing data. A newly opened manual session still requires
