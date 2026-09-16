@@ -37,10 +37,11 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: scripts/catalyst-mvp.sh {up|ui-update|seed|warm|health|boot|restart|down|reset|superset-status|superset-import}
+Usage: scripts/catalyst-mvp.sh {up|ui-update|source-update|seed|warm|health|boot|restart|down|reset|superset-status|superset-import}
 
   up       Start the Catalyst services against the external model router without changing persisted data.
   ui-update  Rebuild and replace only the UI; leave its dependencies and retained state running.
+  source-update  Apply source/network settings to Gateway and Superset only, without rebuilding or seeding.
   seed     Explicitly reload the pinned synthetic OpenELIS fixture and FHIR mart.
   warm     Prime each configured source's schema prefix without seeding, user-query execution, or clinical-row retrieval.
   health   Run the full MVP health and provenance gate.
@@ -54,14 +55,14 @@ EOF
 }
 
 command_name="${1:-}"
-if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|ui-update|seed|warm|health|boot|restart|down|reset|superset-status|superset-import)$ ]]; then
+if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|ui-update|source-update|seed|warm|health|boot|restart|down|reset|superset-status|superset-import)$ ]]; then
   usage >&2
   exit 2
 fi
 
 # Runtime bind mounts must outlive temporary review/build checkouts. Cleanup
 # and inspection remain available so an old temporary stack can be retired.
-if [[ "${command_name}" =~ ^(up|ui-update|boot|restart|seed|warm|superset-import)$ ]]; then
+if [[ "${command_name}" =~ ^(up|ui-update|source-update|boot|restart|seed|warm|superset-import)$ ]]; then
   case "${ROOT_DIR}/" in
     /tmp/*|/private/tmp/*|/var/tmp/*|/private/var/tmp/*|"${TMPDIR:-/tmp/}"*)
       echo "ERROR: start Catalyst from a persistent checkout, not ${ROOT_DIR}." >&2
@@ -119,6 +120,7 @@ run_catalyst() {
 case "${command_name}" in
   up) run_catalyst mvp-up.sh ;;
   ui-update) CATALYST_DIR="${CATALYST_DIR}" "${ROOT_DIR}/scripts/catalyst-ui-update.sh" ;;
+  source-update) CATALYST_DIR="${CATALYST_DIR}" "${ROOT_DIR}/scripts/catalyst-source-update.sh" ;;
   seed) run_catalyst mvp-seed.sh ;;
   warm) run_catalyst mvp-warm.sh ;;
   health) run_catalyst mvp-health.sh ;;

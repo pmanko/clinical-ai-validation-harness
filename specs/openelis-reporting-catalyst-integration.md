@@ -51,6 +51,12 @@ automatic application handoff or transferred report criteria is required.
 
 ## Workflow acceptance and scope
 
+The immediate owner checkpoint is four testable server pathways and fresh local
+video proof. Tested native OpenELIS preview revisions may be deployed before
+upstream merge. Keep deployment, merge and acceptance distinct. Use the existing
+demo sign-ins and predictable test credentials; provisioning a persistent reporting
+reader is routine setup, not a separate security project. The [operations guide](../docs/catalyst-demo-operations.md#native-openelis-reporting-connection) owns that setup.
+
 Catalyst is a human-in-the-loop tool. For lanes 3 and 4, manual SQL correction
 is a valid completion path: ask a question, review the generated query or error,
 edit SQL where needed, explicitly execute, verify the returned records, save the
@@ -330,10 +336,12 @@ Acceptance requires:
 - Each pathway explains its starting point, complete journey, when it is useful,
   and its data coverage/freshness limits. Present complementary choices without
   ranking them as equivalent alternatives.
-- Each of the four pathway entries embeds its own verified server recording,
+- Each of the four pathway entries embeds its own verified local recording,
   with playback controls, a descriptive poster, duration and readable transcript
   or step summary. Clearly identify the environment and link the corresponding
-  local proof. Existing earlier walkthroughs remain labeled as earlier examples,
+  server journey verification. The 16 September checkpoint uses Gemma 4 12B
+  and Qwen validation for local query recordings; retain evidence of which roles
+  actually ran. CSV recordings require no AI calls. Existing earlier walkthroughs remain labeled as earlier examples,
   not evidence that these four journeys passed.
 - The videos show the actual lane-specific steps through rendered Superset
   results, including file upload for lanes 1 and 2 and model question/refinement
@@ -362,7 +370,7 @@ live in `landing/README.md`; this roadmap retains four-pathway acceptance.
 | Updated mock/spec owner review | Approved 14 September 2026 after local CSV journey review; Catalyst #128 merged as `5164449`. |
 | Lane 1 / 2 / 3 / 4 local proof | Pending; native stage evidence alone does not establish a lane. |
 | Four server journeys and rendered values | Pending. |
-| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending: four final server recordings, openclinai.org reporting page, playback/publication verification and owner review. Existing videos document earlier capabilities. |
+| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending: four final local recordings, separate server verification, openclinai.org reporting page, playback/publication verification and owner review. Existing videos document earlier capabilities. |
 | Specification/dashboard consistency and owner acceptance | Pending final review. |
 
 Completion requires every line above, distinguishing implementation, merge,
