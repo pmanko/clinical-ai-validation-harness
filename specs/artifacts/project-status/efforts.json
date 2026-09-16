@@ -1291,7 +1291,7 @@
       "id": "OE-lane-4",
       "title": "Lane 4 · OpenELIS FHIR analytics in Catalyst",
       "status": "Selected native FHIR records rendered through Spark, Catalyst and Superset locally",
-      "next_deliverable": "Native owner to complete compatible replay merge/release; finish broader review, server proof and recording. #4323 checks pass at b623ef9 but it remains stacked and open.",
+      "next_deliverable": "Native owner to finish the existing compatible stack: resolve upstream Dashboard conflict, obtain required end-to-end check and code-owner approval, then merge/release. Complete broader review, server proof and recording.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
