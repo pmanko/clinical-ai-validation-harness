@@ -22,9 +22,9 @@ their own scope. Plan approval does not mark implementation or acceptance done.
 | FP-005 | Resolve publication by actual Dataset backing connection and declared dialect. Preserve exact saved artifacts, deterministic bundles, retry/receipts and verify PostgreSQL/Spark rendering. | Query-backed source resolution and dialect-aware compiler merged in Catalyst #130; imported-file publication follows FP-006 | 403 Gateway tests including real PostgreSQL, 50 final focused checks, legacy bundle byte parity and all five CI checks pass at 6ad1d09 | Catalyst #130 merged as 3b8882f | Code deployed locally at c91ae23; imported table rendering verified below; native query-backed rendering remains | Pending |
 | FP-006 | Add origin-aware Dataset contracts and CSV upload/review/confirmation with durable import storage. Verify types/order/values, no fabricated SQL, invalid/empty/interrupted import, retry, reload/restart and existing saved artifacts. | CSV upload/type review, durable drafts, immutable PostgreSQL storage and raw-table publication implemented in Catalyst #131; grouping remains FP-007 | Latest 70 focused backend checks including real PostgreSQL, 306 UI checks across full/retry runs, real Gateway import browser journeys in light/dark; desktop/narrow screenshots inspected; all five hosted checks pass at 0011cd7 | Catalyst #131 merged as c91ae23; upload-size repair #132 merged as 4d41978 with all five checks green | Retained local a988bb8/c91ae23 verified through wrapper health, unchanged mounts/ports and both-theme browser checks. Native May6 CSV yields exact 1158→30 and 1159→90 rows in Catalyst and Superset chart 65. Server and broader fixtures remain | Pending |
 | FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Approved controls and aligned mock/contracts implemented in Catalyst #133; #134 repairs PostgreSQL publication for an ungrouped whole-file summary and advances its mapping revision | #133: 440 Gateway, 309 UI, 26 component and five real CSV/browser checks. #134: 443 Gateway checks against PostgreSQL plus all five hosted checks; count/sum/average regression uses 122 persisted rows beyond the preview bound | #133 merged as f548e04; #134 merged as a15ecb8 | Retained runtime at harness f0ff2c7/Catalyst f548e04 preserves saved artifacts. Native Superset shows count 2 and average 60; ungrouped total exposed the repaired adapter defect. A 101-row table proves native pagination. Apply a15ecb8 and verify total 120 plus retained results next | Chart-control design approved 14 September; application/lane acceptance pending |
-| FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Native selected-sample replay in OpenELIS #4323; existing pipeline and Catalyst path used unchanged | Samples 1154/1157 emitted 15 resources. All four result IDs, dates, values, units and status match native FHIR, Spark and rendered Superset; clinical rows unchanged. Dataset save, dashboard reload and actual import checked | Native #4323 remains open at cc6a1b8; locally tested application fa70a8c. Catalyst #138 already merged | Local selected-record path verified; broader visual/fixture review, server and video pending | Pending |
-| FP-009 | Exercise four complete local journeys, compare approved mocks at desktop/narrow and light/dark, inspect rendered values, retain drafts/state, record findings and owner review. | Pending | Pending | Pending | Pending | Pending |
-| FP-010 | Deploy compatible reviewed revisions with retained data; prove four server journeys and deliver the [four-pathway videos and openclinai.org review checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation), including readable recordings, live playback, local evidence links and reconciled authoritative documents. | Existing homepage draft explains four pathways and separates earlier videos; native export and lane-2 server journeys captured | 10 landing tests passed; desktop and 390px review-frame screenshots inspected | Homepage draft in harness #183; server release #189; branding repair Catalyst #139 merged | Server release retained state/health verified; native export and lane-2 raw recordings pass. Remaining lanes, final cuts and public section pending | Pending |
+| FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Native selected-sample replay in OpenELIS #4323; existing pipeline and Catalyst path used unchanged | Samples 1154/1157 emitted 15 resources. All four result IDs, dates, values, units and status match native FHIR, Spark and rendered Superset; clinical rows unchanged. Dataset save, dashboard reload and actual import checked | Native #4323 remains open at b623ef9 with required checks passing; locally tested application fa70a8c. Catalyst #138 already merged | Local selected-record path verified; broader visual/fixture review, server and video pending | Pending |
+| FP-009 | Exercise four complete local journeys, compare approved mocks at desktop/narrow and light/dark, inspect rendered values, retain drafts/state, record findings and owner review. | Four selected-record local smokes recorded | Existing local proof below; fresh local review blocked by shared runtime unavailability | Catalyst capabilities merged; native replay remains open | Full local visual/fixture review remains; server saved-work checks are separate evidence | Pending |
+| FP-010 | Deploy compatible reviewed revisions with retained data; prove four server journeys and deliver the [four-pathway videos and openclinai.org review checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation), including readable recordings, live playback, local evidence links and reconciled authoritative documents. | Existing homepage draft explains four pathways and separates earlier videos; native export and lane-2 server journeys captured | 10 landing tests; four server saved-work visual cases and two narrow keyboard checks pass; screenshots inspected | Homepage draft in harness #183; server harness #191 / Catalyst #139 merged | Server b33bf5b/6ba0008 retained state, health and branding verified; native export/lane-2 recordings pass. Other server lanes, full cuts and public section pending | Pending |
 
 AI-assisted Widget/Dashboard refinement remains the existing
 [Follow-on A](#follow-on-milestones-after-current-delivery), not another task
@@ -94,10 +94,40 @@ video/publication or owner acceptance.
 
 The rendered server screenshot exposed a doubled Superset branding URL prefix.
 Catalyst #139 merged as `6ba0008` after 38 assembly tests, lint and all five hosted
-checks passed. This integration pins that repair; live visual confirmation remains
-pending. Native #4323 remains open at `cc6a1b8`; its failed backend check has been
-sent to the native owner. Lane-1 server upload, native PostgreSQL server access,
-FHIR server replay, broader visual review and final paced recordings remain open.
+checks passed. Harness #191 (`b33bf5b`) is now deployed through the lifecycle
+wrapper. Health passes; exact saved objects (6 Datasets, 8 Widgets, 7 Dashboards),
+storage mounts and unrelated containers are unchanged. Live inspection verified
+the loaded logo, correct brand-home URL and retained result rows/count.
+
+Four read-only server browser tests pass: light/dark at 1280px and 390px across
+Dataset library, imported Dataset review, chart controls, Dashboard library and
+arrangement, and existing query-backed review. Screenshots of these surfaces were
+inspected across the four configurations. Two additional narrow keyboard tests
+pass: Tab reaches the loaded table, arrow keys reveal result ID 1154, and Escape
+restores focus to its opening button. No Catalyst write requests occurred. These
+checks prove existing saved-work review, not all four complete journeys or new
+native PostgreSQL/FHIR server access. Raw screenshots, traces, request logs and
+proof remain private in `capture/visual-server-review` and
+`capture/keyboard-server-review/ready-results` under the existing evidence home.
+
+Current dependencies, checked 15 September:
+
+- Local Catalyst and native reporting HTTP requests time out; Docker status also
+  hangs. The native owner independently reproduced this shared local runtime
+  issue. Existing recorded proof remains valid for its recorded revision, but a
+  fresh local review cannot be claimed. No shared runtime restart was performed.
+- Server lane-1 browser upload is not yet verified. Its dedicated upload schema
+  exists; the authorized administrator test session is still pending.
+- Native owner inspection found no dedicated read-only reporting login on the
+  server; lane 3 still needs that connection provisioning.
+- Native #4323 is open at `b623ef9`, based on `codex/reporting-nonconformance`;
+  backend and frontend checks now pass. It remains part of the native PR chain,
+  with no completed merge/server replay. Native merge/release ownership stays in
+  the reporting task; this effort has not created a replacement stack.
+- The private 95-second native export clip has been reviewed at normal speed.
+  It is a segment, not a finished lane video. Refreshed Superset footage, full
+  paced cuts, broader fixtures, public videos and owner acceptance remain open.
+
 The separate website task owns landing changes; this effort supplies verified
 evidence and current status records.
 

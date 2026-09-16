@@ -17,8 +17,13 @@ accessions include a sample-item suffix, unlike the native CSV's order accession
 Server harness #189/Catalyst #138 now preserve the retained release and support
 CSV imports. Recorded browser proof covers the native server export, saved-report
 rerun and CSV → Catalyst → rendered Superset path with both repeated-result IDs.
-The Superset branding repair (#139) is merged and awaits integrated deployment.
-The other server lanes, broader visual/fixture review, paced published videos,
+Harness #191 (`b33bf5b`) and Catalyst #139 (`6ba0008`) are deployed; the
+Superset logo/home link and retained data are verified. Four read-only server
+visual cases cover saved-work surfaces in light/dark at 1280px and 390px; two
+keyboard checks prove narrow-table scrolling and focus restoration. These do not
+close complete-journey or owner acceptance. Local services are currently
+unresponsive, including native reporting; no shared runtime restart was performed.
+The other server lanes, broader fixture/full-journey review, paced published videos,
 public references and owner acceptance remain open. This roadmap owns cross-project sequence;
 the [task register](008-catalyst-query-workbench/tasks.md#immediate-four-pathway-test-checkpoint)
 contains current per-lane evidence and gaps.
@@ -157,10 +162,10 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native saved-period rerun and CSV upload/table/chart verified; broader fixture and server proof remain. Native milestones plus FP-003. |
 | 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Connection/editor and publication support are merged. Local manual query/save/Superset proof passes. Model join failures are retained observations; manual correction now passes through saving/reopening and actual Superset rendering. Complete the broader demonstration, server run and paced video. Relationship metadata #136 is deployed locally through merged harness #183. FP-004 and FP-005 own detailed evidence. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131 merged and verified in the retained local stack, including the same native CSV and Superset table. Upload repair #132 merged; server and broader fixture acceptance remain. FP-006 and FP-005. |
-| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Catalyst #133–#135 are integrated locally. Native count 2, average 60 and total 120 render after grouping/chart-identity repairs; a 101-row table proves pagination. Fresh native CSV error recovery and saved chart/arrangement/publication checks pass. Browser file attachment, broader fixtures and server acceptance remain. FP-007 owns detailed evidence. |
+| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Catalyst #133–#135 are integrated locally. Native count 2, average 60 and total 120 render after grouping/chart-identity repairs; a 101-row table proves pagination. Fresh native CSV error recovery and saved chart/arrangement/publication checks pass. Native-file browser upload and server rendering now pass; broader fixtures, final recordings and owner acceptance remain. FP-007 owns detailed evidence. |
 | 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Local record-level path and Superset rendering verified; native repair PR, broader review and server proof remain. FP-008. |
-| 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | Pending; FP-009. |
-| 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | Pending; FP-010. |
+| 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | All four local selected-record smokes are recorded. Current local runtime is unavailable; full visual/fixture review and owner acceptance remain. FP-009. |
+| 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | Server lane 2 and saved-work visual/keyboard checks pass at b33bf5b/6ba0008. Other lanes, full videos, publication and owner acceptance remain. FP-010. |
 
 Native and Catalyst work proceed independently where dependencies allow. Use
 small cohesive PRs and matching existing work without elaborate branch stacks.

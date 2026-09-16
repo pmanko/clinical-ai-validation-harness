@@ -24,7 +24,7 @@
       "title": "Catalyst",
       "status": "Four-pathway testing in progress",
       "summary": "Current Catalyst release evidence stays in its delivery register. The four-pathway initiative adds imported Datasets and ordinary PostgreSQL without duplicating the approved Workbench or AI-design roadmap.",
-      "evidence": "All four local pathway smokes have evidence. Server harness #189/Catalyst #138 preserve saved work and storage; native server export/rerun and CSV import through Catalyst to rendered Superset pass recorded browser checks. Superset branding repair #139 is merged, pending deployment. Other server lanes, broader review, paced published videos and owner acceptance remain.",
+      "evidence": "All four local selected-record smokes have evidence. Server harness #191/Catalyst #139 preserve saved work/storage; lane 2 renders in Superset with verified branding. Four saved-work visual cases and two narrow keyboard checks pass. Local runtime is currently unresponsive. Server lanes 1/3/4, broader fixtures, full paced videos and owner acceptance remain open.",
       "actions": [
         [
           "Review the current delivery checkpoint",
@@ -37,7 +37,7 @@
       "title": "OpenELIS–Catalyst reporting",
       "status": "Four-pathway testing in progress",
       "summary": "Native CSV/Superset, CSV imported into Catalyst, native PostgreSQL, and FHIR/Spark are complementary starting points. One roadmap coordinates the existing product efforts.",
-      "evidence": "All four local pathway smokes have evidence. Server harness #189/Catalyst #138 preserve saved work and storage; native server export/rerun and CSV import through Catalyst to rendered Superset pass recorded browser checks. Superset branding repair #139 is merged, pending deployment. Other server lanes, broader review, paced published videos and owner acceptance remain.",
+      "evidence": "All four local selected-record smokes have evidence. Server harness #191/Catalyst #139 preserve saved work/storage; lane 2 renders in Superset with verified branding. Four saved-work visual cases and two narrow keyboard checks pass. Local runtime is currently unresponsive. Server lanes 1/3/4, broader fixtures, full paced videos and owner acceptance remain open.",
       "actions": [
         [
           "Open the parent roadmap",

@@ -1149,7 +1149,7 @@
       "id": "OE-reporting",
       "title": "OpenELIS–Catalyst four reporting pathways",
       "status": "Four local smokes; CSV through Catalyst verified on server",
-      "next_deliverable": "Complete remaining server journeys and broader review; finish paced recordings and public references.",
+      "next_deliverable": "Restore local test availability; resolve remaining server access/replay dependencies; finish full paced videos and owner review.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1183,7 +1183,7 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/139",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/191"
       ],
-      "evidence": "All four local pathway smokes have evidence. Server harness #189/Catalyst #138 preserve saved work and storage; native server export/rerun and CSV import through Catalyst to rendered Superset pass recorded browser checks. Superset branding repair #139 is merged, pending deployment. Other server lanes, broader review, paced published videos and owner acceptance remain."
+      "evidence": "All four local selected-record smokes have evidence. Server harness #191/Catalyst #139 preserve saved work/storage; lane 2 renders in Superset with verified branding. Four saved-work visual cases and two narrow keyboard checks pass. Local runtime is currently unresponsive. Server lanes 1/3/4, broader fixtures, full paced videos and owner acceptance remain open."
     },
     {
       "last_checked": "2026-09-15",
@@ -1249,13 +1249,13 @@
       "id": "OE-lane-2",
       "title": "Lane 2 · Imported Dataset in Catalyst",
       "status": "Native CSV through Catalyst and Superset verified locally and on server",
-      "next_deliverable": "Verify deployed branding repair; finish paced video, broader fixture/visual review and owner acceptance.",
+      "next_deliverable": "Finish the paced video, broader fixture/full-journey review and owner acceptance.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Real server report CSV c6ace949 imported through the browser with text IDs, immutable Dataset reload, full table, count by accession, arrangement reload, explicit publication and owning-server receipt 4e94f696. Superset dashboard 0899ee92 renders IDs 1154/1155, each 450, and count 2. Recorded tests and screenshot inspected; final paced video, broader fixture review and owner acceptance remain."
+      "evidence": "Real server report CSV c6ace949 imported through the browser with text IDs, immutable Dataset reload, full table, count by accession, arrangement reload, explicit publication and owning-server receipt 4e94f696. Superset dashboard 0899ee92 renders IDs 1154/1155, each 450, and count 2. Recorded tests and screenshot inspected; final paced video, broader fixture review and owner acceptance remain. Harness #191/Catalyst #139 branding deployment and four server saved-work visual/two keyboard checks are verified; these do not close full acceptance."
     },
     {
       "last_checked": "2026-09-15",
@@ -1291,7 +1291,7 @@
       "id": "OE-lane-4",
       "title": "Lane 4 · OpenELIS FHIR analytics in Catalyst",
       "status": "Selected native FHIR records rendered through Spark, Catalyst and Superset locally",
-      "next_deliverable": "Merge native replay PR #4323; complete broader review, automatic-emission checks, server proof and recording.",
+      "next_deliverable": "Native owner to complete compatible replay merge/release; finish broader review, server proof and recording. #4323 checks pass at b623ef9 but it remains stacked and open.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
