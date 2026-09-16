@@ -1,30 +1,20 @@
 # OpenELIS–Catalyst reporting pathways
 
 **Status:** Four-pathway delivery and consolidation were approved on 14 September
-2026. The mock additions and chart controls are approved and implemented. Local
-browser proof now covers native CSV upload into Superset, CSV upload/type recovery
-in Catalyst through tables/charts/publication, and PostgreSQL query correction
-through exact rendered results. The verified local deployment is harness #187
-(`659190e`) with Catalyst #138 (`364c5bc`), preserving all saved artifacts and
-storage mounts. CSV summary repairs and full-file table pagination are included.
-Browser review confirms the original two rows render without a false limit warning;
-the 1,101-row regression table retains pagination and reaches its final row.
-The reporting instance's real FHIR output now reaches Spark and a saved Catalyst
-Dataset/dashboard rendered in Superset: all four selected result identities,
-dates, final status and values (450 copies/ml) match. Scoped replay uses native
-OpenELIS PR #4323 (still open); retained clinical rows are unchanged. FHIR specimen
-accessions include a sample-item suffix, unlike the native CSV's order accession.
-Server harness #189/Catalyst #138 now preserve the retained release and support
-CSV imports. Recorded browser proof covers the native server export, saved-report
-rerun and CSV → Catalyst → rendered Superset path with both repeated-result IDs.
-Harness #191 (`b33bf5b`) and Catalyst #139 (`6ba0008`) are deployed; the
-Superset logo/home link and retained data are verified. Four read-only server
-visual cases cover saved-work surfaces in light/dark at 1280px and 390px; two
-keyboard checks prove narrow-table scrolling and focus restoration. These do not
-close complete-journey or owner acceptance. Local services are currently
-unresponsive, including native reporting; no shared runtime restart was performed.
-The other server lanes, broader fixture/full-journey review, paced published videos,
-public references and owner acceptance remain open. This roadmap owns cross-project sequence;
+2026. As of 16 September, all four selected-record pathways have fresh local
+recordings and independently rendered server results. The server runs merged
+harness setup `812451c`, Catalyst `6ba0008` and native OpenELIS preview
+`ac64004`. Native CSV upload renders a table and count in Superset; CSV import,
+native PostgreSQL and FHIR/Spark each reach a saved Catalyst Dataset/Dashboard
+and rendered Superset result. The PostgreSQL recording selected the approved
+Gemma 12B/Qwen profile, but the full native catalog exceeded context preparation
+before either model ran; the supported manual SQL correction then completed the
+journey. The FHIR/Spark recording ran both Gemma 12B generation and Qwen review.
+This is workflow evidence, not model-performance acceptance. Four private paced
+cuts and their hashes are retained; the final lane-2 concatenated cut still needs
+normal-speed review. Public media/references and explicit owner acceptance remain
+open. Native PR #4323 also remains a separate upstream review/merge concern. This
+roadmap owns cross-project sequence;
 the [task register](008-catalyst-query-workbench/tasks.md#immediate-four-pathway-test-checkpoint)
 contains current per-lane evidence and gaps.
 
@@ -165,13 +155,13 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | --- | --- | --- |
 | 0. Consolidate and establish authority | Persist direction, reconcile work, remove competing sequences without losing requirements, refresh dashboard references. | Harness #173 and Catalyst #127 merged; native cleanup retains its owner. FP-001. |
 | 1. Align mocks and contracts | Interactive CSV import/review and PostgreSQL source journeys reuse approved styles; failure/recovery and saved work represented; specs agree and owner reviews additions. | Catalyst #127/#128 merged; all five checks pass on #128 head `9728294`; owner approved additions for implementation on 14 September. FP-002. |
-| 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native saved-period rerun and CSV upload/table/chart verified; broader fixture and server proof remain. Native milestones plus FP-003. |
-| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Connection/editor and publication support are merged. Local manual query/save/Superset proof passes. Model join failures are retained observations; manual correction now passes through saving/reopening and actual Superset rendering. Complete the broader demonstration, server run and paced video. Relationship metadata #136 is deployed locally through merged harness #183. FP-004 and FP-005 own detailed evidence. |
-| 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131 merged and verified in the retained local stack, including the same native CSV and Superset table. Upload repair #132 merged; server and broader fixture acceptance remain. FP-006 and FP-005. |
-| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Catalyst #133–#135 are integrated locally. Native count 2, average 60 and total 120 render after grouping/chart-identity repairs; a 101-row table proves pagination. Fresh native CSV error recovery and saved chart/arrangement/publication checks pass. Native-file browser upload and server rendering now pass; broader fixtures, final recordings and owner acceptance remain. FP-007 owns detailed evidence. |
-| 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Local record-level path and Superset rendering verified; native repair PR, broader review and server proof remain. FP-008. |
-| 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | All four local selected-record smokes are recorded. Current local runtime is unavailable; full visual/fixture review and owner acceptance remain. FP-009. |
-| 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | Server lane 2 and saved-work visual/keyboard checks pass at b33bf5b/6ba0008. Other lanes, full videos, publication and owner acceptance remain. FP-010. |
+| 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local recording and server browser proof pass. Server Dashboard 6 renders both repeated-result rows and count 2. Publication and owner acceptance remain. Native milestones plus FP-003. |
+| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Local recording and server rendering pass through the supported manual-correction workflow. Context preparation rejected the full catalog before model calls, so no model-quality claim is made. Server Dashboard `catalyst-5e39c16f…` renders IDs 1154/1155 at 450. FP-004 and FP-005 own detailed evidence. |
+| 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131/#132 are merged. Fresh local recording and retained server proof verify the same native CSV through review, immutable Dataset reload, table/count publication and rendered Superset. Public media and owner acceptance remain. FP-006 and FP-005. |
+| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Local recording and retained server Dashboard `catalyst-0899ee92…` pass with IDs 1154/1155, values 450 and count 2. Final full-cut review, publication and owner acceptance remain. FP-007 owns detailed evidence. |
+| 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Native scoped replay produced 15 resources without changing clinical rows; Data Pipes refresh, Gemma 12B generation, Qwen review, explicit execution, save/publication and server Dashboard `catalyst-dea5186c…` rendering pass. Upstream native review, publication and owner acceptance remain. FP-008. |
+| 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | Four fresh local pathway recordings and hashes are retained. Lane 1, 3 and 4 cuts passed normal-speed review; the final concatenated lane-2 cut still needs playback review. Owner acceptance remains. FP-009. |
+| 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | All four server routes have browser-rendered proof at harness `812451c`, Catalyst `6ba0008` and native preview `ac64004`. Public media/references, final lane-2 cut review and owner acceptance remain. FP-010. |
 
 Native and Catalyst work proceed independently where dependencies allow. Use
 small cohesive PRs and matching existing work without elaborate branch stacks.
@@ -357,7 +347,9 @@ Acceptance requires:
   recordings, traces and personal handoffs outside Git.
 
 A page draft or partial recording can be reviewed earlier, but does not close
-this checkpoint. As of 15 September, four final recordings remain unpublished. The owner-approved
+this checkpoint. As of 16 September, four local paced cuts exist privately and
+all four server results have rendered proof; the lane-2 full cut still needs final
+playback review and all four remain unpublished. The owner-approved
 website hierarchy and reporting page are delivered through website PR #184;
 earlier Catalyst videos remain labelled as earlier examples. Website sequence and acceptance
 live in `landing/README.md`; this roadmap retains four-pathway acceptance.
@@ -368,9 +360,9 @@ live in `landing/README.md`; this roadmap retains four-pathway acceptance.
 | --- | --- |
 | Owner approval of direction | Approved 14 September 2026; recorded here. |
 | Updated mock/spec owner review | Approved 14 September 2026 after local CSV journey review; Catalyst #128 merged as `5164449`. |
-| Lane 1 / 2 / 3 / 4 local proof | Pending; native stage evidence alone does not establish a lane. |
-| Four server journeys and rendered values | Pending. |
-| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending: four final local recordings, separate server verification, openclinai.org reporting page, playback/publication verification and owner review. Existing videos document earlier capabilities. |
+| Lane 1 / 2 / 3 / 4 local proof | Fresh recordings exist for all four lanes. Lane 1/3/4 cuts passed normal-speed review; lane 2 final concatenated playback remains. Lane 3 records context-preparation failure and successful manual recovery; lane 4 records both model roles. |
+| Four server journeys and rendered values | Verified 16 September: native CSV/Superset Dashboard 6, imported CSV Dashboard `0899ee92…`, PostgreSQL Dashboard `5e39c16f…`, and FHIR/Spark Dashboard `dea5186c…` render the expected selected records. |
+| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending public publication, deployed playback/checksum verification and owner review. Private cuts and server proof are complete enough for owner review after lane-2 final playback. |
 | Specification/dashboard consistency and owner acceptance | Pending final review. |
 
 Completion requires every line above, distinguishing implementation, merge,

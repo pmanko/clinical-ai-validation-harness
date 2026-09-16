@@ -1,6 +1,6 @@
 {
-  "as_of": "2026-09-14",
-  "description": "Portfolio snapshot with per-effort dates. Four-pathway scope was reconciled September 14; selected reporting integration and rendering rows were refreshed September 15 while unrelated rows retain their earlier evidence dates.",
+  "as_of": "2026-09-16",
+  "description": "Portfolio snapshot with per-effort dates. Four-pathway scope was reconciled September 14 and its local/server evidence was refreshed September 16; unrelated rows retain their earlier evidence dates.",
   "rows": [
     {
       "id": "harness.foundation",
@@ -1148,15 +1148,15 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS–Catalyst four reporting pathways",
-      "status": "Four local smokes; CSV through Catalyst verified on server",
-      "next_deliverable": "Restore local test availability; resolve remaining server access/replay dependencies; finish full paced videos and owner review.",
+      "status": "Four fresh local recordings and four rendered server pathways verified",
+      "next_deliverable": "Finish normal-speed review of the joined lane-2 cut, publish the four videos and references, and record owner acceptance.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery",
         "https://github.com/DIGI-UW/OpenELIS-Global-2/blob/codex/reporting-ui/specs/479-reporting-mvp/plan.md"
       ],
-      "last_checked": "2026-09-15",
+      "last_checked": "2026-09-16",
       "implementation_owner": "Catalyst - OE2 Integration",
       "related_pull_requests": [
         "https://github.com/DIGI-UW/openelis-work/pull/322",
@@ -1181,9 +1181,11 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/138",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/187",
         "https://github.com/DIGI-UW/catalyst-ai/pull/139",
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/191"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/191",
+        "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4323",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/194"
       ],
-      "evidence": "All four local selected-record smokes have evidence. Server harness #191/Catalyst #139 preserve saved work/storage; lane 2 renders in Superset with verified branding. Four saved-work visual cases and two narrow keyboard checks pass. Local runtime is currently unresponsive. Server lanes 1/3/4, broader fixtures, full paced videos and owner acceptance remain open."
+      "evidence": "Merged setup #194 is deployed as 812451c with Catalyst 6ba0008 and native preview ac64004. Four fresh local cuts have recorded hashes; lane 1/3/4 passed normal-speed review and lane 2 joined playback remains. Server Superset renders native CSV Dashboard 6, imported CSV 0899ee92, PostgreSQL 5e39c16f and FHIR/Spark dea5186c. Lane 3 used manual recovery after context preflight rejected before model calls; lane 4 ran Gemma 12B and Qwen. Public media and owner acceptance remain open."
     },
     {
       "last_checked": "2026-09-15",
@@ -1207,9 +1209,12 @@
       "evidence": "Native owner confirmed the ten replacement PRs and cleanup ownership; #4306 identifies their GitHub stack. #4291/#4292/#4295 await coverage/disposition. Native runtime and human UAT remain with that effort. Public deployment receipt verifies app/frontend/backend 8005e4c (20260914T234348Z-8005e4cc0b2b); updated receipt reports public checks and CI passed, with human acceptance pending. Six published report/queue CSV downloads independently match manifest hashes and parsed values; video inspection remains with the native owner."
     },
     {
-      "last_checked": "2026-09-14",
+      "last_checked": "2026-09-16",
       "implementation_owner": null,
-      "related_pull_requests": [],
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4323",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/194"
+      ],
       "parent_effort": "OE-reporting",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1217,16 +1222,16 @@
       ],
       "id": "OE-lane-1",
       "title": "Lane 1 · OpenELIS CSV to Superset",
-      "status": "Native CSV browser upload and Superset dashboard verified locally",
-      "next_deliverable": "Complete the native export-to-dashboard recording, broader fixtures and server validation.",
+      "status": "Native CSV export, server upload and rendered Superset dashboard verified",
+      "next_deliverable": "Publish the paced cut and record owner acceptance.",
       "dependencies": [
         "OE-native-reporting"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Exact native May5 CSV uploaded through the Superset file chooser/form into Dataset 40 with text identifiers. Table 83 preserves source column order and IDs 1154/1155 with value 450; chart 84 counts 2 by accession. Saved Dashboard 40 renders both; screenshot inspected. Earlier API-upload proofs remain dated evidence. Final recordings, server and owner acceptance remain."
+      "evidence": "Fresh native export/rerun and CSV-upload recordings are retained. Server Dataset 8 and Dashboard 6 reload a table containing IDs 1154/1155 at 450 plus count 2. Browser proof and paced cut exist; public publication and owner acceptance remain."
     },
     {
-      "last_checked": "2026-09-15",
+      "last_checked": "2026-09-16",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/DIGI-UW/catalyst-ai/pull/131",
@@ -1239,7 +1244,8 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/185",
         "https://github.com/DIGI-UW/catalyst-ai/pull/137",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/186",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/138"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/138",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/194"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1249,20 +1255,21 @@
       "id": "OE-lane-2",
       "title": "Lane 2 · Imported Dataset in Catalyst",
       "status": "Native CSV through Catalyst and Superset verified locally and on server",
-      "next_deliverable": "Finish the paced video, broader fixture/full-journey review and owner acceptance.",
+      "next_deliverable": "Finish normal-speed review of the joined cut, publish it, and record owner acceptance.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Real server report CSV c6ace949 imported through the browser with text IDs, immutable Dataset reload, full table, count by accession, arrangement reload, explicit publication and owning-server receipt 4e94f696. Superset dashboard 0899ee92 renders IDs 1154/1155, each 450, and count 2. Recorded tests and screenshot inspected; final paced video, broader fixture review and owner acceptance remain. Harness #191/Catalyst #139 branding deployment and four server saved-work visual/two keyboard checks are verified; these do not close full acceptance."
+      "evidence": "The native CSV imports through Catalyst without SQL, retaining text IDs, immutable Dataset reload, table/count Widgets, arrangement reload and explicit publication. Server Dashboard 0899ee92 renders IDs 1154/1155 at 450. The fresh local cut exists; final joined playback, public publication and owner acceptance remain."
     },
     {
-      "last_checked": "2026-09-15",
+      "last_checked": "2026-09-16",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/DIGI-UW/catalyst-ai/pull/129",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/130"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/130",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/194"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1271,18 +1278,21 @@
       ],
       "id": "OE-lane-3",
       "title": "Lane 3 · OpenELIS PostgreSQL in Catalyst",
-      "status": "Human correction through Superset rendering verified locally",
-      "next_deliverable": "Complete the lane demonstration, server validation and paced recording using the supported review/correction workflow.",
+      "status": "Manual recovery through local and server Superset rendering verified",
+      "next_deliverable": "Publish the paced cut and record owner acceptance while retaining the context-preparation limitation.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "The retained session preserves three model turns and an Edited by hand correction. Browser execution, draft retention, Dataset save/reopen, Dashboard layout save/reopen and explicit publication pass. The harness importer records bundle 57fda15f; Superset dashboard c3e0cc9a-6611-4f80-988c-1042937f0cdb renders accession REPORTING-MVP-REPEAT and distinct IDs 1154/1155, each value 450. Screenshot inspected. This is local recovery proof; broader demonstration, server, paced video and owner acceptance remain."
+      "evidence": "The fresh local recording selected Gemma 12B with Qwen, but the full native catalog exceeded context preparation before either model ran. The visible manual SQL recovery then executed, saved and published successfully. Server Dashboard 5e39c16f renders IDs 1154/1155 at 450. No model-performance claim or tuning was performed; public publication and owner acceptance remain."
     },
     {
-      "last_checked": "2026-09-15",
+      "last_checked": "2026-09-16",
       "implementation_owner": null,
-      "related_pull_requests": [],
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4323",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/194"
+      ],
       "parent_effort": "OE-reporting",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1290,14 +1300,14 @@
       ],
       "id": "OE-lane-4",
       "title": "Lane 4 · OpenELIS FHIR analytics in Catalyst",
-      "status": "Selected native FHIR records rendered through Spark, Catalyst and Superset locally",
-      "next_deliverable": "Native owner to finish the existing compatible stack: resolve upstream Dashboard conflict, obtain required end-to-end check and code-owner approval, then merge/release. Complete broader review, server proof and recording.",
+      "status": "Selected native FHIR records rendered locally and on server through Spark, Catalyst and Superset",
+      "next_deliverable": "Publish the paced cut, record owner acceptance, and keep upstream native review/merge separate.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Native scoped replay emitted samples 1154/1157 through the existing transform. Data Pipes refreshed and four exact result UUIDs, dates, statuses, units and values match Spark and rendered Superset dashboard cc95f6ea. Dataset save and dashboard reload passed; actual import bundle 9300cfa4 verified. Clinical rows unchanged. Native PR #4323 remains open; local proof only."
+      "evidence": "Native preview ac64004 scoped replay emitted 15 resources without changing clinical rows. Data Pipes refreshed; the local recording ran Gemma 12B generation and Qwen review before explicit execution/refinement. Dataset save/publication passes and server Dashboard dea5186c renders the selected FHIR UUIDs at 450. Native PR #4323 remains review-required; public publication and owner acceptance remain."
     }
   ]
 }
