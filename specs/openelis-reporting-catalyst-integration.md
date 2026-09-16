@@ -14,8 +14,12 @@ Dataset/dashboard rendered in Superset: all four selected result identities,
 dates, final status and values (450 copies/ml) match. Scoped replay uses native
 OpenELIS PR #4323 (still open); retained clinical rows are unchanged. FHIR specimen
 accessions include a sample-item suffix, unlike the native CSV's order accession.
-Complete server journeys, paced videos, public references
-and owner acceptance remain open. This roadmap owns cross-project sequence;
+Server harness #189/Catalyst #138 now preserve the retained release and support
+CSV imports. Recorded browser proof covers the native server export, saved-report
+rerun and CSV → Catalyst → rendered Superset path with both repeated-result IDs.
+The Superset branding repair (#139) is merged and awaits integrated deployment.
+The other server lanes, broader visual/fixture review, paced published videos,
+public references and owner acceptance remain open. This roadmap owns cross-project sequence;
 the [task register](008-catalyst-query-workbench/tasks.md#immediate-four-pathway-test-checkpoint)
 contains current per-lane evidence and gaps.
 
