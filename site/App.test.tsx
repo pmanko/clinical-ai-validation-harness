@@ -46,69 +46,40 @@ describe('App full-HTML twin link', () => {
   });
 });
 
-// The landing must read as a non-technical landscape: lead with WHY the project
-// matters (global-health framing), in plain words, and drop the dev-internal
-// jargon ("polyfill", auto-deploy plumbing) from the front door.
-describe('landing — non-technical entry', () => {
-  it('leads with a plain "Why this matters" and drops dev-internal jargon', () => {
-    const html = renderToStaticMarkup(
-      React.createElement(
-        MemoryRouter,
-        { initialEntries: ['/welcome'] },
-        React.createElement(App),
-      ),
-    );
-    expect(html).toContain('Why this matters');
-    expect(html).toContain('offline');
-    expect(html).not.toContain('polyfill');
-  });
-});
 
-// The landing is an AUTHORED, mission-first narrative — not a re-render of the
-// sidebar. It must NOT narrate that it's plain, must NOT dump the doc index a
-// second time (that lives in the sidebar), and must route four readers naturally
-// via topic/task cards with real deep-links.
-describe('landing — mission-first overhaul', () => {
+describe('documentation entry', () => {
   const html = renderToStaticMarkup(
-    React.createElement(
-      MemoryRouter,
-      { initialEntries: ['/welcome'] },
-      React.createElement(App),
-    ),
+    React.createElement(MemoryRouter, { initialEntries: ['/welcome'] }, React.createElement(App)),
   );
 
-  it('drops the self-referential "plain-language tour" meta line', () => {
-    expect(html).not.toContain('plain-language tour');
+  it('identifies the documentation and links to public project introductions', () => {
+    expect(html).toContain('<h1>Documentation</h1>');
+    expect(html).toContain('href="https://openclinai.org/#projects"');
+    expect(html).toContain('aria-label="Site navigation"');
+    expect(html).toContain('href="https://openclinai.org/"');
   });
 
-  it('does not re-render the full doc index on the landing (it lives in the sidebar)', () => {
-    // The duplicate-index sections were "Specs & docs" plus a standalone canvas
-    // dump unique to HomeView. Their blurbs only ever appeared in that landing
-    // index (the sidebar shows titles only, no blurbs).
-    expect(html).not.toContain('Specs &amp; docs');
-    expect(html).not.toContain('Manifest and event schema notes for emitted validation metadata.');
+  it('keeps the entry concise without unsupported clinical capability claims', () => {
+    expect(html).not.toContain('good enough to do real clinical work');
+    expect(html).not.toContain('Every answer traced to a record');
+    expect(html).not.toContain('Patient data never leaves');
+    expect(html).not.toContain('Watch Catalyst in action');
   });
 
-  it('renders four natural go-deeper paths with real deep-links (no audience labels)', () => {
-    expect(html).toContain('See the evidence behind the approach');
-    expect(html).toContain('See how an AI answer is judged');
-    expect(html).toContain('Run the harness yourself');
-    expect(html).toContain('Try Catalyst: ask a question, get SQL and a table');
-    // each card carries an exact route to a real page
-    expect(html).toContain('/spec/specs/background/why-local-first-clinical-ai');
-    expect(html).toContain('/canvas/specs/artifacts/canvases/validation-research');
-    expect(html).toContain('/canvas/specs/artifacts/canvases/catalyst-demos');
-    // no audience-labeled headers
-    expect(html).not.toContain('For funders');
-    expect(html).not.toContain('For developers');
+  it('provides useful routes into setup, architecture, methods and research', () => {
+    expect(html).toContain('Set up and run the harness');
+    expect(html).toContain('Understand the components');
+    expect(html).toContain('Inspect validation methods');
+    expect(html).toContain('Read the background research');
+    expect(html).toContain('href="/spec/README"');
+    expect(html).toContain('href="/topic/evidence"');
+    expect(html).toContain('href="/canvas/specs/artifacts/canvases/cross-project-comparison"');
+    expect(html).toContain('href="/spec/specs/background/why-local-first-clinical-ai"');
   });
 
-  it('surfaces the live clinical demo', () => {
-    expect(html).toContain('openmrs.openclinai.org');
-  });
-
-  it('surfaces the Catalyst demo as a secondary proof CTA', () => {
-    expect(html).toContain('Watch Catalyst in action');
-    expect(html).toContain('/canvas/specs/artifacts/canvases/catalyst-demos');
+  it('retains search and a keyboard skip destination', () => {
+    expect(html).toContain('aria-label="Search documentation"');
+    expect(html).toContain('href="#main-content"');
+    expect(html).toContain('id="main-content" tabindex="-1"');
   });
 });

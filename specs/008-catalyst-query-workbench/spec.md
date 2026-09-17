@@ -19,6 +19,11 @@ the Clinical AI Validation Harness. Catalyst application behavior belongs to its
 product specification; interaction and visual requirements belong to its
 binding design.
 
+For four-pathway acceptance, generated-query errors may be recovered through the
+existing SQL editor. Verify retained state, explicit execution, saved provenance
+and correct published results; do not require AI-only query success. The parent
+roadmap owns the delivery boundary and any separately authorized model evaluation.
+
 ## Authorities
 
 1. [plan.md](plan.md) owns implementation sequence and the delivery goal.

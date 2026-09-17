@@ -881,3 +881,30 @@ video:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Reporting pathways reuse the existing responsive video-card grid. */
+.reporting-pathways {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+.reporting-pathways h3,
+.earlier-walkthroughs h3 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  line-height: 1.25;
+}
+.pathways-intro { max-width: 80ch; }
+.reporting-pathways .video-grid { margin-top: 28px; }
+.reporting-pathways h4 {
+  margin: 0 0 12px;
+  font-size: 21px;
+  line-height: 1.3;
+}
+.pathway-flow { font-weight: 600; }
+.pathway-limit { padding-top: 12px; border-top: 1px solid var(--line); }
+.pathways-status { margin: 28px 0 14px; color: var(--muted); }
+.earlier-walkthroughs { margin-top: 56px; }
+
+/* Resource links wrap on narrow screens. */
+.hub-links { display: flex; flex-wrap: wrap; gap: 12px 22px; }

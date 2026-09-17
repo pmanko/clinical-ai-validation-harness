@@ -4,15 +4,13 @@ import { toPlainText } from './search';
 
 export type RenderedPage = { innerHtml: string; raw?: string };
 
-// Plain-language "why" shown on the static home twin so an LLM agent landing on
-// the mirror gets the same framing the interactive landing leads with.
-const WHY_HTML =
-  '<h2>Why this matters</h2><ul>' +
-  '<li>Care often happens offline, on modest hardware — so a local team of small models, not a big cloud model.</li>' +
-  '<li>Patient data never leaves the deployment (privacy and local data ownership).</li>' +
-  '<li>A knowledge base contextualized to each site’s own concepts and medicines, echoing WHO SMART Guidelines.</li>' +
-  '<li>Every claim is traceable to a specific patient record, reviewed and reproducible.</li>' +
-  '</ul>';
+import { HERO } from './landing-content';
+
+const STATIC_HEAD = '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+  '<style>body{font:16px/1.6 system-ui,sans-serif;max-width:76rem;margin:auto;padding:16px;color:#20242b;background:#fff;overflow-wrap:anywhere}' +
+  'header{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #ddd;padding-bottom:12px}' +
+  'a{color:#254e8b}a:focus-visible{outline:3px solid #624a99;outline-offset:3px}' +
+  'img,svg{max-width:100%;height:auto}pre,table{display:block;max-width:100%;overflow:auto}h1,h2,h3{line-height:1.25}</style>';
 
 /** Static file path for a leaf's full-HTML twin — mirrors the SPA route, minus '#'. */
 export function outPathFor(leaf: NavLeaf): string {
@@ -30,6 +28,12 @@ export function interactiveHrefFor(leaf: NavLeaf, base: string): string {
 /** The agent-facing href of a leaf's full-HTML twin, under the site base. */
 export function htmlHrefFor(leaf: NavLeaf, base: string): string {
   return base + outPathFor(leaf);
+}
+
+const PUBLIC_ORIGIN = 'https://pmanko.github.io';
+function discoveryHead(href: string, description: string): string {
+  return `<link rel="canonical" href="${esc(new URL(href, PUBLIC_ORIGIN).href)}">` +
+    `<meta name="description" content="${esc(description)}">`;
 }
 
 function esc(s: string): string {
@@ -98,12 +102,12 @@ export function topicTwinOutputs(topics: Topic[], base: string): Array<{ outPath
       html_url: `${base}topic/${t.id}.html`,
     }).replace(/</g, '\\u003c');
     const contents =
-      '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">' +
-      `<title>${esc(t.title)}</title>` +
+      '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">' + STATIC_HEAD +
+      `<title>${esc(t.title)}</title>` + discoveryHead(`${base}topic/${t.id}.html`, t.blurb) +
       `<link rel="alternate" type="text/markdown" href="${base}llms-full.txt">` +
       `<script type="application/json" id="page-meta">${meta}</script>` +
       '</head><body>' +
-      `<header><a href="${base}welcome.html">All pages</a> · <a href="${base}#/topic/${t.id}">Interactive version</a></header>` +
+      `<header><a href="https://openclinai.org/">Open Clinical AI</a> / <a href="${base}welcome.html">Documentation</a> · <a href="${base}#/topic/${t.id}">Interactive version</a></header>` +
       `<main>${inner}</main></body></html>\n`;
     return { outPath: `topic/${t.id}.html`, contents };
   });
@@ -131,8 +135,8 @@ export function planOutputs(input: {
   for (const leaf of leaves) {
     if (leaf.kind === 'home') {
       const inner =
-        `<h1>${meta.title}</h1><p>${meta.summary}</p>` +
-        WHY_HTML +
+        `<h1>${esc(HERO.headline)}</h1><p>${esc(HERO.valueProp)}</p>` +
+        '<p><a href="https://openclinai.org/#projects">Explore the tools and demonstrations</a></p>' +
         (topicList ? `<h2>Browse by topic</h2><ul>${topicList}</ul>` : '') +
         `<h2>Docs</h2><ul>${linkList('spec')}</ul>` +
         `<h2>Canvases</h2><ul>${linkList('canvas')}</ul>`;
@@ -146,6 +150,10 @@ export function planOutputs(input: {
     });
   }
   out.push(...topicTwinOutputs(topics, base));
+  const urls = out.filter(p => p.outPath.endsWith('.html')).map(p =>
+    `<url><loc>${esc(new URL(base + p.outPath, PUBLIC_ORIGIN).href)}</loc></url>`);
+  out.push({ outPath: 'sitemap.xml', contents: '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + urls.join('') + '</urlset>\n' });
   out.push({ outPath: 'search.json', contents: buildSearchIndex({ leaves, rendered, topics }) });
   out.push({ outPath: 'llms.txt', contents: buildLlmsTxt(leaves, base, meta, topics) });
 
@@ -181,12 +189,12 @@ export function documentShell(input: {
     l ? `<a rel="${rel}" href="${htmlHrefFor(l, base)}">${esc(l.title)}</a>` : '';
 
   return (
-    '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">' +
-    `<title>${esc(leaf.title)}</title>` +
+    '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">' + STATIC_HEAD +
+    `<title>${esc(leaf.title)}</title>` + discoveryHead(htmlHrefFor(leaf, base), leaf.blurb || `${leaf.title} — Open Clinical AI documentation.`) +
     `<link rel="alternate" type="text/markdown" href="${base}llms-full.txt">` +
     `<script type="application/json" id="page-meta">${meta}</script>` +
     '</head><body>' +
-    `<header><a href="${base}welcome.html">All pages</a> · ` +
+    `<header><a href="https://openclinai.org/">Open Clinical AI</a> / <a href="${base}welcome.html">Documentation</a> · ` +
     `<a href="${interactiveHrefFor(leaf, base)}">Interactive version</a></header>` +
     `<main>${innerHtml}</main>` +
     `<footer><nav>${navLink(input.prev, 'prev')}${navLink(input.next, 'next')}</nav></footer>` +

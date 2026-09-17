@@ -22,7 +22,10 @@ WORKBENCH_API="${DOCS_WORKBENCH_API_PATH:-specs/008-catalyst-query-workbench/con
 RETIRED_EXECUTION="${DOCS_RETIRED_EXECUTION_PATH:-specs/catalyst-implementation-plan.md}"
 RETIRED_DASHBOARD_GOAL="${DOCS_RETIRED_DASHBOARD_GOAL_PATH:-specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md}"
 
+REPORTING_ROADMAP="${DOCS_REPORTING_ROADMAP_PATH:-specs/openelis-reporting-catalyst-integration.md}"
+
 CURRENT_DOCS=(
+  "$REPORTING_ROADMAP"
   README.md
   AGENTS.md
   "$PROGRAM"
@@ -98,6 +101,33 @@ grep -qi 'configured connection' <<<"$workbench_text" \
   || err "workbench API is missing the configured-connection boundary"
 grep -qi 'advisory' <<<"$workbench_text" \
   || err "workbench API is missing advisory validation"
+
+# Catch the specific rejected delivery gates, including wrapped Markdown.
+# This is a regression guard, not a semantic review of agent decisions.
+if ! python3 - "$REPORTING_ROADMAP" "$TASKS" <<'PYGUARD'
+import re
+import sys
+from pathlib import Path
+
+rejected = (
+    r"manual execution does not complete (?:that|the) journey",
+    r"manual SQL.{0,120}not substitutes for (?:those|the) recorded journeys",
+    r"resolve (?:PostgreSQL )?query quality and prove question/refinement",
+)
+failed = False
+for filename in sys.argv[1:]:
+    text = Path(filename).read_text()
+    if filename == sys.argv[2]:
+        text = text.split("## Current local reporting checkpoint", 1)[0]
+    text = " ".join(text.split())
+    if any(re.search(pattern, text, re.I) for pattern in rejected):
+        print(f"FAIL: {filename} restores the rejected AI-only delivery gate", file=sys.stderr)
+        failed = True
+sys.exit(1 if failed else 0)
+PYGUARD
+then
+  fail=1
+fi
 
 PRODUCT_DOCS=(
   README.md

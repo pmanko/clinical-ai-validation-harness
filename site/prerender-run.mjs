@@ -15,10 +15,8 @@ import fs from 'node:fs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 const META = {
-  title: 'clinical-ai-validation-harness',
-  summary:
-    'A validation harness for clinical AI on OpenMRS and OpenELIS — specs, plans, ' +
-    'and visual canvases, mirrored here as full static HTML for LLM agents.',
+  title: 'Open Clinical AI documentation',
+  summary: 'Setup guides, component architecture, validation methods and cited research.',
 };
 
 export async function prerender({ outDir = path.join(here, 'dist') } = {}) {

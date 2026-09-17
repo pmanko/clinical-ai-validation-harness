@@ -24,7 +24,7 @@
     "excluded": "Not an all-time export or a code review of all 188 OpenELIS PRs. FHIR Data Pipes upstream has 46 open PRs, mostly dependencies; not duplicated here. September 14 refresh is targeted to reporting, not a new complete repository scan."
   },
   "methodology": {
-    "metadata": "GitHub CLI lists and head/check/file metadata refreshed September 12. Per-row timestamps identify the snapshot. Reporting #315/#317 merge/publication records refreshed through September 12 18:22 UTC; other row timestamps retain the earlier scan. Reporting #4291/#4292 and mock #322 refreshed September 14; other rows retain their own dates. Catalyst #132/#133 and harness #180 refreshed September15UTC; unrelated rows retain their earlier timestamps.",
+    "metadata": "GitHub CLI lists and head/check/file metadata refreshed September 12. Per-row timestamps identify the snapshot. Reporting #315/#317 merge/publication records refreshed through September 12 18:22 UTC; other row timestamps retain the earlier scan. Reporting #4291/#4292 and mock #322 refreshed September 14; other rows retain their own dates. Catalyst #132/#133/#134 and harness #180/#182 refreshed September 15 UTC; unrelated rows retain their earlier timestamps.",
     "ci": "Checks collected for the current core PRs, fork companions and all 12 open upstream contributions. Missing checks are unknown, not passing.",
     "coordination": "Current task messages, changed file lists and merged main compared. No runtime changes or uncommitted peer edits included.",
     "triage": "Active lanes, dependency order and older disposition candidates. Titles and mergeability alone do not establish safe closure or production readiness."
@@ -11448,6 +11448,62 @@
       "currentSignal": "Merged; all recorded hosted checks passed. Runtime and owner acceptance remain separately recorded.",
       "nextAction": "No merge action remains; integrate the tested revision.",
       "metadataCheckedAt": "2026-09-15T03:40:49Z"
+    },
+    {
+      "id": "pmanko/clinical-ai-validation-harness#182",
+      "repository": "pmanko/clinical-ai-validation-harness",
+      "number": 182,
+      "title": "Integrate approved imported charts and local reporting checkpoint",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/182",
+      "state": "merged",
+      "draft": false,
+      "author": "pmanko",
+      "head": "codex/imported-chart-integration",
+      "headSha": "fe02c3dfec66388d5187f7b93dff6650492f95e2",
+      "base": "main",
+      "baseSha": null,
+      "createdAt": "2026-09-15T04:48:32Z",
+      "updatedAt": "2026-09-15T04:56:18Z",
+      "mergedAt": "2026-09-15T04:56:16Z",
+      "closedAt": "2026-09-15T04:56:16Z",
+      "mergeCommitSha": "f0ff2c74b5f50a1415f90961a6648937cefddc13",
+      "effort": "OpenELIS reporting pathways",
+      "effortGroup": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting",
+        "OE-lane-2"
+      ],
+      "currentSignal": "Merged at f0ff2c7; all four hosted checks passed. The retained local runtime preserves existing artifacts and verifies native count, average and pagination; owner acceptance remains separate.",
+      "nextAction": "Pin the merged Catalyst #134 repair and verify the native total after deployment.",
+      "metadataCheckedAt": "2026-09-15T04:56:18Z"
+    },
+    {
+      "id": "DIGI-UW/catalyst-ai#134",
+      "repository": "DIGI-UW/catalyst-ai",
+      "number": 134,
+      "title": "Fix PostgreSQL grouping for whole-file imported charts",
+      "url": "https://github.com/DIGI-UW/catalyst-ai/pull/134",
+      "state": "merged",
+      "draft": false,
+      "author": "pmanko",
+      "head": "codex/imported-summary-grouping",
+      "headSha": "71c2ddde2945dfa3213889895b0df8b0405db840",
+      "base": "main",
+      "baseSha": null,
+      "createdAt": "2026-09-15T15:46:32Z",
+      "updatedAt": "2026-09-15T15:51:15Z",
+      "mergedAt": "2026-09-15T15:51:15Z",
+      "closedAt": "2026-09-15T15:51:15Z",
+      "mergeCommitSha": "a15ecb87829a2c7086ebb3d9b41684e12f90a78b",
+      "effort": "OpenELIS reporting pathways",
+      "effortGroup": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting",
+        "OE-lane-2"
+      ],
+      "currentSignal": "Merged at a15ecb8 after 443 Gateway tests and all five hosted checks. It repairs the PostgreSQL publication mapping for ungrouped count, total and average charts.",
+      "nextAction": "Integrate the exact merged revision and verify native Superset total 120 with retained artifacts.",
+      "metadataCheckedAt": "2026-09-15T15:51:15Z"
     }
   ],
   "effortMappingNote": "Scope grouping for navigation; a linked PR is not proof that the effort is accepted.",

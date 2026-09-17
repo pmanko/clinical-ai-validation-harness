@@ -47,150 +47,109 @@ def local_asset(path: str) -> Path:
     return LANDING / path.removeprefix("/")
 
 
-def test_landing_has_one_clear_h1_and_required_project_sections():
-    html, page = parsed_landing()
-
-    assert page.h1_count == 1
-    assert {"main-content", "project", "hub", "openmrs", "catalyst", "evidence"} <= page.ids
-    assert "Med Agent Hub" in html
-    assert "OpenMRS integration" in html
-    assert "Published validation runs." in html
-    assert "Experimental software" in html
-
-
-def test_landing_uses_plain_project_language_instead_of_advertising_copy():
-    html, _ = parsed_landing()
-
-    assert "A framework for orchestrating and evaluating open models in clinical workflows." in html
-    assert "How each answer is produced." in html
-    for phrase in (
-        "Build clinical AI that can be inspected",
-        "Evidence before confidence",
-        "See the staged workflow in motion",
-        "Claims are published with the evidence needed to challenge them",
-        "Try the integration, then inspect the results",
-        "Explore the OpenMRS demo",
-        "Explore published reports",
-    ):
-        assert phrase not in html
-
-
-def test_primary_destinations_are_first_party_and_prominent():
-    html, page = parsed_landing()
-
-    assert 1 <= page.links.count("https://openmrs.openclinai.org/") <= 2
-    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 5
-    assert "OpenMRS demo" in html
-    assert "Evaluation reports" in html
-
-    # Catalyst is a first-class product section with the full product-flow
-    # recording and project documentation. Superseded reports are not linked.
-    assert "Catalyst" in html
-    assert "OpenELIS" in html
-    assert "HIV" in html
-    assert "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/" not in page.links
-    assert any(
-        link.startswith("https://pmanko.github.io/clinical-ai-validation-harness/")
-        for link in page.links
-    )
-
-    first_party_hosts = {
-        urlparse(link).hostname
-        for link in page.links
-        if link.startswith("https://") and link.endswith("openclinai.org/")
-    }
-    assert {"openmrs.openclinai.org", "reports.openclinai.org"} <= first_party_hosts
-
-
-def test_catalyst_copy_identifies_local_recordings_and_actual_model_roles():
-    html, _ = parsed_landing()
-
-    assert "configured SQL source" in html
-    assert "complete readable schema" in html
-    assert "OpenELIS laboratory data and OpenMRS HIV data" in html
-    assert "Gemma 4 12B drafts each query and Qwen 2.5 14B reviews it" in html
-    assert "their findings are advisory" in html
-    assert "recorded locally" in html
-    assert "final server workflow validation, model-team comparison and owner acceptance remain open" in html
-    for obsolete in (
-        "Acceptance of the corrected Spark reference deployment remains open",
-        "are not yet implemented or accepted",
-        "generated catalog",
-        "independently authored gold queries",
-        "384 assertions",
-        "real models and PostgreSQL",
-    ):
-        assert obsolete not in html
-
-
-def test_catalyst_recordings_link_to_the_matching_youtube_uploads():
-    html, page = parsed_landing()
-
-    assert "https://youtu.be/PRs3jAzQk38" in page.links
-    assert "https://youtu.be/7p83cGMhOzw" in page.links
-    assert html.index("catalyst-openelis-local-reviewed-light-20260911-abaf54f.mp4") < html.index(
-        "https://youtu.be/PRs3jAzQk38"
-    )
-    assert html.index("catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260912-742ee58.mp4") < html.index(
-        "https://youtu.be/7p83cGMhOzw"
-    )
-
-
+PROJECT_PATHS = ("chartsearchai", "catalyst", "med-agent-hub", "validation-harness")
 MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
 
 
-def test_every_local_media_reference_exists_and_has_accessible_context():
-    html, page = parsed_landing()
+def parsed_page(relative_path):
+    html = (LANDING / relative_path).read_text(encoding="utf-8")
+    page = LandingParser()
+    page.feed(html)
+    return html, page
 
-    # Keep both ChartSearchAI recordings and one complete local Catalyst
-    # journey per retained source, with accessible playback controls.
-    assert len(page.videos) == 4
-    assert len(page.sources) == 4
-    catalyst_sources = [src for src in page.sources if "catalyst-" in src]
-    assert len(catalyst_sources) == 2
-    assert any("openelis-local-" in src for src in catalyst_sources)
-    assert any("openmrs-cd4-monitoring-local-" in src for src in catalyst_sources)
-    assert all("20260827" not in src for src in catalyst_sources)
-    assert len(page.images) >= 3
-    assert "1:45 · silent recording at 2× speed" in html
 
-    for image in page.images:
-        assert image.get("src")
-        assert image.get("alt") is not None
-        image_src = str(image["src"])
-        if image_src.startswith("https://"):
-            assert image_src.startswith(MEDIA_HOST)
-        else:
-            assert local_asset(image_src).is_file()
+def test_homepage_introduces_four_projects_without_embedded_walkthroughs():
+    html, home = parsed_landing()
+    assert home.h1_count == 1
+    assert {"main-content", "projects", "about", "openmrs", "catalyst", "hub"} <= home.ids
+    assert "Open tools for clinical questions and reporting." in html
+    for project in PROJECT_PATHS:
+        assert f"/{project}/" in home.links
+    assert not home.videos
+    assert "https://reports.openclinai.org/" in home.links
+    assert "Experimental software" in html
+    assert "https://openmrs.openclinai.org/" not in home.links
 
-    for video in page.videos:
-        assert video.get("controls") is None
-        assert video.get("preload") == "metadata"
-        assert video.get("aria-label")
-        poster = str(video.get("poster") or "")
-        assert poster
-        # Recordings and their posters are served by the demo host; the
-        # hand-made page images stay local. Either is fine — a poster that is
-        # neither is a typo, which is what this catches.
-        if poster.startswith("http"):
-            assert poster.startswith(MEDIA_HOST)
-        else:
-            assert local_asset(poster).is_file()
 
-    # Every clip is hosted, so nothing here should resolve to a local file.
-    # Compare by URL path (e.g. "/media/foo.mp4"), not by stripping MEDIA_HOST
-    # textually -- that would drop the "media/" segment and check
-    # landing/foo.mp4 instead of the actual local-alias location,
-    # landing/media/foo.mp4.
-    for source in page.sources:
-        assert source.startswith(MEDIA_HOST), source
-        assert not local_asset(urlparse(source).path).exists()
+def test_project_pages_have_parents_and_real_next_steps():
+    for project in PROJECT_PATHS:
+        html, page = parsed_page(f"{project}/index.html")
+        assert page.h1_count == 1
+        assert "/#projects" in page.links
+        assert f'https://openclinai.org/{project}/' in html
+        assert any(link.startswith("https://") for link in page.links)
+        assert not page.scripts
+    _, catalyst = parsed_page("catalyst/index.html")
+    assert "/catalyst/reporting-pathways/" in catalyst.links
+    assert "/catalyst/questions/" in catalyst.links
+    assert "/catalyst/hiv-gallery/" in catalyst.links
+
+
+def test_reporting_paths_are_honest_about_native_route_and_pending_recordings():
+    html, page = parsed_page("catalyst/reporting-pathways/index.html")
+    assert {f"reporting-path-{number}" for number in range(1, 5)} <= page.ids
+    assert "/catalyst/" in page.links
+    assert "No Catalyst or AI step is required" in html
+    assert "Final server demonstrations are pending" in html
+    assert not page.videos
+
+
+def test_existing_recordings_and_accessible_playback_are_preserved():
+    pages = [parsed_page(f"{project}/index.html") for project in ("chartsearchai", "catalyst")]
+    videos = [video for _, page in pages for video in page.videos]
+    sources = [src for _, page in pages for src in page.sources]
+    assert len(videos) == len(sources) == 4
+    assert any("openelis-local-" in src for src in sources)
+    assert any("openmrs-cd4-monitoring-local-" in src for src in sources)
+    for html, page in pages:
+        assert "Transcript (silent recording)" in html
+        for video in page.videos:
+            assert "controls" in video and "playsinline" in video
+            assert "autoplay" not in video
+            assert video.get("preload") == "metadata"
+            assert video.get("aria-label")
+            poster = str(video.get("poster") or "")
+            assert poster.startswith(MEDIA_HOST) or local_asset(poster).is_file()
+    for src in sources:
+        assert src.startswith(MEDIA_HOST)
+    _, catalyst = pages[1]
+    assert {"https://youtu.be/PRs3jAzQk38", "https://youtu.be/7p83cGMhOzw"} <= set(catalyst.links)
+
+
+def test_every_site_local_link_fragment_and_image_resolves():
+    for path in LANDING.rglob("*.html"):
+        _, page = parsed_page(path.relative_to(LANDING))
+        for link in page.links:
+            parsed = urlparse(link)
+            if parsed.scheme or parsed.netloc:
+                continue
+            destination = LANDING / parsed.path.lstrip("/") if parsed.path.startswith("/") else path.parent / parsed.path
+            if not parsed.path:
+                destination = path
+            elif destination.is_dir():
+                destination = destination / "index.html"
+            assert destination.is_file(), (path, link)
+            if parsed.fragment and destination.suffix == ".html":
+                _, target = parsed_page(destination.relative_to(LANDING))
+                assert parsed.fragment in target.ids, (path, link)
+        for image in page.images:
+            assert image.get("alt") is not None
+            src = str(image.get("src") or "")
+            if not urlparse(src).scheme:
+                image_path = LANDING / src.lstrip("/") if src.startswith("/") else path.parent / src
+                assert image_path.is_file(), (path, src)
+
+
+def test_legacy_homepage_fragments_retain_onward_links():
+    _, home = parsed_landing()
+    assert {"project", "openmrs", "catalyst", "hub", "evidence", "wahs", "paths", "reporting-pathways", "catalyst-openelis-video", "catalyst-openmrs-video"} <= home.ids
+    assert "/catalyst/#catalyst-openelis-video" in home.links
+    assert "/catalyst/#catalyst-openmrs-video" in home.links
 
 
 def test_landing_is_static_responsive_and_keyboard_visible():
     html, page = parsed_landing()
-    css = (LANDING / "styles.css").read_text(encoding="utf-8")
-
+    css = (LANDING / "styles.css").read_text() + (LANDING / "projects.css").read_text()
     assert page.scripts == []
     assert "@media (max-width: 720px)" in css
     assert "@media (prefers-reduced-motion: reduce)" in css
@@ -242,7 +201,8 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert "landing-only mode; proxy configuration and services unchanged" in publish
     assert 'if [ "${PUBLISH_MODE}" = "full" ] && [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; then' in publish
     assert 'SITE="${CADDY_SITE:-openclinai.org}"' in publish
-    assert "grep -oE 'https://youtu.be/[A-Za-z0-9_-]+'" in publish
+    assert 'cmp - "${local_page}"' in publish
+    assert '-name \'*.html\' -o -name \'*.css\'' in publish
     assert "backend" not in publish
     assert "gateway" not in publish
     assert "frontend" not in publish
@@ -251,11 +211,12 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
 
 def test_question_gallery_has_playable_clips_details_and_working_navigation():
     _, home = parsed_landing()
+    _, catalyst = parsed_page("catalyst/index.html")
     gallery_path = LANDING / "catalyst/questions/index.html"
     gallery = LandingParser()
     markup = gallery_path.read_text(encoding="utf-8")
     gallery.feed(markup)
-    assert "/catalyst/questions/" in home.links
+    assert "/catalyst/questions/" in catalyst.links
     assert gallery.h1_count == 1
     assert gallery.videos and len(gallery.videos) == len(gallery.sources)
     assert markup.count("<details") == len(gallery.videos)
@@ -276,3 +237,12 @@ def test_question_gallery_has_playable_clips_details_and_working_navigation():
             assert link[2:] in home.ids
         elif link.startswith("/") and link.endswith("/"):
             assert (LANDING / link.lstrip("/") / "index.html").is_file()
+
+
+def test_screenshot_walkthrough_is_easy_to_find_without_browsing_videos():
+    home, parser = parsed_landing()
+    assert "/catalyst/hiv-gallery/" in parser.links
+    catalyst, _ = parsed_page("catalyst/index.html")
+    opening = catalyst.split("<video", 1)[0]
+    assert 'href="/catalyst/hiv-gallery/"' in opening
+    assert "Screenshot walkthrough" in opening

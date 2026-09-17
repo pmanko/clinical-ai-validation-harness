@@ -25,6 +25,8 @@ fi
 # shellcheck disable=SC1091
 . "${ROOT}/scripts/cloud-lib.sh"
 
+echo "==> generating landing discovery files"
+python3 "${ROOT}/scripts/build-landing-sitemap.py"
 echo "==> running landing regression checks"
 ( cd "${ROOT}" && uv run pytest -q tests/test_landing_site.py )
 
@@ -101,13 +103,14 @@ else
 fi
 
 echo "==> verifying https://${SITE}/"
-SITE_HTML="$(curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/")"
-grep -Fq '<h1 id="hero-title">Open Clinical AI</h1>' <<<"${SITE_HTML}"
-grep -Fq '1:45 · silent recording at 2× speed' <<<"${SITE_HTML}"
-grep -Fq '>Catalyst</a>' <<<"${SITE_HTML}"
-while IFS= read -r youtube_link; do
-  grep -Fq "${youtube_link}" <<<"${SITE_HTML}"
-done < <(grep -oE 'https://youtu.be/[A-Za-z0-9_-]+' "${ROOT}/landing/index.html" | sort -u)
+# Compare every published HTML/CSS file with the reviewed source, including
+# subpages. Matching only an old headline would miss a stale project page.
+while IFS= read -r local_page; do
+  relative_page="${local_page#"${ROOT}/landing/"}"
+  echo "==> verifying ${relative_page}"
+  curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 30 \
+    "https://${SITE}/${relative_page}" | cmp - "${local_page}"
+done < <(find "${ROOT}/landing" -type f \( -name '*.html' -o -name '*.css' -o -name 'sitemap.xml' \) | sort)
 curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
   -o /dev/null
 # Separate post-publish verification: the demo-host assets were already

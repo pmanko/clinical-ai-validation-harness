@@ -12,6 +12,14 @@ support, CSV import/table support and the approved raw-row chart controls are
 merged. Integrated rendering, runtime verification and four-pathway acceptance remain; existing AI-assisted
 Widget/Dashboard design remains Follow-on A.
 
+For this delivery, apply the roadmap's **Workflow acceptance and scope** before
+choosing a repair. Manual SQL correction is an intended success path. If a model
+proposal is wrong but the user can correct/run/save/publish it, record the finding
+and continue; do not optimize model accuracy or benchmark performance. Repair
+actual failures of that supported workflow. Separately authorized performance
+tests require at least a 12B writer with Qwen review; this is not authorization
+to run them. Older performance tasks do not override the active delivery scope.
+
 For Catalyst, read these authorities in order:
 
 1. `specs/008-catalyst-query-workbench/plan.md` for the authoritative
