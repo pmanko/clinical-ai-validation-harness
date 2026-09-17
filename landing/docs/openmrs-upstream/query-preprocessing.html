@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Why QueryStore is moving away from stopword stripping towards natural language context preservation for modern dense embeddings." />
+    <meta name="theme-color" content="#4b2e83" />
+    <title>Query Preprocessing Modernization · Open Clinical AI</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260915-upstream" />
+    <link rel="stylesheet" href="page.css?v=20260915" />
+    <link rel="stylesheet" href="/projects.css?v=20260915-projects" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header project-header">
+      <a class="brand" href="/" aria-label="Open Clinical AI home">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span>Open Clinical AI</span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a href="/#projects">Projects</a>
+        <a href="https://reports.openclinai.org/">Evidence</a>
+        <a href="/#about">About</a>
+      </nav>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="doc-intro" aria-labelledby="doc-title">
+        <div class="page-width">
+          <p class="section-kicker">Documentation · OpenMRS integration · updated 17 September 2026</p>
+          <h1 id="doc-title">Query Preprocessing Modernization</h1>
+          <p>
+            An architectural update to how ChartSearchAI queries are preprocessed before semantic search in the OpenMRS QueryStore. 
+            We have retired legacy stopword removal to properly support modern dense embedding models and global multilingual deployments.
+          </p>
+        </div>
+      </section>
+
+      <section class="section doc-section" aria-labelledby="why-change">
+        <div class="page-width">
+          <h2 id="why-change">Why We Removed Stopword Stripping</h2>
+          <p class="section-lead">
+            Historically, search systems used "stopword" lists to remove common words (like "the", "not", "is") 
+            to prevent them from overwhelming keyword search scores. Modern clinical AI pipelines require a different approach.
+          </p>
+          <div class="catalogue">
+            <div class="group">
+              <h3>Grammatical Context is Critical for Transformers</h3>
+              <ul>
+                <li>Modern dense embedding models (like <code>multilingual-e5</code>) rely on self-attention mechanisms to understand text. They compute the meaning of a word based on the words around it.</li>
+                <li>Stripping words like "not" or "with" destroys clinical meaning. A query like "is the patient not responding to metformin?" becomes "patient responding metformin" when stopwords are removed, completely reversing the clinician's intent.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>BM25 Already Handles Common Words</h3>
+              <ul>
+                <li>The sparse retrieval side of QueryStore uses BM25, which naturally applies Inverse Document Frequency (IDF).</li>
+                <li>IDF automatically downweighs common words mathematically based on their frequency in the clinical corpus. Manual stopword lists are redundant and carry the risk of stripping clinically relevant context.</li>
+              </ul>
+            </div>
+            <div class="group">
+              <h3>Fixing the Multilingual Contradiction</h3>
+              <ul>
+                <li>QueryStore's Architecture Decision Record (ADR 8) explicitly chose <code>multilingual-e5</code> to remove English bias and support 100+ languages natively.</li>
+                <li>However, the previous preprocessing step relied on a 260-word English-only stopword list. This caused non-English queries to fail or act unpredictably. Removing the English stopword list restores true multilingual capability to the platform.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="page-width footer-grid">
+        <div>
+          <a class="brand footer-brand" href="/">
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
+            <span>Open Clinical AI</span>
+          </a>
+          <p>Open-source tools for clinical AI integration and evaluation.</p>
+        </div>
+        <nav aria-label="Project links">
+          <a href="https://pmanko.github.io/clinical-ai-validation-harness/">Project documentation</a>
+          <a href="/docs/openmrs-upstream/">OpenMRS upstream contributions</a>
+          <a href="https://github.com/pmanko/clinical-ai-validation-harness">Validation harness (GitHub)</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

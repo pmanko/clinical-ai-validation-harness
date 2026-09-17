@@ -143,7 +143,7 @@
               <ul>
                 <li><code>getContextSlice(patient, question, request)</code> returns tier-tagged records: mandatory clinical core, recency anchor, typed completeness, similarity.</li>
                 <li>Each page carries <code>chartSnapshotId</code> (the same complete-chart fingerprint the full read publishes), <code>sliceId</code>, <code>effectiveTypes</code> and <code>temporalApplied</code>; a consumer combining a ledger with a later slice must match the snapshot.</li>
-                <li>Selection is deterministic when interpretation is off. <code>interpret=true</code> adds typed and temporal cues; lab-panel expansion and stopword stripping run in the store, and words that carry clinical meaning (negation, status, laterality, body site) are protected.</li>
+                <li>Selection is deterministic when interpretation is off. <code>interpret=true</code> adds typed and temporal cues; lab-panel expansion and stopword stripping run in the store, and words that carry clinical meaning (negation, status, laterality, body site) are protected. <a href="query-preprocessing.html">Read more about the recent modernization of query preprocessing</a>.</li>
               </ul>
             </div>
           </div>
