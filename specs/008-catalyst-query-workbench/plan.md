@@ -139,6 +139,23 @@ The Superset header logo/base-link visual defect also remains to be corrected.
 This cleanup does not change model profiles, generation deadlines or ingestion
 contents. Detailed status and evidence live only in [tasks.md](tasks.md).
 
+### Separate improvement — current-date context
+
+Requested on 13 September after a local natural-language query interpreted
+“this year” as 2024. Add an explicit reference date and named timezone to the
+ordinary Catalyst request context, shared by the writer and reviewer and retained
+in generation evidence. Keep this changing context after the stable schema and
+instructions so useful prefix reuse survives. Record the request timestamp and
+keep one date anchor throughout a turn's preparation and repairs.
+
+Follow-ups preserve an already resolved reporting period unless the user changes
+it. A new relative-date request uses its recorded reference date. Current date is
+distinct from the data's coverage or freshness; do not imply that an old dataset
+contains current observations. Resolve timezone configuration/fallback explicitly
+during implementation. Detailed acceptance is in
+[tasks.md](tasks.md#current-date-context). This separate improvement does not block
+the requested date-independent screenshot round or change model profiles.
+
 ### Established neutral-question warmup
 
 The owner selected this behavior: ask **“What information is available

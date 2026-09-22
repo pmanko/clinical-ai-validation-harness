@@ -352,6 +352,31 @@ browser checks confirmed the new assets and retained results. The public design
 copy's 11 asset hashes match `ed22781`. The earlier video predates this UI patch;
 final visual and owner acceptance remain separate.
 
+## Current-date context
+
+- [X] Record the owner's 13 September request to supply current-date context as
+  a separate improvement in the existing [plan](plan.md#separate-improvement--current-date-context).
+- [ ] Supply a reference date and named timezone to both writer and reviewer;
+  record the request timestamp, date, timezone and their source in the existing
+  generation evidence. Make timezone configuration and fallback explicit.
+- [ ] Preserve one reference date across a turn's generation and repair calls;
+  put changing date context after the stable schema/instruction prefix.
+- [ ] Preserve a previously resolved reporting period during ordinary follow-up
+  refinement. Resolve a newly requested relative period against its recorded
+  reference date. Keep dataset coverage/freshness distinct from the current date.
+- [ ] Add focused coverage for relative month/year boundaries, timezone boundaries,
+  writer/reviewer context agreement, repair consistency and follow-up preservation.
+  Verify actual request evidence and a local relative-date query with the reviewer.
+- [ ] Record implementation, validation, merge, local/server rollout and owner
+  acceptance separately. This entry records planned work, not a deployed fix.
+
+The observed local 12B-writer/14B-reviewer run chose the wrong year and the test
+name `CD4`; a correction changed the year but retained `CD4` rather than the
+requested `CD4 count`. Both queries returned zero rows despite reviewer approval.
+Date context addresses the missing clock information; terminology grounding and
+the missed explicit correction remain separate findings. Full traces and
+captioned failure screenshots remain in the private local review archive.
+
 ## Current release integration — 11 September 2026
 
 The owner authorized this sequence: roadmap #142, combined Catalyst #106–#109
