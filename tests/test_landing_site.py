@@ -85,13 +85,24 @@ def test_project_pages_have_parents_and_real_next_steps():
     assert "/catalyst/hiv-gallery/" in catalyst.links
 
 
-def test_reporting_paths_are_honest_about_native_route_and_pending_recordings():
+def test_reporting_paths_publish_four_reviewed_recordings_with_clear_limits():
     html, page = parsed_page("catalyst/reporting-pathways/index.html")
     assert {f"reporting-path-{number}" for number in range(1, 5)} <= page.ids
     assert "/catalyst/" in page.links
     assert "No Catalyst or AI step is required" in html
-    assert "Final server demonstrations are pending" in html
-    assert not page.videos
+    assert "All four recordings were reviewed at normal speed" in html
+    assert "the recordings are not presented as server-video evidence" in html
+    assert "Owner acceptance remains open" in html
+    assert len(page.videos) == len(page.sources) == 4
+    assert html.count("What the recording shows") == 4
+    for video in page.videos:
+        assert "controls" in video and "playsinline" in video
+        assert "autoplay" not in video
+        assert video.get("preload") == "metadata"
+        assert str(video.get("poster") or "").startswith(MEDIA_HOST)
+        assert video.get("aria-label")
+    for source in page.sources:
+        assert source.startswith(MEDIA_HOST)
 
 
 def test_existing_recordings_and_accessible_playback_are_preserved():

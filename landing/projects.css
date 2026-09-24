@@ -51,6 +51,10 @@ summary:focus-visible { outline: 3px solid var(--purple); outline-offset: 4px; }
 .project-callout p { max-width: 670px; }
 .reporting-pathways { padding-bottom: 56px; }
 .reporting-pathways .video-grid { margin-top: 26px; }
+.reporting-pathways .video-item > div { display: flex; flex-direction: column; }
+.reporting-pathways .pathway-links { margin: 16px 0 0; }
+.reporting-pathways .pathway-note { margin: 14px 0 0; padding: 12px 14px; background: var(--soft); border-left: 3px solid var(--gold); color: var(--muted); font-size: 14px; }
+.reporting-pathways .transcript { margin-top: 16px; }
 .legacy-destination { display: none; }
 .legacy-destination:target { display: block; padding: 14px 18px; background: var(--soft); border-left: 3px solid var(--purple); }
 .legacy-destination p { margin: 0; }

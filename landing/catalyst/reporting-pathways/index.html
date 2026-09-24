@@ -9,7 +9,7 @@
 <meta property="og:url" content="https://openclinai.org/catalyst/reporting-pathways/" />
 <meta property="og:title" content="OpenELIS reporting pathways" />
 <meta property="og:description" content="Four complementary ways to move OpenELIS reporting data into useful dashboards, with capabilities and limits for each route." />
-<meta property="og:image" content="https://openclinai.org/media/openmrs-evidence-poster.webp" />
+<meta property="og:image" content="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane1.jpg" />
 <meta name="theme-color" content="#4b2e83" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -56,56 +56,82 @@
 </div>
 </section>
 <section class="page-width reporting-pathways" id="reporting-pathways" aria-labelledby="reporting-pathways-title">
-          <p class="section-kicker">OpenELIS reporting · In progress</p>
+          <p class="section-kicker">OpenELIS reporting · Recorded demonstrations</p>
           <h2 id="reporting-pathways-title">Choose a starting point</h2>
           <p class="pathways-intro">Start with a report you already know, or ask a new question. These pathways serve different needs: they are complementary choices, not equivalent alternatives to rank. OpenELIS reporting works independently of Catalyst and AI.</p>
           <div class="video-grid">
             <article class="video-item" id="reporting-path-1">
+              <video controls playsinline preload="metadata" poster="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane1.jpg" aria-label="Path 1 demonstration: export an OpenELIS CSV and build a Superset dashboard">
+                <source src="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane1.mp4" type="video/mp4" />
+                Your browser does not support embedded video. <a href="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane1.mp4">Open the MP4</a>.
+              </video>
               <div>
-                <p class="video-meta">Path 1 · Export and visualize</p>
+                <p class="video-meta"><span>Path 1 · Export and visualize</span><span>2:33</span></p>
                 <h3>Use a familiar OpenELIS report</h3>
                 <p class="pathway-flow">OpenELIS report builder → CSV → Superset</p>
                 <p>Choose fields and filters, generate a CSV, then upload it into Superset to build a table, chart and dashboard. No Catalyst or AI step is required.</p>
                 <p class="pathway-limit">
 <strong>Data:</strong> a snapshot for the selected reporting period. Export and upload again when you need a new snapshot.</p>
+                <p class="pathway-links"><a class="text-link" href="https://catalyst.openelis-global.org/catalyst-dashboards/superset/dashboard/6/">Open the verified server dashboard <span aria-hidden="true">↗</span></a></p>
+                <details class="transcript"><summary>What the recording shows</summary><ol><li>Choose and order OpenELIS report columns.</li><li>Save the report configuration, provide a fresh reporting period and generate the CSV.</li><li>Upload the CSV into Superset.</li><li>Create a result table and record-count chart, then arrange the dashboard.</li></ol></details>
               </div>
             </article>
             <article class="video-item" id="reporting-path-2">
+              <video controls playsinline preload="metadata" poster="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane2.jpg" aria-label="Path 2 demonstration: import an OpenELIS CSV into Catalyst and publish a dashboard">
+                <source src="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane2.mp4" type="video/mp4" />
+                Your browser does not support embedded video. <a href="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane2.mp4">Open the MP4</a>.
+              </video>
               <div>
-                <p class="video-meta">Path 2 · Bring your report</p>
+                <p class="video-meta"><span>Path 2 · Bring your report</span><span>2:51</span></p>
                 <h3>Build on a CSV in Catalyst</h3>
                 <p class="pathway-flow">OpenELIS report builder → CSV → Catalyst → Superset</p>
                 <p>Upload the report, review its columns and types, and save a Dataset. Create charts, arrange a dashboard and publish it to Superset without writing SQL.</p>
                 <p class="pathway-limit">
 <strong>Data:</strong> an imported snapshot with a saved version. A later file does not silently replace an existing published report.</p>
+                <p class="pathway-links"><a class="text-link" href="https://catalyst.openelis-global.org/catalyst-dashboards/superset/dashboard/catalyst-0899ee92-2deb-47b9-a84b-6e518a8f382a/">Open the verified server dashboard <span aria-hidden="true">↗</span></a></p>
+                <details class="transcript"><summary>What the recording shows</summary><ol><li>Generate the same OpenELIS CSV used in Path 1.</li><li>Import it into Catalyst and review the detected columns and types.</li><li>Save and reopen the imported Dataset without using SQL.</li><li>Create a table and count chart, arrange a dashboard and publish it to Superset.</li></ol></details>
               </div>
             </article>
             <article class="video-item" id="reporting-path-3">
+              <video controls playsinline preload="metadata" poster="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane3.jpg" aria-label="Path 3 demonstration: query the OpenELIS PostgreSQL source through Catalyst and publish a dashboard">
+                <source src="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane3.mp4" type="video/mp4" />
+                Your browser does not support embedded video. <a href="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane3.mp4">Open the MP4</a>.
+              </video>
               <div>
-                <p class="video-meta">Path 3 · Ask the database</p>
+                <p class="video-meta"><span>Path 3 · Ask the database</span><span>1:56</span></p>
                 <h3>Explore OpenELIS directly</h3>
                 <p class="pathway-flow">OpenELIS PostgreSQL → Catalyst → Superset</p>
                 <p>Browse available data, ask and refine a question, review the proposed SQL and choose when to run it. Save the result as a Dataset, then build and publish a dashboard.</p>
                 <p class="pathway-limit">
 <strong>Data:</strong> queried from the connected operational database. This avoids a file export; results depend on the query and when it runs.</p>
+                <p class="pathway-note"><strong>Recorded outcome:</strong> context preparation stopped before either selected model ran. The demonstration continues through Catalyst's supported manual-SQL recovery path.</p>
+                <p class="pathway-links"><a class="text-link" href="https://catalyst.openelis-global.org/catalyst-dashboards/superset/dashboard/catalyst-5e39c16f-23ee-4434-bd4d-e78452b338cf/">Open the verified server dashboard <span aria-hidden="true">↗</span></a></p>
+                <details class="transcript"><summary>What the recording shows</summary><ol><li>Select OpenELIS PostgreSQL and browse its available schema.</li><li>Prepare a question and inspect the visible preparation failure.</li><li>Use the manual SQL recovery path and explicitly retrieve results.</li><li>Save the Dataset and publish its dashboard to Superset.</li></ol></details>
               </div>
             </article>
             <article class="video-item" id="reporting-path-4">
+              <video controls playsinline preload="metadata" poster="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane4.jpg" aria-label="Path 4 demonstration: query OpenELIS FHIR-derived Spark data through Catalyst and publish a dashboard">
+                <source src="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane4.mp4" type="video/mp4" />
+                Your browser does not support embedded video. <a href="https://catalyst.openelis-global.org/media/openelis-reporting-pathways-20260916-812451c/lane4.mp4">Open the MP4</a>.
+              </video>
               <div>
-                <p class="video-meta">Path 4 · Ask the reporting warehouse</p>
+                <p class="video-meta"><span>Path 4 · Ask the reporting warehouse</span><span>2:10</span></p>
                 <h3>Explore the FHIR reporting source</h3>
                 <p class="pathway-flow">OpenELIS FHIR → Data Pipes / Spark → Catalyst → Superset</p>
                 <p>Use the same question, review and dashboard workflow over the FHIR reporting source. The pipeline prepares OpenELIS FHIR data for SQL analysis.</p>
                 <p class="pathway-limit">
 <strong>Data:</strong> limited to what OpenELIS exports to FHIR and the latest pipeline refresh. Coverage and freshness can differ from the operational database.</p>
+                <p class="pathway-note"><strong>Recorded outcome:</strong> Gemma 12B drafted the query and Qwen reviewed it. Execution and analyst refinement remain explicit.</p>
+                <p class="pathway-links"><a class="text-link" href="https://catalyst.openelis-global.org/catalyst-dashboards/superset/dashboard/catalyst-dea5186c-bb7b-4b8f-82c8-8ad5abb746f5/">Open the verified server dashboard <span aria-hidden="true">↗</span></a></p>
+                <details class="transcript"><summary>What the recording shows</summary><ol><li>Select the FHIR-derived Spark source and write a reporting question.</li><li>Review the generated and reviewed SQL before execution.</li><li>Retrieve the result and make an explicit analyst refinement.</li><li>Save the Dataset and publish its dashboard to Superset.</li></ol></details>
               </div>
             </article>
           </div>
           <p class="pathways-status">
-<strong>Four-pathway videos are in preparation.</strong> Partial local checks are available; complete server journeys and owner acceptance remain open. Each pathway will have its own recording here once verified. The applications currently use their existing sign-ins; shared sign-in and equivalent per-user access are separately planned.</p>
+<strong>All four recordings were reviewed at normal speed.</strong> These are real local workflows with synthetic records, recorded September 16, 2026. The linked server dashboards separately verify the updated deployment; the recordings are not presented as server-video evidence. Owner acceptance remains open. The applications currently use their existing sign-ins; shared sign-in and equivalent per-user access are separately planned.</p>
           <a class="text-link" href="https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/openelis-reporting-catalyst-integration.md">Reporting roadmap and evidence <span aria-hidden="true">↗</span>
 </a>
-        <p class="scope-note">Final server demonstrations are pending. Earlier recordings do not establish acceptance of all four pathways.</p>
+        <p class="scope-note">Captions remain visible for reading, result views are held for inspection and accelerated waits are labelled. Final owner acceptance remains a separate milestone.</p>
 </section>
 </main>
 <footer class="site-footer">
