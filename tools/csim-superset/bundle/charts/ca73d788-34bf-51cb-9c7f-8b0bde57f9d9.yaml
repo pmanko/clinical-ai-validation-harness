@@ -1,0 +1,144 @@
+slice_name: UC location (cohort/state stacked) - Ind
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 6__table
+  viz_type: echarts_timeseries_bar
+  matrixify_enable: false
+  matrixify_mode_columns: disabled
+  matrixify_dimension_selection_mode_columns: members
+  matrixify_dimension_columns:
+    dimension: ''
+    values: []
+  matrixify_topn_value_columns: 10
+  matrixify_all_sort_by_columns: a_to_z
+  matrixify_topn_order_columns: true
+  matrixify_show_column_headers: true
+  matrixify_fit_columns_dynamically: true
+  matrixify_mode_rows: disabled
+  matrixify_dimension_selection_mode_rows: members
+  matrixify_dimension_rows:
+    dimension: ''
+    values: []
+  matrixify_topn_value_rows: 10
+  matrixify_all_sort_by_rows: a_to_z
+  matrixify_topn_order_rows: true
+  matrixify_show_row_labels: true
+  matrixify_row_height: 300
+  matrixify_charts_per_row: 4
+  matrixify_cell_title_template: ''
+  x_axis: time_aggregate
+  time_grain_sqla: P1M
+  xAxisForceCategorical: false
+  metrics:
+  - aggregate: SUM
+    column:
+      advanced_data_type: null
+      changed_on: '2026-03-17T22:03:46.758844'
+      column_name: n_submissions
+      created_on: '2026-03-17T22:03:46.758840'
+      description: null
+      expression: null
+      extra: null
+      filterable: true
+      groupby: true
+      id: 451
+      is_active: true
+      is_dttm: false
+      python_date_format: null
+      type: column
+      type_generic: 0
+      uuid: df220a59-92c4-4a29-925c-22cd0d9d18cc
+      verbose_name: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: false
+    label: SUM(n_submissions)
+    optionName: metric_h0ka8txduwe_2y0km9y716a
+    sqlExpression: null
+  groupby:
+  - location_name
+  adhoc_filters:
+  - clause: WHERE
+    comparator: All locations
+    datasourceWarning: false
+    expressionType: SIMPLE
+    filterOptionName: filter_0rpn1hig77g_rhbq0ddyzd
+    isExtra: false
+    isNew: false
+    operator: '!='
+    operatorId: NOT_EQUALS
+    sqlExpression: null
+    subject: location_name
+  - clause: WHERE
+    comparator: No filter
+    datasourceWarning: false
+    expressionType: SIMPLE
+    filterOptionName: filter_k44d4h69ud_hmj9oem2kv9
+    isExtra: false
+    isNew: false
+    operator: TEMPORAL_RANGE
+    sqlExpression: null
+    subject: filter_anchor
+  group_others_when_limit_reached: false
+  row_limit: 1000
+  truncate_metric: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  forecastEnabled: false
+  forecastPeriods: 10
+  forecastInterval: 0.8
+  orientation: vertical
+  x_axis_title: Time
+  x_axis_title_margin: 45
+  y_axis_title: Number of urine cultures
+  y_axis_title_margin: 30
+  y_axis_title_position: Left
+  sort_series_type: name
+  sort_series_ascending: true
+  color_scheme: echarts5Colors
+  show_value: false
+  stack: Stack
+  color_by_primary_axis: false
+  minorTicks: false
+  zoomable: false
+  show_legend: true
+  legendType: scroll
+  legendOrientation: left
+  x_axis_time_format: '%b %Y'
+  x_axis_number_format: ~g
+  xAxisLabelRotation: 90
+  xAxisLabelInterval: auto
+  y_axis_format: SMART_NUMBER
+  logAxis: false
+  minorSplitLine: false
+  truncateYAxis: false
+  y_axis_bounds:
+  - null
+  - null
+  truncateXAxis: false
+  force_max_interval: false
+  rich_tooltip: true
+  showTooltipTotal: true
+  showTooltipPercentage: true
+  tooltipSortByMetric: false
+  tooltipTimeFormat: smart_date
+  echart_options: '{}'
+  extra_form_data: {}
+  time_range: '2025-11-01 : 2026-06-01'
+  granularity_sqla: filter_anchor
+  x_axis_sort: name
+  x_axis_sort_asc: true
+  timeseries_limit_metric: Period order
+  x_axis_force_categorical: true
+  x_axis_label_interval: 0
+  x_axis_label_rotation: 30
+  order_desc: false
+query_context: null
+cache_timeout: null
+uuid: ca73d788-34bf-51cb-9c7f-8b0bde57f9d9
+version: 1.0.0
+dataset_uuid: 737ca324-bf44-557d-bd48-7fa31f1d5fa0

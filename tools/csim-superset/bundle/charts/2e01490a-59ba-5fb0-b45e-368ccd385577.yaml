@@ -1,0 +1,45 @@
+slice_name: Abx duration (latest comparison) - Ind
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 4__table
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - hosp_code
+  - State
+  - Month
+  - Your Hospital (Days)
+  - Cohort (Days)
+  - Your State (Days)
+  temporal_columns_lookup: {}
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  server_pagination: false
+  row_limit: 1000
+  percent_metric_calculation: row_limit
+  show_totals: false
+  table_timestamp_format: smart_date
+  include_search: false
+  allow_rearrange_columns: false
+  allow_render_html: true
+  show_cell_bars: false
+  align_pn: true
+  color_pn: false
+  comparison_color_enabled: false
+  comparison_color_scheme: Green
+  conditional_formatting: []
+  comparison_type: values
+  extra_form_data: {}
+  time_range: '2025-11-01 : 2026-06-01'
+  time_grain_sqla: P1M
+  granularity_sqla: filter_anchor
+query_context: null
+cache_timeout: null
+uuid: 2e01490a-59ba-5fb0-b45e-368ccd385577
+version: 1.0.0
+dataset_uuid: da9ad4da-c9ac-5d87-8154-af1c4f57baf4

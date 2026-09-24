@@ -1,0 +1,68 @@
+slice_name: Volume of UC submissions (entire cohort)
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 7__table
+  viz_type: big_number_total
+  metric:
+    aggregate: SUM
+    column:
+      advanced_data_type: null
+      changed_on: '2026-03-12T17:38:27.533573'
+      column_name: ucsub
+      created_on: '2026-03-12T17:38:27.533569'
+      description: null
+      expression: null
+      extra: null
+      filterable: true
+      groupby: true
+      id: 389
+      is_active: true
+      is_dttm: false
+      python_date_format: null
+      type: LONGINTEGER
+      type_generic: 0
+      uuid: ea1aada2-17bb-4dfa-9ced-1d61f2c42430
+      verbose_name: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: false
+    label: SUM(ucsub)
+    optionName: metric_hezjwwn9m0j_uk5z5yyy64n
+    sqlExpression: null
+  adhoc_filters:
+  - clause: WHERE
+    comparator: No filter
+    datasourceWarning: false
+    expressionType: SIMPLE
+    filterOptionName: filter_qw9ain9xcih_hs6nvx71lqp
+    isExtra: false
+    isNew: false
+    operator: TEMPORAL_RANGE
+    sqlExpression: null
+    subject: filter_anchor
+  - clause: WHERE
+    expressionType: SIMPLE
+    subject: hosp_code
+    operator: IN
+    comparator:
+    - Cohort
+  header_font_size: 0.5
+  subtitle: ''
+  subtitle_font_size: 0.125
+  show_metric_name: false
+  y_axis_format: ',d'
+  time_format: smart_date
+  force_timestamp_formatting: false
+  conditional_formatting: []
+  extra_form_data: {}
+  time_range: No filter
+  time_grain_sqla: P1M
+  granularity_sqla: filter_anchor
+query_context: null
+cache_timeout: null
+uuid: fa4291d3-2afd-52b2-b67e-7e1af08ca74e
+version: 1.0.0
+dataset_uuid: 689dc928-163a-5b50-9ca9-d8da32c158aa
