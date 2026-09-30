@@ -434,11 +434,11 @@
       "path": "specs/openelis-reporting-catalyst-integration.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/openelis-reporting-catalyst-integration.md",
       "role": "authority",
-      "current_or_superseded": "Current parent roadmap; local CSV, PostgreSQL and imported-table checkpoint refreshed September 15",
+      "current_or_superseded": "Current parent roadmap; four local recordings and four rendered server paths refreshed September 16",
       "effort": "OE-reporting; OE-lane-1; OE-lane-2; OE-lane-3; OE-lane-4",
       "status": "One sequence and acceptance home; product requirements and detailed tasks remain in their existing authorities.",
-      "evidence_date": "2026-09-15",
-      "next_update": "Finish remaining server lanes, broader local review and paced published videos; server lane-2 recorded proof is in the task register.",
+      "evidence_date": "2026-09-16",
+      "next_update": "Finish lane-2 joined playback review, publish all four videos and references, and record owner acceptance; native upstream review remains separate.",
       "sources": "Owner-approved consolidated plan, current repository/PR inspection and local browser proof."
     }
   ]
