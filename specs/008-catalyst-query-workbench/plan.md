@@ -707,10 +707,19 @@ Then deliver four small, reviewable iterations:
    Opening the URL restores that exact session and its bound source; selecting a
    recent session updates the URL, and browser Back/Forward restores the expected
    session. Two tabs with different session URLs retain independent drafts,
-   results, and generation status. Different sessions may run or queue according
-   to measured model capacity; the UI states which is happening. A second turn in
-   the same running session retains the existing explicit conflict. Switching or
-   closing a view does not leave unowned model work.
+   results, and generation status. Retain existing model-call serialization;
+   user-visible queue management is deferred to user management below. A second
+   turn in the same running session retains the existing explicit conflict.
+   Switching or closing a view does not leave unowned model work.
+
+**Owner decision, 13 September 2026:** Defer user-visible queue management and
+multi-user scheduling until user management is scoped. Review request ownership
+and waiting behavior together at that milestone. This removes queue presentation
+from the responsiveness/session-navigation checkpoint; it does not remove
+existing model-call serialization or defer basic generation progress and session
+URLs. It adds no deadline, cancellation-performance target, or queue subsystem to
+the current delivery. Track the deferred work in the existing
+[task register](tasks.md#deferred-queue-management-with-user-management).
 
 Use the same approved Workbench visual system for the model selector, View
 options, and progress treatment. Keep infrequent choices in one quiet disclosure;
