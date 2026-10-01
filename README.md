@@ -1,271 +1,120 @@
-# clinical-ai-validation-harness
+# Clinical AI validation harness
 
-A validation harness for early clinical AI tools — helping teams test AI-powered clinical systems against realistic health data and real integration paths, with traceable, reviewable evidence at every step.
+Run configured clinical AI experiments, capture their inputs and outputs, evaluate
+results and produce reviewable evidence. The harness supports clinical-answer
+comparisons through ChartSearchAI or explicitly labeled Med Agent Hub experiments,
+and SQL-workflow validation through Catalyst.
 
-The harness currently focuses on OpenMRS-based clinical AI (chart search, query retrieval, clinical chat) and OpenELIS lab-system AI (Catalyst). Validation means real systems, real data, and decisions that can be traced back to specific clinical records — not just passing unit tests.
+The goal is evidence a reviewer can inspect: which records supported an answer,
+which SQL actually ran, what failed, and why a reviewer accepted or rejected a
+result. Aggregate scores alone are not clinical validation.
 
-## Why this matters
+## Run an experiment
 
-Much of the world's primary care runs in settings with intermittent connectivity, modest hardware, few IT staff, and strong reasons to keep patient data local. Clinical AI for these settings has to run **offline and on less-powerful hardware**, keep **patient data on-site** (privacy and local data ownership), and **fit local clinical reality** — guidelines, and the data most AI is trained on, come from better-resourced settings, leaving the conditions, formularies, and populations of low-resource clinics underrepresented in clinical research and guidelines. That shapes every choice here: local small-model profiles, including both fast single-model and deliberate team configurations, a knowledge base contextualized to each deployment's own concepts and drugs, and validation against real local systems with every claim traceable to a specific record. The intent mirrors WHO's [SMART Guidelines](https://www.who.int/teams/digital-health-and-innovation/smart-guidelines) — let local programs benefit from global evidence while adapting it to their own context — applied to the question "can we trust this AI here?"
+Use Python 3.11+ and `uv` to install from this repository:
 
-## Who this is for
-
-- **Clinical and program stakeholders** — understand how AI answers are evaluated, what evidence backs a validation claim, and where the governance guardrails are.
-- **Technical collaborators** — run the harness locally or on a VM, inspect transforms and run artifacts, and contribute code or mapping reviews.
-- **AI validation and research readers** — explore the evidence model, evaluation methodology, and metadata schema across retrieval, answer quality, citation, abstention, and safety dimensions.
-- **OpenMRS / OpenELIS community members** — see how demo data is modernized for the latest Reference Application, how harness tools relate to existing modules, and what parts could be reused.
-
-## What this harness validates
-
-The harness coordinates validation across four clinical AI projects:
-
-| Project | What it does | Role here |
-|---------|-------------|-----------|
-| `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
-| `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
-| `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` | SQL-connected supervised reporting workbench: question → query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | The compatible generic-SQL/Spark baseline is merged. The active delivery is usability first, Dashboard functionality second, then dual-source local/server evidence. Model comparison remains separately scheduled. |
-
-The Catalyst delivery sequence and goal live in
-`specs/008-catalyst-query-workbench/plan.md`; detailed progress and acceptance
-evidence live in its `tasks.md`. Evaluation and comparison decisions remain in
-`specs/catalyst-program-roadmap.md`.
-
-The Catalyst application is a generic SQL-connected product that consumes a
-declared connection, dialect, and its complete readable schema. The selected
-reference deployment is FHIR Data Pipes -> Parquet -> Spark SQL. The compatible
-baseline is merged; full local/server acceptance remains open. The reference
-deployment is not the Catalyst product contract.
-
-## Current priority: the validation spine and active lanes
-
-The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
-
-Current work is the **dual-provider foundational-parity roadmap**: preserve bundled ChartSearchAI
-inference as the fresh-install default while allowing a configured med-agent-hub provider through
-the same OpenMRS conversation, evidence, persistence, and cancellation contract. QueryStore remains
-an OpenMRS projection with an optional hub adapter, not a hub dependency. The current integration
-branches carry that contract and are the source of truth for harness proof; upstream PR merge state
-does not gate local integration. See the checked-in [roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md),
-[status](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md), and
-[upstream inventory](specs/artifacts/planning/openmrs-dual-provider-upstream-inventory.md).
-
-## How the docs fit together
-
-| What you need | Where to go |
-|---------------|-------------|
-| Current cross-project status, efforts, pull requests, roadmaps and evidence links | [Project status hub](specs/artifacts/project-status/README.md) |
-| Visual project overview and navigation | [Public docs site](https://pmanko.github.io/clinical-ai-validation-harness/) |
-| Roadmap — what is planned, why, and in what order | [Feature roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap) |
-| Development operating plan — lanes, gates, launch sequence | `specs/artifacts/lanes/` (in-repo) |
-| Validation evidence model and evaluation methodology | [Validation research canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/artifacts/canvases/validation-research) |
-| Current priority operator walkthrough | [Feature 002 quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
-| Harness foundation and control-plane detail | [Feature 001 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/001-harness-control-plane-foundation/spec.md) |
-| Catalyst delivery sequence and goal | [Feature 008 plan](specs/008-catalyst-query-workbench/plan.md) |
-| All planning artifacts, canvases, and research docs | [specs/artifacts/](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/artifacts) |
-| Superseded pre-hub cloud guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
-
-The public docs site auto-deploys from `main` and publishes the public-facing surface — this README and the visual canvases. The detailed feature specs, plans, briefs, and per-lane dossiers are dev-internal: they live in the repo (under `specs/`), not on the published site. Browse the site locally with `cd site && npm install && npm run dev` (opens at `http://127.0.0.1:4321/clinical-ai-validation-harness/`).
-
-## Milestone names and IDs
-
-Human-facing docs use plain names. IDs appear in parentheses on first use and inside technical specs.
-
-| Plain name | Roadmap ID | Feature folder | Status |
-|-----------|-----------|----------------|--------|
-| Harness foundation | M0 | `001` | Complete |
-| OpenMRS demo-data remap | M1 | `002` | Complete |
-| Validation spine | M2 | `006` | In progress (validation-harness MVP; runner/report/feedback shipped — see lane L3) |
-| Real adapter entrypoints | M3 | `004` | In progress |
-| med-agent-hub service | F005 | `005` | Shipped as the configured profile-driven provider; Catalyst uses its shared profile schema and named-role executor |
-| LLM config overrides | F007 | `007` | Superseded by explicit provider/profile configuration |
-| med-agent-hub MCP tools | F010 | `017` | Superseded; dead MCP/A2A runtime removed |
-| ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
-| Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
-| Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst supervised reporting | M10 | `008` | Compatible baseline and consolidated specifications complete; four usability iterations, local owner gate, Dashboard completion, and dual-source deployment/evidence remain |
-| Answer, citation, and abstention | M5 | `012` | Planned |
-| Safety and red-team | M6 | `013` | Planned |
-| Clinician governance review | M7 | `014` | Planned |
-| Querystore parity testbed | M8 | `015` | Planned |
-| Cross-project expansion | M9 | `016` | Planned |
-
-> **Note on feature 002 internal phases:** Work inside the OpenMRS demo-data remap (M1 / `002`) uses implementation sub-labels `M2-A` through `M2-Z` in detailed feature docs. These are internal planning labels for that feature's phases — not related to roadmap milestone M2 (Validation spine).
-
-> **Note on F-prefixed IDs and non-monotonic slugs:** F005, F007, F008, F009, F010 are features inserted into the roadmap after the M0–M10 sequence was authored. The validation spine (M2) shipped as slug `006` (validation-harness MVP) — the earlier `003` slug was never created. `007` is LLM config overrides (F007); `017` is the med-agent-hub MCP tools (F010). The Roadmap IDs (M0–M10, F005–F010) carry the semantic ordering anchor; folder slugs are filesystem identifiers and may be non-monotonic. See [`specs/roadmap.canvas.tsx`](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap) for the dependency DAG.
-
-> **Note on M10 and repository ownership:** The harness is the umbrella repository. Catalyst and Med-Agent Hub are pinned as sibling submodules under `targets/`; Catalyst contains no nested Git submodules. The umbrella runner builds the pinned Hub sibling directly. Standalone Catalyst may clone the same unmodified Hub commit as a disposable fallback, alongside its disposable OpenELIS and FHIR Data Pipes checkouts.
-
-## Principles
-
-How validation claims are made and how evidence is handled:
-
-- **Use real paths.** Run real OpenMRS, real `chartsearchai`, and real adapters. Stubs and simulations are labeled as scaffolding and cannot count as production-path evidence.
-- **Separate clinical data from operating metadata.** Record-level clinical evidence lives in the database or SQL artifacts. Run manifests, event traces, and evaluation records are metadata kept separate.
-- **Keep LLM output advisory.** Machine-generated mapping proposals are starting points only. Accepted mappings must be reviewed and stored in deterministic, versioned artifacts before use.
-- **Require record-level evidence.** Validation claims trace to specific records — not just counts or aggregate metrics.
-- **Cover diverse scenarios.** Evaluation sets include edge cases, absent-data cases, and adversarial inputs — not only the happy path used to tune a prompt or mapping.
-- **Document material changes.** Significant changes to models, prompts, retrieval, mappings, or pipelines require a change record (PCCP — see Key Terms). This keeps decisions reviewable and reproducible.
-
-The canonical governance reference is `.specify/memory/constitution.md`.
-
-## Repository layout
-
-```
-docs/          User-facing guides and operator runbooks
-specs/         Feature specs, plans, research docs, and canvases; specs/artifacts/ for cross-cutting materials
-compose/       Docker Compose files for the OpenMRS/MariaDB stack and optional services
-datasets/      Source pointers, mapping artifacts, deterministic transforms, and fixtures
-harness/       Python orchestration package and CLI (harness-cli)
-adapters/      Adapter contracts for invoking real project validation paths
-evals/         pytest suites for import, indexing, retrieval, and metadata checks
-artifacts/     Per-run outputs: manifests, events, reports (gitignored)
-site/          Static-site build of the README and canvases (public surface); auto-deployed to GitHub Pages
-targets/       Pinned submodule checkouts of the four target projects
+```sh
+uv sync --extra dev
+uv run harness-cli --help
 ```
 
-## Quickstart
+Prepare your target through its own deployment workflow, then supply its connection
+settings and experiment inputs. The harness's runtime contract is an independent
+runner: the caller owns target preparation; validation does not require product
+source checkouts, Git or workspace pins. Standalone isolation verification is
+tracked in the [runtime plan](specs/006-validation-harness-mvp/plan.md), separately
+from this documentation alignment and product acceptance.
 
-**Requirements:** Python 3.11+, `uv`, Docker / Docker Compose, Git.
+For the included clinical demo, configure `CHARTSEARCH_BASE_URL`,
+`CHARTSEARCH_ADMIN_USER` and `CHARTSEARCH_ADMIN_PASSWORD` in your environment. The
+prepared OpenMRS service must contain the reviewed patient fixtures and advertise
+the selected profile (`single-e4b-checked` in the current `demo` set).
 
-## Catalyst query workbench and dashboard direction
-
-Catalyst is a generic SQL-connected reporting workbench. A configured source
-declares its identity, connection configuration or reference, and SQL dialect. The model, Available data
-view, and editor receive every table, view, column, and type readable through
-that connection. Optional descriptions may enrich the schema but cannot hide
-relations.
-
-The selected reference deployment is:
-
-```text
-OpenELIS or OpenMRS FHIR
-  -> FHIR Data Pipes -> Parquet -> Spark SQL
-  -> Catalyst and Superset
+```sh
+uv run harness-cli validate check demo --data-root datasets/validation
+uv run harness-cli validate run demo --data-root datasets/validation --output-dir artifacts/validate
 ```
 
-Its compatible implementation baseline is merged; full dual-source acceptance
-is open. It does not define Catalyst core.
+`validate check` checks transport/configuration compatibility, not live health or
+clinical correctness. `validate run` contacts the target, creates chat sessions,
+uses configured model services and writes a run directory. It may take substantial
+time and may incur provider charges. Use authorized demo/de-identified data;
+remote endpoints receive the selected clinical inputs.
 
-The next implementation delivers the frozen staff Workbench in four tested
-iterations: question writing, shell and appearance, Available data, and result
-review. The full experience then runs locally against both real sources for
-owner feedback before Dashboard functionality expands. Comparison and broader
-conversation work remain separately scheduled in the program roadmap.
+For Catalyst, choose a reviewed suite and an already-running Gateway:
 
-Dashboard Builder keeps its accepted product scope: question -> query -> Dataset
--> Widget -> Dashboard -> native Superset bundle and rendered dashboard. The
-connection work must preserve the real browser experience, not substitute
-backend evidence for it.
-
-Current authorities:
-
-- [OpenELIS–Catalyst four-pathway roadmap](specs/openelis-reporting-catalyst-integration.md)
-- [Catalyst integration and delivery plan](specs/008-catalyst-query-workbench/plan.md)
-- [Catalyst current tasks](specs/008-catalyst-query-workbench/tasks.md)
-- [Catalyst integration and delivery specification](specs/008-catalyst-query-workbench/spec.md)
-- [Catalyst program roadmap](specs/catalyst-program-roadmap.md)
-
-The separately scheduled comparison begins after its current connection, Spark,
-browser, and Superset prerequisites pass. Use
-`scripts/catalyst-mvp.sh` for stack lifecycle when implementing or validating
-those checkpoints; seeding and reset remain explicit operations.
-
-## ChartSearch operations
-
-The approved product shape is **two providers behind one ChartSearchAI experience**. A standard
-OpenMRS installation defaults to bundled ChartSearchAI inference. Deployments that configure
-med-agent-hub may expose it as an additional provider; changing provider begins a new conversation.
-The hub remains a supported direct service and owns its own profile/stage, temporal, review,
-grounding, and In-Depth behavior. It is not a required dependency for bundled operation.
-
-The existing hub-relay integration and local commands remain useful for development while the
-dual-provider rebuild is in progress, but they do not define the final provider configuration.
-Use the roadmap's product-proof gates before treating either path as the released canonical UI.
-
-```bash
-# Development helper for the hub path. It does not replace bundled inference or
-# declare the hub the default provider in a fresh OpenMRS installation.
-make chartsearchai-local
-
-# Useful focused operations:
-./scripts/chartsearchai-local.sh --check  # validate prerequisites without starting services
-make local-stack-up                  # fast resume: no builds; waits for the existing stack
-make local-stack-down                # stop Compose + its managed router; keep named volumes
-make openmrs-source-pair-build        # build/stage current Querystore, then ChartSearchAI
-make openmrs-source-pair-test         # install pinned Querystore, then test/build pinned ChartSearchAI
-./scripts/test-querystore.sh mysql-integration  # real MySQL completeness/read-path contract
-./scripts/test-chartsearchai-esm.sh   # frontend tests, typecheck, lint, and production build
-./scripts/verify-dual-provider-parity-gates.sh --phase full  # source suites plus exact-head evidence
-make llama-router-models             # inspect raw models behind the hub
-make chartsearch-build               # same ordered pair build; ChartSearchAI depends on current Querystore API
-make med-agent-hub-up                # (re)start the hub on its own
-make chartsearch-configure           # write the fixed hub endpoint; profile discovery supplies the default
-make chartsearch-doctor              # verify router, hub profile metadata, and module status
-
-# Retrieval backend — querystore's CQRS read store tier
-make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
+```sh
+uv run harness-cli catalyst run --help
+uv run harness-cli catalyst report --help
 ```
 
-`make chartsearchai-local` remains the canonical first-run and source-change workflow: it
-builds or verifies artifacts, configures the product path, and exercises the real integration.
-The `local-stack-*` targets are intentionally narrower daily helpers. They require a configured
-`.env.chartsearch` and already-built images/artifacts, start Docker Desktop when supported, and
-fail rather than silently rebuilding or reporting an unready stack as healthy. Teardown preserves
-the Compose named volumes and only stops a llama-router recorded as managed by this checkout.
+Use each command's `--help` for the supported input/settings flags. Catalyst
+collection requires a caller-prepared source and reviewed suite; it does not
+provision the Gateway or its database. Cross-project target setup belongs to the
+[OpenClinAI umbrella](https://github.com/pmanko/openclinai.org), not this runner.
 
-**Provider and profile selection.** The final ESM shows no picker with bundled-only configuration.
-With hub configured, it shows a provider choice first and the provider's supported profile/mode choices
-second. Unready configured providers remain visibly disabled; the UI never invents raw model choices or
-silently falls back to another provider.
+## Inspect and review evidence
 
-**Cloud.** The older GCE/LM Link workflow predates the current dual-provider boundary and is not the canonical
-proof path. Use the local workflow above while the cloud scripts are reconciled with the same provider contract.
+Each run records `run_manifest.json`, `events.jsonl` and feature-specific evidence
+such as `results.jsonl`, captured inputs, traces and review records. Provenance is
+supplied by the caller or observed from the target; unknown revisions/model details
+are recorded as missing, not substituted with workspace pins.
 
-## Key terms
+Reports present captured evidence for human review. Optional model judgments are
+separately attributed and do not override deterministic safety findings. Final
+answers and In-Depth output remain visible with their caveats; rejected or changed
+drafts are labeled separately and excluded from final evidence/judge input.
 
-| Term | Meaning |
-|------|---------|
-| **Harness** | This repository — it orchestrates validation across the four target projects without living inside any of them. |
-| **Target** | One of the four clinical AI projects validated here: `chartsearchai`, `querystore`, `openmrs_chatbot`, or Catalyst. |
-| **Canvas** | An interactive visual summary page (`.canvas.tsx`) authored in Cursor and published on the docs site. |
-| **CIEL** | Columbia International eHealth Laboratory dictionary — the open clinical concept terminology standard used by OpenMRS. |
-| **OCL** | Open Concept Lab — the terminology service that hosts CIEL and other clinical dictionaries. |
-| **FHIR** | Fast Healthcare Interoperability Resources — used here as the grammar for terminology mapping artifacts (ConceptMap format). |
-| **Ref App** | OpenMRS Reference Application, the standard OpenMRS distribution. "O3 Ref App" refers to the current 3.x version on Core 2.8. |
-| **SQLMesh** | The deterministic data transformation framework used to materialize the OpenMRS 2.7 → 2.8 migration. |
-| **run_manifest.json** | Machine-readable provenance record emitted for every harness run: inputs, versions, component SHAs, and evidence status. |
-| **events.jsonl** | Append-only event trace for a run: queries, retrievals, model calls, evaluations, and reviewer actions. |
-| **PCCP** | Predetermined Change Control Plan — a structured change record (adapted from FDA AI guidance) used here for material changes to models, prompts, retrieval, mappings, or pipelines. Keeps decisions auditable. |
+To regenerate a clinical report from an existing packet:
 
-## Spec Kit and contributor automation
-
-This repository uses [GitHub Spec Kit](https://github.com/github/spec-kit) (`v0.8.9`) for AI-assisted feature specification and planning. Agent and contributor guidance lives in `AGENTS.md`. Cursor skills are in `.cursor/skills/`; Claude skills are in `.claude/skills/`.
-
-Useful skills for contributors:
-
-- `/speckit-specify` — create or update a feature spec
-- `/speckit-plan` — generate an implementation plan
-- `/speckit-tasks` — generate task lists from a plan
-- `/speckit-implement` — execute tasks from `tasks.md`
-- `/speckit-analyze` — cross-artifact consistency check
-
-## Notes on source data and sibling repositories
-
-The OpenMRS 2.7 demo corpus (`large-demo-data-2-7-0.sql`) is not stored in this repository. It is expected as a sibling checkout alongside this repo:
-
-```
-../openmrs-module-chartsearchai/data/large-demo-data-2-7-0.sql
+```sh
+uv run harness-cli validate report --run-dir artifacts/validate/your-run-id
 ```
 
-Use an environment variable to override the location:
+Replace `your-run-id` with the emitted run directory. Catalyst report inputs are
+shown by `harness-cli catalyst report --help`.
 
-```bash
-export HARNESS_TARGET_CHARTSEARCHAI=/path/to/openmrs-module-chartsearchai
+Copy the complete run directory for offline report regeneration. Reports must use
+that captured input set, not current product sources, live services or the author's
+original dataset directory. Offline artifacts may still contain sensitive clinical
+evidence: review and redact before sharing. OpenClinAI publication consumes selected
+harness outputs through separate umbrella-owned tooling.
+
+## Documentation and ownership
+
+| Need | Reference |
+| --- | --- |
+| Operator steps | [Run an experiment](#run-an-experiment) and CLI `--help` |
+| Scenarios, evaluation, review and isolation acceptance | [Feature 006](specs/006-validation-harness-mvp/spec.md) and [plan](specs/006-validation-harness-mvp/plan.md) |
+| Readiness, configuration and evidence boundaries | [Spec 001](specs/001-harness-control-plane-foundation/spec.md) |
+| Common artifact/provenance semantics | [Metadata guide](specs/artifacts/planning/metadata-schema.md) |
+| Governance | [Constitution](.specify/memory/constitution.md) |
+| Contributor/agent instructions | [AGENTS.md](AGENTS.md) |
+| Cross-project priorities and implementation status | [OpenClinAI roadmap](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md) |
+| Component boundaries | [OpenClinAI architecture](https://github.com/pmanko/openclinai.org/blob/main/specs/architecture.md) |
+
+Product contracts live with
+[ChartSearchAI](https://github.com/pmanko/openmrs-module-chartsearchai),
+[QueryStore](https://github.com/pmanko/openmrs-module-querystore),
+[Med Agent Hub](https://github.com/pmanko/med-agent-hub) and
+[Catalyst](https://github.com/DIGI-UW/catalyst-ai).
+The harness defines experiments, evidence, scoring and review—not product behavior.
+
+The [OpenClinAI workspace](https://github.com/pmanko/openclinai.org) provides
+component version selection, checkouts, builds, deployment and release coordination.
+It also contains the OpenClinAI website and publication tooling.
+
+## Contribute
+
+Behavioral changes need focused tests, diverse failure/abstention cases, versioned
+metadata and record-level evidence. Accepted data mappings/transforms are reviewed
+and deterministic; LLM proposals remain advisory. Material model, prompt,
+retrieval, mapping or pipeline changes require a change record describing the
+validation protocol, impact and residual risk.
+
+```sh
+uv run pytest
 ```
 
-The QueryStore source used by builds and validation is the pinned submodule at
-`targets/querystore`. Initialize submodules before running the OpenMRS build targets; do not
-substitute an unrelated sibling checkout for the tested pin.
-
-For OpenELIS feasibility analysis (feature 002, sub-phase M2-H), the OpenELIS Global 2 repository is read from a sibling checkout (`../OpenELIS-Global-2`) or via `OPENELIS_ROOT=/path/to/OpenELIS-Global-2`.
+Unit tests establish runner mechanics. Product, deployed-runtime and clinical
+acceptance require their own real-path evidence.

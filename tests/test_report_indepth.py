@@ -14,10 +14,7 @@ def _row(in_depth):
     }
 
 
-def test_report_trace_correlation_uses_model_frozen_in_result(monkeypatch):
-    monkeypatch.setattr(
-        report, "arm_model_name", lambda _backend_id: "current-registry-id"
-    )
+def test_report_trace_correlation_uses_model_frozen_in_result():
     row = {
         "backend_id": "historical-backend-alias",
         "started_at": "2026-07-13T20:00:00+00:00",

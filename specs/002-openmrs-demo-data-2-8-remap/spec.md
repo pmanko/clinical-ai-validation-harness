@@ -4,7 +4,13 @@
 
 **Created**: 2026-05-13
 
-**Status**: Completed — transform shipped; the corpus is promoted to `openmrs`, now the canonical 5,284-patient demo schema the harness backend runs against. The dlt iteration/staging schemas described below (`openmrs_test`, `openmrs_*_dlt`, `*_staging`) were dropped after promotion (2026-05-29) — they document the methodology, not live schemas.
+**Scope**: Reviewed validation corpus, terminology/structural mappings, fixtures,
+clinical-meaning checks and data provenance. The transform exists; this spec does
+not assert the state of any deployment or completion of all acceptance checks.
+Reusable migration/terminology tooling needs an external maintained owner, an
+[open umbrella decision](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#7-outstanding-decisions).
+Keep data functionality pending that decision; target preparation and deployment
+are caller/umbrella-owned, not runner responsibilities.
 
 **Input**: User description: "we need a robust feature #2 (see the project spec roadmap and artifacts/canvases etc) spec that takes the dataset in ./data, profiles/analyzes it, determines what terminology etc the dataset uses, and maps it to a transformed version that works with 2.8.0 and the most recent ref app, so we can use it as demo data in our OpenMRS work. Also, I want it analyzed for if any parts could be transformed to load into OpenELIS to have same base set of data at some level"
 
@@ -28,17 +34,25 @@ This feature exists to bridge that gap: **transform the Platform-only 2.7 corpus
 
 ## Background and Scope Anchor
 
-This feature implements roadmap milestone **M1 – OpenMRS demo data remap and import** (`specs/roadmap.canvas.tsx`) plus an explicit extension: a parallel analytical pass that determines which slices of the same source corpus could be remapped for **OpenELIS Global** (the LIS), so that downstream validation work — including Catalyst (the AI sub-project that consumes OpenELIS Global's data) — can compare clinical AI behavior across an aligned baseline of demo data in both systems.
+This feature owns the reviewed OpenMRS validation corpus and an analytical pass
+on which source slices could support an OpenELIS Global demo. Product behavior and
+cross-project delivery stay with their owners; analysis does not establish parity.
 
-The single authoritative source corpus is `data/large-demo-data-2-7-0.sql` (OpenMRS Platform/Core 2.7.0 reference database; 143 `CREATE TABLE` statements and 153 `INSERT INTO` batches as observed at spec time). The OpenMRS target is **Platform/Core 2.8.0 with the most recent Reference Application release**. The OpenELIS target is the most recent **OpenELIS Global / Catalyst** schema reachable through the harness adapter contract established in M0.
+The single authoritative source corpus is `data/large-demo-data-2-7-0.sql` (OpenMRS Platform/Core 2.7.0 reference database; 143 `CREATE TABLE` statements and 153 `INSERT INTO` batches as observed at spec time). The OpenMRS target is **Platform/Core 2.8.0 with the most recent Reference Application release**. OpenELIS analysis uses an explicitly supplied, version-identified OpenELIS Global schema artifact; Catalyst is a separate product, not the schema or loader owner.
 
-This spec depends on M0 (harness control plane foundation) and unlocks M4 (OpenMRS retrieval evaluation) and downstream answer/safety lanes.
+[Spec 001](../001-harness-control-plane-foundation/spec.md) supplies readiness,
+identity and evidence semantics, not a workspace registry or setup contract.
+The caller prepares the baseline and target; the harness validates through selected
+interfaces without Git, pins or product source trees.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Reproducible OpenMRS 2.8 demo database from the legacy corpus (Priority: P1)
 
-A harness operator (engineer or evaluator) needs to stand up an OpenMRS Reference Application 3.x (O3) instance on Core 2.8.x loaded with the legacy demo corpus so that OpenMRS-side AI validation runs (chartsearchai, querystore, openmrs_chatbot) have a rich, clinically meaningful patient population to operate against. The operator invokes a deterministic remap-and-import workflow from a clean baseline and ends with an importable database that boots the O3 RefApp without manual repair.
+An engineer or evaluator prepares an OpenMRS Reference Application 3.x (O3)
+instance on Core 2.8.x with the reviewed demo corpus for ChartSearchAI and QueryStore
+validation. Preparation is caller-owned; the validation runner checks the supplied
+interfaces and clinical evidence. The operator invokes a deterministic remap-and-import workflow from a clean baseline and ends with an importable database that boots the O3 RefApp without manual repair.
 
 **Why this priority**: Every downstream OpenMRS validation milestone (M4, M5, M6, M7) is blocked until the demo corpus can be imported into a current OpenMRS without altering clinical meaning. This is the critical path.
 
@@ -90,7 +104,8 @@ In OpenMRS, terminology *is* the data model: the meaning of every observation, d
 
 ### User Story 4 - OpenELIS cross-load feasibility analysis from the same corpus (Priority: P2)
 
-A validation lead wants the same source corpus analyzed for which clinical slices — patients, providers, locations, lab-relevant orders/results, encounters, specimens, and reference terminology — *could* be transformed into an OpenELIS Global-compatible load so that both OpenMRS and OpenELIS demos could later share a common baseline of identities and clinical events at some defined level of fidelity. This feature delivers the **analysis and machine-readable mapping skeleton only**; executing a real OpenELIS Global load is explicitly deferred to a later milestone. Catalyst (`targets/catalyst` submodule) is the documented umbrella AI sub-project entry point that a future loader feature would orchestrate from; no Catalyst code is invoked here.
+A validation lead wants the same source corpus analyzed for which clinical slices — patients, providers, locations, lab-relevant orders/results, encounters, specimens, and reference terminology — *could* be transformed into an OpenELIS Global-compatible load so that both OpenMRS and OpenELIS demos could later share a common baseline of identities and clinical events at some defined level of fidelity. This feature delivers the **analysis and machine-readable mapping skeleton only**; executing a real OpenELIS Global load is explicitly deferred to a later milestone. [Catalyst](https://github.com/DIGI-UW/openelis-catalyst) is a related AI product,
+not a loader owner or required checkout; no Catalyst code is invoked here.
 
 **Why this priority**: Cross-system demo parity unlocks future cross-project AI validation comparisons (an explicit roadmap "expansion" goal). Doing the analysis now, while the OpenMRS profile is fresh, costs far less than reconstructing it later. But the OpenMRS path must work first, so this is P2.
 
@@ -169,8 +184,13 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 
 #### Provenance, metadata, and adapter contract
 
-- **FR-021**: Every run MUST emit a `run_manifest.json` and `events.jsonl` capturing: source dataset path and checksum, source version, accepted mapping version, advisory LLM proposal version (if any) with explicit advisory label, OpenMRS target version, OpenELIS target version (if exercised), adapter invocation identity, git revision, and reviewer decisions referenced.
-- **FR-022**: The system MUST invoke real OpenMRS and OpenELIS startup/setup paths through the M0 adapter contract for any release-evidence claim; any fixture-only path MUST be labelled as development scaffolding and excluded from release evidence. For this feature, the OpenMRS portion is real-path; OpenELIS analysis output is labelled `evidence_status: scaffolding` per FR-020 and is not promoted as release evidence.
+- **FR-021**: Every run MUST emit a `run_manifest.json` and `events.jsonl` capturing: source dataset path and checksum, source version, accepted mapping version, advisory LLM proposal version (if any) with explicit advisory label, OpenMRS target version, OpenELIS target version (if exercised), adapter invocation identity, supplied/observed target provenance with nullable
+  revisions, and reviewer decisions referenced. No Git lookup or pin status is required.
+- **FR-022**: Clinical acceptance MUST use real, caller-prepared OpenMRS
+  interfaces and record-level readback. Fixture-only checks are labeled scaffolding,
+  not product acceptance. OpenELIS analysis stays analysis-only per FR-020; any
+  future parity claim requires a real loader/interface protocol. The runner MUST
+  NOT start services, restore deployments, build products or enforce release pins.
 - **FR-023**: The system MUST emit PCCP-style change records for material mapping, transform, or import changes that would alter clinical meaning of the imported corpus, including before/after record examples and reviewer rationale.
 
 #### Data sensitivity and credential handling
@@ -185,10 +205,17 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 
 #### Standards-based mapping format and tool integration
 
-- **FR-025**: Mapping artifacts (both the OpenMRS 2.7→2.8 accepted mapping and the OpenELIS mapping skeleton) MUST be expressed in a **published, standards-based mapping language or grammar** suitable for the data shapes involved (relational-to-relational and/or clinical-record-to-clinical-record). Bespoke project-local schemas invented solely for this feature are not acceptable as the authoritative mapping format. The specific standard is selected during `/speckit-plan` after a documented comparison of candidate standards (e.g., FHIR StructureMap / FHIR Mapping Language, ConceptMap for terminology, ETL-DSLs such as Apache Camel routes / Pentaho Kettle, modern lightweight options such as JOLT/JSLT, dbt-style models, dlt pipelines, Singer/Meltano taps, or Airbyte connectors); the plan MUST justify the choice against criteria including: clinical-domain fit, reviewability, determinism, tool maturity, and licensing.
-- **FR-026**: The chosen mapping format MUST be **executable by an existing open-source transformation/mapping tool or runtime**; the harness integrates with that tool through the M0 adapter contract rather than implementing a bespoke executor for the mapping grammar. The plan MUST identify the tool/runtime, its version pin, and the adapter invocation contract. **Two complementary tools are in play** (see research.md §R-load-pattern): SQLMesh executes the transform spec (legacy_27_raw → refapp_28_demo); **dlt** executes the OLTP load (refapp_28_demo's physical snapshots → the live RefApp's `openmrs[_test]` DB). Both are open-source (Apache-2.0). Both are version-pinned in the manifest (`sqlmesh_version`, plus new `dlt_pipeline_run_id` + `dlt_state_hash` fields per `contracts/run_manifest_002_extensions.schema.yaml`).
+- **FR-025**: Mapping artifacts (both the OpenMRS 2.7→2.8 accepted mapping and the OpenELIS mapping skeleton) MUST be expressed in a **published, standards-based mapping language or grammar** suitable for the data shapes involved (relational-to-relational and/or clinical-record-to-clinical-record). Bespoke project-local schemas invented solely for this feature are not acceptable as the authoritative mapping format. The maintained choices are FHIR R4 ConceptMap for terminology and reviewed SQLMesh
+  models for structural transforms, as justified in research.md for clinical-domain
+  fit, reviewability, determinism, tool maturity and licensing.
+- **FR-026**: Accepted structural mappings MUST execute under an existing
+  open-source mapping tool, not a bespoke grammar executor. SQLMesh executes
+  reviewed transforms and audits; the direct SQL loader copies physical snapshots
+  into a caller-prepared build schema. Record actual SQLMesh/tool versions,
+  input digests and materialized content evidence. Deployment restoration is external.
 - **FR-027**: Terminology mappings (e.g., source concept ↔ target concept, source reference term ↔ target reference term) MUST be representable in a **published terminology-mapping standard** (such as a FHIR R4 ConceptMap resource or equivalent), regardless of which mapping language is chosen for structural transforms. This keeps terminology decisions interoperable with downstream clinical tooling and with the OpenELIS skeleton.
-- **FR-028**: The harness MUST emit, alongside accepted mapping artifacts, a small set of **conformance tests** that the chosen standard's tool can run against the artifacts to verify they parse and execute under that tool's stated semantics, so that "valid mapping" is defined by the standard's tool rather than by harness-internal checking only. Concretely: the FHIR R4 ConceptMap is validated by the unmodified HL7 FHIR Validator CLI; the SQLMesh project is validated by `sqlmesh audit` (which exits non-zero on audit failure); the **dlt pipeline state is itself a conformance signal** — `dlt pipeline info <name> --schema` reports the executed schema, and the `dlt_state_hash` in the run manifest is a determinism witness across replays.
+- **FR-028**: The harness MUST emit, alongside accepted mapping artifacts, a small set of **conformance tests** that the chosen standard's tool can run against the artifacts to verify they parse and execute under that tool's stated semantics, so that "valid mapping" is defined by the standard's tool rather than by harness-internal checking only. Concretely: the FHIR R4 ConceptMap is validated by the unmodified HL7 FHIR Validator CLI; the SQLMesh project is validated by `sqlmesh audit` (which exits non-zero on audit failure); the direct load is checked through row/content equality, column projection,
+  idempotent replay and FK/completeness evidence, not ETL pipeline state.
 
 ### Structural promotion (obs → typed clinical tables)
 
@@ -211,13 +238,13 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 - **Profile inventory**: machine-readable description of the source corpus (tables, rows, populated columns, terminologies, locales, modules).
 - **Schema/metadata diff**: structured comparison between source corpus and a clean Core 2.8.x baseline produced by the O3 RefApp backend.
 - **Advisory mapping proposal**: LLM-generated mapping suggestions, clearly labelled, not consumable by transforms.
-- **Accepted mapping**: reviewed mapping artifact under `datasets/mappings/` expressed in a published standards-based mapping language (specific standard selected at plan time), with rationale per entry and executable by an existing open mapping tool.
+- **Accepted mapping**: reviewed mapping artifact under `datasets/mappings/` expressed in a published FHIR R4 ConceptMap and SQLMesh formats, with rationale per entry and executable by an existing open mapping tool.
 - **Terminology mapping artifact**: source-↔-target concept and reference-term mappings represented in a published terminology-mapping standard (e.g., FHIR R4 ConceptMap), interoperable with downstream clinical tooling.
 - **Transform output**: deterministic candidate database artifact ready for OpenMRS 2.8.0 import.
 - **Translation-coverage sampler**: deterministic on-demand sampler that, given the accepted terminology mapping and a seed, draws records from the produced demo covering every translation policy bucket and reports record-level evidence (no pre-curated record list maintained).
 - **Import smoke result**: per-check pass/fail with record-level evidence.
 - **OpenELIS feasibility report**: per-entity classification (full/partial/synthesized/not-feasible) with rationale.
-- **OpenELIS smallest-viable slice (analysis only)**: per-entity description (entities, identifier scheme, terminology translation required) that a future loader feature would consume to load into OpenELIS Global. Catalyst (`targets/catalyst` submodule) is the documented umbrella AI sub-project entry point, not a load target itself.
+- **OpenELIS smallest-viable slice (analysis only)**: per-entity description (entities, identifier scheme, terminology translation required) that a future loader feature would consume to load into OpenELIS Global. Catalyst is a related product reference by [repository URL](https://github.com/DIGI-UW/openelis-catalyst), not an exercised load target.
 - **Run manifest**: provenance record per harness invocation.
 - **Reviewer decision / PCCP change record**: durable record of mapping or transform acceptances/changes with rationale.
 
@@ -248,14 +275,21 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 - **SC-012**: **Terminology coverage is total and labelled.** Every source concept referenced by ≥1 clinical record in the corpus appears in the accepted terminology mapping artifact with a target identity, a published-standard equivalence label, a policy bucket (`remap` / `seed-augment` / `drop`), and reviewer rationale. Zero source-record-referenced concepts are left unmapped or unlabeled.
 - **SC-013**: After import, the demo passes a **RefApp terminology-binding check**: bundled forms render against translated concepts, default order types resolve, the drug catalog resolves drug concepts referenced by the corpus, and the translation-coverage sampler (parameterized to cover each major concept class — lab, vitals, problem, allergen, drug, diagnosis) draws ≥1 record per class that renders correctly in the O3 RefApp UI; failures surface specific record IDs and concept_ids.
 - **SC-014**: A clinically informed reviewer can audit terminology decisions independently of the SQL transforms: opening only the terminology mapping artifact gives them every source→target decision, equivalence label, policy bucket, and rationale needed to approve or reject the translation without reading transform code.
-- **SC-015**: **First real milestone — live chartsearchai chat against translated demo.** From a clean checkout, an operator can reach the chartsearchai chat UI showing a clinically grounded answer with at least one citation about a named patient drawn from the translated demo dataset, in ≤ 90 minutes wall-time on a developer machine. The path follows the published chartsearchai README (`targets/chartsearchai/README.md`): `docker compose up --build` against the chartsearchai docker-compose (image tag `nightly-chartsearch`), with the produced `refapp_28_demo.sql` substituted for the synthetic `referencedemodata.createDemoPatientsOnNextStartup` patients. Citations in the response MUST resolve to records present in the translated demo. This is the user-visible MVP of feature 002 and the satisfaction of Constitution Principle I (real chartsearchai production path against our translated data).
+- **SC-015**: On a caller-prepared ChartSearchAI target loaded with the reviewed
+  translated demo, an operator obtains a clinically grounded answer with at least
+  one citation about a named patient in ≤90 minutes of experiment time. Final
+  citations resolve to translated records. Preparation follows the
+  [product documentation](https://github.com/pmanko/openmrs-module-chartsearchai);
+  setup/build/deployment time and orchestration are outside runner acceptance.
 
 ## Assumptions
 
 - The single source corpus for this feature is `data/large-demo-data-2-7-0.sql`. No additional source dumps are introduced under this feature.
-- The OpenMRS target is Core 2.8.x paired with the modern (O3) Reference Application 3.x — currently pinned to RefApp 3.6.0 in `compose/openmrs-2.8-refapp.yml`; the exact RefApp version is recorded in the run manifest.
-- OpenELIS work in this feature is **analysis and a machine-readable mapping skeleton only**; no OpenELIS Global instance is brought up or loaded under this milestone. Catalyst (the AI sub-project, `targets/catalyst` submodule) is referenced as the documented umbrella entry point only. A future feature will execute a real OpenELIS Global load and is expected to consume the mapping skeleton produced here.
-- M0 (harness control plane foundation) provides the adapter contract used to bring up the real OpenMRS RefApp 3.x stack (Core 2.8.x). OpenELIS Global bringup is deferred to a future feature; this feature consumes Catalyst's submodule pointer as documentation only.
+- The corpus target is Core 2.8.x with an O3 RefApp-compatible baseline; the caller
+  selects/prepares it and supplies or exposes version/image identity for the manifest.
+- OpenELIS work in this feature is **analysis and a machine-readable mapping skeleton only**; no OpenELIS Global instance is brought up or loaded under this milestone. Catalyst is referenced by its product repository URL only. A future feature will execute a real OpenELIS Global load and is expected to consume the mapping skeleton produced here.
+- Spec 001 supplies validation readiness/evidence semantics. The caller prepares
+  OpenMRS; a future OpenELIS loader needs its own owner and real-path protocol.
 - "Most recent RefApp" means the latest tagged release at the time of run, recorded in the manifest; if the released RefApp version changes, a new run produces a new manifest entry rather than silently rebasing.
 - LLM-assisted analysis is allowed for profiling commentary, mapping proposals, and feasibility reasoning, but is strictly advisory per the project constitution; accepted behavior lives only in reviewed configuration and code.
 - No pre-curated canary record list is maintained. Inspection coverage is produced on demand by a deterministic translation-coverage sampler parameterized off the accepted mapping's translation policy buckets; reviewers who want a curated exhibit obtain it from the sampler.
@@ -263,27 +297,15 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 - Modules whose schemas appear in the source but are not bundled with the modern (O3) RefApp distro (e.g., legacy form-entry, HL7 queues) are by default **carried forward as orphan tables** to match real distro upgrade behavior; only those tables that demonstrably affect RefApp behavior are escalated to an explicit reviewed decision (drop / install module / remap).
 - The source SQL dump is a publicly-published, cleaned, anonymized OpenMRS demo corpus; no PHI risk attaches to it and no anonymization or credential-reset work is required as part of this feature.
 - Reviewers (engineering plus, where clinical interpretation matters, a clinically informed reviewer) are available to sign off on accepted mappings and PCCP-style change records; their identity is recorded.
-- Validation of the candidate database depends on real OpenMRS and OpenELIS startup paths being executable from the harness; if a real path cannot run in a given environment, the run is labelled development scaffolding and excluded from release evidence.
+- Validation requires access to real prepared OpenMRS interfaces. An unavailable
+  interface blocks that acceptance claim, not target startup by the runner.
+  OpenELIS feasibility does not require a running service.
 - **Demo-data posture**: this is demo data, not a production migration. Replication + determinism (SC-004) stay non-negotiable — two runs of the same inputs produce identical transform outputs. Validation is **iterative**: run the transform, inspect outputs, adjust the ConceptMap or a model, re-run. Acceptance is a consensus-guided review with the project owner; heavyweight PCCP records (FR-023) are reserved for changes that materially affect downstream consumers (chartsearchai, OpenELIS), not for per-rule tuning during M2-A iteration.
 
-## Implementation Status
+## Corpus measurements informing FR-007/008/029
 
-Live snapshot of progress against the milestones above. Detail is in `tasks.md`; measured signals are kept here because they shape FR-007/008/029.
-
-| Milestone | Status | Evidence |
-|---|---|---|
-| Operator infra (T000a–g) | ✅ done | PRs #5, #6 |
-| Public docs site (T000h–k) | ✅ done | PRs #6–9; live at `pmanko.github.io/clinical-ai-validation-harness/` |
-| Profile inventory (T021) | ✅ done | `artifacts/legacy-27-raw-baseline/profile/inventory.json`, dump sha256 `a7ca4bbe…` |
-| CIEL load + snapshot (T024a/b) | ✅ done | `datasets/sources/ocl/CIEL/v2026-04-28/` |
-| CIEL import-error audit (T024c) | ✅ done | `artifacts/dev-20260514-212318/profile/ciel-import-errors.json` |
-| Foundational (T001–T016) | ⏳ next | deps, manifest extensions, ConceptMap loader |
-| Accepted ConceptMap + seeds | ⏳ pending | drives the SQLMesh transform |
-| SQLMesh transform | ⏳ pending | produces `refapp_28_demo.sql` |
-| Loadback + sampler | ⏳ pending | clinician opens O3, sees rebound + promoted rows |
-| Schema diff + M2-A gate | ⏳ pending | closes FR-008(b) iteration |
-
-### Measured signals driving FR-007/008/029
+These observations inform mapping review; they are not current deployment status.
+[Tasks](tasks.md) owns implementation obligations.
 
 **Source corpus** (T021): 5,284 patients · 476,973 obs · 14,316 encounters · 0 rows in `allergy`/`conditions`/`orders`/`drug_order` · 0 reference_map rows · 457 distinct concept ids referenced in `obs`.
 

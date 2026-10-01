@@ -3,9 +3,9 @@ kind: OpenELISFeasibilityReport
 description: >-
   Per-entity feasibility analysis for cross-loading the OpenMRS demo corpus into
   OpenELIS Global. Analysis-only deliverable (Q1 clarification); no live OpenELIS
-  load is executed under this feature. Sourced from reading OpenELIS-Global-2/
-  schema directly (sibling checkout, not a harness submodule) plus the OpenMRS
-  profile + ConceptMap.
+  load is executed under this feature. Uses an explicitly supplied, versioned
+  OpenELIS schema artifact plus the OpenMRS profile and ConceptMap; no fixed
+  local product checkout is required.
 
 top_level_required:
   - openelis_target_version
@@ -24,13 +24,11 @@ fields:
   catalyst_umbrella_ref:
     type: object
     required: false
-    description: Documented entry point for any future loader feature (PR #4 pins the submodule); no Catalyst code is executed here.
+    description: Related product documentation only; not exercised target provenance or loader ownership.
     properties:
-      submodule_path:
+      repository_url:
         type: string
-        expected: targets/catalyst
-      submodule_sha:
-        type: string
+        expected: https://github.com/DIGI-UW/openelis-catalyst
   generated_at:
     type: string
     format: date-time
@@ -89,7 +87,7 @@ fields:
         loinc_bridge_coverage_percent:
           type: number
           required_when: entity in [test, analyte, result, observation]
-          description: % of clinical references in the corpus that have a LOINC mapping via CIEL.
+          description: Percentage of clinical references in the corpus that have a LOINC mapping via CIEL.
         gaps:
           type: array
           items:

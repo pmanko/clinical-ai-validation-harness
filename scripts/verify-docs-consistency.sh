@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Lightweight guard for current Catalyst documentation.
+# Lightweight guard for harness-owned Catalyst documentation.
 #
-# Product behavior belongs in the current authorities and executable tests.
+# Product behavior belongs in product authorities and executable tests.
 # This script catches only inexpensive documentation failures: missing
 # authorities, leaked infrastructure identifiers, malformed task markers,
 # broken local links, discarded architecture terms, and loss of the central
@@ -19,8 +19,7 @@ FEATURE_SPEC="${DOCS_FEATURE_SPEC_PATH:-specs/008-catalyst-query-workbench/spec.
 FEATURE_PLAN="${DOCS_FEATURE_PLAN_PATH:-specs/008-catalyst-query-workbench/plan.md}"
 QUICKSTART="${DOCS_QUICKSTART_PATH:-specs/008-catalyst-query-workbench/quickstart.md}"
 WORKBENCH_API="${DOCS_WORKBENCH_API_PATH:-specs/008-catalyst-query-workbench/contracts/workbench-api.md}"
-RETIRED_EXECUTION="${DOCS_RETIRED_EXECUTION_PATH:-specs/catalyst-implementation-plan.md}"
-RETIRED_DASHBOARD_GOAL="${DOCS_RETIRED_DASHBOARD_GOAL_PATH:-specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md}"
+
 
 REPORTING_ROADMAP="${DOCS_REPORTING_ROADMAP_PATH:-specs/openelis-reporting-catalyst-integration.md}"
 
@@ -39,10 +38,7 @@ CURRENT_DOCS=(
 for file in "${CURRENT_DOCS[@]}"; do
   [ -f "$file" ] || err "missing current Catalyst document: $file"
 done
-for file in "$RETIRED_EXECUTION" "$RETIRED_DASHBOARD_GOAL"; do
-  [ -f "$file" ] || err "missing retired Catalyst pointer: $file"
-  grep -qi 'retired' "$file" || err "retired Catalyst pointer is not labelled retired: $file"
-done
+
 if [ "$fail" -ne 0 ]; then
   exit 1
 fi
@@ -56,14 +52,13 @@ else
     .claude
     specs
     catalyst-sources
-    landing
-    targets/catalyst/README.md
-    targets/catalyst/AGENTS.md
-    targets/catalyst/docs
   )
 fi
 if grep -rIhnE '[0-9]{1,3}(\.[0-9]{1,3}){3}/32|sgr-[0-9a-f]{8,}' -- "${SECRET_PATHS[@]}"; then
-  err "tracked documentation contains a concrete /32 address or security-group rule id"
+  err "harness documentation contains a concrete /32 address or security-group rule id"
+else
+  status=$?
+  [ "$status" -eq 1 ] || err "could not scan harness documentation for infrastructure identifiers"
 fi
 
 if grep -nE '^- \[x\]' "$TASKS"; then
@@ -129,7 +124,7 @@ then
   fail=1
 fi
 
-PRODUCT_DOCS=(
+HARNESS_DOCS=(
   README.md
   AGENTS.md
   "$PROGRAM"
@@ -137,18 +132,16 @@ PRODUCT_DOCS=(
   "$FEATURE_PLAN"
   "$QUICKSTART"
   "$WORKBENCH_API"
-  landing/index.html
-  targets/catalyst/README.md
-  targets/catalyst/AGENTS.md
-  targets/catalyst/docs/specification.md
-  targets/catalyst/docs/dashboard-builder-mvp-design.md
-  targets/catalyst/docs/contracts/dashboard-builder-api.md
+
   .claude
 )
 if grep -rIinE \
   'PostgresAnalyticsAdapter|Postgres(ReadOnly|Gold)[A-Za-z]*|approved (catalog|relation list|view list)|gold (query|execution)|fixed 13[- ](relation|table)' \
-  "${PRODUCT_DOCS[@]}"; then
-  err "a current product document restores discarded architecture"
+  "${HARNESS_DOCS[@]}"; then
+  err "a current harness document restores discarded architecture"
+else
+  status=$?
+  [ "$status" -eq 1 ] || err "could not scan current harness documentation for discarded architecture"
 fi
 if [ "$fail" -ne 0 ]; then
   exit 1

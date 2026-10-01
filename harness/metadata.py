@@ -13,12 +13,31 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def copy_target_provenance(
+    provenance: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Freeze caller claims without treating them as verified target identity."""
+    if provenance is None:
+        return []
+    if not isinstance(provenance, list) or any(
+        not isinstance(item, dict)
+        or not isinstance(item.get("target_id"), str)
+        or not item["target_id"].strip()
+        for item in provenance
+    ):
+        raise ValueError("target_provenance must be a list of objects with target_id")
+    try:
+        return json.loads(json.dumps(provenance, allow_nan=False))
+    except (TypeError, ValueError) as error:
+        raise ValueError("target_provenance must contain finite JSON values") from error
+
+
 @dataclass
 class RunManifest:
     run_id: str
     project: str
     component: str
-    git_sha: str
+    git_sha: str | None
     dataset_id: str
     dataset_version: str
     schema_mapping_version: str

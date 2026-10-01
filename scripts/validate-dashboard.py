@@ -3,8 +3,7 @@
 
     python3 scripts/validate-dashboard.py        # then open http://localhost:8099
 
-Auto-refreshes every 2s: overall progress, per-arm stats, the GGUF models the
-llama-router has resident right now, a
+Auto-refreshes every 2s: overall progress, per-arm stats, captured models, and a
 scenario x arm status grid, and a recent feed. Click any grid cell or feed row to
 drill into that (scenario, arm): the expected behaviour + every turn's question,
 full answer, citations, and metrics. Reads the newest artifacts/validate run.
@@ -16,7 +15,7 @@ import os
 import re
 import socket
 import socketserver
-import subprocess
+
 import threading
 import time
 import sys
@@ -33,7 +32,7 @@ from harness.report_shell.assets import (  # noqa: E402
     theme_bootstrap_js,
     theme_toggle_js,
 )
-from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
+from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart  # noqa: E402
 from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.review_presentation import (  # noqa: E402
@@ -49,10 +48,9 @@ from harness.validate.response_artifacts import (  # noqa: E402
     response_for_displayed_evidence,
     split_answer_sections,
 )
-from harness.validate.sources import build_sources, load_scenario_chart  # noqa: E402
+from harness.validate.sources import build_sources  # noqa: E402
 from harness.validate.stage_timings import extract_stage_timings  # noqa: E402
-DATA = ROOT / "datasets" / "validation"
-TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
+
 PORT = int(os.environ.get("DASH_PORT", "8099"))
 
 
@@ -97,14 +95,6 @@ def newest_run():
 
     return max(dirs, key=_activity) if dirs else None
 
-
-def resident_models():
-    try:
-        out = subprocess.run(["lsof", "-c", "llama-server"], capture_output=True,
-                             text=True, timeout=4).stdout
-    except Exception:
-        return []
-    return sorted(set(re.findall(r"[A-Za-z0-9._-]+\.gguf", out)))
 
 
 def read_judge_actors(run):
@@ -153,28 +143,16 @@ def status():
         turns = {}
         for sid in scen_ids:
             try:
-                turns[sid] = len(json.load(open(DATA / "scenarios" / f"{sid}.json"))["turns"])
+                turns[sid] = len(json.loads((Path(run) / "inputs" / "scenarios" / f"{sid}.json").read_text())["turns"])
             except Exception:
                 turns[sid] = 1
         expected_cells = [(s, b) for s in scen_ids for b in back_ids]
         exp_turns = {(s, b): turns.get(s, 1) for (s, b) in expected_cells}
         total = sum(turns.values()) * len(back_ids) if back_ids else 0
 
-    results = _read_jsonl(Path(run) / "results.jsonl", strict=False)
-    # "Active" = results written recently OR the runner process is still alive. The mtime check
-    # alone misses slow tiers — a HIGH cell runs ~17 min writing NOTHING, so results.jsonl looks
-    # stale and the run appears dead with no running cell. The process check keeps the frontier
-    # cell painted yellow across long per-cell gaps.
+    results = review_results(run, strict=False)
     _rp = Path(run) / "results.jsonl"
-    try:
-        _runner_alive = subprocess.run(
-            ["pgrep", "-f", "harness-cli validate run"], capture_output=True).returncode == 0
-        _catalyst_alive = subprocess.run(
-            ["pgrep", "-f", "run-catalyst-notebook-validation"], capture_output=True
-        ).returncode == 0
-    except Exception:
-        _runner_alive = _catalyst_alive = False
-    active = _runner_alive or _catalyst_alive or (_rp.exists() and (time.time() - _rp.stat().st_mtime) < 120)
+    active = _rp.exists() and (time.time() - _rp.stat().st_mtime) < 120
     arms = {}
     for b in back_ids:
         rs = [r for r in results if r.get("backend_id") == b]
@@ -287,17 +265,12 @@ def status():
                      "indepth_chars": len((iresp or {}).get("answer") or ""),
                      "ans": esc_inline(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
-    # Structured arm makeup + config (single and team med-agent-hub profiles) —
-    # resolved by the shared resolver, REUSED from the report. Carries the real sampler knobs,
-    # per-role system prompts, and retrieval GPs so the dashboard can render the path badge,
-    # role->model makeup, and the "how this arm is configured" panel.
-    arm_cards = {}
-    for b in back_ids:
-        try:
-            arm_cards[b] = arm_card(b)
-        except Exception:
-            arm_cards[b] = {"backend_id": b, "label": b, "kind": "unknown",
-                            "path": None, "models": [], "roles": {}, "config": {}}
+    arm_cards = frozen_arm_cards(run, back_ids)
+    models = sorted({
+        str(model["id"])
+        for card in arm_cards.values() if card
+        for model in card.get("models") or [] if model.get("id")
+    })
 
     judge_actors = read_judge_actors(run)
 
@@ -316,7 +289,7 @@ def status():
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "judge_actors": sorted(judge_actors.keys()),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
-            "grid": grid_list, "feed": feed, "models": resident_models()}
+            "grid": grid_list, "feed": feed, "models": models}
 
 
 try:
@@ -416,7 +389,7 @@ def detail(scenario, backend):
     run = newest_run()
     if not run or not scenario or not backend:
         return {"turns": []}
-    rows = [r for r in _read_jsonl(Path(run) / "results.jsonl", strict=False)
+    rows = [r for r in review_results(run, strict=False)
             if r.get("scenario_id") == scenario and r.get("backend_id") == backend]
     catalyst_expected = (
         catalyst_expectation(run, scenario) if run_family(run) == "catalyst" else None
@@ -424,11 +397,11 @@ def detail(scenario, backend):
     rows.sort(key=lambda r: r.get("turn", 0))
     exp = {}
     try:
-        exp = json.load(open(DATA / "scenarios" / f"{scenario}.json")).get("expectations", {})
+        exp = json.loads((Path(run) / "inputs" / "scenarios" / f"{scenario}.json").read_text()).get("expectations", {})
     except Exception:
         pass
-    chart_fixture = load_scenario_chart(scenario, DATA / "scenarios", DATA / "charts")
-    traces = _read_jsonl(TRACE_FILE, strict=False)
+    chart_fixture = run_chart(run, scenario)
+    traces = _read_jsonl(Path(run) / "trace.jsonl", strict=False)
     turns = []
     for r in rows:
         m = r.get("metrics") or {}
@@ -472,7 +445,7 @@ def detail(scenario, backend):
             continue
         tr = match_trace(
             traces,
-            trace_model_for_result(r, arm_model_name(backend)),
+            trace_model_for_result(r, backend),
             r.get("started_at"),
             r.get("ended_at"),
             question=request.get("question"),

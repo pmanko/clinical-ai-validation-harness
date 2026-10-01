@@ -105,11 +105,7 @@ def test_static_report_renders_stage_status_and_missing_coverage(tmp_path, monke
     _write_timed_run(run_dir)
     trace = _timing_trace()
     monkeypatch.setattr(report, "load_traces", lambda _path: [trace])
-    monkeypatch.setattr(report, "arm_model_name", lambda _backend: "team")
-    monkeypatch.setattr(
-        report,
-        "arm_card",
-        lambda _backend: {
+    (run_dir / "run_meta.json").write_text(json.dumps({"arm_cards": {"team": {
             "backend_id": "team",
             "title": "Gemma coord · MedGemma expert · Qwen writer",
             "short_title": "Medical team",
@@ -119,8 +115,7 @@ def test_static_report_renders_stage_status_and_missing_coverage(tmp_path, monke
             "models": [],
             "roles": {},
             "config": {},
-        },
-    )
+        }}}), encoding="utf-8")
     uri = report.build_report(run_dir).resolve().as_uri()
 
     with sync_api.sync_playwright() as playwright:

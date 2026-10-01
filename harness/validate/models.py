@@ -90,7 +90,6 @@ class Backend:
     model_name: str
     indepth_endpoint: str | None = None
     indepth_model: str | None = None
-    llama_router_models_max: int | None = None
     kind: str = ""
     # Engine-parity provider arms (kind=provider_arm): pins the ChartSearchAI
     # provider (bundled|hub) per request; the bundled provider takes no product
@@ -100,16 +99,7 @@ class Backend:
     @classmethod
     def from_dict(cls, backend_id: str, data: dict[str, Any]) -> "Backend":
         _require(data, ("endpointUrl", "modelName"), f"backend {backend_id!r}")
-        models_max_raw = data.get("llamaRouterModelsMax")
-        if models_max_raw is None:
-            models_max_raw = data.get("routerModelsMax")
-        models_max = None
-        if models_max_raw is not None:
-            models_max = int(models_max_raw)
-            if models_max < 1:
-                raise ValueError(
-                    f"backend {backend_id!r}: llamaRouterModelsMax must be >= 1"
-                )
+
         return cls(
             id=backend_id,
             label=str(data.get("label", backend_id)),
@@ -117,7 +107,6 @@ class Backend:
             model_name=str(data["modelName"]),
             indepth_endpoint=str(data["indepthEndpointUrl"]) if data.get("indepthEndpointUrl") else None,
             indepth_model=str(data["indepthModelName"]) if data.get("indepthModelName") else None,
-            llama_router_models_max=models_max,
             kind=str(data.get("kind") or ""),
             provider=str(data.get("provider") or ""),
         )

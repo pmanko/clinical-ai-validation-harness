@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import runpy
 import subprocess
@@ -653,7 +654,13 @@ def test_evaluate_result_checks_runtime_query_and_table_identity() -> None:
     assert by_name["table_pipeline_run"]["passed"] is False
 
 
-def test_run_suite_writes_versioned_evidence(tmp_path: Path) -> None:
+def test_run_suite_writes_versioned_evidence_without_local_products(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PATH", "")
+    for name in ("run", "Popen", "check_output", "check_call"):
+        monkeypatch.setattr(subprocess, name, lambda *a, **kw: pytest.fail("runtime invoked a subprocess"))
     suite_path = tmp_path / "suite.json"
     _write_suite(suite_path)
 
@@ -661,7 +668,6 @@ def test_run_suite_writes_versioned_evidence(tmp_path: Path) -> None:
         suite_path=suite_path,
         client=FakeClient(),
         output_dir=tmp_path / "artifacts",
-        project_root=Path(__file__).parents[2],
     )
 
     assert result.result_count == 2
@@ -675,27 +681,31 @@ def test_run_suite_writes_versioned_evidence(tmp_path: Path) -> None:
         item["target_id"]: item for item in manifest["target_provenance"]
     }
     assert set(provenance_by_id) == {"catalyst", "med-agent-hub"}
-    contract_path = (
-        Path(__file__).parents[2]
-        / "specs"
-        / "001-harness-control-plane-foundation"
-        / "contracts"
-        / "run-manifest-control-plane.schema.yaml"
-    )
-    contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
-    required_target_fields = set(contract["target_provenance"]["items"]["required"])
     assert all(
-        required_target_fields <= set(item) for item in manifest["target_provenance"]
+        {"target_id", "target_source", "evidence_status", "decision_rationale"} <= set(item)
+        for item in manifest["target_provenance"]
     )
+    assert manifest["git_sha"] is None
+    assert not (tmp_path / ".git").exists()
+    assert not (tmp_path / "targets").exists()
     assert all(
-        item["target_source"] == "reviewed_submodule"
-        and item["target_actual_sha"] == item["target_reviewed_sha"]
-        and item["target_dirty"] is False
-        and item["target_override"] is False
+        item["target_source"] == "observed_api"
+        and item.get("target_actual_sha") is None
+        and "target_reviewed_sha" not in item
+        and "target_dirty" not in item
+        and "target_override" not in item
         for item in manifest["target_provenance"]
     )
     catalyst_provenance = provenance_by_id["catalyst"]
-    assert catalyst_provenance["suite_sha256"]
+    assert (result.run_dir / "suite.json").read_bytes() == suite_path.read_bytes()
+    assert catalyst_provenance["suite_sha256"] == hashlib.sha256(
+        (result.run_dir / "suite.json").read_bytes()
+    ).hexdigest()
+    frozen_config = json.loads((result.run_dir / "run-config.json").read_text())
+    assert frozen_config["scenario_ids"] == ["viral"]
+    assert frozen_config["repetitions"] == 2
+    assert frozen_config["profile_id"] == "catalyst-query-gemma-e4b"
+    assert frozen_config["suite_sha256"] == catalyst_provenance["suite_sha256"]
     assert catalyst_provenance["dataset_overview_sha256"]
     assert catalyst_provenance["catalog_sha256"]
     assert catalyst_provenance["runtime_dataset_id"] == "pipeline-42"
@@ -730,42 +740,34 @@ def test_run_suite_writes_versioned_evidence(tmp_path: Path) -> None:
     ]
 
 
-def test_pin_mismatch_fails_before_profile_discovery(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_run_suite_preserves_supplied_provenance_separately_from_observations(
+    tmp_path: Path,
 ) -> None:
     suite_path = tmp_path / "suite.json"
     _write_suite(suite_path)
-    monkeypatch.setattr(
-        catalyst_validation, "read_superproject_gitlink", lambda *_: "reviewed"
+    supplied = [{
+        "target_id": "catalyst",
+        "target_source": "supplied",
+        "target_actual_sha": "caller-reported-revision",
+        "target_url": "https://catalyst.example",
+        "build": {"image_digest": "sha256:caller-reported-image"},
+    }]
+    before = json.loads(json.dumps(supplied))
+    result = run_suite(
+        suite_path=suite_path,
+        client=FakeClient(),
+        output_dir=tmp_path / "artifacts",
+        git_sha="caller-reported-runner-revision",
+        target_provenance=supplied,
     )
-    monkeypatch.setattr(catalyst_validation, "read_submodule_head", lambda *_: "other")
-
-    class NeverContacted(FakeClient):
-        def profiles(self) -> dict:
-            pytest.fail("profile discovery must not run before pin preflight")
-
-    with pytest.raises(ValueError, match="reviewed gitlink"):
-        run_suite(
-            suite_path=suite_path,
-            client=NeverContacted(),
-            output_dir=tmp_path / "artifacts",
-            project_root=tmp_path,
-        )
-
-    assert not (tmp_path / "artifacts").exists()
-
-
-def test_dirty_pin_is_rejected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(
-        catalyst_validation, "read_superproject_gitlink", lambda *_: "same"
-    )
-    monkeypatch.setattr(catalyst_validation, "read_submodule_head", lambda *_: "same")
-    monkeypatch.setattr(
-        catalyst_validation, "submodule_worktree_dirty", lambda *_: True
-    )
-
-    with pytest.raises(ValueError, match="uncommitted changes"):
-        catalyst_validation._target_provenance(tmp_path)
+    manifest = json.loads((result.run_dir / "run_manifest.json").read_text())
+    assert manifest["git_sha"] == "caller-reported-runner-revision"
+    assert manifest["target_provenance"][0] == before[0]
+    assert supplied == before
+    observed = manifest["target_provenance"][1:]
+    assert {item["target_id"] for item in observed} == {"catalyst", "med-agent-hub"}
+    assert all(item["target_source"] == "observed_api" for item in observed)
+    assert observed[0]["runtime_dataset_id"] == "pipeline-42"
 
 
 def test_profile_provider_must_match_suite_evidence(tmp_path: Path) -> None:
@@ -815,7 +817,6 @@ def test_runtime_identity_mismatch_fails_before_query_submission(
             suite_path=suite_path,
             client=MismatchedRuntime(),
             output_dir=output_dir,
-            project_root=Path(__file__).parents[2],
         )
 
     run_dir = next(output_dir.iterdir())
@@ -838,7 +839,6 @@ def test_profile_discovery_failure_still_writes_run_evidence(tmp_path: Path) -> 
             suite_path=suite_path,
             client=FailingProfileClient(),
             output_dir=output_dir,
-            project_root=Path(__file__).parents[2],
         )
 
     run_dirs = list(output_dir.iterdir())

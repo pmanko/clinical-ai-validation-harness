@@ -1,7 +1,7 @@
 # SQLMesh Project Profile (harness-local)
 
 **Standard**: SQLMesh project format (https://sqlmesh.readthedocs.io/)
-**Engine**: SQLMesh `>=0.150` (Apache-2.0, Linux Foundation)
+**Engine**: SQLMesh (Apache-2.0); use the compatible range in `pyproject.toml` and record the actual version
 **Adapter**: MariaDB / MySQL (compatible with the O3 RefApp's `mariadb:10.11.7`)
 **Validated by**: `sqlmesh parse`, `sqlmesh plan`, `sqlmesh run --dry-run`, `sqlmesh audit`
 **Root**: `datasets/transforms/sqlmesh/`
@@ -25,7 +25,10 @@ datasets/transforms/sqlmesh/
 
 ## config.yaml requirements
 
-- `gateways:` MUST define a gateway named `harness` pointing at the live MariaDB from `compose/openmrs-2.8-refapp.yml` (`db` service). Connection params come from environment variables that the harness's `harness/transform/run.py` sets; the config file MUST NOT contain hard-coded credentials.
+- `gateways:` MUST define a gateway named `harness` pointing at the caller-supplied
+  MariaDB/MySQL-compatible transform database. Connection settings come from the
+  environment/configuration; the file MUST NOT contain hard-coded credentials.
+  Database/service preparation is outside the runner.
 - `default_gateway: harness`
 - `model_defaults.kind: VIEW` for `audit_views/`; `FULL` for `staging/`, `terminology/`, `clinical/`, `modules/` unless a model overrides.
 - `model_defaults.dialect: mysql` (SQLMesh's MariaDB-compatible dialect).

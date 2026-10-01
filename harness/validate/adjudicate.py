@@ -450,15 +450,13 @@ def _is_int(v: Any) -> bool:
 # 6. the review driver — load a run, present cells, write adjudication.jsonl
 # --------------------------------------------------------------------------- #
 def _resolve_snapshot(snapshot_file: Any, run_dir: Path) -> str:
-    """Read the chart ground-truth snapshot text for a cell. The recorded
-    snapshot_file is an absolute path from the producing machine; fall back to
-    <run_dir>/charts/<basename> so a run reviewed on a different host still resolves."""
+    """Read the recorded snapshot only when it resolves inside this run directory."""
     if not snapshot_file:
         return ""
-    for cand in (Path(snapshot_file), run_dir / "charts" / Path(snapshot_file).name):
-        if cand.exists():
-            return cand.read_text(encoding="utf-8")
-    return ""
+    candidate = (run_dir / Path(snapshot_file)).resolve()
+    if not candidate.is_relative_to(run_dir.resolve()):
+        return ""
+    return candidate.read_text(encoding="utf-8") if candidate.is_file() else ""
 
 
 def present_cell(cell: dict[str, Any], judge: dict[str, Any], run_dir: Path) -> str:

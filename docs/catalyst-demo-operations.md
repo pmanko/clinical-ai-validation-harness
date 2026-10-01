@@ -1,5 +1,14 @@
 # Catalyst demo operations
 
+Workspace commands in this guide run from the **OpenClinAI umbrella root**, not
+from `targets/validation-harness`. Direct `targets/catalyst` and
+`targets/med-agent-hub` checkouts, Compose overrides, builds and model services
+are umbrella-owned. See the [workspace roadmap](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md)
+and [operational scripts](https://github.com/pmanko/openclinai.org/tree/main/scripts).
+Existing server paths below describe the retained deployment; they do not prove
+that its checkout has been migrated. Verify the deployed layout before applying
+commands from a new umbrella checkout. Website relocation is still pending.
+
 The public application is at <https://catalyst.openelis-global.org/>. Its owning
 checkout is `/home/ubuntu/catalyst-release` on that host. Use the existing SSH
 alias, which selects the `ubuntu` user and the dedicated demo key:
@@ -13,7 +22,7 @@ scripts/catalyst-mvp.sh health
 ```
 
 The environment file selects the server's isolated override and ports. Source
-it for **every** lifecycle or Superset import operation. Use the harness wrapper;
+it for **every** lifecycle or Superset import operation. Use the umbrella wrapper;
 the older checkout's Compose files do not describe the current public topology.
 Do not rebuild or restart services during a recording or an import.
 
@@ -184,7 +193,7 @@ accuracy tuning and performance benchmarking remain outside this checkpoint.
 
 ## Shared model router
 
-Catalyst intentionally consumes an external model router. The harness owns the
+Catalyst intentionally consumes an external model router. The umbrella owns the
 containerized server lifecycle so a clean Catalyst deployment does not depend on
 a router left behind by an older Compose file. Configure the current demo host in
 `/home/ubuntu/catalyst-release-config/env.sh`:
@@ -296,7 +305,7 @@ The earlier emulator/registration combination caused Java crashes and stalled
 database startup. Full wrapper health passed after the replacement.
 
 The server override at
-`/home/ubuntu/catalyst-release-config/isolated.override.yml` preserves the harness
+`/home/ubuntu/catalyst-release-config/isolated.override.yml` preserves the workspace
 configuration and changes the Data Pipes service entrypoint as follows:
 
 ```yaml
@@ -323,8 +332,8 @@ Check for active preparations before applying lifecycle changes. The wrapper's
 run it outside recording, import and query validation. Keep each validation run
 on an uninterrupted deployment.
 
-For a UI-only release, update the persistent checkout to the merged harness
-revision, initialize its exact Catalyst and Hub pins, and run
+For a UI-only release, update the persistent umbrella checkout to the selected
+release revision, initialize its direct Catalyst and Hub pins, and run
 `scripts/catalyst-mvp.sh ui-update` with the environment used for that stack.
 This uses the same isolated override and existing `.env`, rebuilds only
 `catalyst-ui`, and passes `--no-deps` so Gateway, Hub, models, source databases

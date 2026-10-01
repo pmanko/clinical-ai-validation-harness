@@ -28,7 +28,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-_DEFAULT_CONTRACT = "datasets/validation/conformance/engine-parity.v1.json"
+_DEFAULT_CONTRACT = str(
+    Path(__file__).resolve().parents[1]
+    / "datasets/validation/conformance/engine-parity.v1.json"
+)
 _MISSING = object()
 _RECORD_RE = re.compile(r"^\[\d+\] (\((\d{4}-\d{2}-\d{2})\) .*?)\s*$", re.MULTILINE)
 

@@ -43,7 +43,8 @@ This phase resolves the plan-shaped open items from `/speckit-clarify` and recor
 - **dbt-core + dbt-mysql**: more mature ecosystem and bigger hiring pool. Loses on SC-004 because Jinja non-determinism is real and ongoing. Defensible alternative; not chosen because the spec puts reproducibility ahead of ecosystem familiarity.
 - **Apache Hop**: visual / XML-files-on-disk; less natural for code-review of mapping logic. Apache-2.0.
 - **Apache Camel**: wrong category — integration framework / EIP routes, not a batch-SQL transform engine. Adds JVM weight, gives us no native treatment of mapping as reviewable artifact.
-- **Airbyte / Meltano / Singer**: ELT integration tools for moving data between systems; wrong shape for in-place dump transformation as the transform engine. Note: **dlt was initially rejected here on the same basis but is reintroduced in §R-load-pattern as the load layer on top of SQLMesh** — the validated SQLMesh+dlt handover pattern is purpose-built for this exact "transform with SQLMesh, load into a downstream OLTP target with dlt" architecture.
+- **Airbyte / Meltano / Singer**: ELT integration tools for moving data between systems; wrong shape for in-place dump transformation as the transform engine. The load layer uses a direct SQL copy of physical snapshots into a supplied build
+  schema; see §R-load-pattern. It does not require an ETL framework.
 - **Plain SQL + Liquibase changesets**: closest to OpenMRS-native. Liquibase publishes a changeset format. Loses on lineage-aware testing, content-versioning, and reviewable audits out of the box. Stays in scope as a fallback if SQLMesh adoption proves friction-heavy mid-implementation.
 - **FHIR StructureMap / FML** for the structural transform: strong fit for resource-shape transforms but our source/target are relational tables. The two extra format hops (SQL → FHIR → FML → FHIR → SQL) are operational cost without standards-fidelity benefit; rejected for structural transforms, retained for terminology as ConceptMap (R1).
 
@@ -128,7 +129,7 @@ Verified directly from `openmrs/openmrs-distro-referenceapplication@main`:
 - `frontend/spa-assemble-config.json` bundles `@openmrs/esm-openconceptlab-app` — the O3 microfrontend UI for managing the OpenConceptLab module.
 - **No concept seed CSVs / JSON dumps are committed in the RefApp distro.** The RefApp doesn't pre-populate the dictionary; it only ships the *loader*.
 
-So when you `docker compose up` the O3 RefApp 3.6.0 against an empty MariaDB:
+When the deploying owner prepares an O3 RefApp 3.6.0 against an empty MariaDB:
 1. Liquibase creates the schema and populates only the system-required concepts.
 2. The `openconceptlab` module starts; its admin UI is reachable; no concepts are pre-loaded.
 3. To actually have a clinical dictionary, the deployer must either (a) configure an OCL subscription URL+token and run a sync, or (b) import an offline OCL export file.
@@ -348,59 +349,29 @@ The five cross-cutting decisions below are the project's defaults; documented he
 
 ## R-load-pattern. OLTP load layer (SQLMesh → direct loader → dump-provision, M2-F entry)
 
-> **Updated decision (dlt retired).** dlt has been removed from the load layer. In practice none of
-> its differentiated features were exercised: the source is flat relational SQLMesh output (no nested
-> JSON to normalize, no schema to evolve), the destination is a fixed Hibernate schema we full-replace
-> each run (no incremental/state benefit), and the final copy re-implemented `merge` as `INSERT IGNORE`
-> rather than using dlt's. Meanwhile dlt's one non-suppressible side-effect — the `_dlt_id`/`_dlt_load_id`
-> columns — forced an entire parallel `<target>_dlt` staging schema plus a manual column-stripping
-> "promote" copy, and a separate in-place schema-clobber promote that desynced Liquibase + module state
-> (chartsearchai failing to boot). The load is now a **direct `INSERT … SELECT`** from each resolved
-> SQLMesh snapshot into the build schema (`harness/load/loader.py`), and instances are **provisioned
-> from a portable, module-clean dump** (`dump-loaded.sh` → `seed-local.sh`/`cloud-seed.sh`) into a fresh
-> DB — OpenMRS's native "the demo data IS the database" path, with the app owning Liquibase. The
-> original analysis below is retained as the record of why the split tool was chosen at the time; the
-> conclusion (SQLMesh owns the transform; a thin loader owns the OLTP copy) stands — only the loader's
-> implementation changed from dlt to direct SQL.
+**Decision**: SQLMesh owns reviewed transformations and audits. A thin direct SQL
+loader (`harness/load/loader.py`, stdlib + PyMySQL) copies its physical snapshots
+into a caller-prepared disposable OpenMRS build schema. The deliverable is a
+portable, module-clean dump; restoration and service lifecycle belong to the
+product/umbrella deployment workflow, not the validation runner.
 
-**Decision**: SQLMesh terminates at the **transform spec** (legacy_27_raw → refapp_28_demo). The **load** into the live OLTP target (`openmrs` / `openmrs_test`) is handled by [**dlt**](https://dlthub.com/) with the SQLAlchemy destination. Two complementary tools, each operating at its design intent.
+**Rationale**: SQLMesh's logical schema contains views over versioned snapshots,
+not a portable OLTP data dump. Keep its content fingerprints, reviewed promotion
+models and audit gates, then copy relational rows with explicit FK dependency
+order and column projection. The fixed OpenMRS schema and full-replace clinical
+history do not need ETL schema evolution, nested-JSON normalization or incremental
+pipeline state. OpenMRS retains exclusive ownership of Liquibase/module schemas.
 
-**Rationale** — why this split rather than one tool end-to-end:
+**Determinism and conformance**: SQLMesh audits pass; post-copy row counts meet
+reviewed floors; repeated identical loads preserve normalized content checksums
+in `materialized_outputs[]`. FK/completeness findings and column-projection
+rationale are retained at record/table level. Module-clean packaging avoids
+carrying running-module state into the receiving fresh deployment. Acceptance
+uses prepared REST/FHIR readback, not an in-place service/schema promotion.
 
-- SQLMesh's storage layer is **virtual-by-design**: the user-facing `refapp_28_demo` schema is views over versioned snapshot tables in `sqlmesh__refapp_28_demo`. That virtualization is the whole point of SQLMesh's atomic env-swap + time-travel + content-fingerprint guarantees for analytical workflows. It is **not designed to produce a portable, loadable SQL artifact for a separate OLTP application** — confirmed empirically (a `mariadb-dump refapp_28_demo` produces 165KB of CREATE VIEW statements, no data) and via the [SQLMesh Multi-Engine guide](https://sqlmesh.readthedocs.io/en/stable/guides/multi_engine/) which states models materialize in their assigned gateway only.
-- dlt is purpose-built for the missing piece: SQL-source → SQL-destination ETL with primary-key idempotency, schema evolution, and pipeline state tracking. [Tobiko (the SQLMesh company) explicitly endorses the dlt handover pattern](https://dlthub.com/blog/sqlmesh-dlt-handover).
-- The transform itself is non-trivial (1:N obs→typed-table promotions, FK reconciliation across user/location/encounter_type, ~2,528 concept rebinds with policy-bucket metadata) and benefits from SQLMesh's lineage + audit machinery. Throwing SQLMesh out to use plain SQL or a single ETL tool would re-encode in less-audited form what SQLMesh already gets right.
-
-**What each tool owns**:
-
-| Tool | Owns | Outputs |
-|---|---|---|
-| **SQLMesh** | Transform spec: bridge rule (concept rebind), 4 obs→typed-table promotions, FK reconciliation seed maps (`models/terminology/*.sql`), audit gates (row-count, concept-translation-coverage, FK-closure, policy-bucket-coverage), content-fingerprint determinism. | Physical snapshot tables in `sqlmesh__refapp_28_demo.*`; user-facing views in `refapp_28_demo.*`. |
-| **dlt** | OLTP load: read from SQLMesh's physical snapshots → write to `openmrs_test.*` (iteration target) or `openmrs.*` (promotion target). PK-based idempotency via `write_disposition='merge'`; schema evolution; per-pipeline state. | Rows in the live RefApp's DB. Pipeline state under `.dlt/openmrs_loadback/state.json`. |
-
-**Hermetic iteration**: dlt writes to `openmrs_test` (a separate schema in the same MariaDB), not the live `openmrs`. The iteration loop (edit SQLMesh model → re-run plan + audit → re-run dlt → restart backend pointed at openmrs_test → smoke) keeps the main CIEL-loaded baseline untouched. Promotion to `openmrs` is a single env-var change.
-
-**Run-manifest extensions**: `RunManifest002Extensions` gains two fields per `contracts/run_manifest_002_extensions.schema.yaml`:
-
-- `dlt_pipeline_run_id` — dlt's run UUID for the load step
-- `dlt_state_hash` — SHA-256 of dlt's pipeline state JSON; a determinism witness (same SQLMesh inputs + same dlt config → same state hash)
-
-Each loaded table's row count continues to stamp into `materialized_outputs[]` (already implemented in B2 of the prior remediation; extends naturally from "post-transform" to "post-load").
-
-**Conformance signals**:
-- SQLMesh side: `sqlmesh audit` exits 0 (existing).
-- dlt side: `dlt pipeline info openmrs_loadback --schema` runs cleanly; per-table row counts post-load match the SQLMesh-side audit floors (`audit_<mart>_row_count_min.sql`).
-- Integrated: a fresh-replay run (`scripts/reset-transform.sh && sqlmesh plan && harness-cli load-test`) produces byte-identical content checksums in `materialized_outputs[]` and the same `dlt_state_hash` for the same inputs.
-
-**Companion artifacts**:
-- `contracts/dlt_pipeline.profile.md` — the load-layer contract (write_dispositions per table, PK conventions, required dlt config).
-- `datasets/load/openmrs-loadback.review.md` — reviewer rationale per resource + FK-reconciliation decisions; analogous to `datasets/mappings/openmrs-2.7-to-2.8.review.md` for the transform spec.
-
-**Alternatives considered** (and rejected):
-
-- **Plain SQL + mysqldump**: would force re-encoding the 1:N promotion fan-out and FK reconciliation in ad-hoc SQL, losing SQLMesh's audit gates and lineage tracking. Defensible only if SQLMesh's transform were trivial; ours isn't.
-- **Liquibase custom changesets** (`loadData` / `loadUpdateData` from CSV): idiomatic to OpenMRS, but requires a separate module to host the changesets and adds XML ceremony. Held in reserve for the eventual production-grade artifact handoff if we ever ship the demo dataset upstream.
-- **dlt for the entire transform**: dlt has SQL transformations via ibis, but the audit + content-fingerprint + reviewable-model-file machinery in SQLMesh is the load-bearing part of the spec's reproducibility commitment (SC-004). Replacing SQLMesh wholesale would be a larger architectural shift than the load-layer addition justifies.
-
-**License**: dlt is Apache-2.0 (compatible with SQLMesh's Apache-2.0 and our existing OSS licensing).
+**Companion artifacts**: [load profile](contracts/load.profile.md),
+[manifest extensions](contracts/run_manifest_002_extensions.schema.yaml) and
+`datasets/load/openmrs-loadback.review.md` retain the reviewed data decisions.
+Reusable data-tooling ownership remains an open umbrella decision; current data
+functionality is preserved pending that assignment.
 

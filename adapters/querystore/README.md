@@ -1,12 +1,14 @@
-# Querystore adapter contract
+# QueryStore context contract reference
 
-Querystore is an optional med-agent-hub patient-context source. The hub must also
-start and answer with inline context when Querystore is absent.
+There is no standalone QueryStore execution adapter in this harness. Clinical
+experiments use the configured ChartSearchAI API and capture the evidence it
+returns; products may use QueryStore as their patient-context source.
 
-Stable checks:
+Record projection, authorization, retrieval, date semantics, snapshot identity
+and freshness belong to the maintained [QueryStore API contract](https://github.com/pmanko/openmrs-module-querystore/blob/harness-integration/docs/rest-api.md)
+and [ADR](https://github.com/pmanko/openmrs-module-querystore/blob/harness-integration/docs/adr.md).
+QueryStore is not a universal requirement for Med Agent Hub or harness execution.
 
-- `make querystore-test` runs the complete default reactor suite.
-- `make querystore-test-integration` runs the real MySQL Testcontainers backend contract.
-
-Live corpus checks use the existing configure, drift, reindex, and patient-record
-read paths. The module remains one possible evidence source, not a hub dependency.
+The caller prepares any needed QueryStore service. Reactor tests, indexing,
+configuration and deployment are product/umbrella operations, not adapter methods.
+[Current API adapters](../README.md) describes the real harness entry points.

@@ -3,12 +3,12 @@
 
   - a client whose `chat` is NOT introspectable by inspect.signature() must degrade to
     record-only (no reference_date kwarg) instead of aborting the run;
-  - a write_run_meta failure must be swallowed (best-effort provenance, never fatal);
+  - frozen input/metadata capture failures must abort before scenario execution;
   - an In-Depth call that RAISES must be captured as a status-0 in-depth artifact, not
     propagate and kill the answer survey.
 
-These mirror the defensive `except` blocks in run_comparison; each test breaks (the run
-aborts / the row is missing) if the corresponding guard is removed.
+These pin the runner's failure policies: optional client capabilities degrade gracefully,
+but required frozen evidence cannot be treated as best-effort provenance.
 """
 
 from __future__ import annotations
@@ -98,13 +98,15 @@ def test_non_introspectable_chat_degrades_to_record_only(tmp_path, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# 2. write_run_meta failure is swallowed (best-effort), run still completes
+# 2. required frozen capture failure is fatal before scenario execution
 # --------------------------------------------------------------------------- #
 class _OkClient:
     def __init__(self):
         self.calls = []
+        self.sessions = []
 
     def new_session(self, patient):
+        self.sessions.append(patient)
         return "sess-initial"
 
     def chat(self, patient, session, question, *, profile=None,
@@ -113,20 +115,26 @@ class _OkClient:
         return ChatResult(status=200, envelope=_envelope(len(self.calls)), latency_ms=5)
 
 
-def test_write_run_meta_failure_is_not_fatal(tmp_path, monkeypatch):
+@pytest.mark.parametrize("capture_hook", ["write_run_meta", "freeze_inputs"])
+def test_required_frozen_capture_failure_is_fatal(tmp_path, monkeypatch, capture_hook):
     data = tmp_path / "data"
     _write_fixtures(data)
+    client = _OkClient()
+    output = tmp_path / "art"
 
     def boom(*a, **k):
-        raise RuntimeError("levels.yaml unreadable mid-run")
+        raise OSError("frozen capture write failed")
 
-    monkeypatch.setattr(runner, "write_run_meta", boom)
+    monkeypatch.setattr(runner, capture_hook, boom)
 
-    out = run_comparison(comparison_set_id="cs", client=_OkClient(), data_root=data,
-                         output_dir=tmp_path / "art")
-    # The run produced results despite write_run_meta raising; run_meta.json is simply absent.
-    assert out.result_count == 1
-    assert not (out.run_dir / "run_meta.json").exists()
+    # Frozen inputs/routing metadata are essential to offline review, not optional
+    # provenance. Propagate the error rather than execute an unreviewable survey.
+    with pytest.raises(OSError, match="frozen capture write failed"):
+        run_comparison(comparison_set_id="cs", client=client, data_root=data,
+                       output_dir=output)
+    assert client.calls == []
+    assert client.sessions == []
+    assert not list(output.glob("*/results.jsonl"))
 
 
 # --------------------------------------------------------------------------- #

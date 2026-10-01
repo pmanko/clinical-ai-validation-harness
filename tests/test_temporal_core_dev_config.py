@@ -74,27 +74,13 @@ def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
         "team-med-checked",
     ]
     assert all(backend.indepth_model is None for backend in backends)
-    cards = {backend.id: arm_card(backend.id) for backend in backends}
-    assert cards["single-e4b-checked"]["kind"] == "single"
-    assert cards["single-12b-checked"]["kind"] == "single"
-    team = cards["team-med-checked"]
-    assert team["kind"] == "team"
-    assert team["title"] == (
-        "Gemma 4B coord · MedGemma 4B expert · Qwen 14B writer · Gemma 12B val"
-    )
-    assert team["stages"] == [
-        "context",
-        "gather",
-        "answer",
-        "gate",
-        "resolve_refs",
-        "review",
-        "gate",
-        "final_resolve_refs",
-        "ground_verdicts",
-        "indepth",
-        "indepth_gate",
-    ]
+    for backend in backends:
+        card = arm_card(backend.id, backend=backend)
+        assert card["kind"] == backend.kind == "product_profile"
+        assert card["title"] == backend.label
+        assert card["models"] == [{"id": backend.model_name}]
+        assert card["roles"] == {}
+        assert "stages" not in card
 
 
 def test_backend_registry_has_no_orphans_and_product_ids_are_hub_ids():

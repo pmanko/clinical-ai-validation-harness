@@ -46,7 +46,7 @@ The first execution change must:
 2. Create `openmrs-dual-provider-parity-roadmap-status.md` for mutable progress, SHAs, PR heads, gate evidence, signoffs, and approved deviations.
 3. Record and verify the roadmap SHA-256.
 4. Fold the prior draft pivot audit into this canonical artifact; do not retain a second active roadmap.
-5. Mark `hub-consolidation-roadmap.md` and its status as historical and superseded while linking completed evidence and still-valid decisions.
+5. Link completed Hub work through its dated [status record](hub-consolidation-roadmap-status.md) and retain current context/evaluation criteria in [Feature 006](../../006-validation-harness-mvp/spec.md#clinical-context-and-deterministic-evaluation), under their original `MAH-CONSOLIDATION-2026-07-09-v1` namespace.
 6. Update `specs/artifacts/README.md`, root `README.md`, `AGENTS.md`, active specifications, and PR descriptions.
 7. Add `scripts/verify-dual-provider-parity-gates.sh`.
 8. Commit and push the roadmap artifacts before runtime implementation.

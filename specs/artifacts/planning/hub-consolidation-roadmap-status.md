@@ -12,7 +12,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 
 | Field | Value |
 |---|---|
-| Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
+| Approved roadmap evidence | [Recorded body at `8bc9caa`](https://github.com/pmanko/clinical-ai-validation-harness/blob/8bc9caa/specs/artifacts/planning/hub-consolidation-roadmap.md); [maintained validation criteria](../../006-validation-harness-mvp/spec.md#clinical-context-and-deterministic-evaluation) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `a120a24e06cae895d0547ee7b9ec4e3ee0def1431b584152876103b5b8f963c1` (re-pinned 2026-07-23: commit 8bc9caa added the user-approved supersession markers to the historical roadmap body, which is exactly what the successor roadmap's G01 verifies; the pre-supersession hash was `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d`) |
 | Current execution boundary | Approved Amendment A4 pre-merge safety remediation on med-agent-hub PR #13; M4 release QA remains open |

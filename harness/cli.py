@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from uuid import uuid4
 
-from .config import HarnessConfig
 from .import_smoke import run_import_smoke_stub
 from .metadata import RunManifest, append_event, write_manifest
 from .schema_diff import write_schema_diff
-from .submodules import read_harness_git_sha
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -22,12 +21,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Directory to write schema diff artifacts",
     )
 
+    schema.add_argument("--git-sha", help="Caller-supplied runner revision (optional)")
+
     smoke = sub.add_parser("import-smoke", help="Run import smoke checks")
     smoke.add_argument(
         "--output-dir",
         default="artifacts/import-smoke",
         help="Directory to write smoke artifacts",
     )
+
+    smoke.add_argument("--git-sha", help="Caller-supplied runner revision (optional)")
 
     # conceptmap subcommands
     cm = sub.add_parser("conceptmap", help="ConceptMap authoring and validation")
@@ -77,6 +80,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     val_run.add_argument("--data-root", default="datasets/validation")
     val_run.add_argument("--output-dir", default="artifacts/validate")
+    val_run.add_argument("--git-sha", help="Caller-supplied runner revision (optional)")
+    val_run.add_argument("--target-provenance", help="JSON file of supplied target identity objects")
+    val_run.add_argument("--arm-metadata", help="JSON file of arm cards keyed by backend id")
+    val_run.add_argument("--corpus-provenance", help="JSON file of the supplied corpus restore receipt")
+    val_run.add_argument("--trace-file", help="Supplied trace JSONL export to capture with this run")
     val_run.add_argument(
         "--resume",
         help="Prior run dir to resume from: scenario×backend cells that completed cleanly "
@@ -133,13 +141,15 @@ def _not_yet_implemented(command: str) -> int:
     return 2
 
 
-def _start_run(output_dir: Path, component: str, project_root: Path) -> tuple[Path, Path]:
+def _start_run(
+    output_dir: Path, component: str, git_sha: str | None = None
+) -> tuple[Path, Path]:
     run_id = str(uuid4())
     manifest = RunManifest(
         run_id=run_id,
         project="clinical-ai-validation-harness",
         component=component,
-        git_sha=read_harness_git_sha(project_root),
+        git_sha=git_sha,
         dataset_id="large-demo-data-2-7-0",
         dataset_version="2.7.0",
         schema_mapping_version="openmrs-2.7-to-2.8@v0",
@@ -169,10 +179,10 @@ def main(
 ) -> int:
     import sys
     args = _build_parser().parse_args(argv)
-    config = HarnessConfig.from_defaults(project_root or Path("."))
+    root = Path(project_root or ".").resolve()
     if args.command == "schema-diff":
         output_dir = Path(args.output_dir)
-        _manifest, events = _start_run(output_dir, "schema-diff", config.project_root)
+        _manifest, events = _start_run(output_dir, "schema-diff", args.git_sha)
         diff_path, summary_path = write_schema_diff(output_dir)
         append_event(
             events,
@@ -187,7 +197,7 @@ def main(
 
     if args.command == "import-smoke":
         output_dir = Path(args.output_dir)
-        _manifest, events = _start_run(output_dir, "import-smoke", config.project_root)
+        _manifest, events = _start_run(output_dir, "import-smoke", args.git_sha)
         result = run_import_smoke_stub()
         append_event(events, result.to_event())
         return 0
@@ -212,7 +222,7 @@ def main(
     if args.command == "catalyst":
         from .catalyst.cli import dispatch as dispatch_catalyst
 
-        return dispatch_catalyst(args, project_root=config.project_root)
+        return dispatch_catalyst(args, project_root=root)
 
     if args.command == "validate":
         if args.validate_action in {"check", "run"}:
@@ -248,9 +258,22 @@ def main(
                 client=client,
                 data_root=args.data_root,
                 output_dir=args.output_dir,
-                project_root=config.project_root,
+                git_sha=args.git_sha,
+                target_provenance=(
+                    json.loads(Path(args.target_provenance).read_text(encoding="utf-8"))
+                    if args.target_provenance else None
+                ),
+                arm_metadata=(
+                    json.loads(Path(args.arm_metadata).read_text(encoding="utf-8"))
+                    if args.arm_metadata else None
+                ),
+                corpus_provenance=(
+                    json.loads(Path(args.corpus_provenance).read_text(encoding="utf-8"))
+                    if args.corpus_provenance else None
+                ),
                 resume_from=Path(args.resume) if args.resume else None,
                 reference_date=args.reference_date,
+                trace_file=args.trace_file,
             )
             print(
                 f"validate run {args.comparison_set}: {result.result_count} results -> "

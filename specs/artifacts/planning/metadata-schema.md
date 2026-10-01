@@ -27,24 +27,43 @@ The common manifest retains:
 
 - `run_id`;
 - `project` and `component`;
-- `git_sha`;
+- `git_sha` — supplied harness revision, nullable when unavailable; no Git lookup;
 - `generated_at`;
 - `dataset_id` and `dataset_version` when a dataset is used;
 - `schema_mapping_version` when a mapping is used;
 - `target_provenance`;
 - `dataset_provenance` when source artifacts or fixtures are part of the run;
 - `otel.gen_ai.provider.name` when a model is invoked; and
-- `otel.gen_ai.operation.name`.
+- `otel.gen_ai.operation.name` when a model/agent operation is involved.
+
+Unknown model/provider/operation metadata is explicitly disclosed by the feature;
+these fields must not be fabricated merely to fill the envelope.
 
 Feature schemas may add configuration and evidence references. They must not
 change the meaning of these common fields.
 
 ### Target provenance
 
-`target_provenance` identifies the code and service path actually exercised. It
-records the applicable repository revision, component or endpoint identity,
-and runtime configuration identity. A multi-component run records each target
-separately rather than collapsing them into one revision.
+`target_provenance` records identity supplied by the caller or observed through the
+configured target's interface. Record each exercised target separately, with
+`target_id`, assertion origin (`target_source`: `supplied`, `observed_api` or
+`unavailable`) and nullable `target_actual_sha`. Adapter-specific image/deployment,
+endpoint, profile/model/prompt or configuration identities may extend that entry.
+A reference-only repository is not an exercised target.
+
+A caller-supplied revision is an assertion, not proof of the code running at an
+endpoint. Preserve supplied and observed identities separately, including conflicts;
+never overwrite one with the other. Unknown revisions remain null and other missing
+metadata is disclosed explicitly. Model/provider/prompt fields are recorded only
+when supplied or observed, never inferred by scanning local product/model sources.
+
+The runner does not enforce pins or require Git, submodules, target paths, checkout
+state, reviewed revisions, override/promotion status or a workspace catalog.
+Missing revision metadata does not itself block a capable configured target.
+`evidence_status` labels the evidence and its limits, not workspace compliance or
+harness-granted release approval. Release acceptance remains an external decision.
+See the [foundation manifest contract](../../001-harness-control-plane-foundation/contracts/run-manifest.schema.yaml)
+for common shapes; feature emitters own executable schemas and wire-format versions.
 
 ### Dataset provenance
 
@@ -65,7 +84,14 @@ Existing chart/corpus comparison runs keep their current dataset identity:
 
 Their corpus receipt is created only after the portable dump and provenance
 sidecar pass the existing verification path. Fixture-to-live-record equality is
-checked before the run. This Catalyst rewrite does not change those rules.
+checked before the run where required by the selected clinical protocol. Target
+preparation/restoration is caller-owned, not a runner deployment operation.
+
+Capture the selected configuration, comparison/suite, scenario and required fixture
+bytes with their digests in the run directory. Missing expected inputs are explicit.
+Reports consume that frozen packet, not live services, original authored dataset
+directories or product sources. A copied run must retain enough evidence to
+regenerate reports offline; a missing input cannot silently fall back to a local file.
 
 ## Event stream
 
@@ -109,7 +135,9 @@ versioned JSON schemas, writing code, and validators. Feature 008's harness
 evidence schemas live in
 [`specs/008-catalyst-query-workbench/contracts/`](../../008-catalyst-query-workbench/contracts/).
 Catalyst Gateway API schemas live beside the Gateway in the Catalyst repository
-under [`docs/contracts/`](../../../targets/catalyst/docs/contracts/). A
+under [Catalyst `docs/contracts/`](https://github.com/DIGI-UW/openelis-catalyst/tree/main/docs/contracts).
+Spec 002's [corpus/mapping extensions](../../002-openmrs-demo-data-2-8-remap/contracts/run_manifest_002_extensions.schema.yaml)
+retain data identity and deterministic transform evidence without workspace gates. A
 wire-format change updates and tests the actual emitter and every retained copy
 together. It does not silently add requirements to another project.
 
@@ -127,7 +155,8 @@ The Catalyst manifest and public configuration identify:
 - the scenario suite and its content identity;
 - the selected model team and its resolved profiles, models, prompts, and
   settings;
-- the Harness, Catalyst, and med-agent-hub revisions used;
+- supplied/observed Harness, Catalyst and Med Agent Hub identity, with revisions
+  nullable when unavailable and each assertion's origin retained;
 - the configured source identity and safe connection reference;
 - the source's explicit SQL dialect and readable-schema snapshot identity;
 - the dataset and reference-deployment identity; and
@@ -210,13 +239,14 @@ originating execution and is referenced by identity.
 ## Other project extensions
 
 Existing project-specific schemas remain authoritative and are unaffected by
-the Catalyst simplification. Their extension payloads may continue to retain:
+the Catalyst simplification. Their extension payloads retain applicable validation facts, with emitters/consumers
+aligned to the supplied/observed provenance boundary:
 
 - retrieved and cited record identifiers;
 - claim-support and abstention labels;
 - reviewer labels and decision rationale;
 - mapping versions and source receipts;
-- component pins and working-tree state; and
+- supplied or observed component, image/deployment and configuration identity; and
 - model, prompt, retrieval, response, and evaluation provenance.
 
 These fields stay with the project that can interpret them. Shared names do not
@@ -248,7 +278,10 @@ Validators should prove that:
 - the manifest and every event parse against their declared versioned schemas;
 - run, case, trace, and referenced entity identities resolve consistently;
 - referenced evidence exists at safe relative paths;
-- target and dataset provenance identify the inputs actually used; and
+- target assertions have explicit supplied/observed/unavailable origins and nullable
+  revisions; conflicts and missing metadata remain visible without pin enforcement;
+- dataset provenance and captured bytes/digests identify the inputs actually used;
+- copied run packets regenerate reports without original inputs or services; and
 - prohibited secrets, clinical rows, and private reasoning are absent from the
   shared metadata files.
 

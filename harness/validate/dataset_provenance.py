@@ -22,8 +22,10 @@ def build_dataset_provenance(
     data_root: Path,
     comparison_set_id: str,
     *,
-    project_root: Path,
+    corpus_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if corpus_provenance is not None and not isinstance(corpus_provenance, dict):
+        raise ValueError("corpus_provenance must be a JSON object")
     comparison_path = data_root / "comparison_sets" / f"{comparison_set_id}.json"
     comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
     scenario_entries: list[dict[str, Any]] = []
@@ -55,15 +57,7 @@ def build_dataset_provenance(
             )
         )
 
-    receipt_path = project_root / "artifacts/chartsearchai-local/corpus-provenance.json"
-    corpus: dict[str, Any] | None = None
-    if receipt_path.is_file():
-        corpus = json.loads(receipt_path.read_text(encoding="utf-8"))
-        corpus = {
-            **corpus,
-            "receipt_path": str(receipt_path.relative_to(project_root)),
-            "receipt_sha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest(),
-        }
+    corpus = corpus_provenance
 
     comparison_entry = _file_entry(
         comparison_path, data_root, id=comparison_set_id
@@ -74,6 +68,7 @@ def build_dataset_provenance(
         "chart_fixtures": fixture_entries,
         "missing_chart_fixtures": sorted(patient_ids - found_patients),
         "corpus_dump_sha256": (corpus or {}).get("dump_sha256"),
+        "corpus": corpus,
     }
     combined = hashlib.sha256(
         json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -81,6 +76,5 @@ def build_dataset_provenance(
     return {
         "schema_version": "validation_dataset.v1",
         **identity,
-        "corpus": corpus,
         "combined_sha256": combined,
     }

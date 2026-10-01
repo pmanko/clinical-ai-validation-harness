@@ -1,6 +1,7 @@
 # Review companion — `openmrs_loadback` dlt pipeline
 
-Required alongside `harness/load/pipeline.py` per `specs/002-openmrs-demo-data-2-8-remap/contracts/dlt_pipeline.profile.md`. This file captures the reviewer rationale per resource + FK-reconciliation decisions; complements `datasets/mappings/openmrs-2.7-to-2.8.review.md` (which covers the transform side).
+Review companion for `harness/load/pipeline.py` under the maintained
+[corpus contract](../../specs/002-openmrs-demo-data-2-8-remap/spec.md). This file captures the reviewer rationale per resource + FK-reconciliation decisions; complements `datasets/mappings/openmrs-2.7-to-2.8.review.md` (which covers the transform side).
 
 ## Per-resource write-disposition rationale
 
@@ -17,7 +18,7 @@ Required alongside `harness/load/pipeline.py` per `specs/002-openmrs-demo-data-2
 | `conditions` | `replace` | `condition_id` (via uuid) | 4,451 promoted from `clin__conditions`. Wipe. |
 | `allergy` | `replace` | `allergy_id` (via uuid) | 2 promoted from `clin__allergy`. Wipe. |
 | `test_order` | `replace` | `order_id` | 1,095 promoted child rows from `clin__test_order` after the source-selector rule lets drug_order win for the 25 obs that match both Drug-class value_coded and Test-class concept_id. Parent fields live in `orders`. |
-| `concept_*` tables | **SKIP** | n/a | CIEL has already populated these via openconceptlab in `make ciel-baseline`. Re-writing risks UUID-pattern conflicts per research.md §R-bridge-rule. The bridge rule's intent is met by the CIEL load itself; the dlt loader does not touch concept dictionary tables. |
+| `concept_*` tables | **SKIP** | n/a | CIEL has already populated these via openconceptlab through the umbrella's `make ciel-baseline` (run from the OpenClinAI root). Re-writing risks UUID-pattern conflicts per research.md §R-bridge-rule. The bridge rule's intent is met by the CIEL load itself; the dlt loader does not touch concept dictionary tables. |
 | `location` / `encounter_type` / `encounter_role` / `role` / `privilege` / `visit_type` | `merge` (PK) | id | Stable lookups; legacy may add IDs that openmrs's stock doesn't have. Merge by PK preserves both. The FK reconciliation seed maps in `models/terminology/<entity>_map.sql` document which IDs come from where. |
 | `provider` | `merge` (`provider_id`) | id | Same as location. |
 | `users` / `user_property` / `user_role` | `merge` (PK) | id | Same as location; openmrs admin user(s) coexist with legacy users. |
@@ -52,7 +53,7 @@ The six terminology maps under `datasets/transforms/sqlmesh/models/terminology/`
   - `visit.patient_id → patient.patient_id`: 174 orphans
   - `patient_appointment.patient_id → patient.patient_id`: 100 orphans
   - + 8 smaller FKs
-  - **Fix path**: add the affected tables (encounter_diagnosis, obs_reference_range, visit, patient_appointment, etc.) to `LOAD_RESOURCES` so the dlt loader wipes + replaces them, OR add a post-clone TRUNCATE step in `loadtest-up.sh` that empties stock clinical-detail tables before dlt runs. Deferred to a follow-up iteration; current orphans don't block the demo for the marquee patient/obs/drug_order flow.
+  - **Fix path**: add the affected tables (encounter_diagnosis, obs_reference_range, visit, patient_appointment, etc.) to `LOAD_RESOURCES` so the dlt loader wipes + replaces them, OR have the workspace owner add a reviewed post-clone TRUNCATE step in the umbrella's `scripts/loadtest-up.sh` that empties stock clinical-detail tables before dlt runs. Deferred to a follow-up iteration; current orphans don't block the demo for the marquee patient/obs/drug_order flow.
 - **Lucene reindex 28 PersonAttribute orphans**: `PersonAttribute#1` references `Person#7` which doesn't exist. Stock-data residue. Same fix path as above.
 - **Column-shape diffs surfaced by promote (`dropped_columns` per resource)**: 2.7→2.8 schema diffs handled automatically by the promote step's column-intersection. Notably `provider.provider_role_id` (added in 2.8). No data loss; the new column gets MySQL's DEFAULT.
 - **drug_order vs test_order disambiguation**: 25 obs match both Drug-class value_coded AND Test-class concept_id. drug_order wins using source-ID-safe selectors (`stg_obs.source_value_coded` / `source_concept_id`). test_order final count: 1,095 (vs 1,120 unfiltered).

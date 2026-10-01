@@ -5,8 +5,7 @@ name: harness-ci
 # Runs the harness test suite and enforces that changed production lines are
 # actually covered by a test. Mark this check "required" in branch protection.
 #
-# Scope: tests execute the harness only (`--ignore=targets`), while checkout still
-# includes submodules because profile/config metadata is part of the parent contract.
+# Scope: independently configured harness tests; product checkout/build CI is umbrella-owned.
 
 on:
   pull_request:
@@ -14,81 +13,20 @@ on:
     branches: [main]
 
 jobs:
-  # ShellCheck is scoped to the compose-lifecycle scripts this PR touches, not all
-  # of scripts/ — the rest of the directory isn't ShellCheck-clean yet and cleaning
-  # it up is out of scope here. Extend this list as more scripts get verified clean.
   shellcheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: ShellCheck the compose-lifecycle scripts
+      - name: ShellCheck retained harness and documentation scripts
         run: |
           docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
-            scripts/stack-up.sh \
-            scripts/stack-down.sh \
-            scripts/local-stack-up.sh \
-            scripts/local-stack-down.sh \
             scripts/catalyst-comparison.sh \
-            scripts/catalyst-mvp.sh \
-            scripts/catalyst-ui-update.sh \
-            scripts/catalyst-model-router.sh \
-            scripts/build-catalyst-model-router.sh \
-            scripts/verify-repository-lines.sh \
             scripts/verify-docs-consistency.sh
 
       - name: Verify planning-document consistency
         run: scripts/verify-docs-consistency.sh
-
-  openmrs-integration-source:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Fetch authoritative integration refs
-        run: |
-          for repo in \
-            targets/chartsearchai \
-            targets/chartsearchai-esm \
-            targets/querystore; do
-            git -C "$repo" fetch origin \
-              harness-integration:refs/remotes/origin/harness-integration
-          done
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '11'
-          cache: maven
-
-      - name: Build the pinned QueryStore and ChartSearchAI source pair
-        run: make openmrs-source-pair-test
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'yarn'
-          cache-dependency-path: targets/chartsearchai-esm/yarn.lock
-
-      - name: Install and verify the pinned ChartSearchAI ESM
-        working-directory: targets/chartsearchai-esm
-        run: |
-          yarn install --immutable
-          yarn extract-translations
-          git diff --exit-code translations/
-          yarn lint
-          yarn typescript
-          yarn test --coverage
-          yarn build
 
   pytest-and-diff-coverage:
     runs-on: ubuntu-latest
@@ -96,7 +34,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # diff-cover needs history to compare against the base
-          submodules: recursive
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

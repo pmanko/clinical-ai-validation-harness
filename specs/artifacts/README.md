@@ -25,9 +25,9 @@ Current planning and research artifacts that support the feature roadmap.
   - Approved checkpoint plan (CP0–CP4) implementing gates G10/G11 under the 2026-07-22 shared
     context-selection amendment: QueryStore tiered `getContextSlice` contract, bundled/hub thin
     adapters, and the re-tightened parity retrieval gate.
-- `planning/hub-consolidation-roadmap.md`
-  - Historical superseded roadmap for the prior hub-only clinical answer architecture. Completed
-    evidence and still-valid decisions are preserved by reference from the dual-provider roadmap.
+- [Feature 006 clinical protocols](../006-validation-harness-mvp/spec.md#clinical-smoke-and-contextevaluation-protocols)
+  - Real ChartSearchAI smoke (`SC-004.4`) and reviewed context/evaluation criteria
+    (`MAH-CONSOLIDATION-2026-07-09-v1:G09/G21`), with record-level evidence and claim limits.
 - `planning/hub-consolidation-roadmap-status.md`
   - Historical execution record for the superseded hub-only roadmap.
 - `planning/chart-context-cache-research-plan-2026-07-15.md`
@@ -46,8 +46,8 @@ Current planning and research artifacts that support the feature roadmap.
 - `canvases/scout-comparative-analysis.canvas.tsx`
   - Deep-dive analysis of Duke DIHI Scout and implications for chartsearchai, openmrs_chatbot, and Catalyst.
 - `canvases/chartsearchai-and-querystore.canvas.tsx`
-  - Historical pre-relay chartsearchai + querystore architecture snapshot; superseded by the hub
-    consolidation roadmap for current ownership and integration behavior.
+  - Historical pre-relay chartsearchai + querystore architecture snapshot; current ownership and integration behavior
+    follow product contracts and the dual-provider parity roadmap.
 - `canvases/demo-data-profile.canvas.tsx`
   - Profile of the loaded OpenMRS 2.8 demo corpus (5,284 patients): landscape metrics, richness/completeness assessment, content-verified phenotype cohorts, and curated data-rich validation patients. Measured live against schema `openmrs`.
 - `canvases/clinical-ai-research-guidance.canvas.tsx`

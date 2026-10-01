@@ -10,7 +10,7 @@ def test_run_manifest_uses_current_otel_gen_ai_fields(tmp_path: Path) -> None:
         run_id="r1",
         project="clinical-ai-validation-harness",
         component="schema-diff",
-        git_sha="abc",
+        git_sha=None,
         dataset_id="large-demo-data-2-7-0",
         dataset_version="2.7.0",
         schema_mapping_version="v0",
@@ -24,5 +24,6 @@ def test_run_manifest_uses_current_otel_gen_ai_fields(tmp_path: Path) -> None:
     assert otel["semconv_stability_opt_in"] == "gen_ai_latest_experimental"
     assert otel["gen_ai.provider.name"] == "lmstudio"
     assert "gen_ai.system" not in otel
+    assert payload["git_sha"] is None
     assert payload["evidence_status"] == "development"
     assert payload["target_provenance"] == []

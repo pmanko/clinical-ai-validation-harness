@@ -111,7 +111,7 @@ def test_runner_routes_provider_and_omits_profile_for_bundled(tmp_path):
 
     run_comparison(
         comparison_set_id="cs", client=client, data_root=data,
-        output_dir=tmp_path / "art", git_sha="t", router_policy=lambda backend: None,
+        output_dir=tmp_path / "art", git_sha="t",
     )
 
     by_provider = {c["provider"]: c for c in client.chat_calls}
@@ -133,7 +133,7 @@ def test_runner_rejects_provider_arm_when_client_cannot_route(tmp_path):
     with pytest.raises(ValueError, match="provider"):
         run_comparison(
             comparison_set_id="cs", client=client, data_root=data,
-            output_dir=tmp_path / "art", git_sha="t", router_policy=lambda backend: None,
+            output_dir=tmp_path / "art", git_sha="t",
         )
     # No silent fallback: the failure happened before any turn ran.
     assert client.chat_calls == []
@@ -148,7 +148,7 @@ def test_run_meta_freezes_each_arms_engine_endpoint_and_model(tmp_path):
 
     out = run_comparison(
         comparison_set_id="cs", client=client, data_root=data,
-        output_dir=tmp_path / "art", git_sha="t", router_policy=lambda backend: None,
+        output_dir=tmp_path / "art", git_sha="t",
     )
 
     meta = json.loads((out.run_dir / "run_meta.json").read_text(encoding="utf-8"))

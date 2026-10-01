@@ -33,7 +33,7 @@ The service is *orthogonal* to chartsearchai's per-patient chart retrieval; the 
 
 | Spec | Relationship |
 |------|--------------|
-| **004-real-adapter-entrypoints** | KB is a new target with its own adapter. No code change to 004; KB is an additive target. |
+| [**006-validation-harness-mvp**](../../006-validation-harness-mvp/spec.md) | Owns configured-target experiment execution and the real ChartSearchAI smoke protocol (`SC-004.4`); a KB experiment requires its own configured adapter. |
 | **005-med-agent-hub-bridge** | Future consumer. Subagents can call KB as an MCP tool when ready; not required in 005 scope. |
 | **006-deferred / 007-deferred** | KB MCP tooling becomes a natural building block for these "frontend agent affordance" and "MCP tooling expansion" deferred features. |
 | **Parallel gateway spec (sister item)** | The gateway is a natural first consumer because Python-to-Python is fastest to demo. KB is sequenceable independently — the gateway becomes one consumer of many when it lands. |

@@ -52,7 +52,7 @@ The dump toggles `FOREIGN_KEY_CHECKS=0` + `UNIQUE_CHECKS=0` for the duration of 
 
 ## Reproducibility
 
-Dump produced via [`scripts/dump-loaded.sh`](../../scripts/dump-loaded.sh) with deterministic flags (byte-identical for identical source state):
+Dump produced via the umbrella-owned [`scripts/dump-loaded.sh`](https://github.com/pmanko/openclinai.org/blob/main/scripts/dump-loaded.sh) with deterministic flags (byte-identical for identical source state):
 
 ```
 --single-transaction --quick
