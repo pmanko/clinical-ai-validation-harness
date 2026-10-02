@@ -1,81 +1,66 @@
 {
   "as_of": "2026-09-11",
-  "description": "Artifact registry: requirements, implementation/status records, configurations, evidence, tools and outputs. Role distinguishes authority from observation.",
+  "description": "Dated evidence inventory. Each row retains its observation date; recorded next actions are historical unless linked to a maintained requirement owner. Use the OpenClinAI roadmap for current coordination.",
   "rows": [
     {
       "id": "CAT-A01",
       "kind": "roadmap",
-      "title": "Catalyst program roadmap",
+      "title": "Catalyst comparison and context-research protocol",
       "path": "specs/catalyst-program-roadmap.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-program-roadmap.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/catalyst-program-roadmap.md",
       "role": "authority",
-      "current_or_superseded": "Current evaluation and broader-conversation authority",
+      "current_or_superseded": "Current harness experiment owner",
       "effort": "CAT-E01; CAT-E06; CAT-E07; CAT-E08",
-      "status": "Owns evaluation, comparison, and separately scheduled broader-conversation decisions; Feature 008 owns delivery sequence.",
-      "evidence_date": "2026-08-27",
-      "next_update": "Keep phase meanings and product decisions; update implementation status after exact-branch review.",
-      "verified_source": "Local main read lines 3-31, 100-191; root live remote branch confirmation 2026-09-06.",
-      "sources": "Local main read lines 3-31, 100-191; root live remote branch confirmation 2026-09-06."
-    },
-    {
-      "id": "CAT-A02",
-      "kind": "implementation plan",
-      "title": "Catalyst implementation plan",
-      "path": "specs/catalyst-implementation-plan.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-implementation-plan.md",
-      "role": "retired pointer",
-      "current_or_superseded": "Retired into Feature 008",
-      "effort": "CAT-E01; CAT-E02; CAT-E03; CAT-E04; CAT-E05",
-      "status": "Retired body points to Feature 008 plan and tasks; each former section has a current owner or explicit disposition.",
-      "evidence_date": "2026-08-27",
-      "next_update": "Keep the successor link current; amend Feature 008 for sequence changes.",
-      "verified_source": "Local and recovered branch read lines 3-65, 174-359; root fetched remote latest and confirmed stale status.",
-      "sources": "Local and recovered branch read lines 3-65, 174-359; root fetched remote latest and confirmed stale status."
+      "status": "Owns comparison scenarios, collection and reader interpretation.",
+      "evidence_date": "2026-10-02",
+      "next_update": "Maintain experiment requirements here; product behavior and delivery remain with their owners.",
+      "verified_source": "Local documentation ownership reconciliation, 2 October 2026.",
+      "sources": "Local documentation ownership reconciliation, 2 October 2026."
     },
     {
       "id": "CAT-A03",
       "kind": "specification",
-      "title": "Feature 008 integration and delivery specification",
+      "title": "Catalyst experiment specification",
       "path": "specs/008-catalyst-query-workbench/spec.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/008-catalyst-query-workbench/spec.md",
       "role": "authority",
-      "current_or_superseded": "Current",
+      "current_or_superseded": "Current harness experiment owner",
       "effort": "CAT-E02; CAT-E06; CAT-E08",
-      "status": "Owns harness integration, dual-source deployment, evidence, and delivery acceptance without redefining Catalyst product behavior.",
-      "evidence_date": "2026-08-26",
-      "next_update": "Change only where owner-approved scope actually changes; link evidence to acceptance items without redefining them.",
-      "verified_source": "Local main read lines 26-45, 92-249.",
-      "sources": "Local main read lines 26-45, 92-249."
+      "status": "Owns scenario evidence and evaluation boundaries; product and deployment acceptance have separate owners.",
+      "evidence_date": "2026-10-02",
+      "next_update": "Maintain experiment requirements here; product behavior and delivery remain with their owners.",
+      "verified_source": "Local documentation ownership reconciliation, 2 October 2026.",
+      "sources": "Local documentation ownership reconciliation, 2 October 2026."
     },
     {
       "id": "CAT-A04",
       "kind": "task list",
-      "title": "Feature 008 current tasks",
+      "title": "Catalyst experiment tasks",
       "path": "specs/008-catalyst-query-workbench/tasks.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/tasks.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/008-catalyst-query-workbench/tasks.md",
       "role": "status",
-      "current_or_superseded": "Current tracking entry point; completion marks lag implementation",
+      "current_or_superseded": "Current harness experiment owner",
       "effort": "CAT-E01; CAT-E02; CAT-E03; CAT-E04; CAT-E05; CAT-E06; CAT-E07; CAT-E08",
-      "status": "Question-writing acceptance is complete; later usability, Dashboard, deployment, evidence, and owner gates remain open.",
-      "evidence_date": "2026-09-10",
-      "next_update": "Record the shell and appearance iteration after its implementation and validation merge.",
-      "verified_source": "Catalyst #83 merged as c181b6b with all five hosted jobs passing; Feature 008 question-writing tasks link the focused and full UI validation.",
-      "sources": "Catalyst #83 merged as c181b6b with all five hosted jobs passing; Feature 008 question-writing tasks link the focused and full UI validation."
+      "status": "Tracks reference preparation, reader readiness and comparison evidence only.",
+      "evidence_date": "2026-10-02",
+      "next_update": "Maintain experiment requirements here; product behavior and delivery remain with their owners.",
+      "verified_source": "Local documentation ownership reconciliation, 2 October 2026.",
+      "sources": "Local documentation ownership reconciliation, 2 October 2026."
     },
     {
       "id": "CAT-A05",
       "kind": "feature plan",
-      "title": "Feature 008 architecture plan",
+      "title": "Catalyst experiment implementation plan",
       "path": "specs/008-catalyst-query-workbench/plan.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/plan.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/008-catalyst-query-workbench/plan.md",
       "role": "authority",
-      "current_or_superseded": "Authoritative implementation roadmap and delivery goal",
+      "current_or_superseded": "Current harness experiment owner",
       "effort": "CAT-E01; CAT-E02",
-      "status": "Defines usability-first delivery, Dashboard functionality, and local/server evidence after the merged baseline and specification consolidation.",
-      "evidence_date": "2026-08-26",
-      "next_update": "Align status with implementation-plan update; retain architecture and ownership pointers.",
-      "verified_source": "Local main read lines 3-16, 20-29, 109-175.",
-      "sources": "Local main read lines 3-16, 20-29, 109-175."
+      "status": "Owns configured target consumption, capture and portable reporting work.",
+      "evidence_date": "2026-10-02",
+      "next_update": "Maintain experiment requirements here; product behavior and delivery remain with their owners.",
+      "verified_source": "Local documentation ownership reconciliation, 2 October 2026.",
+      "sources": "Local documentation ownership reconciliation, 2 October 2026."
     },
     {
       "id": "CAT-A06",
@@ -127,17 +112,17 @@
     {
       "id": "CAT-A09",
       "kind": "operator guide",
-      "title": "Catalyst quickstart",
+      "title": "Run a Catalyst experiment",
       "path": "specs/008-catalyst-query-workbench/quickstart.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/quickstart.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/008-catalyst-query-workbench/quickstart.md",
       "role": "tooling",
-      "current_or_superseded": "Current operator entry point",
+      "current_or_superseded": "Current harness experiment owner",
       "effort": "CAT-E01; CAT-E03; CAT-E06",
-      "status": "Points to the consolidated authorities and current usability, Dashboard, and dual-source delivery gates.",
-      "evidence_date": "2026-08-26",
-      "next_update": "Refresh status and safe source-selection instructions when recovered branch is reviewed.",
-      "verified_source": "Local read lines 3-23, 51-112.",
-      "sources": "Local read lines 3-23, 51-112."
+      "status": "Explains configured-target experiment inputs and collection; umbrella owns deployment.",
+      "evidence_date": "2026-10-02",
+      "next_update": "Maintain experiment requirements here; product behavior and delivery remain with their owners.",
+      "verified_source": "Local documentation ownership reconciliation, 2 October 2026.",
+      "sources": "Local documentation ownership reconciliation, 2 October 2026."
     },
     {
       "id": "CAT-A10",
@@ -560,7 +545,7 @@
     {
       "id": "CLIN-A02",
       "title": "OpenMRS Dual-Provider Foundational Parity Roadmap",
-      "path": "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#5-track-a-openmrs-contribution-delivery",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md#L16",
       "role": "requirement-authority",
       "kind": "roadmap or supporting authority",
@@ -572,7 +557,7 @@
     {
       "id": "CLIN-A03",
       "title": "OpenMRS Dual-Provider Foundational Parity Roadmap Status",
-      "path": "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
+      "path": "https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md#L20",
       "role": "status-authority",
       "kind": "roadmap or supporting authority",
@@ -666,18 +651,6 @@
       "sources": "Emitter-owned machine contracts outrank this explanatory Markdown."
     },
     {
-      "id": "CLIN-A28",
-      "title": "L3 — Validation spine: specs/006 as-built + close M2-F.1",
-      "path": "specs/artifacts/lanes/L3-validation-spine-asbuilt.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/lanes/L3-validation-spine-asbuilt.md#L1",
-      "role": "historical-lane",
-      "kind": "roadmap or supporting authority",
-      "status": "historical lane",
-      "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
-      "evidence_date": "2026-06-14T18:41:47+03:00",
-      "sources": ""
-    },
-    {
       "id": "CLIN-A29",
       "title": "Real ChartSearchAI medication-history smoke protocol",
       "path": "specs/006-validation-harness-mvp/spec.md",
@@ -700,30 +673,6 @@
       "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
       "evidence_date": "2026-07-10T11:07:24-10:00",
       "sources": ""
-    },
-    {
-      "id": "CLIN-A41",
-      "title": "Clinical Knowledge Base Service — Source Brief",
-      "path": "specs/artifacts/planning/clinical-kb-brief.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/clinical-kb-brief.md#L3",
-      "role": "superseded-design",
-      "kind": "roadmap or supporting authority",
-      "status": "superseded design",
-      "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
-      "evidence_date": "2026-08-04T13:20:44-07:00",
-      "sources": ""
-    },
-    {
-      "id": "CLIN-A42",
-      "title": "Clinical KB — scope overview (current → MVP target → F009)",
-      "path": "specs/artifacts/planning/kb-scope.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/kb-scope.md#L7",
-      "role": "historical-scope",
-      "kind": "roadmap or supporting authority",
-      "status": "Its prose-only KB attribution claim is superseded by numbered KnowledgeReference records.",
-      "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
-      "evidence_date": "2026-06-01T16:15:03-07:00",
-      "sources": "Its prose-only KB attribution claim is superseded by numbered KnowledgeReference records."
     },
     {
       "id": "CLIN-A45",
@@ -750,18 +699,6 @@
       "sources": ""
     },
     {
-      "id": "CLIN-A50",
-      "title": "Reports-stack audit + one-frontend consolidation roadmap",
-      "path": "specs/artifacts/planning/reports-frontend-consolidation-roadmap.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/reports-frontend-consolidation-roadmap.md#L1",
-      "role": "historical-surface-design",
-      "kind": "roadmap or supporting authority",
-      "status": "historical surface design",
-      "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
-      "evidence_date": "2026-08-04T09:51:14-07:00",
-      "sources": ""
-    },
-    {
       "id": "CLIN-A56",
       "title": "Clinical context and deterministic evaluation protocol",
       "path": "specs/006-validation-harness-mvp/spec.md",
@@ -783,18 +720,6 @@
       "status": "historical status",
       "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
       "evidence_date": "2026-07-25T08:17:28-07:00",
-      "sources": ""
-    },
-    {
-      "id": "CLIN-A58",
-      "title": "Historical Development Roadmap - June program index",
-      "path": "specs/artifacts/lanes/dev-roadmap.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/lanes/dev-roadmap.md#L3",
-      "role": "superseded-index",
-      "kind": "roadmap or supporting authority",
-      "status": "superseded index",
-      "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
-      "evidence_date": "2026-08-06T17:54:38-07:00",
       "sources": ""
     },
     {
@@ -1017,7 +942,7 @@
       "status": "Light-only local workflow passed (2 tests, 10.9 minutes), actual Gemma writer/Qwen reviewer invocations and imports verified. Final cuts reviewed at 1x and uploaded with HTTPS hash verification; durations 3:08 and 3:06. Public query checks pass; full server acceptance remains separate.",
       "evidence_date": "2026-09-11",
       "next_update": "Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts.",
-      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-light-local",
+      "verified_source": "https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-light-local",
       "sources": "Harness d070fe7, Catalyst e163726, Hub 75d0ff0; landing/index.html"
     },
     {
@@ -1032,7 +957,7 @@
       "status": "Light-only local workflow passed (2 tests, 10.9 minutes), actual Gemma writer/Qwen reviewer invocations and imports verified. Final cuts reviewed at 1x and uploaded with HTTPS hash verification; durations 3:08 and 3:06. Public query checks pass; full server acceptance remains separate.",
       "evidence_date": "2026-09-11",
       "next_update": "Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts.",
-      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-light-local",
+      "verified_source": "https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-light-local",
       "sources": "Harness d070fe7, Catalyst e163726, Hub 75d0ff0; landing/index.html"
     },
     {
@@ -1047,7 +972,7 @@
       "evidence_date": "2026-09-14",
       "next_update": "Publish and inspect exact extended source before owner review.",
       "sources": [
-        "specs/openelis-reporting-catalyst-integration.md"
+        "https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#6-catalyst-delivery"
       ]
     }
   ]

@@ -1,43 +1,15 @@
-# Feature specification: Catalyst integration and delivery acceptance
+# Feature 008: Catalyst experiment specification
 
-**Status:** Current validation protocols and evidence requirements. The compatible
-Harness/Catalyst/Hub baseline is merged. Staff Workbench implementation,
-Dashboard Builder completion, dual-source local and server deployment, evidence,
-and owner acceptance remain open.
+Feature 008 defines scenarios, observable evidence and evaluation for an already
+prepared Catalyst target. [Feature 006](../006-validation-harness-mvp/spec.md)
+owns the reusable runner, configured adapters and portable report mechanics.
+[Plan](plan.md) and [tasks](tasks.md) cover only this harness work.
 
-## Purpose
-
-The approved [four-pathway reporting roadmap](../openelis-reporting-catalyst-integration.md)
-owns the new cross-project scope and order. This harness specification remains
-the integration contract, not OpenELIS's reporting product specification. Its
-query-backed journeys below remain required; imported Dataset acceptance adds
-file upload/review/save without a fabricated query execution. Catalyst's product
-specification owns that additive contract and ordinary PostgreSQL support.
-
-This specification defines validation protocols and evidence for an already
-prepared Catalyst target. Assembly, deployment and release coordination belong
-to the [OpenClinAI umbrella](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md). Catalyst application behavior belongs to its
-product specification; interaction and visual requirements belong to its
-binding design.
-
-For four-pathway acceptance, generated-query errors may be recovered through the
-existing SQL editor. Verify retained state, explicit execution, saved provenance
-and correct published results; do not require AI-only query success. The parent
-roadmap owns the delivery boundary and any separately authorized model evaluation.
-
-## Authorities
-
-1. [plan.md](plan.md) retains experiment/acceptance context; the umbrella owns delivery coordination.
-2. [tasks.md](tasks.md) owns detailed progress and acceptance evidence.
-3. Catalyst [product specification](https://github.com/DIGI-UW/openelis-catalyst/blob/main/docs/specification.md)
-   owns application behavior and contracts.
-4. Catalyst [binding design](https://github.com/DIGI-UW/openelis-catalyst/blob/main/docs/dashboard-builder-mvp-design.md)
-   owns current interaction and visual requirements.
-5. The [program roadmap](../catalyst-program-roadmap.md) owns evaluation,
-   comparison, and separately scheduled conversation decisions.
-
-Frozen Catalyst Workbench mocks, research, overlap findings, and handoffs are
-dated evidence, not alternate product requirements or a delivery authority.
+[Catalyst](https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specification.md)
+owns application requirements, its [implementation register](https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specification.md#implementation-direction)
+owns product milestones, and [OpenClinAI delivery](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#6-catalyst-delivery) owns assembly,
+local/server verification, publication and owner acceptance. Frozen mocks and
+run reports are dated evidence, not competing requirements.
 
 ## Product contracts and experiment observations
 
@@ -76,7 +48,7 @@ it never reads gitlinks, enforces pins or scans product source trees.
 ## Evaluation boundary
 
 The [program roadmap](../catalyst-program-roadmap.md) owns the reader-led model
-comparison and separately scheduled broader conversation decisions. Each ready
+comparison. Catalyst owns the separately scheduled future-conversation scope. Each ready
 reference is authored, run and reviewed once through accepted Catalyst before
 comparison. Store static expected facts; clarification/unsupported cases store
 reviewed expected responses based on the actual readable schema.
@@ -97,111 +69,21 @@ not independent human review. Incomplete collection stays visible.
 capture, review and offline report generation. Reports consume run-local frozen
 inputs and evidence, not current targets, product files or authored dataset paths.
 
-## Selected reference deployment
+## Experiment acceptance
 
-The selected demonstration will use retained demo data only:
+- Execute configured Gateway cases without Git, component sources, pins, direct
+  analytics-database access or environment-management tools.
+- Author and review static references against the accepted source once at design
+  time; clarification/unsupported expectations use its actual readable schema.
+- Collect the complete packet for every selected turn; distinguish target/model
+  outcomes from transport/collection failures and label incomplete collection.
+- Regenerate reports from copied run-local inputs and evidence offline, without
+  targets, evaluator services, authored dataset paths or product checkouts.
+- Interpret complete evidence through the [comparison protocol](../catalyst-program-roadmap.md).
+  No automatic equivalence, rank, winner or production-readiness inference.
 
-```text
-OpenELIS or OpenMRS FHIR
-  -> FHIR Data Pipes -> Parquet -> Spark SQL
-  -> Catalyst and Superset
-```
-
-Each reference source actually included in the demonstration or comparison MUST
-prove one live source-to-browser path when integrated. Its ingestion files,
-ViewDefinitions, and optional descriptions belong to the source deployment, not
-Catalyst core. The retained demo data is reused; ordinary development does not
-require reseeding, environment parity, or a live Spark service on every pull
-request.
-
-From the umbrella root, use its [`scripts/catalyst-mvp.sh`](https://github.com/pmanko/openclinai.org/blob/main/scripts/catalyst-mvp.sh) for lifecycle,
-health, and Superset operations. It owns isolated ports, sibling Hub context,
-source configuration, and the no-reseed default. Seeding and reset remain
-explicit. Whether both sources can share a Spark endpoint is an implementation
-finding; record and review a concrete failure before adding a namespace service,
-fork, shadow warehouse, fallback path, or extra connector.
-
-## Connection and source acceptance
-
-The integrated connection path is accepted when:
-
-- repository instructions and active contracts contain no conflicting engine,
-  catalog, evaluation, or evidence requirements;
-- a generic source exposes arbitrary readable relations to both model and editor;
-- a warning does not block exact SQL and a native engine error is shown;
-- FHIR Data Pipes produces nonempty Parquet and Spark exposes the expected
-  reference relations;
-- Catalyst completes one successful and one invalid browser query through Spark;
-- one intentional write attempt reaches the Spark connection, is visibly
-  refused, and leaves source data unchanged;
-- one successful result is saved, published, imported, and rendered in Superset;
-- the harness has no direct analytics-database or per-run reference path;
-- exact merged revisions and the source, dialect, schema, query, execution,
-  saved-object, bundle, and receipt identities are recorded; and
-- the owner inspects the real product path.
-
-The Dataset-to-Superset step above is a regression smoke for the generic
-connection. It does not complete Dashboard Builder.
-
-## Staff Workbench acceptance
-
-Before Dashboard functionality expands, the complete frozen Workbench design is
-deployed locally against the real OpenELIS and OpenMRS sources. Browser proof
-covers the shared resizable question composer, failure and retry, preparation
-without execution, Explore/Saved work, System/Light/Dark appearance, general
-Advanced mode without state loss, complete nonmodal Available data browsing,
-explicit execution, one full result table, honest errors and limits, accessible
-provenance, focus return, and desktop, short-viewport, 640-, 390-, and
-320-CSS-pixel layouts.
-
-The proof includes a side-by-side comparison with the current binding design
-and a paced walkthrough. Implementation, merge, local revision, local
-deployment, self-validation, owner feedback, and owner acceptance are recorded
-separately. Dashboard expansion starts after owner feedback is recorded.
-
-## Dashboard Builder acceptance
-
-Dashboard Builder completes only when the live Workbench, Dataset review and
-library, Widget review and library, Dashboard library and arrangement, and all
-publish/import states are compared side by side with the binding design. The
-comparison proves immutable Dataset and Widget restore, multiple same-source
-Widgets, retained arrangement, deterministic same-byte publication, receipt-
-controlled status, actionable import failure, successful Superset rendering,
-and one displayed value inspected against the originating Catalyst result
-without another database query. Focused API, component, accessibility, type,
-lint, build, and deterministic browser checks support the gate. Final acceptance
-requires the owner's browser review.
-
-## Local, server, and evidence acceptance
-
-The umbrella owner deploys compatible reviewed revisions and prepares retained
-data locally and on the demo server. Its `scripts/catalyst-mvp.sh` runs from the
-umbrella root; it is not invoked by the harness. In each environment,
-both OpenELIS and OpenMRS complete the real path from drafting and schema
-browsing through preparation, explicit execution, refinement, Dataset save and
-restore, visualization, Dashboard arrangement, publication, import, and
-Superset rendering. Import operations run from the checkout that owns the
-tested environment.
-
-Archive raw footage, traces, timestamps, revisions, configuration, and receipts.
-Short captions and cards remain visible for at least five seconds; longer text
-uses about three words per second plus two seconds. Results and details remain
-for at least eight seconds. Normal reading and interaction speed is used,
-accelerated waits are labelled, holds retain captions, and captions do not cover
-demonstrated content. Watch final cuts at normal speed. Supply reviewed cuts and evidence to the umbrella website owner for publication.
-That owner publishes immutable videos for both sources and updates public video
-and poster references together; website relocation remains separate and pending.
-
-## Out of scope
-
-- a curated or approved application schema;
-- fixed relation counts, relation ranking, or silent context truncation;
-- a universal connector framework or cross-engine SQL translation;
-- a shadow analytics warehouse or automatic database fallback;
-- per-run reference execution or a second direct-database comparison;
-- automatic factual-equivalence scoring, numerical thresholds, or
-  mandatory repeated judges;
-- production authentication, authorization, row-level access, or sensitive-data
-  policy for this demo-only stage;
-- restart, reseed, worktree-persistence, local/demo parity, exhaustive failure
-  matrices, or live-database checks on every pull request.
+Real product and clinical acceptance uses actual product interfaces. Test doubles
+prove runner mechanics only. The caller supplies target identity or it is observed
+through the interface; unavailable revision/model/prompt metadata stays explicit.
+Do not add per-run reference replay, another database query path, mandatory
+repeated readers, reseeding or environment-parity gates.

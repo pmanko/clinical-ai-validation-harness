@@ -6,7 +6,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 
 > **Supersession note:** This status record remains immutable evidence for completed hub work and
 > approved amendments. Current execution status is maintained in
-> [`openmrs-dual-provider-parity-roadmap-status.md`](openmrs-dual-provider-parity-roadmap-status.md).
+> [`openmrs-dual-provider-parity-roadmap-status.md`](https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md).
 
 ## Control Record
 

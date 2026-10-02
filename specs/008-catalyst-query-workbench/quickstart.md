@@ -1,134 +1,36 @@
-# Quickstart: Catalyst Query Workbench development
+# Run a Catalyst experiment
 
-**Status:** The compatible Catalyst/Hub baseline is merged. Use this guide for
-the active usability implementation, then Dashboard functionality and the
-dual-source delivery gates. Model comparison remains separately scheduled.
+Use the [harness README](../../README.md#run-an-experiment) for supported runner
+commands and target configuration. Feature 008's [specification](spec.md),
+[plan](plan.md), [tasks](tasks.md) and [comparison protocol](../catalyst-program-roadmap.md)
+define the Catalyst evidence and study workflow.
 
-## Read first
+## Prepare inputs
 
-1. [Feature 008 implementation roadmap](plan.md)
-2. [Current tasks](tasks.md)
-3. [Feature integration and acceptance specification](spec.md)
-4. [Catalyst program roadmap](../catalyst-program-roadmap.md)
+Supply an already running Catalyst Gateway, connection/authentication settings,
+a source/profile selection, scenarios, reviewed references/rubric, output location
+and any known target provenance. A local product checkout is not required.
+For the optional assembled reference deployment, use the
+[OpenClinAI operations guide](https://github.com/pmanko/openclinai.org/blob/main/docs/catalyst-demo-operations.md)
+from the umbrella checkout. The harness does not invoke lifecycle or warmup tools.
 
-Target preparation is optional workspace setup, not a runner prerequisite.
-If using OpenClinAI, run the following from the **umbrella root** (never from
-this harness checkout):
+Review ready-turn reference SQL once through the accepted Catalyst source and
+store concise expected facts. Review clarification/unsupported responses against
+its actual readable schema. References are not rerun during comparison. Obtain
+owner review of the references and packet before paid model collection.
 
-```bash
-git submodule update --init targets/catalyst targets/med-agent-hub
-```
+## Collect and inspect
 
-Use the umbrella's [scripts/catalyst-mvp.sh](https://github.com/pmanko/openclinai.org/blob/main/scripts/catalyst-mvp.sh)
-for the combined stack. Its wrapper supplies isolated ports, direct product
-checkout paths and source-deployment configuration. Independently deployed
-Gateway targets are equally valid inputs; the harness does not invoke this wrapper. Seeding and reset are explicit
-operations, not ordinary startup steps.
+Run the same selected suite and settings once per selected model setup. Execute
+ready selected SQL once through Catalyst; retain non-SQL responses without execution.
+Capture full conversation, actual model context, source/dialect/schema, SQL,
+rows/error, static reference or expected response, rubric and available provenance.
+Native database errors and bad model queries are observations, not automatic
+invalidations. Mark incomplete collection explicitly.
 
-After the services are ready, `scripts/catalyst-mvp.sh warm` sends the neutral
-question “What information is available in this data source?” through each
-configured source's ordinary writer request. It discards each answer; it does
-not seed, reset, execute generated or user-visible SQL, retrieve clinical rows,
-or create saved work. It makes only the source metadata calls needed to discover
-the live schema. `boot` and `restart` run that finite operation visibly after
-startup. Follow it with a different real question before treating a loaded model
-as useful schema reuse.
-
-## Expected architecture
-
-```text
-FHIR source -> FHIR Data Pipes -> Parquet -> Spark SQL
-  -> Catalyst and Superset
-```
-
-Catalyst source configuration supplies a stable source ID, label, connection
-configuration or reference, and explicit SQL dialect. The model, Available data
-view, editor, validator, and recorded execution use the same complete readable
-schema.
-
-For each reference source actually included, confirm once when integrating it:
-
-- FHIR Data Pipes produced nonempty Parquet;
-- applicable ViewDefinitions materialized;
-- a manual Spark query proves the endpoint and one known fact;
-- Catalyst discovers the same readable tables;
-- Superset connects to the same Spark source;
-- one intentional write attempt through the Spark connection is visibly
-  refused and leaves source data unchanged; and
-- no separate clinical analytics store or fallback participates.
-
-The manual Spark query is a connection/materialization check. Do not build a
-second harness or per-run database comparison.
-
-## Focused Phase 1 product check
-
-Use the retained demo data and a real configured model profile:
-
-1. Start a session against one configured source.
-2. Ask a question and inspect the model identity, dialect, and readable-schema
-   context.
-3. Edit or format the generated SQL.
-4. Confirm advisory findings remain visible and Run remains enabled.
-5. Run the exact visible query and inspect bounded typed rows.
-6. Run one intentionally invalid query and inspect the database error.
-7. Ask a contextual follow-up and confirm the latest editor state and prior user
-   instructions are available.
-8. Refresh and confirm the session, selected version, findings, and result state
-   return.
-9. Save the successful execution as a Dataset, publish and import it, and open
-   its stable Superset URL.
-10. Inspect one rendered value against the originating Catalyst result without a
-    second database query.
-
-Pause for owner review after the connection proof and again after the browser and
-Superset smoke.
-
-This Dataset-to-Superset check covers the generic connection. Full Workbench,
-Dashboard Builder, local/server, and evidence acceptance are defined in the
-[Feature specification](spec.md).
-
-## Scenario references
-
-Do not start paid live model runs until the accepted Spark-readable source and
-scenario references are reviewed.
-
-For each ready turn:
-
-- author and run its reference SQL once through the accepted Catalyst path;
-- store concise expected facts and the shared rubric.
-
-For clarification and unsupported turns:
-
-- store a reviewed expected response;
-- prove no SQL ran;
-- determine availability from the accepted readable schema rather than an older
-  restricted schema.
-
-References are not rerun during comparison.
-
-## Phase 1 comparison
-
-For each selected model team:
-
-- run the same complete suite once;
-- execute each ready selected SQL once through Catalyst;
-- store rows or the database error;
-- retain the complete conversation, actual model context, source, dialect,
-  readable-schema snapshot, SQL, reference or expected response, rubric, and
-  recorded model/repository configuration.
-
-Initiate one full-context reader pass by default. The report does not compute a
-threshold, rank, disqualification, tie-break, or winner. Additional complete
-runs or readers are deliberate follow-up work. When the reader is a frontier
-model, state that the interpretation comes from one model-reader pass rather
-than independent human review.
-
-## Proportional checks
-
-Run focused unit and contract tests for the code changed in a pull request. A
-live end-to-end proof is required when integrating a reference source and before
-the comparison, not on every unrelated pull request.
-
-Do not add reseeding, restart-persistence, worktree-persistence, local/demo
-parity, exhaustive failure matrices, per-run direct database replay, automatic
-factual equivalence, or repeated-reader requirements.
+Use one deliberate full-context reader pass by default. A frontier-model reader
+is identified as model interpretation; there is no automatic threshold, rank,
+tie-break or winner. Generate reports offline from captured run-local artifacts.
+The [product register](https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specification.md#implementation-direction) and [delivery register](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#6-catalyst-delivery)
+own UI, source, local/server and publication acceptance. A report is not their
+completion evidence unless it actually exercised and demonstrated those criteria.
