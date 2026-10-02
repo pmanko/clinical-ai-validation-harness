@@ -8,7 +8,7 @@ are in [Feature 006](../specs/006-validation-harness-mvp/spec.md).
 - [API adapters](../adapters/README.md): supported clinical and Catalyst interfaces.
 - [Catalyst experiment quickstart](../specs/008-catalyst-query-workbench/quickstart.md):
   selected source, reviewed scenarios, collection and reader review.
-- [Catalyst demo operations](catalyst-demo-operations.md): a consumer guide to
+- [Catalyst demo operations](https://github.com/pmanko/openclinai.org/blob/main/docs/catalyst-demo-operations.md): a consumer guide to
   umbrella-owned deployment commands and retained server configuration. Run its
   workspace commands from OpenClinAI, not from the harness.
 

@@ -35,7 +35,7 @@
       "title": "Final two-provider live acceptance",
       "state": "Open",
       "next_action": "Choose reconciled revisions, rebuild, rerun bounded product proof and record explicit owner decision.",
-      "source": "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md"
+      "source": "https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md"
     },
     {
       "id": "report-source-drift",
@@ -49,7 +49,7 @@
       "title": "Full-chart prompt-prefix reuse",
       "state": "Deferred by owner",
       "next_action": "Leave deferred unless the full-chart deployment target becomes near-term.",
-      "source": "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md#L82"
+      "source": "https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md"
     },
     {
       "id": "clinical-terminal-exception",

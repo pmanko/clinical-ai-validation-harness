@@ -1,47 +1,12 @@
 #!/usr/bin/env bash
-# Lightweight guard for harness-owned Catalyst documentation.
-#
-# Product behavior belongs in product authorities and executable tests.
-# This script catches only inexpensive documentation failures: missing
-# authorities, leaked infrastructure identifiers, malformed task markers,
-# broken local links, discarded architecture terms, and loss of the central
-# connection boundary. It intentionally does not freeze prose, counts, hashes,
-# status ledgers, or historical artifacts.
+# Check local Markdown references and accidental infrastructure identifiers.
+# Product semantics and editorial clarity require code/evidence review; exact
+# wording, feature phases and delivery arrangements are not executable contracts.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 fail=0
 err() { echo "FAIL: $*" >&2; fail=1; }
-
-TASKS="${DOCS_TASKS_PATH:-specs/008-catalyst-query-workbench/tasks.md}"
-PROGRAM="${DOCS_PROGRAM_PATH:-specs/catalyst-program-roadmap.md}"
-FEATURE_SPEC="${DOCS_FEATURE_SPEC_PATH:-specs/008-catalyst-query-workbench/spec.md}"
-FEATURE_PLAN="${DOCS_FEATURE_PLAN_PATH:-specs/008-catalyst-query-workbench/plan.md}"
-QUICKSTART="${DOCS_QUICKSTART_PATH:-specs/008-catalyst-query-workbench/quickstart.md}"
-WORKBENCH_API="${DOCS_WORKBENCH_API_PATH:-specs/008-catalyst-query-workbench/contracts/workbench-api.md}"
-
-
-REPORTING_ROADMAP="${DOCS_REPORTING_ROADMAP_PATH:-specs/openelis-reporting-catalyst-integration.md}"
-
-CURRENT_DOCS=(
-  "$REPORTING_ROADMAP"
-  README.md
-  AGENTS.md
-  "$PROGRAM"
-  "$FEATURE_SPEC"
-  "$FEATURE_PLAN"
-  "$TASKS"
-  "$QUICKSTART"
-  "$WORKBENCH_API"
-)
-
-for file in "${CURRENT_DOCS[@]}"; do
-  [ -f "$file" ] || err "missing current Catalyst document: $file"
-done
-
-if [ "$fail" -ne 0 ]; then
-  exit 1
-fi
 
 if [ -n "${DOCS_SECRET_SCAN_PATH:-}" ]; then
   SECRET_PATHS=("${DOCS_SECRET_SCAN_PATH}")
@@ -61,10 +26,6 @@ else
   [ "$status" -eq 1 ] || err "could not scan harness documentation for infrastructure identifiers"
 fi
 
-if grep -nE '^- \[x\]' "$TASKS"; then
-  err "task checkboxes must use uppercase [X]"
-fi
-
 if [ "${DOCS_SKIP_LINK_CHECK:-0}" != "1" ]; then
   if [ -n "${DOCS_LINK_FILES:-}" ]; then
     IFS=':' read -r -a LINK_FILES <<<"${DOCS_LINK_FILES}"
@@ -74,75 +35,6 @@ if [ "${DOCS_SKIP_LINK_CHECK:-0}" != "1" ]; then
   fi
 fi
 
-program_text="$(tr '\n' ' ' < "$PROGRAM")"
-feature_text="$(tr '\n' ' ' < "$FEATURE_SPEC")"
-workbench_text="$(tr '\n' ' ' < "$WORKBENCH_API")"
-
-grep -qi 'generic SQL' <<<"$program_text" \
-  || err "program roadmap is missing the generic SQL boundary"
-for phase in 'Phase 1' 'Phase 2' 'Phase 3'; do
-  grep -q "$phase" <<<"$program_text" \
-    || err "program roadmap is missing $phase"
-done
-grep -qiE 'explicit (SQL )?dialect' <<<"$feature_text" \
-  || err "Feature 008 is missing the explicit dialect"
-grep -qiE '(complete readable schema|every table.*view.*column)' <<<"$feature_text" \
-  || err "Feature 008 is missing the complete readable schema"
-grep -qi 'advisory' <<<"$feature_text" \
-  || err "Feature 008 is missing advisory validation"
-grep -qiE 'exact.{0,80}SQL|SQL.{0,80}exact' <<<"$feature_text" \
-  || err "Feature 008 is missing exact selected-SQL execution"
-grep -qi 'configured connection' <<<"$workbench_text" \
-  || err "workbench API is missing the configured-connection boundary"
-grep -qi 'advisory' <<<"$workbench_text" \
-  || err "workbench API is missing advisory validation"
-
-# Catch the specific rejected delivery gates, including wrapped Markdown.
-# This is a regression guard, not a semantic review of agent decisions.
-if ! python3 - "$REPORTING_ROADMAP" "$TASKS" <<'PYGUARD'
-import re
-import sys
-from pathlib import Path
-
-rejected = (
-    r"manual execution does not complete (?:that|the) journey",
-    r"manual SQL.{0,120}not substitutes for (?:those|the) recorded journeys",
-    r"resolve (?:PostgreSQL )?query quality and prove question/refinement",
-)
-failed = False
-for filename in sys.argv[1:]:
-    text = Path(filename).read_text()
-    if filename == sys.argv[2]:
-        text = text.split("## Current local reporting checkpoint", 1)[0]
-    text = " ".join(text.split())
-    if any(re.search(pattern, text, re.I) for pattern in rejected):
-        print(f"FAIL: {filename} restores the rejected AI-only delivery gate", file=sys.stderr)
-        failed = True
-sys.exit(1 if failed else 0)
-PYGUARD
-then
-  fail=1
-fi
-
-HARNESS_DOCS=(
-  README.md
-  AGENTS.md
-  "$PROGRAM"
-  "$FEATURE_SPEC"
-  "$FEATURE_PLAN"
-  "$QUICKSTART"
-  "$WORKBENCH_API"
-
-  .claude
-)
-if grep -rIinE \
-  'PostgresAnalyticsAdapter|Postgres(ReadOnly|Gold)[A-Za-z]*|approved (catalog|relation list|view list)|gold (query|execution)|fixed 13[- ](relation|table)' \
-  "${HARNESS_DOCS[@]}"; then
-  err "a current harness document restores discarded architecture"
-else
-  status=$?
-  [ "$status" -eq 1 ] || err "could not scan current harness documentation for discarded architecture"
-fi
 if [ "$fail" -ne 0 ]; then
   exit 1
 fi

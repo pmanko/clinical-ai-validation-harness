@@ -21,7 +21,7 @@ turns it into a publishable mp4 deterministically.
 ## Four reporting pathways
 
 For the current OpenELIS–Catalyst delivery, the
-[integration roadmap](openelis-reporting-catalyst-integration.md#workflow-acceptance-and-scope)
+[integration roadmap](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#6-catalyst-delivery#workflow-acceptance-and-scope)
 controls the story and acceptance. Record the two CSV journeys without SQL or
 model requests. For PostgreSQL and FHIR/Spark, a visible AI error followed by
 human SQL correction, explicit execution and verified publication is a valid

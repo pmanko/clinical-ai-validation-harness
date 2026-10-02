@@ -9,8 +9,7 @@ Some running wire formats retain legacy fields while their current consumers
 are consolidated. Change a schema and its consumers together. Catalyst product
 behavior belongs to its product specification and binding design; Feature 008
 owns validation protocols and evidence; the umbrella owns delivery coordination;
-the program roadmap owns comparison
-and broader conversation decisions. Human-readable API contracts describe the
+the comparison protocol owns model experiments and reader interpretation. Human-readable API contracts describe the
 current interface.
 
 The harness copies several live Catalyst schemas here for validation. While both

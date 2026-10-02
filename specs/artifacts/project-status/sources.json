@@ -294,7 +294,6 @@
       },
       "line": 1
     },
-
     {
       "path": "harness/validate/client.py",
       "exists": true,
@@ -586,7 +585,6 @@
       "exists": false,
       "role": "evidence"
     },
-
     {
       "path": "specs/artifacts/planning/hub-consolidation-roadmap-status.md",
       "exists": true,

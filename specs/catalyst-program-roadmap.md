@@ -1,99 +1,50 @@
-# Catalyst program roadmap
+# Catalyst comparison and context-research protocol
 
-**Status:** The Phase 1 comparison and later conversation definition remain
-separately scheduled. The current product delivery order is usability followed
-by Dashboard Builder functionality, as recorded in the Feature 008 plan.
+The Phase 1 comparison remains separately scheduled. This document owns its
+experimental design, scenarios, collection and reader interpretation. The
+[OpenClinAI roadmap](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md)
+owns scheduling and [Catalyst delivery](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#6-catalyst-delivery) owns shared deployment
+acceptance. Application behavior and future conversation scope are defined by
+[the Catalyst specification](https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specification.md).
+The harness consumes configured targets and supplied/observed provenance; it does
+not select component pins, assemble environments or redefine product contracts.
 
-This file owns Catalyst evaluation, comparison, context research, and separately
-scheduled conversation decisions. The current implementation sequence and
-delivery goal live in `specs/008-catalyst-query-workbench/plan.md`; detailed
-progress and acceptance evidence live in its `tasks.md`.
+## Experiment boundaries
 
-## Program outcomes
-
-The phase labels below preserve the evaluation and scope model. They do not set
-the current implementation order; Feature 008 owns that sequence.
-
-| Phase | Product outcome | Completion |
-| --- | --- | --- |
-| **Phase 1 — Session context** | Catalyst uses a generic SQL connection. The writer and editor share its complete readable schema and declared dialect. The writer can use the current instruction, prior user instructions, relevant failures, and verified examples. | The generic connection and selected Spark reference sources work through Catalyst, every selected team completes the comparison suite once, the full-context reader report is published, and the owner reviews it. A team preference is optional. |
-| **Phase 2 — Conversation mode** | A turn may answer, ask, explain, or produce SQL while using the same session state established in Phase 1. | Scope and acceptance are set after the Phase 1 report is reviewed. |
-| **Phase 3 — Dashboard workflow** | Question -> queries -> Datasets -> Widgets -> Dashboard -> Superset. | The live product is compared side by side with the binding Dashboard Builder design and all required visible behavior is accepted by the owner. |
-
-Feature 008 owns its current product requirements and tasks. Phase 1 requires
-one Dataset-to-Superset regression smoke during Phase 1 connection implementation; that
-smoke does not close or reduce Phase 3.
-
-The [Feature 008 extension disposition](008-catalyst-query-workbench/plan.md#design-extension-review)
-adds saved-SQL reuse to current delivery and schedules multi-artifact design and
-shared controls, then Metabase and Evidence publication afterward. Those
-follow-ons retain the approved Explore / Saved work navigation. They do not
-replace the separately reviewed broader-conversation scope or model comparison.
-
-The approved [OpenELIS–Catalyst reporting roadmap](openelis-reporting-catalyst-integration.md)
-owns the four complementary pathways: native CSV/Superset, imported Catalyst
-Datasets, ordinary PostgreSQL, and FHIR/Spark. Its sequence and cross-pathway
-acceptance live there; detailed Catalyst work stays in the existing task register
-and native reporting stays in OpenELIS. These demonstrations do not rank
-equivalent alternatives. Existing Follow-on A retains AI-assisted Widget and
-Dashboard refinement, extended to both Dataset origins after the four-pathway
-goal. The selected Spark model-comparison program below is unchanged.
-
-## Phase 1 decisions
-
-| Area | Decision |
-| --- | --- |
-| Catalyst boundary | Catalyst owns SQL-connected conversation, notebook, execution, results, and Dashboard Builder behavior. It does not own FHIR ingestion, a clinical warehouse, or a mandatory database engine. |
-| Selected reference deployment | Each source included in the selected demo or comparison uses FHIR Data Pipes -> Parquet -> Spark SQL. The merged product revisions and harness integration implement the configured path and separate source catalogs; exact-revision live materialization, browser evidence, and owner acceptance remain open. |
-| Data available to the model and editor | Every table, view, column, and type readable through the configured connection. Counts are observations, not product rules. Optional descriptions cannot hide relations. |
-| Session source | One source per session. A different source starts a different session. |
-| SQL execution | Validation is advisory. Exact selected SQL reaches the configured connection with a time limit and returned-row limit. Catalyst records rows or the database error. |
-| Experimental observations | Wrong SQL, a database error, a wrong answer, clarification, and unsupported are all valid observations when their evidence is complete. |
-| Environments | Local and demonstration environments record their own connection and readable-schema identities; they do not have to match. |
-| Scenario references | A ready turn's reference query is written, run, and reviewed once at design time or when deliberately changed. Clarification and unsupported turns have reviewed expected responses. The live comparison does not rerun references. |
-| Interpretation | Automated checks establish collection and contract facts. A reader interprets the complete evidence against one shared rubric. There is no required percentage, automatic disqualifier, ranking formula, tie-break, label, or winner. |
-| Collection interruptions | Service or machine interruptions are recorded separately from model behavior. There is no fixed allowance or automatic invalidation rule. An unfinished collection is reported as unfinished. |
-| Access control | This stage uses retained demo data without sensitive records. Production identity, authorization, and row-level access are later work. |
-| Repository administration | Branch settings, image publishing, and similar repository operations are not product acceptance gates. |
-
-## Writer responses
-
-The writer has three product responses:
-
-- `ready`: contains a query candidate;
-- `needs_clarification`: contains one question and no SQL;
-- `unsupported`: explains why the readable data cannot answer the request and
-  contains no SQL.
-
-Gateway contract or orchestration failure remains a failure rather than a fourth
-writer response. Clarification and unsupported turns execute no SQL, preserve
-the prior selected query, and retain the returned text.
-
-Set each data-availability expectation from the accepted readable schema when
-the scenario is designed.
+- Use a prepared generic SQL-connected Catalyst target. Included reference
+  sources use the selected FHIR Data Pipes → Parquet → Spark path; source setup
+  and live source acceptance belong to the umbrella and product owners.
+- Record each environment's actual source and readable-schema identity; local
+  and demonstration environments need not match.
+- Observe the product's `ready`, `needs_clarification` and `unsupported` responses.
+  Contract/orchestration errors remain failures. Wrong SQL, database errors,
+  wrong answers, clarification and unsupported outcomes are valid observations
+  when their evidence is complete. Set availability expectations from the
+  accepted readable schema at scenario-design time.
+- Author, execute through Catalyst and review each ready-turn reference once at
+  design time or when deliberately changed. Review non-SQL expected responses.
+  The comparison does not rerun references or independently query a database.
+- Automated checks establish collection/contract facts. A reader interprets the
+  complete packet against one shared rubric. No numerical threshold, automatic
+  disqualifier, ranking, tie-break or winner is required.
+- Record service/machine interruptions separately from model behavior. Report
+  unfinished collection as unfinished; no fixed allowance or invalidation rule.
+- Use retained demonstration data without sensitive records. Repository settings
+  and image publication are not experiment or product acceptance gates.
+- One Dataset-to-Superset regression smoke supports the comparison's real path;
+  it does not establish final Dashboard Builder acceptance.
 
 ## Session context and guidance research
 
-The current instruction is authoritative. A writer may receive all prior user
-instructions in the session, relevant failure information, and verified examples
-from earlier successful queries against the same source. Earlier material cannot
-silently replace the current instruction, and the current target cannot receive
-its own answer as an example.
+Observe the product-owned context contract: current instruction, relevant
+same-session history/failures and verified examples. Capture the actual request
+and any omitted item with its reason, including explicit capacity failures.
 
-For every model call, evidence records what was actually sent and any omitted
-item with its reason. Phase 1 fixes no item count, ranking formula, or silent
-truncation policy. If the complete request does not fit, record that capacity
-error rather than quietly removing context and retrying.
-
-Explicit session guidance is an optional research surface; Phase 1 requires no
-Pin or composer interface. Research may compare:
-
-1. retained user-instruction history;
-2. explicit session guidance; and
-3. durable source descriptions or verified examples.
-
-That research decides whether separate guidance has enough utility to justify a
-product interface. It is not part of the three-team comparison.
+Optional research may compare retained user-instruction history, explicit session
+guidance, and durable source descriptions or verified examples. It asks whether
+separate guidance has enough utility to justify a product interface; it is outside
+the three-team comparison. It does not authorize cross-session/user memory,
+automatic guidance writing, a vector database or another retrieval service.
 
 ## Model teams
 

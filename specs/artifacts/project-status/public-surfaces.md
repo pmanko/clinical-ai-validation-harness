@@ -2,7 +2,7 @@
 
 As of 2026-09-15. 31 entries.
 
-Inventory of publication, product and operator surfaces. Public HTTP availability is distinct from runtime functionality. Local URLs are documented targets, not verified running services.
+Dated evidence inventory. Each row retains its observation date; recorded next actions are historical unless linked to a maintained requirement owner. Use the OpenClinAI roadmap for current coordination.
 
 [Source JSON](public-surfaces.json) · [CSV export](exports/public-surfaces.csv)
 

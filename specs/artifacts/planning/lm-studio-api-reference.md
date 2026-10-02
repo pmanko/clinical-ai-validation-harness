@@ -1,9 +1,10 @@
 # LM Studio API Reference (harness)
 
-> **Historical / superseded for ChartSearchAI.** Retained as provider research only. ChartSearchAI no
-> longer discovers or talks to LM Studio; med-agent-hub is its one inference endpoint.
+This is provider API research from May 2026, not current application setup.
+[ChartSearchAI](https://github.com/pmanko/openmrs-module-chartsearchai/blob/main/README.md)
+owns bundled local/remote inference and configured Hub integration;
+[Hub](https://github.com/pmanko/med-agent-hub/blob/main/README.md) owns its model profiles.
 
-**Status**: Historical provider reference.
 **Last verified**: 2026-05-28 against [lmstudio.ai/docs](https://lmstudio.ai/docs).
 **Why this exists**: This records the three LM Studio API surfaces investigated before the hub-relay consolidation.
 
@@ -73,42 +74,6 @@ Claude Messages API shim. Same port `1234`. **Bearer auth required** (uses the s
 - Supports: `messages[]`, `system`, multi-turn, basic tool use, streaming
 - Documentation lookup was thin at time of writing (2026-05-28); the lmstudio.ai/docs sub-page was 404 on the URLs we tried. Update this section once primary docs settle.
 - Relevant for F008: when the gateway routes to Anthropic-style consumers, it can choose between Anthropic real API and LM Studio's compat shim. Same wire shape.
-
----
-
-## Harness config decisions
-
-These are the choices the harness has settled on. Each links to its source.
-
-| Decision | Value | Source |
-|---|---|---|
-| Port LM Studio binds to | `1234` | `docs/cloud-deploy.md:64`; `compose/openmrs-2.8-refapp.yml:134` |
-| Bind address (VM) | `0.0.0.0` (defensive DENY rule blocks public ingress) | `docs/cloud-deploy.md:64`; `scripts/cloud-init.sh` (GCP_FIREWALL_DENY_LMS) |
-| Bind address (local) | `127.0.0.1` (default) — backend reaches via `host.docker.internal:host-gateway` | `compose/openmrs-2.8-refapp.yml:131-136` |
-| chartsearchai endpoint URL GP | `chartsearchai.llm.remote.endpointUrl=http://host.docker.internal:1234/v1/chat/completions` | `targets/chartsearchai/api/src/main/java/.../impl/RemoteLlmEngine.java:56`; `scripts/chartsearch-configure.sh` |
-| chartsearchai model name GP | `chartsearchai.llm.remote.modelName=<lm-studio-key>` | matches LM Studio v1 `key` field |
-| Auth posture (chartsearchai → LM Studio) | Optional Bearer via `OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY` env | `scripts/chartsearch-configure.sh`; `targets/chartsearchai/.../ModelSwitchService.java:182-191` |
-| JIT-load mode | Enabled (LM Studio default in 0.3.x+) — `/v1/models` returns downloaded set; first `/v1/chat/completions` triggers load | LM Studio docs: [Idle TTL & Auto-Evict](https://lmstudio.ai/docs/developer/core/ttl-and-auto-evict) |
-| Warmup script | None in repo (PR #15 docs reference `scripts/chartsearch-warmup.sh` but the script was never added) | gap — file as follow-up |
-
----
-
-## Picker integration (current + planned)
-
-### Today (pre-fix)
-
-`ModelSwitchService.listAvailable()` calls `GET /v1/models` (via `deriveModelsUrl` stripping `/chat/completions` from the configured endpoint URL). Response is parsed by `parseModelIds` reading only the `id` field. Result: flat list of model IDs surfaced to the picker, no state, no provider grouping.
-
-The picker hides when `available.length < 2` (`model-picker.component.tsx:122`). With JIT-load enabled on LM Studio, `/v1/models` may return ≥2 downloaded models, so the picker renders — but the operator can't tell which is loaded.
-
-### Planned (this fix)
-
-`ModelSwitchService.fetchModelIds` probes `/api/v1/models` first; falls back to `/v1/models` on non-2xx response. The v1 response gets normalized:
-- Filter to `type === "llm"`
-- Per-entry: `id = key`, `display_name`, `loaded = loaded_instances.length > 0`, `params = params_string`
-- Top-level: `provider = "lm-studio"`
-
-`ChartSearchAiRestController.listModels` passes the enriched shape through. ESM picker reads `provider` for sub-category grouping and per-entry `loaded` for the "(not loaded)" affix. On select-not-loaded, the picker POSTs to a new `POST /ws/rest/v1/chartsearchai/model/load` (which calls LM Studio `/api/v1/models/load`) before completing the switch.
 
 ---
 

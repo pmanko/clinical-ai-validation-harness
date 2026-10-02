@@ -25,7 +25,7 @@ To update it, edit its repository record from any editor or agent. The dashboard
 
 At the end of a substantial working session, update the relevant effort's current state, next deliverable, source revision, evidence link and date. After a merge, refresh the GitHub snapshot and pin references. After a deployment, record the actual deployed revision and configuration. After a validation run, link its durable artifacts and separate source tests from browser proof. After owner review, record the explicit acceptance or remaining findings with its source.
 
-A new work session starts by reading this hub, then the named product authority and relevant current effort. Run `scripts/project-status.sh github` when pull-request facts may have changed, reconcile the recorded snapshot, then run `scripts/project-status.sh refresh`. A session ends by leaving a concrete next action and links in the inventory; its title and identifier remain useful supporting references.
+A new work session starts with the OpenClinAI roadmap and named product authority. This inventory supplies dated supporting evidence. Run `scripts/project-status.sh github` when pull-request facts may have changed, reconcile the recorded snapshot, then run `scripts/project-status.sh refresh`. A session ends by leaving a concrete next action and links in the inventory; its title and identifier remain useful supporting references.
 
 There is no scheduled automation in this change. A short weekly reconciliation is a suggested habit: compare open work against GitHub, inspect stale evidence dates, and identify public pages whose status no longer matches the accepted deployment. More frequent automatic polling can be added only if it provides useful changes to review.
 
@@ -37,7 +37,7 @@ Each active effort should point to one next deliverable and one actual acceptanc
 
 **Edit and regenerate the tables.**
 
-The JSON files beside this guide are the editable inventory. The Markdown tables and CSV exports are generated views. Change the relevant JSON row, then run from the repository root:
+The JSON files beside this guide are the editable inventory. The Markdown tables and CSV exports are generated views. Change the relevant JSON row, then run from the OpenClinAI umbrella checkout:
 
 ```bash
 scripts/project-status.sh refresh

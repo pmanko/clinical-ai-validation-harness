@@ -1,7 +1,7 @@
 # Prompt & guardrail enforcement map — chartsearchai-direct vs med-agent-hub
 
 This map records prompt/guardrail observations from 2026-06-04. Current product
-behavior follows the [dual-provider contract](openmrs-dual-provider-conformance-contract.md);
+behavior follows the [backend provider contract](https://github.com/pmanko/openmrs-module-chartsearchai/blob/main/README.md#provider-integration-contract);
 [Feature 006](../../006-validation-harness-mvp/spec.md) owns the clinical context
 and deterministic evaluation protocol.
 

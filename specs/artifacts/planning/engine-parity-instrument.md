@@ -1,17 +1,11 @@
 # Engine-Level Parity Instrument — Bundled vs Hub
 
-Status: ACHIEVED 2026-07-22 — all six ACs verified live (AC-1 7/7 config checks; AC-2 probe +
-verbatim replay per arm; AC-3 zero violations across the demo scenario set; AC-4 via the
-explicit-contract path — retrieval divergence measured and documented in `engine-parity.v1`,
-entry to be DELETED when bundled adopts the provider-neutral context policy; AC-5 scored
-`engine-parity-e4b` run 6/6 good cells with run_meta engine freeze; AC-6 unit + live red-green
-readiness). Companion to `openmrs-dual-provider-parity-roadmap.md`.
-
-**Tracked follow-up (the divergence the instrument exposed):** bundled's query-scoped
-`QueryStoreChartBuilder` ranks by similarity only; the hub additionally honors the
-provider-neutral `context_policy` contract (mandatory core + recency anchor). Measured across
-the scenario sweep: bundled 30/39/45 vs hub 41/78/70 records, hub uniquely carrying the entire
-most-recent visit. Aligning bundled deletes the contract entry and restores strict AC-4.
+This protocol defines an engine-ingress experiment. [OpenClinAI delivery](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#5-track-a-openmrs-contribution-delivery)
+owns product acceptance and setup. The [July experiment record](https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/artifacts/planning/engine-parity-instrument.md)
+contains the original measurements; those results do not certify a current target.
+QueryStore now owns shared selection under its ADR Decisions 17–18. Retained
+retrieval differences must match the versioned experiment contract and actual
+captured records, not a historical claim that either engine lacks that integration.
 
 ## Goal statement
 
@@ -80,9 +74,7 @@ prompts and compares them.
 
 ### AC-5 — Scored parity run through the product boundary
 `make validate-run SET=engine-parity-e4b` — comparison set with two arms (`provider=bundled`,
-`provider=hub`), same scenarios, same `REFERENCE_DATE`. Needs the small harness plumbing:
-`Backend.provider` field + `ChartSearchAiClient` passing `provider` in the POST body (the
-controller already accepts it: `ChartSearchAiRestController.java:822`).
+`provider=hub`), same scenarios, same `REFERENCE_DATE`. The configured `Backend.provider` and client request select the actual provider.
 **Pass:** every scenario×arm cell has HTTP 200 + non-fallback answer per `_row_is_good`; report
 renders both arms side-by-side; `run_meta.json` freezes both arms' engine endpoint + model,
 proving AC-1 held for the whole run.
@@ -90,16 +82,15 @@ proving AC-1 held for the whole run.
 ### AC-6 — Honest readiness
 `GET /providers` reports bundled `ready:false` when its configured engine is unreachable, `true`
 when reachable.
-**Pass:** red-first test — stop llama-router → `ready:false`; start it → `ready:true`. (Today it
-reports `ready:true` with no engine at all; a false-ready breaks the instrument.)
+**Pass:** observe unavailable and available engine states through provider discovery.
+The caller prepares those states in an isolated target; a shared service is not stopped by the runner.
 
 ## Ownership and evidence
 
 The harness owns API collection, request capture/diff, the `engine-parity.v1`
 experiment fixture and result reporting. Product discovery/readiness behavior
-belongs to the [ChartSearchAI contract](https://github.com/pmanko/openmrs-module-chartsearchai/blob/harness-integration/docs/adr.md).
+belongs to the [ChartSearchAI contract](https://github.com/pmanko/openmrs-module-chartsearchai/blob/main/README.md#provider-integration-contract).
 Workspace engine setup belongs to [OpenClinAI](https://github.com/pmanko/openclinai.org).
 The harness records caller-supplied or API-observed engine identity; it does not
 manage routers, enforce pins or inspect source trees. Missing metadata cannot
-be treated as evidence of a shared engine. Historical achieved results above
-refer to their dated runs, not a newly configured deployment.
+be treated as evidence of a shared engine. Historical achieved results refer to their dated runs, not a newly configured deployment.

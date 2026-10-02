@@ -28,13 +28,13 @@ COMMON_ARTIFACT_COLUMNS = (
 )
 VIEWS = {
     "efforts": (
-        "Current efforts",
+        "Effort checkpoints",
         (
             ("id", "ID"),
             ("title", "Effort"),
             ("status", "Status"),
-            ("next_deliverable", "Next deliverable"),
-            ("acceptance", "Acceptance"),
+            ("next_deliverable", "Recorded next deliverable"),
+            ("acceptance", "Recorded acceptance boundary"),
             ("sources", "Sources"),
         ),
     ),

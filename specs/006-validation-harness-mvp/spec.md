@@ -26,7 +26,7 @@ provider selection, cancellation, persistence or safety behavior. References:
 [ChartSearchAI](https://github.com/pmanko/openmrs-module-chartsearchai),
 [Med Agent Hub](https://github.com/pmanko/med-agent-hub),
 [QueryStore API](https://github.com/pmanko/openmrs-module-querystore/blob/harness-integration/docs/rest-api.md),
-[Catalyst specification](https://github.com/DIGI-UW/openelis-catalyst/blob/main/docs/specification.md).
+[Catalyst specification](https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specification.md).
 
 The caller prepares services and supplies connection settings, scenarios/fixtures,
 evaluation settings, provenance and an output location. No Git, submodule,
@@ -122,7 +122,7 @@ revision/model metadata stays explicit. Do not assert exact drug wording or a
 fixed latency from this wiring check. Run each provider being claimed separately;
 a fixture or test-double result does not establish product acceptance. The caller
 prepares OpenMRS, QueryStore and the selected provider. Browser presentation is
-verified by the [frontend owner](https://github.com/pmanko/openmrs-esm-chartsearchai-app),
+verified by the [frontend owner](https://github.com/pmanko/openmrs-esm-chartsearchai),
 not simulated by a harness command plan.
 
 ### Clinical context and deterministic evaluation
@@ -200,7 +200,7 @@ comparison sets and backend settings. The included `demo` set anchors medication
 and abstention probes on reviewed patient fixtures. Experiments may choose other
 corpora; no hard-coded product topology or local model source is authoritative.
 Catalyst inputs are the selected suite, source/dialect/schema context and model-team
-configuration. Detailed Feature 008 consolidation is a separate ownership slice.
+configuration. [Feature 008](../008-catalyst-query-workbench/spec.md) owns the Catalyst experiment protocol.
 
 Freeze required input bytes and digests, configuration without secrets, bounded
 clinical fixtures, requests/responses, traces, deterministic evaluations, optional

@@ -1,31 +1,28 @@
-# Dual-Provider Conformance Contract
+# Dual-provider conformance protocol
 
-**Roadmap:** `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`  
-**Status:** Active contract. The fixtures define required behavior and are consumed by owner tests
-in QueryStore, ChartSearchAI, the ESM, med-agent-hub, and the harness evaluator.
+This harness protocol owns cross-language fixtures and experiment evidence for
+`OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`. Application behavior is maintained by:
 
-## Purpose and Boundary
+- [ChartSearchAI provider contract](https://github.com/pmanko/openmrs-module-chartsearchai/blob/main/README.md#provider-integration-contract): lifecycle, discovery, errors,
+  conversation ownership and common answer requirements.
+- [QueryStore API](https://github.com/pmanko/openmrs-module-querystore/blob/main/docs/rest-api.md) and ADR Decisions 16–18:
+  record dates, completeness, freshness and shared selection.
+- [Med Agent Hub](https://github.com/pmanko/med-agent-hub/blob/main/README.md): source adapters, caches, clinical stages and safety.
+- [ChartSearchAI frontend](https://github.com/pmanko/openmrs-esm-chartsearchai/blob/main/README.md): capability-aware rendering, streaming controls,
+  history, evidence and inspectable review output.
+- [OpenClinAI delivery](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md#5-track-a-openmrs-contribution-delivery): assembly, release gates and owner signoffs.
 
-This contract keeps two valid implementation paths behind one OpenMRS experience without pretending
-they must share an engine or produce identical prose. It specifies observable behavior:
-
-- provider discovery and truthful capability disclosure;
-- canonical turn lifecycle and terminal state;
-- source/date/freshness representations;
-- context-selection invariants and traceability;
-- deterministic temporal and safety status semantics.
-
-The hub remains directly usable without QueryStore. QueryStore remains an OpenMRS projection and
-search service, not a prompt composer. Bundled retains its local/remote inference engines and
-provider-specific features.
+Provider parity does not require identical implementations, feature sets or prose.
+The caller prepares product targets; this protocol does not manage repositories,
+component pins, builds or deployments.
 
 ## Versioned Fixtures
 
 [`dual-provider-conformance.v1.json`](../../../datasets/validation/conformance/dual-provider-conformance.v1.json)
-is the source of truth for cross-language behavioral fixtures. Each case has a stable identifier so
+is the canonical cross-language fixture dataset. Each case has a stable identifier so
 Java, Python, TypeScript, and harness tests can report the same failing case.
 
-| Fixture family | Required invariant | Owning test destination |
+| Fixture family | Observed coverage | Owning test destination |
 |---|---|---|
 | `provider_lifecycle` | Required `answer_done` and one terminal event; optional events follow advertised capabilities; a provider change starts a new conversation | ChartSearchAI API tests; ESM reducer tests; hub stream tests |
 | `provider_capabilities` | Bundled is default when configured; picker is absent for one provider; unavailable configured provider remains disabled; no implicit fallback | ChartSearchAI provider/config tests; ESM picker tests |
@@ -33,127 +30,6 @@ Java, Python, TypeScript, and harness tests can report the same failing case.
 | `context_policy` | Typed-complete evidence, temporal recency, panel completion, mandatory inclusion, stable ordering, ceiling-not-target, and explicit overflow | QueryStore context-slice tests (selection invariants, per the 2026-07-22 amendment); bundled and hub thin-adapter conformance; harness trace tests |
 | `temporal_gate` | Checked output cannot contain a malformed/non-ledger date, wrong date/value association, false appointment status, wrong last visit, or unsupported trend | Shared Java/Python fixture adapters; existing hub temporal tests |
 | `drug_safety_status` | `checked`, `limited`, and `unavailable` are honest states; incomplete mapping/data/exposure cannot look checked | Java provider tests; hub safety tests; ESM rendering tests |
-
-## Canonical Provider Contract
-
-The Java provider boundary must expose the following conceptually stable fields. Concrete Java
-types may differ, but the wire and persistence model must carry their equivalent.
-
-```text
-ProviderDescriptor
-  id, label, enabled, ready, isDefault, modes[], capabilities[], unavailableReason?
-
-TurnRequest
-  patientId, conversationId, providerId, mode?, question, priorClinicalTurns, requestId
-
-TurnEvent
-  type, sequence, providerId, mode?, answer?, validation?, evidence?, inDepth?, warnings?, timing?
-
-TurnResult
-  providerId, mode?, finalAnswer, validation, evidence, inDepth?, warnings, timing, terminalState
-```
-
-Rules:
-
-1. Every accepted turn emits exactly one of `turn_done` or `turn_error`. A turn that reaches an
-   answer emits `answer_done` first; an early provider or transport failure may emit `turn_error`
-   without `answer_done`. `answer_validation`, `evidence_updated`, and In-Depth events are
-   capability-driven.
-2. A provider never silently falls back to another provider. Its error uses one normalized,
-   machine-readable problem code.
-3. Changing `providerId` creates a new conversation. Existing conversation records retain the
-   provider and mode that produced them.
-4. The browser consumes one event shape and one reducer. It does not make provider-specific model
-   calls or infer an unavailable capability.
-
-## Context Surface and State Ownership
-
-QueryStore is the canonical **OpenMRS patient-context surface**. OpenMRS-hosted clinical record
-sources are exposed through its serializer/provider SPIs and its authorized full-ledger and
-ranked-search contracts. Bundled ChartSearchAI may consume that surface in-process; external
-engines consume the same record, temporal, identity, and freshness semantics through the API.
-
-This context boundary does not turn QueryStore into a prompt composer or a mandatory dependency of
-med-agent-hub. The hub remains source-neutral: inline charts, static knowledge, and alternate
-adapters remain valid sources. Per the 2026-07-22 shared context-selection amendment
-(`openmrs-dual-provider-parity-roadmap-status.md`), QueryStore additionally serves the tiered
-record-selection contract (`getContextSlice`: mandatory | exact | recency_anchor | typed |
-similarity) for QueryStore-sourced context, so the `context_policy` selection invariants are
-implemented once at the data owner. QueryStore may apply its versioned, opt-in question
-interpretation when building that slice. Each answer engine owns prompt composition, token
-budgeting over the returned tiers, context selection for non-QueryStore sources, reasoning,
-deterministic gates, evidence processing, and provider-specific output semantics.
-
-The common OpenMRS layer owns the authoritative conversation and audit record:
-
-- conversation identity, patient/user authorization, provider and mode attribution;
-- durable user/assistant turn history, retention, feedback, and rate-limit accounting;
-- lifecycle persistence and normalized terminal status; and
-- provider output stored content-agnostically, without Java reinterpreting hub validation,
-  evidence, temporal, safety, or In-Depth content.
-
-Providers may keep bounded, memory-only conversation-keyed prefix/KV caches, patient-ledger caches,
-and similar execution state. Such state is disposable optimization only: it is never the
-authoritative conversation or audit record, never persists PHI-bearing ledgers to disk, and never
-makes correctness depend on cache survival. A stateless engine receives the prior clinical turns
-needed for each request from the common layer.
-
-## QueryStore Record and Freshness Contract
-
-`GET /ws/rest/v1/querystore/patientrecord` preserves existing full-chart and `patient + q` behavior.
-The representation adds, without removing, these nullable/public fields:
-
-```json
-{
-  "resourceType": "obs",
-  "resourceUuid": "stable-record-id",
-  "date": "2026-01-15",
-  "clinicalDate": "2026-01-15",
-  "dateKind": "clinical_event",
-  "lastModified": "2026-01-16T12:00:00Z",
-  "text": "...",
-  "metadata": {}
-}
-```
-
-`dateKind` is one of `clinical_event`, `administrative`, or `unknown`. Serializers assign it while
-they still know the OpenMRS resource semantics. `date` remains the compatibility/order field;
-downstream temporal presentation must not substitute an administrative date as a clinical event.
-
-Complete-chart pages include a stable `snapshotId` and a strong ETag derived from the complete,
-deterministically ordered record representation. A matching `If-None-Match` returns `304`. A hub
-ledger refresh accepts a chart only when every page reports the same snapshot. One mixed-snapshot
-retry is permitted; a second mismatch is an explicit source failure, never a stale answer.
-
-## Context-Policy Contract
-
-Both providers adapt the same records into their own prompt form. They must report selected and
-excluded stable IDs plus deterministic reasons.
-
-`query_scoped` always includes demographics, mandatory safety evidence, exact ID/date/quoted
-matches, all typed records for an enumeration request, QueryStore ranked candidates, temporal
-recency only when the question is temporal, and complete lab/panel families. It does not add
-unrelated records merely to use the remaining budget.
-
-`full_chart_stable` includes the complete deterministic ledger in stable bytes before
-question-specific material. It either fits or returns `insufficient_context`; neither provider
-silently truncates. Both modes compute temporal, citation, and safety facts from the complete
-ledger rather than only the prompt view.
-
-## Temporal, Citation, and Safety Contract
-
-Every output labeled `Checked` has a recorded deterministic gate result. A rewrite is re-gated;
-citations are resolved again; semantic grounding evaluates the final answer only. A deterministic
-failure may be preserved for manual review as `Needs review`, with original output inspectable,
-but it cannot be presented as checked.
-
-Drug safety always reports one of:
-
-- `checked`: required source package, mapping/exposure resolution, and rule execution completed;
-- `limited`: a partial but specifically described check completed;
-- `unavailable`: the requested check could not complete.
-
-Neither an empty warning list nor a missing source package implies `checked`.
 
 ## Red-First Test Procedure
 
@@ -164,7 +40,7 @@ weakened or removed to turn the gate green.
 
 ## Runtime Evidence Bundle
 
-Static source and owner-test checks prove implementation properties. Gates that claim live product
+Owner tests prove the behavior they actually exercise. Gates that claim live product
 behavior additionally require a hash-bound JSON evidence bundle. Each observation names its gate and
 identifier, lists the exact artifacts used, and evaluates values read from those artifacts:
 
@@ -186,7 +62,7 @@ identifier, lists the exact artifacts used, and evaluates values read from those
 ```
 
 An assertion cannot certify itself with stored `actual` or `passed` fields. The gate evaluator
-resolves the listed in-repository artifact, verifies its SHA-256, reads the JSON pointer, and compares
+resolves the listed run-local artifact, verifies its SHA-256, reads the JSON pointer, and compares
 that value with `expected`. Context-policy parity additionally requires exactly one
 `parity_engine_diff` artifact with no ledger-identity violation, an approved retrieval status, and a
 non-empty mandatory clinical core that is equal across providers.
