@@ -19,13 +19,24 @@ def copy_target_provenance(
     """Freeze caller claims without treating them as verified target identity."""
     if provenance is None:
         return []
-    if not isinstance(provenance, list) or any(
-        not isinstance(item, dict)
-        or not isinstance(item.get("target_id"), str)
-        or not item["target_id"].strip()
-        for item in provenance
-    ):
-        raise ValueError("target_provenance must be a list of objects with target_id")
+    if not isinstance(provenance, list):
+        raise ValueError("target_provenance must be a list of objects")
+    required = {"target_id", "target_source", "target_actual_sha"}
+    field_types = {
+        "target_id": (str,), "target_source": (str,),
+        "target_actual_sha": (str, type(None)), "target_url": (str, type(None)),
+        "evidence_status": (str,), "decision_rationale": (str,),
+    }
+    for item in provenance:
+        if not isinstance(item, dict) or not required.issubset(item):
+            raise ValueError("target_provenance objects require target_id, target_source and target_actual_sha")
+        for name, types in field_types.items():
+            if name in item and not isinstance(item[name], types):
+                raise ValueError(f"target_provenance {name} has an invalid type")
+        if not item["target_id"].strip():
+            raise ValueError("target_provenance target_id must not be blank")
+        if item["target_source"] not in ("supplied", "observed_api", "unavailable"):
+            raise ValueError("target_provenance target_source must be supplied, observed_api or unavailable")
     try:
         return json.loads(json.dumps(provenance, allow_nan=False))
     except (TypeError, ValueError) as error:

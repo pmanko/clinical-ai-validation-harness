@@ -5,8 +5,8 @@ bundled engine, the med-agent-hub relay, and the provider-neutral stream the ESM
 statement cites the source file that defines it (product-relative paths; the
 [umbrella](https://github.com/pmanko/openclinai.org) owns direct component checkouts). OpenAI's
 chat-completions shapes are used at every engine hop; the extensions on top of them are named
-explicitly. `tests/test_provider_interface_reference.py` keeps the event vocabulary here pinned to the
-code.
+explicitly. Product contracts and tests own transport behavior; this reference
+does not provide an independent harness event-vocabulary check.
 
 Companion documents: `openmrs-dual-provider-conformance-contract.md` (what both providers must
 guarantee), `openmrs-dual-provider-parity-roadmap-status.md` (gate evidence).

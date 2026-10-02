@@ -12,7 +12,7 @@ and prepares the chosen provider.
 
 Authorization, discovery, transport, cancellation, persistence and clinical
 behavior belong to the [ChartSearchAI product contract](https://github.com/pmanko/openmrs-module-chartsearchai/blob/harness-integration/docs/adr.md)
-and [frontend repository](https://github.com/pmanko/openmrs-esm-chartsearchai-app).
+and [frontend repository](https://github.com/pmanko/openmrs-esm-chartsearchai).
 [Feature 006](../../specs/006-validation-harness-mvp/spec.md) owns collection,
 evaluation and portable reporting. A passing client test double proves runner
 mechanics; product claims require the actual API.

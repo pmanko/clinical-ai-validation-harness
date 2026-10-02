@@ -108,7 +108,8 @@ def test_clinical_cli_run_and_report_without_workspace(isolated, tmp_path, monke
     monkeypatch.setattr("harness.validate.client.ChartSearchAiClient", Client)
     output = tmp_path / "runs"
     provenance = tmp_path / "identity.json"
-    provenance.write_text(json.dumps([{"target_id": "service", "target_source": "supplied"}]))
+    provenance.write_text(json.dumps([{"target_id": "service", "target_source": "supplied",
+                                      "target_actual_sha": None}]))
     metadata = tmp_path / "arm-metadata.json"
     metadata.write_text(json.dumps({"arm": {"title": "Frozen title"}}))
     receipt = tmp_path / "corpus.json"

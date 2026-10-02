@@ -16,5 +16,4 @@ The caller supplies connection settings, scenarios/fixtures, evaluation settings
 provenance and an output directory. Git, submodules and product source trees are
 not harness prerequisites. Checkouts, pins, builds, deployment, release gates and
 website publication belong to [OpenClinAI](https://github.com/pmanko/openclinai.org).
-Website relocation remains pending; the harness's current website files are not
-part of the experiment runner interface.
+Website sources and publication commands are maintained in that repository.
