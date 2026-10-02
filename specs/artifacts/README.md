@@ -9,8 +9,8 @@ Current planning and research artifacts that support the feature roadmap.
   - Umbrella-owned release criteria and signoffs. Product contracts own behavior.
 - [Dual-provider conformance protocol](planning/openmrs-dual-provider-conformance-contract.md)
   - Shared fixture coverage, owning product tests and hash-bound runtime evidence.
-- [Provider interface](https://github.com/pmanko/openmrs-module-chartsearchai/blob/main/docs/provider-interface.md)
-  - Backend-owned wire and adapter reference.
+- [Provider interface](https://github.com/pmanko/openclinai.org/blob/main/docs/openmrs-provider-interface.md)
+  - Umbrella integration reference; native module API behavior remains product-owned.
 - [QueryStore selection](https://github.com/pmanko/openmrs-module-querystore/blob/main/docs/adr.md#decision-17-context-slice-read--tiered-record-selection)
   - Product-owned selection and opt-in interpretation; the completed consolidation
     procedure is no longer a maintained harness plan.
