@@ -56,7 +56,7 @@
       "url": "https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/",
       "role": "Interactive visual acceptance reference",
       "status": "Local review: harness wrapper adds project parent links; Catalyst mock source remains f548e04d4dcc.",
-      "source": "targets/catalyst/docs/specs/staff-workbench-ux/ \u2192 site/public/catalyst-design/",
+      "source": "https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specs/staff-workbench-ux/ → site/public/catalyst-design/",
       "next_update": "Verify the generated source manifest and navigation; no product design changes.",
       "last_checked": "2026-09-15"
     },
@@ -102,7 +102,7 @@
       "url": "http://localhost:18088",
       "role": "Product output and numeric evidence",
       "status": "August 27 demonstration; not running or inspected locally today",
-      "source": "scripts/catalyst-mvp.sh superset-status",
+      "source": "https://github.com/pmanko/openclinai.org/blob/main/scripts/catalyst-mvp.sh superset-status",
       "next_update": "Check import receipt, source connection and rendered output at chosen revisions."
     },
     {
@@ -371,17 +371,17 @@
     {
       "id": "tool-acceptance_gates",
       "title": "Dual-provider acceptance evaluator",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/verify_dual_provider_parity_gates.py",
-      "role": "Validate static ownership and fresh exact-revision artifact-bound observations.",
+      "url": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify_dual_provider_parity_gates.py",
+      "role": "Umbrella release verification of static ownership and exact-revision evidence.",
       "status": "Default evidence age14 days; evaluates artifact values rather than trusting asserted success. Deferral and owner acceptance remain explicit.",
       "source": "scripts/verify_dual_provider_parity_gates.py; scripts/verify-dual-provider-parity-gates.sh",
-      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "next_update": "Run from the OpenClinAI root; release acceptance is not a harness prerequisite.",
       "details": {
         "id": "acceptance_gates",
         "name": "Dual-provider acceptance evaluator",
         "purpose": "Validate static ownership and fresh exact-revision artifact-bound observations.",
         "entrypoints": [
-          "scripts/verify-dual-provider-parity-gates.sh --phase full"
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-dual-provider-parity-gates.sh"
         ],
         "inputs": [
           "clean component trees",
@@ -394,8 +394,8 @@
         ],
         "scope_limit": "Default evidence age14 days; evaluates artifact values rather than trusting asserted success. Deferral and owner acceptance remain explicit.",
         "sources": [
-          "scripts/verify_dual_provider_parity_gates.py",
-          "scripts/verify-dual-provider-parity-gates.sh"
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify_dual_provider_parity_gates.py",
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-dual-provider-parity-gates.sh"
         ],
         "live_verified": false
       }
@@ -403,18 +403,18 @@
     {
       "id": "tool-runtime_identity",
       "title": "Build/deploy identity",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/artifact-provenance.py",
+      "url": "https://github.com/pmanko/openclinai.org/blob/main/scripts/artifact-provenance.py",
       "role": "Record source revisions and content hashes for deployed artifacts.",
       "status": "Old valid hashes establish recovery integrity, not current runtime availability.",
       "source": "scripts/artifact-provenance.py; scripts/probe-chartsearchai-relay.py",
-      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "next_update": "Workspace owner runs this from the OpenClinAI root, separately from experiment execution.",
       "details": {
         "id": "runtime_identity",
         "name": "Build/deploy identity",
         "purpose": "Record source revisions and content hashes for deployed artifacts.",
         "entrypoints": [
-          "scripts/artifact-provenance.py",
-          "scripts/probe-chartsearchai-relay.py"
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/artifact-provenance.py",
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/probe-chartsearchai-relay.py"
         ],
         "inputs": [
           "component source",
@@ -427,8 +427,8 @@
         ],
         "scope_limit": "Old valid hashes establish recovery integrity, not current runtime availability.",
         "sources": [
-          "scripts/artifact-provenance.py",
-          "scripts/probe-chartsearchai-relay.py"
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/artifact-provenance.py",
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/probe-chartsearchai-relay.py"
         ],
         "live_verified": false
       }
@@ -436,18 +436,18 @@
     {
       "id": "tool-repository_lines",
       "title": "Repository and publication checks",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/verify-repository-lines.sh",
+      "url": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-repository-lines.sh",
       "role": "Verify owned-repository branch and OpenMRS publication identities.",
       "status": "Read current GitHub state; status Markdown is not a substitute.",
-      "source": "scripts/verify-repository-lines.sh",
-      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "source": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-repository-lines.sh",
+      "next_update": "Workspace owner runs this from the OpenClinAI root, separately from experiment execution.",
       "details": {
         "id": "repository_lines",
         "name": "Repository and publication checks",
         "purpose": "Verify owned-repository branch and OpenMRS publication identities.",
         "entrypoints": [
-          "scripts/verify-repository-lines.sh",
-          "scripts/verify-repository-lines.sh --check-publication-prs"
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-repository-lines.sh",
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-repository-lines.sh --check-publication-prs"
         ],
         "inputs": [
           "local git lines",
@@ -459,14 +459,14 @@
         ],
         "scope_limit": "Read current GitHub state; status Markdown is not a substitute.",
         "sources": [
-          "scripts/verify-repository-lines.sh"
+          "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-repository-lines.sh"
         ],
         "live_verified": false
       }
     },
     {
       "id": "catalyst-video-openelis",
-      "title": "Catalyst local demonstration \u2014 OpenELIS",
+      "title": "Catalyst local demonstration — OpenELIS",
       "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-light-20260911-d070fe7.mp4",
       "role": "Current product demonstration, recorded locally",
       "status": "Light-only replacement published under immutable filenames and referenced by the homepage and demo canvas. Final review, HTTPS hashes and actual writer/reviewer/import evidence verified.",
@@ -475,7 +475,7 @@
     },
     {
       "id": "catalyst-video-openmrs-hiv",
-      "title": "Catalyst local demonstration \u2014 OpenMRS HIV",
+      "title": "Catalyst local demonstration — OpenMRS HIV",
       "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-light-20260911-d070fe7.mp4",
       "role": "Current product demonstration, recorded locally",
       "status": "Light-only replacement published under immutable filenames and referenced by the homepage and demo canvas. Final review, HTTPS hashes and actual writer/reviewer/import evidence verified.",

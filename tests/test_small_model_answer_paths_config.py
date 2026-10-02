@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-import yaml
 
 from harness.validate.models import load_comparison_set
 from harness.validate.model_registry import arm_card
@@ -41,7 +40,7 @@ def test_small_model_answer_paths_is_a_matched_e4b_12b_matrix():
     ]
 
 
-def test_small_model_answer_paths_use_the_same_hub_prompt_and_three_depths():
+def test_small_model_answer_paths_select_explicit_hub_profiles():
     backends = resolve_backends(
         [
             "speed-e4b-answer-only",
@@ -68,44 +67,9 @@ def test_small_model_answer_paths_use_the_same_hub_prompt_and_three_depths():
     )
     assert all(backend.indepth_model is None for backend in backends)
 
-    cards = {backend.id: arm_card(backend.id) for backend in backends}
-    assert cards["speed-e4b-answer-only"]["title"].endswith("single · answer only")
-    assert cards["speed-e4b-deterministic-check"]["title"].endswith(
-        "single · deterministic check"
-    )
-    assert cards["single-e4b-checked"]["title"].endswith(
-        "single · fully checked"
-    )
-    assert cards["speed-12b-answer-only"]["title"].endswith("single · answer only")
-    assert cards["speed-12b-deterministic-check"]["title"].endswith(
-        "single · deterministic check"
-    )
-    assert cards["single-12b-checked"]["title"].endswith(
-        "single · fully checked"
-    )
-
-
-def test_small_model_evaluation_profiles_share_the_product_context_budget():
-    levels = yaml.safe_load(
-        (ROOT / "targets" / "med-agent-hub" / "server" / "levels.yaml").read_text(
-            encoding="utf-8"
-        )
-    )["profiles"]
-
-    expected = {
-        "eval-e4b-answer-only": ("gemma-e4b", "off"),
-        "eval-e4b-temporal-enforce": ("gemma-e4b", "enforce"),
-        "eval-12b-answer-only": ("gemma-4-12b", "off"),
-        "eval-12b-temporal-enforce": ("gemma-4-12b", "enforce"),
-    }
-    product_context = levels["single-e4b-checked"]["context"]
-    for profile_id, (model, gate) in expected.items():
-        profile = levels[profile_id]
-        assert profile["visibility"] == "evaluation"
-        assert profile["stages"] == ["context", "answer", "gate"]
-        assert profile["models"] == {"answer": model}
-        assert profile["prompts"] == {"answer": "synthesis-answer"}
-        assert profile["policies"]["answer_contract"] == "chart_answer"
-        assert profile["policies"]["temporal_gate"] == gate
-        assert profile["context"] == product_context
-        assert profile["knobs"]["answer"]["temperature"] == 0
+    for backend in backends:
+        card = arm_card(backend.id, backend=backend)
+        assert card["title"] == backend.label
+        assert card["models"] == [{"id": backend.model_name}]
+        assert card["config"] == {}
+        assert "stages" not in card

@@ -1,15 +1,12 @@
-"""In-process behavior of scripts/verify-local-markdown-links.py.
-
-The docs guard runs the checker as a subprocess, which coverage cannot
-trace; these tests import it and exercise the same contract directly.
-"""
+"""Filesystem-only behavior of scripts/verify-local-markdown-links.py."""
 
 from __future__ import annotations
 
 import importlib.util
-import os
 import subprocess
 from pathlib import Path
+
+import pytest
 
 SCRIPT = (
     Path(__file__).resolve().parents[1] / "scripts" / "verify-local-markdown-links.py"
@@ -20,8 +17,13 @@ links = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(links)
 
 
-def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+@pytest.fixture(autouse=True)
+def forbid_process_execution(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("link validation must not invoke Git or other processes")
+
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
 
 
 def test_link_targets_parse_like_markdown() -> None:
@@ -65,48 +67,67 @@ def test_missing_source_file_is_itself_a_failure(tmp_path, capsys, monkeypatch) 
     assert "missing Markdown source" in capsys.readouterr().err
 
 
-def test_targets_inside_absent_submodules_are_not_failures(tmp_path, capsys, monkeypatch) -> None:
-    # A clean checkout may leave a gitlink uninitialized; a link into one is
-    # not evidence of a broken document.
-    root = SCRIPT.resolve().parents[1]
-    submodules = links.gitlinks(root)
-    assert submodules, "harness repo is expected to carry gitlinks"
-    ghost_target = submodules[0] / "not-checked-out" / "ghost.md"
-    assert not ghost_target.exists()
-    relative = os.path.relpath(ghost_target, start=tmp_path)
-    source = tmp_path / "doc.md"
-    source.write_text(f"see [ghost]({relative})\n", encoding="utf-8")
+def test_missing_product_link_is_not_exempted_by_git_metadata(tmp_path, capsys, monkeypatch) -> None:
+    (tmp_path / ".gitmodules").write_text(
+        '[submodule "catalyst"]\n\tpath = targets/catalyst\n', encoding="utf-8"
+    )
+    source = tmp_path / "README.md"
+    source.write_text("[product](targets/catalyst/docs/specification.md)\n", encoding="utf-8")
+    monkeypatch.setattr(links.sys, "argv", ["verify", str(source)])
+    assert links.main() == 1
+    assert "missing targets/catalyst/docs/specification.md" in capsys.readouterr().err
+
+
+def test_existing_relative_link_outside_harness_resolves(tmp_path, capsys, monkeypatch) -> None:
+    product = tmp_path / "product"
+    product.mkdir()
+    (product / "contract.md").write_text("# Contract\n", encoding="utf-8")
+    harness = tmp_path / "harness"
+    harness.mkdir()
+    source = harness / "README.md"
+    source.write_text("[contract](../product/contract.md#api)\n", encoding="utf-8")
     monkeypatch.setattr(links.sys, "argv", ["verify", str(source)])
     assert links.main() == 0
-    assert "OK (1 files)" in capsys.readouterr().out
 
 
-def test_repository_markdown_lists_tracked_untracked_and_nested_catalyst(tmp_path) -> None:
-    _git(tmp_path, "init", "-q")
-    (tmp_path / "tracked.md").write_text("t\n", encoding="utf-8")
-    _git(tmp_path, "add", "tracked.md")
-    (tmp_path / "untracked.md").write_text("u\n", encoding="utf-8")
-    nested = tmp_path / "targets" / "catalyst"
-    nested.mkdir(parents=True)
-    _git(nested, "init", "-q")
-    (nested / "inner.md").write_text("i\n", encoding="utf-8")
-    _git(nested, "add", "inner.md")
+def test_repository_markdown_discovers_sources_without_git_and_skips_outputs(tmp_path) -> None:
+    (tmp_path / "README.md").write_text("# Harness\n", encoding="utf-8")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "guide.md").write_text("# Guide\n", encoding="utf-8")
+    for relative in (".venv", "node_modules", "artifacts/run", "logs", "targets/catalyst"):
+        generated = tmp_path / relative
+        generated.mkdir(parents=True)
+        (generated / "ignored.md").write_text("[broken](absent.md)\n", encoding="utf-8")
+    independent = tmp_path / "other-product"
+    independent.mkdir()
+    (independent / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    (independent / "README.md").write_text("# Product\n", encoding="utf-8")
 
-    found = {p.relative_to(tmp_path).as_posix() for p in links.repository_markdown(tmp_path)}
-    assert {"tracked.md", "untracked.md", "targets/catalyst/inner.md"} <= found
+    metadata = tmp_path / "specs" / "artifacts" / "planning"
+    metadata.mkdir(parents=True)
+    (metadata / "metadata.md").write_text("# Metadata\n", encoding="utf-8")
+    curated = tmp_path / "artifacts" / "share"
+    curated.mkdir()
+    (curated / "README.md").write_text("# Curated handoff\n", encoding="utf-8")
+
+    found = [p.relative_to(tmp_path).as_posix() for p in links.repository_markdown(tmp_path)]
+    assert found == [
+        "README.md", "artifacts/share/README.md", "docs/guide.md",
+        "specs/artifacts/planning/metadata.md",
+    ]
 
 
-def test_gitlinks_returns_only_gitlink_entries(tmp_path) -> None:
-    _git(tmp_path, "init", "-q")
-    (tmp_path / "plain.md").write_text("p\n", encoding="utf-8")
-    _git(tmp_path, "add", "plain.md")
-    _git(
-        tmp_path,
-        "update-index",
-        "--add",
-        "--cacheinfo",
-        "160000,1234567890123456789012345678901234567890,vendor",
-    )
-    found = links.gitlinks(tmp_path)
-    assert (tmp_path / "vendor").resolve() in [p for p in found]
-    assert all(p.name != "plain.md" for p in found)
+def test_default_discovery_checks_an_archive_without_git(tmp_path, capsys, monkeypatch) -> None:
+    script = tmp_path / "scripts" / SCRIPT.name
+    monkeypatch.setattr(links, "__file__", str(script))
+    monkeypatch.setattr(links.sys, "argv", ["verify"])
+    (tmp_path / "README.md").write_text("[guide](guide.md)\n", encoding="utf-8")
+    (tmp_path / "guide.md").write_text("# Guide\n", encoding="utf-8")
+    assert not (tmp_path / ".git").exists()
+    assert links.main() == 0
+    assert "OK (2 files)" in capsys.readouterr().out
+
+    (tmp_path / "guide.md").unlink()
+    assert links.main() == 1
+    assert "README.md:1: missing guide.md" in capsys.readouterr().err

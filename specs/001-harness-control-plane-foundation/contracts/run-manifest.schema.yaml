@@ -1,0 +1,109 @@
+schema_version: 2
+kind: RunManifestSchema
+description: >-
+  Semantic contract for experiment identity and supplied/observed provenance.
+  Feature emitters own executable schemas and wire-format versions; this contract
+  does not assert that every emitter has implemented the current direction.
+
+top_level_required:
+  - run_id
+  - project
+  - component
+  - git_sha
+  - generated_at
+  - evidence_status
+  - target_provenance
+  - otel
+
+fields:
+  run_id:
+    type: string
+  project:
+    type: string
+    expected: clinical-ai-validation-harness
+  component:
+    type: string
+  git_sha:
+    type: [string, "null"]
+    description: Supplied harness revision when known; null otherwise. No Git lookup is required.
+  generated_at:
+    type: string
+    format: date-time
+  evidence_status:
+    type: string
+    allowed: [release, development, fixture, scaffolding, unavailable, blocked]
+    description: Evidence classification, not pin compliance or harness-granted release approval.
+  decision_rationale:
+    type: string
+    required_when: evidence_status != release
+
+
+target_provenance:
+  type: array
+  min_items: 0
+  items:
+    required: [target_id, target_source, target_actual_sha]
+    properties:
+      target_id:
+        type: string
+      target_source:
+        type: string
+        allowed: [supplied, observed_api, unavailable]
+        description: Origin of this identity assertion; supplied and observed entries remain separate.
+      target_actual_sha:
+        type: [string, "null"]
+        description: Supplied or API-reported target revision; null when unknown. Not a verified checkout SHA.
+      target_url:
+        type: [string, "null"]
+        required: false
+        description: Safe repository or endpoint reference without credentials/private deployment details.
+      evidence_status:
+        type: string
+        required: false
+      decision_rationale:
+        type: string
+        required: false
+    extensions: Adapter-owned observed or supplied deployment, image, profile and runtime configuration identity.
+
+otel:
+  type: object
+  required: [semconv_status, semconv_stability_opt_in]
+  properties:
+    semconv_status:
+      type: string
+    semconv_stability_opt_in:
+      type: string
+    gen_ai.provider.name:
+      type: [string, "null"]
+      required_when: model_or_agent_involved == true
+    gen_ai.operation.name:
+      type: [string, "null"]
+      required_when: model_or_agent_involved == true
+    gen_ai.agent.name:
+      type: string
+      required: false
+    gen_ai.agent.id:
+      type: string
+      required: false
+    gen_ai.agent.version:
+      type: string
+      required: false
+    gen_ai.tool.name:
+      type: string
+      required: false
+    gen_ai.data_source.id:
+      type: string
+      required: false
+
+forbidden_fields:
+  - otel.gen_ai.system
+
+rules:
+  - Empty target provenance is permitted when no target is exercised; disclose unavailable identity for configured targets.
+  - Missing revisions or model metadata do not themselves block a capable configured target.
+  - Preserve caller assertions and observations, including conflicts; do not silently overwrite either.
+  - Do not require target paths, checkout state, reviewed pins, override status or pin-enforcement gates.
+  - Capture only targets exercised by this experiment, not repository links used as documentation.
+  - Unknown model/provider/prompt fields remain explicit in feature-owned missing-metadata records; never scan product sources.
+  - Evidence references must be contained relative paths under the run directory.
+  - Reports consume captured run-local inputs only; publication and release acceptance are external decisions.

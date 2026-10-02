@@ -31,7 +31,10 @@
 
 ## Notes
 
-- Spec aligns with roadmap milestone M1 (`specs/roadmap.canvas.tsx`) and extends it with an explicit OpenELIS cross-load feasibility track requested by the user.
-- Dependencies: M0 (harness control plane foundation) must provide the adapter contract for real OpenMRS 2.8.0 and OpenELIS Catalyst targets.
-- Unlocks: M4 (OpenMRS retrieval evaluation) and downstream answer / safety / governance milestones.
-- All [NEEDS CLARIFICATION] candidates were resolved with documented assumptions (canary scope, OpenELIS fidelity bound, "most recent Ref App" pinning).
+- Spec 002 owns reviewed corpus/mapping/fixture and clinical-meaning validation.
+- Spec 001 supplies readiness/evidence meanings, not workspace/setup operations.
+- Targets are caller-prepared; Git, registry, pin and source-tree requirements are excluded.
+- Reusable migration/terminology tooling ownership is an open umbrella decision;
+  preserve the data functionality pending that assignment.
+- OpenELIS work is analysis/skeleton only, not live parity evidence.
+- Checklist marks document review, not completed product or deployed acceptance.

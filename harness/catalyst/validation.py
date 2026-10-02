@@ -14,13 +14,8 @@ from uuid import uuid4
 import requests
 
 from ..common.jsonl import append_jsonl
-from ..metadata import RunManifest, append_event, write_manifest
-from ..submodules import (
-    read_harness_git_sha,
-    read_submodule_head,
-    read_superproject_gitlink,
-    submodule_worktree_dirty,
-)
+from ..metadata import RunManifest, append_event, copy_target_provenance, write_manifest
+from .provenance import observed_api_provenance
 
 
 _MAX_ERROR_BODY_CHARS = 2_000
@@ -149,7 +144,10 @@ def _response_payload(response: requests.Response) -> dict[str, Any]:
 
 
 def load_suite(path: Path | str) -> CatalystSuite:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    return _suite_from_payload(json.loads(Path(path).read_bytes()))
+
+
+def _suite_from_payload(payload: dict[str, Any]) -> CatalystSuite:
     required = {
         "id",
         "datasetId",
@@ -235,44 +233,6 @@ def _canonical_sha256(payload: Any) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
-
-def _target_provenance(project_root: Path) -> list[dict[str, Any]]:
-    provenance: list[dict[str, Any]] = []
-    for target_id, target_path in (
-        ("catalyst", "targets/catalyst"),
-        ("med-agent-hub", "targets/med-agent-hub"),
-    ):
-        reviewed_sha = read_superproject_gitlink(project_root, target_path)
-        actual_sha = read_submodule_head(project_root, target_path)
-        if reviewed_sha is None:
-            raise ValueError(f"Harness has no reviewed gitlink for {target_path}")
-        if actual_sha is None:
-            raise ValueError(f"Harness target {target_path} is not initialized")
-        if actual_sha != reviewed_sha:
-            raise ValueError(
-                f"Harness target {target_path} is at {actual_sha}; "
-                f"the reviewed gitlink is {reviewed_sha}"
-            )
-        if submodule_worktree_dirty(project_root, target_path):
-            raise ValueError(f"Harness target {target_path} has uncommitted changes")
-        provenance.append(
-            {
-                "target_id": target_id,
-                "target_source": "reviewed_submodule",
-                "target_path": target_path,
-                "target_reviewed_sha": reviewed_sha,
-                "target_actual_sha": actual_sha,
-                "target_dirty": False,
-                "target_override": False,
-                "target_metadata_version": 1,
-                "evidence_status": "development",
-                "decision_rationale": (
-                    "The Catalyst validation run used the clean target checkout "
-                    "at the harness-reviewed gitlink."
-                ),
-            }
-        )
-    return provenance
 
 
 def _profile_provider(profile: dict[str, Any], suite: CatalystSuite) -> str:
@@ -661,12 +621,14 @@ def run_suite(
     suite_path: Path | str,
     client: CatalystTransport,
     output_dir: Path | str = "artifacts/catalyst-validation",
-    project_root: Path | str = ".",
     scenario_ids: set[str] | None = None,
     repetitions: int | None = None,
+    git_sha: str | None = None,
+    target_provenance: list[dict[str, Any]] | None = None,
 ) -> CatalystRunResult:
     suite_path = Path(suite_path)
-    suite = load_suite(suite_path)
+    suite_bytes = suite_path.read_bytes()
+    suite = _suite_from_payload(json.loads(suite_bytes))
     selected = [
         scenario
         for scenario in suite.scenarios
@@ -682,15 +644,11 @@ def run_suite(
     run_dir = Path(output_dir) / run_id
     events_path = run_dir / "events.jsonl"
     results_path = run_dir / "results.jsonl"
-    project_root = Path(project_root).resolve()
-    suite_sha256 = hashlib.sha256(suite_path.read_bytes()).hexdigest()
-    target_provenance = _target_provenance(project_root)
-    catalyst_provenance = next(
-        item for item in target_provenance if item["target_id"] == "catalyst"
-    )
-    hub_provenance = next(
-        item for item in target_provenance if item["target_id"] == "med-agent-hub"
-    )
+    suite_sha256 = hashlib.sha256(suite_bytes).hexdigest()
+    target_provenance = copy_target_provenance(target_provenance)
+    catalyst_provenance = observed_api_provenance("catalyst")
+    hub_provenance = observed_api_provenance("med-agent-hub")
+    target_provenance.extend([catalyst_provenance, hub_provenance])
     catalyst_provenance.update(
         {
             "suite_id": suite.id,
@@ -716,7 +674,7 @@ def run_suite(
         run_id=run_id,
         project="clinical-ai-validation-harness",
         component="catalyst-query-validation",
-        git_sha=read_harness_git_sha(project_root),
+        git_sha=git_sha,
         dataset_id=suite.dataset_id,
         dataset_version=suite.dataset_version,
         schema_mapping_version=suite.catalog_version,
@@ -729,6 +687,18 @@ def run_suite(
         target_provenance=target_provenance,
     )
     write_manifest(run_dir / "run_manifest.json", manifest)
+    (run_dir / "suite.json").write_bytes(suite_bytes)
+    (run_dir / "run-config.json").write_text(
+        json.dumps({
+            "suite_id": suite.id,
+            "suite_sha256": suite_sha256,
+            "scenario_ids": [item.id for item in selected],
+            "repetitions": repeat_count,
+            "profile_id": suite.profile_id,
+            "provider_name": suite.provider_name,
+        }, indent=2) + "\n",
+        encoding="utf-8",
+    )
     append_event(
         events_path,
         {

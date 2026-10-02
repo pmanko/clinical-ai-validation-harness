@@ -4,8 +4,8 @@ The script is loaded by path (hyphenated filename) via importlib, mirroring the 
 evals/validate/test_dev_eval_team.py pattern. The behaviors pinned here are the ones that
 had real bugs to cover: the Answer/In-Depth section split (real **In Depth** heading vs a
 bare "in depth" mention), the two-call nested-indepth -> in_depth_section promotion, and
-the expectations.should_abstain read. The dataset dirs (SCEN_DIR/CHART_DIR) are
-monkeypatched to tmp fixtures so the test is hermetic.
+the expectations.should_abstain read. Scenarios and charts are captured under each
+fixture run's inputs/ directory so review needs no authored dataset location.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 
 import pytest
+
+from harness.validate.hub_trace import trace_model_for_result
 
 _MOD_PATH = Path(__file__).resolve().parents[2] / "scripts" / "judge-prep.py"
 
@@ -83,19 +85,15 @@ def test_render_blocks_uses_row_sources_without_repeating_cell_refs():
 # --------------------------------------------------------------------------- #
 # main — the full cell build (nested in-depth promotion + should_abstain)
 # --------------------------------------------------------------------------- #
-def _fixture_run(tmp_path: Path, jp, monkeypatch, *, results: list[dict],
+def _fixture_run(tmp_path: Path, *, results: list[dict],
                  scenario: dict, chart: dict) -> Path:
-    scen_dir = tmp_path / "scenarios"
-    chart_dir = tmp_path / "charts"
-    scen_dir.mkdir()
-    chart_dir.mkdir()
+    run_dir = tmp_path / "run"
+    scen_dir = run_dir / "inputs" / "scenarios"
+    chart_dir = run_dir / "inputs" / "charts"
+    scen_dir.mkdir(parents=True)
+    chart_dir.mkdir(parents=True)
     (scen_dir / f"{scenario['id']}.json").write_text(json.dumps(scenario), encoding="utf-8")
     (chart_dir / "p.json").write_text(json.dumps(chart), encoding="utf-8")
-    monkeypatch.setattr(jp, "SCEN_DIR", scen_dir)
-    monkeypatch.setattr(jp, "CHART_DIR", chart_dir)
-
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
     (run_dir / "results.jsonl").write_text(
         "".join(json.dumps(r) + "\n" for r in results), encoding="utf-8")
     return run_dir
@@ -121,7 +119,7 @@ def test_main_promotes_nested_indepth_into_in_depth_section(tmp_path, monkeypatc
         "indepth": {"response": {"answer": "In-depth: the 70 kg reading is from 2026-01."},
                     "latency_ms": 4200},
     }]
-    run_dir = _fixture_run(tmp_path, jp, monkeypatch, results=results,
+    run_dir = _fixture_run(tmp_path, results=results,
                            scenario=scenario, chart=chart)
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
@@ -136,8 +134,9 @@ def test_main_promotes_nested_indepth_into_in_depth_section(tmp_path, monkeypatc
     assert cell["is_team"] is True
     # expectations.should_abstain is read from the nested expectations block
     assert cell["should_abstain"] is True
-    # the snapshot file was dumped under <run>/charts/
-    assert (run_dir / "charts" / "p.snapshot.txt").read_text(encoding="utf-8").startswith("Patient: 40F")
+    # The portable reference points to the snapshot dumped under <run>/charts/.
+    assert cell["snapshot_file"] == "charts/p.snapshot.txt"
+    assert (run_dir / cell["snapshot_file"]).read_text(encoding="utf-8").startswith("Patient: 40F")
 
 
 def test_main_includes_canonical_sources_in_judge_cell(tmp_path, monkeypatch):
@@ -154,7 +153,7 @@ def test_main_includes_canonical_sources_in_judge_cell(tmp_path, monkeypatch):
                      "references": [{"index": 1, "resourceUuid": "ref-1"}],
                      "blocks": []},
     }]
-    run_dir = _fixture_run(tmp_path, jp, monkeypatch, results=results,
+    run_dir = _fixture_run(tmp_path, results=results,
                            scenario=scenario, chart=chart)
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
@@ -240,7 +239,7 @@ def test_main_excludes_review_only_model_text_from_judge_cell(tmp_path, monkeypa
         }
     ]
     run_dir = _fixture_run(
-        tmp_path, jp, monkeypatch, results=results, scenario=scenario, chart=chart
+        tmp_path, results=results, scenario=scenario, chart=chart
     )
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
@@ -275,7 +274,7 @@ def test_main_should_abstain_false_when_unset(tmp_path, monkeypatch):
                 "turns": [{"n": 1, "question": "q?"}]}  # no expectations block
     results = [{"scenario_id": "s2", "backend_id": "b1", "turn": 1, "error": None,
                 "response": {"answer": "an answer", "references": []}}]
-    run_dir = _fixture_run(tmp_path, jp, monkeypatch, results=results,
+    run_dir = _fixture_run(tmp_path, results=results,
                            scenario=scenario, chart=chart)
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
@@ -308,13 +307,43 @@ def test_main_warns_and_skips_when_no_chart_fixture(tmp_path, monkeypatch, capsy
                 "turns": [{"n": 1, "question": "q?"}]}
     results = [{"scenario_id": "s1", "backend_id": "b1", "turn": 1, "error": None,
                 "response": {"answer": "a", "references": []}}]
-    run_dir = _fixture_run(tmp_path, jp, monkeypatch, results=results,
+    run_dir = _fixture_run(tmp_path, results=results,
                            scenario=scenario, chart=chart)
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
     # no cell produced (chart missing) + a WARN on stderr
     assert _read_cells(run_dir) == []
     assert "no chart fixture" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("encoded", [False, True], ids=["object", "json-string"])
+@pytest.mark.parametrize("response,profile,fallback,expected", [
+    ({"model": " observed-model "}, "configured-model", "backend-alias", "observed-model"),
+    ({"model": "  "}, "configured-model", "backend-alias", "configured-model"),
+    ({"answer": "a"}, None, "backend-alias", "backend-alias"),
+    ({"answer": "a"}, None, None, None),
+    (None, "configured-model", "backend-alias", "configured-model"),
+])
+def test_trace_model_resolves_captured_response_identity(
+    encoded, response, profile, fallback, expected
+):
+    result = {"response": json.dumps(response) if encoded else response,
+              "request": {"profile": profile}}
+    assert trace_model_for_result(result, fallback) == expected
+
+
+@pytest.mark.parametrize("response", ["", "{invalid json", '{"model":'])
+def test_trace_model_rejects_malformed_response_json(response):
+    result = {"response": response, "request": {"profile": "must-not-hide-error"}}
+    with pytest.raises(json.JSONDecodeError):
+        trace_model_for_result(result, "must-not-hide-error")
+
+
+@pytest.mark.parametrize("response", [[], 0, False, "[]", "0", "false", '"not an envelope"'])
+def test_trace_model_rejects_non_object_response(response):
+    result = {"response": response, "request": {"profile": "must-not-hide-error"}}
+    with pytest.raises(ValueError, match="response must be a JSON object or null"):
+        trace_model_for_result(result, "must-not-hide-error")
 
 
 def test_main_parses_string_response_json(tmp_path, monkeypatch):
@@ -324,15 +353,22 @@ def test_main_parses_string_response_json(tmp_path, monkeypatch):
     scenario = {"id": "s1", "patient_ref": "u1", "turns": [{"n": 1, "question": "q?"}]}
     # the response is a JSON STRING (not a dict) -> the prep must parse it before splitting
     results = [{"scenario_id": "s1", "backend_id": "b1", "turn": 1, "error": None,
-                "response": json.dumps({"answer": "parsed answer text",
+                "started_at": "2026-05-30T10:00:00", "ended_at": "2026-05-30T10:00:30",
+                "request": {"question": "q?", "profile": "configured-model"},
+                "response": json.dumps({"answer": "parsed answer text", "model": "observed-model",
                                         "references": [{"index": 1, "uuid": "ref-1"}]})}]
-    run_dir = _fixture_run(tmp_path, jp, monkeypatch, results=results,
+    run_dir = _fixture_run(tmp_path, results=results,
                            scenario=scenario, chart=chart)
+    gate = {"schema_version": "temporal_gate.v1", "status": "fail"}
+    trace = {"level_id": "observed-model", "ts": "2026-05-30T10:00:15",
+             "question": "q?", "temporal_gate": gate}
+    (run_dir / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
     cell = _read_cells(run_dir)[0]
     assert cell["answer_section"].startswith("parsed answer text")
     assert "[Evidence Used]" in cell["answer_section"]
+    assert cell["temporal_gate"] == gate
 
 
 def test_main_skips_error_rows(tmp_path, monkeypatch):
@@ -346,10 +382,68 @@ def test_main_skips_error_rows(tmp_path, monkeypatch):
         {"scenario_id": "s3", "backend_id": "bok", "turn": 1, "error": None,
          "response": {"answer": "ok", "references": []}},
     ]
-    run_dir = _fixture_run(tmp_path, jp, monkeypatch, results=results,
+    run_dir = _fixture_run(tmp_path, results=results,
                            scenario=scenario, chart=chart)
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
     cells = _read_cells(run_dir)
     # only the non-error backend produced a cell
     assert [c["backend_id"] for c in cells] == ["bok"]
+
+
+@pytest.mark.parametrize("missing", ["scenarios", "charts"])
+def test_main_does_not_replace_missing_capture_with_authored_inputs(
+    tmp_path, monkeypatch, capsys, missing
+):
+    jp = _load()
+    chart = {"patient": {"uuid": "u1", "slug": "p"}, "valid_uuids": [],
+             "chart_snapshot": "AUTHORED CHART MUST NOT BE BORROWED"}
+    scenario = {"id": "s1", "patient_ref": "u1",
+                "turns": [{"n": 1, "question": "q?"}]}
+    results = [{"scenario_id": "s1", "backend_id": "b1", "turn": 1,
+                "response": {"answer": "a", "references": []}}]
+    run_dir = _fixture_run(tmp_path, results=results, scenario=scenario, chart=chart)
+    authored = tmp_path / "datasets" / "validation"
+    authored.mkdir(parents=True)
+    (run_dir / "inputs" / missing).rename(authored / missing)
+    monkeypatch.setattr(jp, "ROOT", tmp_path)
+    monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
+
+    jp.main()
+
+    assert _read_cells(run_dir) == []
+    assert not list((run_dir / "charts").glob("*.snapshot.txt"))
+    warning = "no captured scenario" if missing == "scenarios" else "no chart fixture"
+    assert warning in capsys.readouterr().err
+
+
+def test_main_uses_frozen_arm_card_and_correlated_temporal_trace(tmp_path, monkeypatch):
+    jp = _load()
+    chart = {"patient": {"uuid": "u1", "slug": "p"}, "valid_uuids": [],
+             "chart_snapshot": "Patient: 40F"}
+    scenario = {"id": "s1", "patient_ref": "u1",
+                "turns": [{"n": 1, "question": "q?"}]}
+    results = [{"scenario_id": "s1", "backend_id": "historical-alias", "turn": 1,
+                "started_at": "2026-05-30T10:00:00", "ended_at": "2026-05-30T10:00:30",
+                "request": {"question": "q?", "session": "session-1", "request_id": "turn-1"},
+                "response": {"answer": "a", "references": []}}]
+    run_dir = _fixture_run(tmp_path, results=results, scenario=scenario, chart=chart)
+    (run_dir / "run_meta.json").write_text(json.dumps({
+        "backends": {"historical-alias": {"modelName": "captured-profile"}},
+        "arm_cards": {"historical-alias": {"kind": "team"}},
+    }), encoding="utf-8")
+    gate = {"schema_version": "temporal_gate.v1", "status": "fail", "applied": "patch"}
+    trace = {"level_id": "captured-profile", "ts": "2026-05-30T10:00:15",
+             "question": "q?", "correlation": {"session": "session-1", "request_id": "turn-1"},
+             "temporal_gate": gate, "temporal_facts_summary": {"reference_date": "2026-05-30"}}
+    (run_dir / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
+
+    jp.main()
+
+    cell = _read_cells(run_dir)[0]
+    assert cell["is_team"] is True
+    assert cell["has_in_depth"] is False
+    assert cell["score_background"] is False
+    assert cell["temporal_gate"] == gate
+    assert cell["temporal_facts_summary"] == {"reference_date": "2026-05-30"}

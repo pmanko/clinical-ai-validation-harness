@@ -2,8 +2,8 @@
 
 The statistics core (kappa/PPI/sampling) is covered in tests/test_adjudicate.py and the
 non-interactive driver in tests/test_adjudicate_cli.py. THIS file covers the
-reviewer-facing pieces those don't: present_cell rendering, snapshot resolution + the
-cross-host fallback, the adjudication_record tier validation, and the INTERACTIVE prompt
+reviewer-facing pieces those don't: present_cell rendering, captured-only snapshot
+resolution and unsafe path rejection, tier validation, and the INTERACTIVE prompt
 loop (input_fn/print_fn are injectable, so the prompt flow is unit-testable without a TTY).
 Each assertion is red-when-broken — it pins a behavior that a real refactor would change.
 """
@@ -151,23 +151,63 @@ def test_adjudication_record_only_includes_present_axes_and_extras():
 
 
 # --------------------------------------------------------------------------- #
-# _resolve_snapshot — the absolute path + cross-host charts/<name> fallback
+# _resolve_snapshot — captured-only resolution + unsafe path rejection
 # --------------------------------------------------------------------------- #
-def test_resolve_snapshot_prefers_recorded_path(tmp_path):
-    snap = tmp_path / "elsewhere" / "alice.snapshot.txt"
-    snap.parent.mkdir()
+@pytest.mark.parametrize("absolute", [False, True], ids=["relative", "absolute-in-run"])
+def test_resolve_snapshot_reads_recorded_path_inside_run(tmp_path, absolute):
+    run_dir = tmp_path / "run"
+    snap = run_dir / "captured" / "alice.snapshot.txt"
+    snap.parent.mkdir(parents=True)
     snap.write_text("CHART TEXT A", encoding="utf-8")
-    assert adjudicate._resolve_snapshot(str(snap), tmp_path) == "CHART TEXT A"
+    # Do not replace an explicit in-run reference with a charts/<basename> lookup.
+    charts = run_dir / "charts"
+    charts.mkdir()
+    (charts / snap.name).write_text("WRONG CHART", encoding="utf-8")
+    recorded = snap if absolute else snap.relative_to(run_dir)
+    assert adjudicate._resolve_snapshot(str(recorded), run_dir) == "CHART TEXT A"
 
 
-def test_resolve_snapshot_falls_back_to_run_dir_charts(tmp_path):
-    # the recorded absolute path is from another host (doesn't exist here); the basename
-    # under <run_dir>/charts/ DOES — the fallback must find it.
+def test_resolve_snapshot_relative_reference_survives_run_move(tmp_path):
+    run_dir = tmp_path / "original-run"
+    charts = run_dir / "charts"
+    charts.mkdir(parents=True)
+    (charts / "bob.snapshot.txt").write_text("CHART TEXT B", encoding="utf-8")
+    moved = tmp_path / "moved-run"
+    run_dir.rename(moved)
+    assert adjudicate._resolve_snapshot("charts/bob.snapshot.txt", moved) == "CHART TEXT B"
+
+
+def test_resolve_snapshot_does_not_fall_back_from_foreign_path(tmp_path):
     charts = tmp_path / "charts"
     charts.mkdir()
-    (charts / "bob.snapshot.txt").write_text("CHART TEXT B", encoding="utf-8")
+    (charts / "bob.snapshot.txt").write_text("UNRELATED CHART", encoding="utf-8")
     foreign = "/some/other/host/run/charts/bob.snapshot.txt"
-    assert adjudicate._resolve_snapshot(foreign, tmp_path) == "CHART TEXT B"
+    assert adjudicate._resolve_snapshot(foreign, tmp_path) == ""
+
+
+@pytest.mark.parametrize("path_kind", ["absolute", "traversal", "symlink"])
+def test_resolve_snapshot_rejects_existing_path_outside_run(tmp_path, path_kind):
+    run_dir = tmp_path / "run"
+    charts = run_dir / "charts"
+    charts.mkdir(parents=True)
+    # The prefix shares the run name to catch unsafe string-prefix containment checks.
+    outside = tmp_path / "run-other" / "alice.snapshot.txt"
+    outside.parent.mkdir()
+    outside.write_text("PRIVATE OUTSIDE CHART", encoding="utf-8")
+    (charts / outside.name).write_text("UNRELATED CAPTURE", encoding="utf-8")
+    if path_kind == "absolute":
+        recorded = str(outside)
+    elif path_kind == "traversal":
+        recorded = "../run-other/alice.snapshot.txt"
+    else:
+        link = run_dir / "linked.snapshot.txt"
+        link.symlink_to(outside)
+        recorded = link.name
+    assert adjudicate._resolve_snapshot(recorded, run_dir) == ""
+    out = adjudicate.present_cell({"snapshot_file": recorded}, {}, run_dir)
+    assert "(snapshot unavailable)" in out
+    assert "PRIVATE OUTSIDE CHART" not in out
+    assert "UNRELATED CAPTURE" not in out
 
 
 def test_resolve_snapshot_missing_everywhere_is_empty(tmp_path):
@@ -184,7 +224,7 @@ def _cell(tmp_path):
     (charts / "p.snapshot.txt").write_text("Patient: 40F\n[1] Weight 70 kg", encoding="utf-8")
     return {
         "scenario_id": "s1", "backend_id": "b1",
-        "snapshot_file": str(charts / "p.snapshot.txt"),
+        "snapshot_file": "charts/p.snapshot.txt",
         "answer_section": "Weight is 70 kg.",
         "turns": [{"n": 1, "question": "What is the weight?",
                    "answer_section": "Weight is 70 kg."}],
@@ -241,7 +281,7 @@ def _write_run(tmp_path: Path) -> Path:
               "citation_groundedness": "supported", "note": "j"}]
     (run_dir / "judge.jsonl").write_text(json.dumps(judge[0]) + "\n", encoding="utf-8")
     cells = [{"scenario_id": "s1", "backend_id": "b1",
-              "snapshot_file": str(charts / "p.snapshot.txt"),
+              "snapshot_file": "charts/p.snapshot.txt",
               "answer_section": "70 kg.",
               "turns": [{"n": 1, "question": "weight?", "answer_section": "70 kg."}]}]
     (run_dir / "judge-cells.jsonl").write_text(json.dumps(cells[0]) + "\n", encoding="utf-8")
@@ -274,6 +314,7 @@ def test_interactive_enter_accepts_judge_scores(tmp_path):
     assert rec["harm"] is False
     # the cell was presented to the reviewer
     assert any("CELL  s1  x  b1" in p for p in printed)
+    assert any("Patient: 40F" in p for p in printed)
 
 
 def test_interactive_edit_overrides_each_axis(tmp_path):

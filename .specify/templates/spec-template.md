@@ -101,7 +101,8 @@
   including why the evidence supports the decision.
 - **FR-008**: System MUST emit or update versioned metadata/provenance artifacts
   when a run, transform, retrieval, model call, response, evaluation, or review
-  record is produced.
+  record is produced. Record supplied/observed target identity and nullable revisions
+  without Git, product pins, local source scans or checkout requirements.
 - **FR-009**: System MUST cover scenario diversity for validation behavior,
   including ambiguous, missing, unsupported, abstention, and failure cases when
   they are relevant to the feature.
@@ -120,7 +121,12 @@
 
 - **Clinical evidence records**: [Record identifiers and stores touched by the feature]
 - **Decision rationale**: [Why evidence supports each validation/review decision]
-- **Operating metadata**: [Run manifests, event traces, reports, review records, rationale fields, and artifact locations]
+- **Operating metadata**: [Versioned manifests/events, supplied/observed/missing
+  provenance, safe run-relative evidence references, review rationale]
+- **Portable report inputs**: [Captured configuration/scenario/fixture bytes and
+  digests required to regenerate reports without original inputs or live services]
+- **Preparation boundary**: [Caller-owned targets/model services; no runner workspace,
+  build/deployment/release management or service process control]
 - **Accepted deterministic inputs**: [Reviewed mappings, prompts, transforms, config, or scripts]
 - **Advisory inputs**: [LLM proposals, research notes, or non-binding analysis]
 - **PCCP/change record needs**: [Material model, prompt, retrieval, mapping, or pipeline changes requiring review context]

@@ -1,5 +1,17 @@
 # Implementation plan: Catalyst Query Workbench and Dashboard Builder
 
+## Ownership boundary
+
+This file retains validation protocols and the existing detailed acceptance
+register; it does not grant the harness workspace-management responsibilities.
+The [OpenClinAI roadmap](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md)
+owns cross-project sequence, direct gitlinks, pins, checkout/build/deployment,
+release gates and website publication. Workspace commands such as
+`scripts/catalyst-mvp.sh` run from the **umbrella root**. Targets may instead be
+prepared independently. Historical deployment observations below retain their
+original evidence scope and do not establish completion of the topology or
+website migration.
+
 ## Relationship to four-pathway reporting delivery
 
 The owner-approved [OpenELIS–Catalyst reporting roadmap](../openelis-reporting-catalyst-integration.md)
@@ -320,10 +332,8 @@ The [program roadmap](../catalyst-program-roadmap.md) retains evaluation,
 comparison, and broader-conversation decisions. The approved delivery priority
 is **usability first, then Dashboard Builder functionality**. Model comparison
 and broader conversation work remain visible, separately scheduled work and are
-not prerequisites for this delivery. The retired
-[Catalyst implementation plan](../catalyst-implementation-plan.md) and
-[Dashboard delivery goal](dashboard-mvp-delivery-goal.md) point here and define
-no current work.
+not prerequisites for this delivery. The existing [tasks](tasks.md) retain
+acceptance evidence; the umbrella roadmap owns cross-project coordination.
 
 Feature 008 includes the accepted conversation, query notebook, manual Run flow,
 typed results, and Dashboard Builder experience over the generic connection.
@@ -339,7 +349,7 @@ this delivery's current release checkpoint.
 ## Design extension review
 
 The HIV workflow and output proposals are gathered in Catalyst's existing
-[staff Workbench design home](../../targets/catalyst/docs/specs/staff-workbench-ux/proposals/catalyst-output-integrations-hiv-draft.md).
+[staff Workbench design home](https://github.com/DIGI-UW/openelis-catalyst/blob/main/docs/specs/staff-workbench-ux/proposals/catalyst-output-integrations-hiv-draft.md).
 The owner approved this disposition on 10 September 2026: keep **Explore /
 Saved work**, integrate the richer saved-work structure and saved-SQL reuse,
 and schedule the larger extensions after the current usability and Superset

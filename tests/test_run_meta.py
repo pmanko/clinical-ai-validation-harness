@@ -1,15 +1,4 @@
-"""WS1 per-run capture layer: a run freezes each arm's resolved config into
-`run_meta.json` so a report renders the config the run ACTUALLY used (provenance),
-not whatever the static files (llama-router.ini / levels.yaml / backends.json) say
-at render time.
-
-Two contracts pinned here:
-  - the runner writes run_meta.json carrying arm_cards keyed by backend_id, each with
-    a `config` block (knobs/prompts/retrieval) frozen at run time;
-  - the report blob PREFERS run_meta.json's frozen arm_cards when the file exists, and
-    falls back to live model_registry.arm_card resolution byte-for-byte when it doesn't
-    (so every existing run + the e2e suite are unaffected).
-"""
+"""Run metadata freezes supplied arm cards; reports never refresh them live."""
 
 from __future__ import annotations
 
@@ -48,8 +37,11 @@ def test_runner_writes_run_meta_with_frozen_arm_cards(tmp_path):
     run_dir.mkdir()
     backends = ["single-e4b-checked", "team-med-checked"]
 
+    supplied = {bid: {"config": {"knobs": {}, "prompts": [], "retrieval": {}}}
+                for bid in backends}
     runner.write_run_meta(
-        run_dir, run_id="run-A", backend_ids=backends, reference_date="2026-01-01")
+        run_dir, run_id="run-A", backend_ids=backends, reference_date="2026-01-01",
+        arm_metadata=supplied)
 
     meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
     assert meta["run_id"] == "run-A"
@@ -81,7 +73,7 @@ def test_non_llm_run_omits_gen_ai_provider(tmp_path):
         .default
         is None
     )
-    manifest_path, _ = cli._start_run(tmp_path, "validate", Path(__file__).parents[1])
+    manifest_path, _ = cli._start_run(tmp_path, "validate")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert "gen_ai.provider.name" not in manifest["otel"]
 
@@ -105,19 +97,14 @@ def test_comparison_provider_is_derived_from_all_arm_endpoints():
     ) == "mixed"
 
 
-def test_blob_prefers_frozen_config_but_refreshes_title_from_live(tmp_path):
-    """When run_meta.json exists, the report blob USES its frozen `config` block (the
-    provenance contract — knobs/prompts/retrieval the run ACTUALLY used) rather than
-    re-resolving from the current static files. The DISPLAY name (title/short_title/label)
-    is intentionally refreshed from live so renaming/quant fixes surface in already-run
-    reports (see report._arm_cards_for, commit 67584d8)."""
+def test_blob_preserves_frozen_config_and_title(tmp_path):
     run_dir = tmp_path / "frozen"
     _write_min_run(run_dir, "12b-baseline")
 
     frozen = {
         "12b-baseline": {
             "backend_id": "12b-baseline",
-            "title": "FROZEN TITLE",  # a STALE title — must be overridden by live
+            "title": "FROZEN TITLE",
             "config": {"knobs": {"frozen-marker": {"temp": "0.123"}},
                        "prompts": [], "retrieval": {"threshold": 0.99}},
         }
@@ -133,20 +120,13 @@ def test_blob_prefers_frozen_config_but_refreshes_title_from_live(tmp_path):
     # config is FROZEN provenance — the run's actual knobs/retrieval survive verbatim
     assert card["config"]["retrieval"]["threshold"] == 0.99
     assert card["config"]["knobs"] == {"frozen-marker": {"temp": "0.123"}}
-    # but the display title is refreshed from live, NOT the stale frozen value
-    from harness.validate.model_registry import arm_card
-    assert card["title"] == arm_card("12b-baseline").get("title")
-    assert card["title"] != "FROZEN TITLE"
+    assert card == frozen["12b-baseline"]
 
 
-def test_blob_falls_back_to_live_resolution_without_run_meta(tmp_path):
-    """No run_meta.json (every existing run) -> the blob resolves arm_cards live via
-    model_registry.arm_card, byte-for-byte the prior behavior."""
+def test_blob_records_missing_arm_card_without_live_resolution(tmp_path):
     run_dir = tmp_path / "legacy"
     _write_min_run(run_dir, "12b-baseline")
     assert not (run_dir / "run_meta.json").exists()
 
-    from harness.validate.model_registry import arm_card
-
     blob = report._run_blob(run_dir)
-    assert blob["arm_cards"] == {"12b-baseline": arm_card("12b-baseline")}
+    assert blob["arm_cards"] == {"12b-baseline": None}

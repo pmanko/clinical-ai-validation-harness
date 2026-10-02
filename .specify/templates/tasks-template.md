@@ -25,8 +25,8 @@ mark tests as N/A with a short justification.
 - **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
-- **Harness/control-plane**: `harness/`, `adapters/`, `compose/`, `datasets/`,
-  `specs/`, `docs/`, `evals/`
+- **Validation runner**: `harness/`, `adapters/`, `datasets/`, `artifacts/`,
+  `specs/`, `docs/`, `evals/`. Target preparation/build/deployment stays caller-owned.
 - Paths shown below are examples - adjust based on plan.md structure
 
 <!--
@@ -69,12 +69,13 @@ mark tests as N/A with a short justification.
 
 Examples of foundational tasks (adjust based on your project):
 
-- [ ] T005 Setup database/schema/import or external service prerequisites
+- [ ] T005 Validate caller-supplied input and target capability prerequisites
 - [ ] T006 [P] Implement adapter/configuration contracts for real project commands/APIs
-- [ ] T007 [P] Setup metadata/provenance emission and validation
+- [ ] T007 [P] Setup versioned supplied/observed provenance with nullable revisions
+  and explicit missing metadata; no Git/pin/source prerequisites
 - [ ] T008 Create base models/entities that all stories depend on
 - [ ] T009 Configure error handling and structured event logging
-- [ ] T010 Setup environment/profile configuration management
+- [ ] T010 Validate experiment-specific connection/settings inputs without service lifecycle control
 - [ ] T011 Add PCCP-style change record scaffolding if the feature changes models,
   prompts, retrieval, mappings, transforms, or pipelines
 
@@ -173,7 +174,8 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional focused unit tests in evals/ or harness tests
 - [ ] TXXX Security hardening
-- [ ] TXXX Run quickstart.md validation
+- [ ] TXXX Run quickstart.md validation and isolation checks without Git/product sources
+- [ ] TXXX Regenerate reports from copied run packets without original inputs or services
 
 ---
 

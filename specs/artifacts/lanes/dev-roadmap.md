@@ -1,10 +1,10 @@
 # Historical Development Roadmap - June program index
 
-> **Superseded for current execution (2026-07-09).** This file preserves the June lane snapshot,
-> but its LM Studio, MCP, branch, pin, and launch guidance is not the current operating plan. The
-> approved source of truth is the [Med-Agent-Hub Consolidation and Reliable Clinical Answer
-> Roadmap](../planning/hub-consolidation-roadmap.md), with progress tracked in its
-> [status record](../planning/hub-consolidation-roadmap-status.md).
+Current cross-project coordination follows the
+[OpenClinAI roadmap](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md).
+[Feature 006](../../006-validation-harness-mvp/spec.md#clinical-smoke-and-contextevaluation-protocols)
+owns clinical validation protocols; completed Hub work is recorded in the dated
+[status record](../planning/hub-consolidation-roadmap-status.md).
 
 The consolidated historical index for the June development program: north-star goals, its state at
 that time, the lane table, launch sequence, and remediation record. Each lane drills down into its

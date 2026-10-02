@@ -294,7 +294,9 @@ def test_catalyst_run_dispatches_every_runner_option(monkeypatch, tmp_path, caps
     assert captured["manual_checkpoint"] is None
     assert captured["frozen_config"] is None
     assert captured["warmup_question"] is None
-    assert captured["project_root"] == Path.cwd().resolve()
+    assert "project_root" not in captured
+    assert captured["git_sha"] is None
+    assert captured["target_provenance"] is None
     assert json.loads(capsys.readouterr().out)["run_id"] == "run-1"
 
 

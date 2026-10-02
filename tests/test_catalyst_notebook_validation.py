@@ -667,8 +667,6 @@ def test_real_http_client_runs_notebook_path_and_hashes_evidence(
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -905,8 +903,6 @@ def test_manual_failure_family_is_explicitly_skipped_by_default(tmp_path: Path) 
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -1009,9 +1005,7 @@ def test_phase1_repetition_override_cannot_repeat_selected_cells(
                     f"http://127.0.0.1:{server.server_port}"
                 ),
                 output_dir=tmp_path / "artifacts",
-                project_root=ROOT,
                 repetitions=2,
-                provenance_loader=lambda _: [],
             )
     finally:
         server.shutdown()
@@ -1391,18 +1385,14 @@ def test_run_suite_rejects_empty_selection_and_bad_repetitions(
             suite_path=suite_path,
             client=NotebookHttpClient("http://127.0.0.1:1"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
             scenario_ids={"absent"},
-            provenance_loader=lambda _: [],
         )
     with pytest.raises(ValueError, match="repetitions must be at least one"):
         run_notebook_suite(
             suite_path=suite_path,
             client=NotebookHttpClient("http://127.0.0.1:1"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
             repetitions=0,
-            provenance_loader=lambda _: [],
         )
 
 
@@ -1478,8 +1468,6 @@ def test_failed_session_creation_short_circuits_the_scenario(tmp_path: Path) -> 
         suite_path=suite_path,
         client=_StubClient(session_status=503, session_body={}),
         output_dir=tmp_path / "artifacts",
-        project_root=ROOT,
-        provenance_loader=lambda _: [],
     )
     assert result.passed_count == 0
     assert result.complete is False
@@ -1495,8 +1483,6 @@ def test_missing_base_version_short_circuits_the_scenario(tmp_path: Path) -> Non
         suite_path=suite_path,
         client=_StubClient(),
         output_dir=tmp_path / "artifacts",
-        project_root=ROOT,
-        provenance_loader=lambda _: [],
     )
     assert result.passed_count == 0
     results = json.loads((result.run_dir / "results.json").read_text())
@@ -1556,8 +1542,6 @@ def test_results_jsonl_streams_incrementally_and_survives_a_mid_run_crash(
                 suite_path=suite_path,
                 client=client,
                 output_dir=tmp_path / "artifacts",
-                project_root=ROOT,
-                provenance_loader=lambda _: [],
             )
     finally:
         server.shutdown()
@@ -1628,8 +1612,6 @@ def test_persisting_an_absent_editor_query_is_a_configuration_error(
                 session_body={"sessionId": "session-1", "currentVersion": None}
             ),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
 
 
@@ -1648,9 +1630,7 @@ def test_manual_scenario_requires_an_operator_checkpoint(tmp_path: Path) -> None
                 suite_path=suite_path,
                 client=client,
                 output_dir=tmp_path / "artifacts-no-checkpoint",
-                project_root=ROOT,
                 include_manual=True,
-                provenance_loader=lambda _: [],
             )
 
         checkpoints: list[tuple[str, str]] = []
@@ -1658,10 +1638,8 @@ def test_manual_scenario_requires_an_operator_checkpoint(tmp_path: Path) -> None
             suite_path=suite_path,
             client=client,
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
             include_manual=True,
             manual_checkpoint=lambda s, sid: checkpoints.append((s.id, sid)),
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -2810,8 +2788,6 @@ def test_three_turn_scenario_runs_every_turn_against_the_current_query(
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -3061,6 +3037,8 @@ def _run_against_fake(
     frozen_config: dict[str, Any] | None = None,
     warmup_question: str | None = None,
     scenario_ids: set[str] | None = None,
+    git_sha: str | None = None,
+    target_provenance: list[dict[str, Any]] | None = None,
 ) -> Any:
     suite_path = tmp_path / "suite.json"
     suite_path.write_text(json.dumps(suite), encoding="utf-8")
@@ -3072,17 +3050,67 @@ def _run_against_fake(
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
             resume_from=resume_from,
             frozen_config=frozen_config,
             warmup_question=warmup_question,
             scenario_ids=scenario_ids,
+            git_sha=git_sha,
+            target_provenance=target_provenance,
         )
     finally:
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()
+
+
+@pytest.mark.parametrize("supply_metadata", [False, True])
+def test_notebook_default_runtime_without_git_or_local_products(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, supply_metadata: bool
+) -> None:
+    import subprocess
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PATH", "")
+    for name in ("run", "Popen", "check_output", "check_call"):
+        monkeypatch.setattr(
+            subprocess, name,
+            lambda *a, **kw: pytest.fail("runtime invoked a subprocess"),
+        )
+    supplied = [{
+        "target_id": "catalyst",
+        "target_source": "supplied",
+        "target_actual_sha": "caller-reported-target-revision",
+        "build": {"image_digest": "sha256:caller-reported-image"},
+    }] if supply_metadata else None
+    runner_revision = "caller-reported-runner-revision" if supply_metadata else None
+    before = json.loads(json.dumps(supplied))
+    result = _run_against_fake(
+        tmp_path, _suite_payload(), _WorkbenchState(),
+        **({"git_sha": runner_revision, "target_provenance": supplied}
+           if supply_metadata else {}),
+    )
+    assert result.complete
+    manifest = json.loads((result.run_dir / "run_manifest.json").read_text())
+    assert manifest["git_sha"] == runner_revision
+    assert supplied == before
+    entries = manifest["target_provenance"]
+    if supplied:
+        assert entries[0] == supplied[0]
+        entries = entries[1:]
+    assert {item["target_id"] for item in entries} == {"catalyst", "med-agent-hub"}
+    assert all(item["target_source"] == "observed_api" for item in entries)
+    assert all(item.get("target_actual_sha") is None for item in entries)
+    assert all("target_dirty" not in item and "target_override" not in item for item in entries)
+    assert next(item for item in entries if item["target_id"] == "catalyst")["catalog_sha256"]
+    assert next(item for item in entries if item["target_id"] == "med-agent-hub")["profile_discovery_sha256"]
+    index = json.loads((result.run_dir / "evidence-index.json").read_text())
+    manifest_entries = [item for item in index["entries"] if item["path"] == "run_manifest.json"]
+    assert len(manifest_entries) == 1
+    assert manifest_entries[0]["sha256"] == hashlib.sha256(
+        (result.run_dir / "run_manifest.json").read_bytes()
+    ).hexdigest()
+    assert not (tmp_path / ".git").exists()
+    assert not (tmp_path / "targets").exists()
 
 
 def test_phase1_records_raw_timing_without_a_timing_verdict(tmp_path: Path) -> None:
@@ -3546,12 +3574,10 @@ def test_the_operator_controlled_transport_scenario_remains_a_measurement(
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
             include_manual=True,
             manual_checkpoint=lambda scenario, session_id: checkpoints.append(
                 (scenario.id, session_id)
             ),
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -3702,8 +3728,6 @@ def test_discovery_stops_at_the_first_service_failure(tmp_path: Path) -> None:
         suite_path=_write_suite(tmp_path, _suite_payload()),
         client=client,
         output_dir=tmp_path / "artifacts",
-        project_root=ROOT,
-        provenance_loader=lambda _: [],
     )
 
     assert result.complete is False
@@ -3930,8 +3954,6 @@ def test_a_refused_opening_question_is_a_pass_not_a_failed_repetition(
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -4034,8 +4056,6 @@ def test_an_opening_question_answered_with_sql_when_a_refusal_was_due_fails(
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -4105,8 +4125,6 @@ def test_a_refusal_that_left_a_query_behind_is_caught(tmp_path: Path) -> None:
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -4279,8 +4297,6 @@ def test_recovery_keeps_completed_cells_across_an_early_failed_resume(
         suite_path=_write_suite(tmp_path, suite),
         client=DiscoveryFailureClient(),
         output_dir=tmp_path / "artifacts",
-        project_root=ROOT,
-        provenance_loader=lambda _: [],
         resume_from=first.run_dir,
     )
     assert second.complete is False
@@ -4390,8 +4406,6 @@ def test_the_frozen_seed_exists_before_the_first_live_call(tmp_path: Path) -> No
         suite_path=_write_suite(tmp_path, _suite_payload()),
         client=client,
         output_dir=output_dir,
-        project_root=ROOT,
-        provenance_loader=lambda _: [],
         frozen_config={"identity": "frozen-first"},
     )
 
@@ -5069,8 +5083,6 @@ def test_a_suite_bound_to_one_source_asks_that_source_everything(
             # source, so only the suite can bind it.
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -5149,8 +5161,6 @@ def test_a_clarification_is_answered_with_no_query_to_revise(tmp_path: Path) -> 
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -5662,8 +5672,6 @@ def test_the_dashboard_feed_carries_the_words_of_the_conversation(
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()
@@ -5733,8 +5741,6 @@ def test_every_generated_query_is_visible_in_the_feed(tmp_path: Path) -> None:
             suite_path=suite_path,
             client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
             output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
         )
     finally:
         server.shutdown()

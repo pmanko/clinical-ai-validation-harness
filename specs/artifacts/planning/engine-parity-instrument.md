@@ -46,7 +46,8 @@ Grounding for the boundary: bundled's `LlmEngine` (`api/impl/LlmEngine.java:31`)
 ## Acceptance criteria
 
 ### AC-1 — Shared engine, verified not assumed
-`make parity-engine-up` (or a dual-provider-up flag) configures the stack; a check asserts the
+The caller prepares the shared engine (OpenClinAI's `make parity-engine-up`
+is an umbrella-root workspace operation); a check observes that the
 bundled GPs and the hub's `LLM_BASE_URL` resolve to the same server, and one probe turn per arm
 shows both captured requests carry the same model id.
 **Pass:** check exits 0; both artifacts' `model` fields are equal; run manifest records both
@@ -92,10 +93,13 @@ when reachable.
 **Pass:** red-first test — stop llama-router → `ready:false`; start it → `ready:true`. (Today it
 reports `ready:true` with no engine at all; a false-ready breaks the instrument.)
 
-## Build inventory
+## Ownership and evidence
 
-Tap proxy + probe + diff scripts (new, harness-side), `engine-parity.v1` contract fixture,
-`Backend.provider` plumbing (~4 small edits: `harness/validate/models.py`,
-`harness/validate/client.py`, router-policy guard in `harness/validate/runner.py`, comparison-set
-JSON), readiness fix in the provider registry/descriptor path, one comparison set + GP config
-recipe. Estimate: 1.5–2 focused days, red-first throughout.
+The harness owns API collection, request capture/diff, the `engine-parity.v1`
+experiment fixture and result reporting. Product discovery/readiness behavior
+belongs to the [ChartSearchAI contract](https://github.com/pmanko/openmrs-module-chartsearchai/blob/harness-integration/docs/adr.md).
+Workspace engine setup belongs to [OpenClinAI](https://github.com/pmanko/openclinai.org).
+The harness records caller-supplied or API-observed engine identity; it does not
+manage routers, enforce pins or inspect source trees. Missing metadata cannot
+be treated as evidence of a shared engine. Historical achieved results above
+refer to their dated runs, not a newly configured deployment.

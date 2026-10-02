@@ -15,13 +15,13 @@ only does the parts that must be deterministic + identical every run.
 Usage: scripts/judge-prep.py <run_dir-or-run_id>
 """
 from __future__ import annotations
-import json, sys, pathlib, glob
+import json, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.reconcile import resolve_citations  # noqa: E402
-from harness.validate.hub_trace import load_traces, match_trace  # noqa: E402
-from harness.validate.model_registry import arm_model_name  # noqa: E402
+from harness.validate.bundle import frozen_arm_cards, review_results, run_chart  # noqa: E402
+from harness.validate.hub_trace import load_traces, match_trace, trace_model_for_result  # noqa: E402
 from harness.validate.sources import build_sources, render_sources_for_judge, source_ref_labels  # noqa: E402
 from harness.validate.response_artifacts import (  # noqa: E402
     in_depth_artifact,
@@ -94,9 +94,6 @@ def answer_validation_metadata(validation):
     return validation_metadata(validation)
 
 
-SCEN_DIR = ROOT / "datasets/validation/scenarios"
-CHART_DIR = ROOT / "datasets/validation/charts"
-
 
 def run_dir(arg: str) -> pathlib.Path:
     p = pathlib.Path(arg)
@@ -107,17 +104,6 @@ def run_dir(arg: str) -> pathlib.Path:
         return cand
     sys.exit(f"no run dir for {arg!r}")
 
-
-def load_charts() -> dict[str, dict]:
-    """uuid -> chart fixture dict (with chart_snapshot, valid_uuids, patient)."""
-    by_uuid = {}
-    for f in glob.glob(str(CHART_DIR / "*.json")):
-        c = json.load(open(f))
-        uuid = (c.get("patient") or {}).get("uuid")
-        if uuid:
-            c["_slug"] = (c.get("patient") or {}).get("slug") or pathlib.Path(f).stem
-            by_uuid[uuid] = c
-    return by_uuid
 
 
 def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
@@ -173,15 +159,11 @@ def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
 
 def main() -> None:
     rd = run_dir(sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: judge-prep.py <run>"))
-    results = [json.loads(l) for l in open(rd / "results.jsonl")]
-    traces = load_traces(rd.parent.parent / "hub-trace" / "trace.jsonl")
-    charts = load_charts()
-
-    # dump the snapshots the judges read (once per patient slug)
+    results = review_results(rd)
+    traces = load_traces(rd / "trace.jsonl")
+    cards = frozen_arm_cards(rd, list(dict.fromkeys(r["backend_id"] for r in results)))
     snap_dir = rd / "charts"
     snap_dir.mkdir(exist_ok=True)
-    for c in charts.values():
-        (snap_dir / f"{c['_slug']}.snapshot.txt").write_text(c.get("chart_snapshot") or "", encoding="utf-8")
 
     # group result rows by (scenario, backend), ordered by turn
     cells: dict[tuple[str, str], list[dict]] = {}
@@ -194,13 +176,20 @@ def main() -> None:
 
     out = []
     for (scenario_id, backend_id), rows in sorted(cells.items()):
-        scen = json.load(open(SCEN_DIR / f"{scenario_id}.json"))
+        scenario_path = rd / "inputs" / "scenarios" / f"{scenario_id}.json"
+        if not scenario_path.is_file():
+            print(f"  WARN: no captured scenario for {scenario_id}", file=sys.stderr)
+            continue
+        scen = json.loads(scenario_path.read_text(encoding="utf-8"))
         uuid = scen.get("patient_ref")
-        chart = charts.get(uuid)
+        chart = run_chart(rd, scenario_id)
         if not chart:
             print(f"  WARN: no chart fixture for {scenario_id} (patient {uuid})", file=sys.stderr)
             continue
         valid = set(chart.get("valid_uuids") or [])
+        slug = pathlib.Path(str((chart.get("patient") or {}).get("slug") or scenario_id)).name
+        snapshot_path = snap_dir / f"{slug}.snapshot.txt"
+        snapshot_path.write_text(chart.get("chart_snapshot") or "", encoding="utf-8")
 
         # all turns (Q + A); the cell is scored on the FINAL turn's answer with the convo as context
         turns = []
@@ -246,7 +235,7 @@ def main() -> None:
         final_row = rows[-1]
         trace = match_trace(
             traces,
-            arm_model_name(backend_id),
+            trace_model_for_result(final_row, backend_id),
             final_row.get("started_at"),
             final_row.get("ended_at"),
             question=(final_row.get("request") or {}).get("question"),
@@ -255,7 +244,7 @@ def main() -> None:
         ) or {}
         cres = resolve_citations(final["references"], valid)
         has_in_depth = bool(final["in_depth_section"])
-        is_team = has_in_depth or backend_id.startswith("med-agent-team")  # legacy field name
+        is_team = has_in_depth or (cards.get(backend_id) or {}).get("kind") == "team"
         p = chart.get("patient") or {}
         out.append({
             "scenario_id": scenario_id,
@@ -264,7 +253,7 @@ def main() -> None:
             "has_in_depth": has_in_depth,
             "score_background": has_in_depth,
             "patient": {k: p.get(k) for k in ("name", "gender", "birthdate", "slug")},
-            "snapshot_file": str((snap_dir / f"{chart['_slug']}.snapshot.txt")),
+            "snapshot_file": snapshot_path.relative_to(rd).as_posix(),
             "should_abstain": ((scen.get("expectations") or {}).get("should_abstain")
                                or scen.get("should_abstain") or scen.get("expect_abstain") or False),
             "n_turns": len(turns),

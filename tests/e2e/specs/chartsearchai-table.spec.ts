@@ -59,7 +59,7 @@ function stagedSse(): string {
     ['indepth_done', finalEnvelope],
     [
       'turn_done',
-      { session: 'table-fixture-session', messageId: 'table-assistant', provider: 'hub' },
+      { ...finalEnvelope, session: 'table-fixture-session', messageId: 'table-assistant', provider: 'hub' },
     ],
   ]
     .map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)

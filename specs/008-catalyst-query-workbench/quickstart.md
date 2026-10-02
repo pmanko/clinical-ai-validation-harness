@@ -11,15 +11,18 @@ dual-source delivery gates. Model comparison remains separately scheduled.
 3. [Feature integration and acceptance specification](spec.md)
 4. [Catalyst program roadmap](../catalyst-program-roadmap.md)
 
-Initialize the two sibling targets from an isolated harness worktree:
+Target preparation is optional workspace setup, not a runner prerequisite.
+If using OpenClinAI, run the following from the **umbrella root** (never from
+this harness checkout):
 
 ```bash
 git submodule update --init targets/catalyst targets/med-agent-hub
 ```
 
-Use `scripts/catalyst-mvp.sh` for the combined stack. Do not invoke the target
-Compose file alone; the harness wrapper supplies the isolated ports, sibling
-Hub context, and source-deployment configuration. Seeding and reset are explicit
+Use the umbrella's [scripts/catalyst-mvp.sh](https://github.com/pmanko/openclinai.org/blob/main/scripts/catalyst-mvp.sh)
+for the combined stack. Its wrapper supplies isolated ports, direct product
+checkout paths and source-deployment configuration. Independently deployed
+Gateway targets are equally valid inputs; the harness does not invoke this wrapper. Seeding and reset are explicit
 operations, not ordinary startup steps.
 
 After the services are ready, `scripts/catalyst-mvp.sh warm` sends the neutral

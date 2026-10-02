@@ -29,12 +29,10 @@ def test_build_dataset_provenance_hashes_selected_inputs_and_corpus(tmp_path: Pa
             "mappings": [{"index": 1, "resourceUuid": "obs-1"}],
         },
     )
-    _write_json(
-        tmp_path / "artifacts/chartsearchai-local/corpus-provenance.json",
-        {"schema_version": "validation_corpus.v1", "dump_sha256": "abc123"},
+    result = build_dataset_provenance(
+        data, "mini",
+        corpus_provenance={"schema_version": "validation_corpus.v1", "dump_sha256": "abc123"},
     )
-
-    result = build_dataset_provenance(data, "mini", project_root=tmp_path)
 
     assert result["schema_version"] == "validation_dataset.v1"
     assert result["comparison_set"]["id"] == "mini"
@@ -57,7 +55,7 @@ def test_missing_fixture_is_recorded_without_crashing(tmp_path: Path) -> None:
         {"id": "s1", "patient_ref": "patient-1", "turns": [{"n": 1, "question": "q"}]},
     )
 
-    result = build_dataset_provenance(data, "mini", project_root=tmp_path)
+    result = build_dataset_provenance(data, "mini")
 
     assert result["chart_fixtures"] == []
     assert result["missing_chart_fixtures"] == ["patient-1"]

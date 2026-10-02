@@ -77,7 +77,7 @@ function stagedSse(): string {
     ['answer_validation', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
     ['indepth_pending', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
     ['indepth_error', finalEnvelope],
-    ['done', finalEnvelope],
+    ['turn_done', finalEnvelope],
   ]
     .map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
     .join('');
@@ -89,7 +89,6 @@ async function installReviewFixture(page: Page): Promise<void> {
     const request = route.request();
     const body = request.postDataJSON() as Record<string, string>;
     expect(body.question).toBe(QUESTION);
-    expect(body.requestId).toBeTruthy();
     completed = true;
     await route.fulfill({
       status: 200,

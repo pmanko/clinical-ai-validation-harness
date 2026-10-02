@@ -25,6 +25,8 @@ def _run_args(tmp_path: Path) -> Namespace:
     return Namespace(
         catalyst_action="run",
         run_config=None,
+        target_provenance=None,
+        git_sha=None,
         suite="suite.json",
         gateway_url="http://gateway.example",
         output_dir=str(tmp_path),

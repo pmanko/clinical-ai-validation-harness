@@ -200,7 +200,6 @@ def test_reference_date_recorded_on_result_rows_when_passed(tmp_path):
     res = run_comparison(
         comparison_set_id="demo", client=client,
         output_dir=tmp_path, reference_date="2026-03-15",
-        router_policy=lambda _backend: None,
     )
     rows = _read_results(res.run_dir)
     assert rows, "expected at least one result row"
@@ -217,7 +216,6 @@ def test_reference_date_absent_when_not_passed(tmp_path):
     client = _StubClient()
     res = run_comparison(
         comparison_set_id="demo", client=client, output_dir=tmp_path,
-        router_policy=lambda _backend: None,
     )
     rows = _read_results(res.run_dir)
     assert rows

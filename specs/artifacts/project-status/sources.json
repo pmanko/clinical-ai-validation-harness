@@ -112,25 +112,11 @@
       "note": "Scenario, artifact and review model current; hub-only transport and several deferred items are stale against dual-provider code."
     },
     {
-      "path": "harness/targets.yaml",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify_dual_provider_parity_gates.py",
       "exists": true,
-      "role": "code-registry",
-      "repository_relative_path": "harness/targets.yaml",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/harness/targets.yaml#L34",
-      "last_commit": {
-        "sha": "776a363aa9781f7989129b42456406ae017f7543",
-        "date": "2026-08-04T09:51:14-07:00",
-        "subject": "Add iterative Catalyst multi-LLM validation sandbox (#37)"
-      },
-      "line": 34,
-      "note": "Registry is development/scaffolding inventory, not product acceptance."
-    },
-    {
-      "path": "scripts/verify_dual_provider_parity_gates.py",
-      "exists": true,
-      "role": "executable-contract",
-      "repository_relative_path": "scripts/verify_dual_provider_parity_gates.py",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/scripts/verify_dual_provider_parity_gates.py#L703",
+      "role": "umbrella release verification",
+      "repository_relative_path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify_dual_provider_parity_gates.py",
+      "url": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify_dual_provider_parity_gates.py",
       "last_commit": {
         "sha": "cfd7ed69ee44f69672884d636dd7e72a310099e8",
         "date": "2026-08-06T17:54:38-07:00",
@@ -162,18 +148,6 @@
         "sha": "136067ab1ca9e78d9331b40c1ccbdade822efd5c",
         "date": "2026-08-05T10:48:06-07:00",
         "subject": "Add Catalyst validation report parity (#43)"
-      }
-    },
-    {
-      "path": "harness/submodules.py",
-      "exists": true,
-      "role": "evidence",
-      "repository_relative_path": "harness/submodules.py",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/harness/submodules.py",
-      "last_commit": {
-        "sha": "ee7f253fc58e2b79596fb01b0d68eae37f3a8c1d",
-        "date": "2026-05-13T15:20:05-07:00",
-        "subject": "Implement control plane foundation primitives"
       }
     },
     {
@@ -259,26 +233,12 @@
       }
     },
     {
-      "path": "specs/005-med-agent-hub-bridge/spec.md",
-      "exists": true,
-      "role": "historical-spec",
-      "repository_relative_path": "specs/005-med-agent-hub-bridge/spec.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/005-med-agent-hub-bridge/spec.md#L1",
-      "last_commit": {
-        "sha": "fa36d9a02eb4736607fb89333efde17c0c6a55fe",
-        "date": "2026-07-25T08:17:28-07:00",
-        "subject": "Reconcile OpenMRS integration around med-agent-hub profiles (#35)"
-      },
-      "line": 1,
-      "note": "Early ReAct/endpoint-override narrative is superseded."
-    },
-    {
-      "path": "targets/med-agent-hub/server/engine.py",
+      "path": "https://github.com/pmanko/med-agent-hub/blob/main/server/engine.py",
       "exists": false,
       "role": "evidence"
     },
     {
-      "path": "targets/med-agent-hub/server/generic_role.py",
+      "path": "https://github.com/pmanko/med-agent-hub/blob/main/server/generic_role.py",
       "exists": false,
       "role": "evidence"
     },
@@ -334,32 +294,7 @@
       },
       "line": 1
     },
-    {
-      "path": "specs/004-real-adapter-entrypoints/spec.md",
-      "exists": true,
-      "role": "historical-spec",
-      "repository_relative_path": "specs/004-real-adapter-entrypoints/spec.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/004-real-adapter-entrypoints/spec.md#L7",
-      "last_commit": {
-        "sha": "fa36d9a02eb4736607fb89333efde17c0c6a55fe",
-        "date": "2026-07-25T08:17:28-07:00",
-        "subject": "Reconcile OpenMRS integration around med-agent-hub profiles (#35)"
-      },
-      "line": 7
-    },
-    {
-      "path": "harness/adapters/chartsearchai.py",
-      "exists": true,
-      "role": "evidence",
-      "repository_relative_path": "harness/adapters/chartsearchai.py",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/harness/adapters/chartsearchai.py#L11",
-      "last_commit": {
-        "sha": "5e30917512a72c5aa5914b776af989a213624434",
-        "date": "2026-05-12T15:47:43-07:00",
-        "subject": "Initialize cross-project validation harness repository"
-      },
-      "line": 11
-    },
+
     {
       "path": "harness/validate/client.py",
       "exists": true,
@@ -374,10 +309,10 @@
       "line": 83
     },
     {
-      "path": "scripts/chartsearchai-local.sh",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/chartsearchai-local.sh",
       "exists": true,
       "role": "evidence",
-      "repository_relative_path": "scripts/chartsearchai-local.sh",
+      "repository_relative_path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/chartsearchai-local.sh",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/scripts/chartsearchai-local.sh",
       "last_commit": {
         "sha": "040ddacdfdda93188e3167754cfffd565ee9c96e",
@@ -386,10 +321,10 @@
       }
     },
     {
-      "path": "scripts/openmrs-source-pair-test.sh",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/openmrs-source-pair-test.sh",
       "exists": true,
       "role": "evidence",
-      "repository_relative_path": "scripts/openmrs-source-pair-test.sh",
+      "repository_relative_path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/openmrs-source-pair-test.sh",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/scripts/openmrs-source-pair-test.sh",
       "last_commit": {
         "sha": "fa51fb27956dd8952fde7d51848033994604b1b7",
@@ -472,7 +407,7 @@
       "line": 1
     },
     {
-      "path": "targets/med-agent-hub/server/drug_safety.py",
+      "path": "https://github.com/pmanko/med-agent-hub/blob/main/server/drug_safety.py",
       "exists": false,
       "role": "evidence"
     },
@@ -504,7 +439,7 @@
       "note": "Its prose-only KB attribution claim is superseded by numbered KnowledgeReference records."
     },
     {
-      "path": "targets/med-agent-hub/server/kb.py",
+      "path": "https://github.com/pmanko/med-agent-hub/blob/main/server/kb.py",
       "exists": false,
       "role": "evidence",
       "line": 1
@@ -647,23 +582,11 @@
       }
     },
     {
-      "path": "targets/med-agent-hub/server/patient_ledger_cache.py",
+      "path": "https://github.com/pmanko/med-agent-hub/blob/main/server/patient_ledger_cache.py",
       "exists": false,
       "role": "evidence"
     },
-    {
-      "path": "specs/artifacts/planning/hub-consolidation-roadmap.md",
-      "exists": true,
-      "role": "superseded-roadmap",
-      "repository_relative_path": "specs/artifacts/planning/hub-consolidation-roadmap.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/hub-consolidation-roadmap.md#L1",
-      "last_commit": {
-        "sha": "fa36d9a02eb4736607fb89333efde17c0c6a55fe",
-        "date": "2026-07-25T08:17:28-07:00",
-        "subject": "Reconcile OpenMRS integration around med-agent-hub profiles (#35)"
-      },
-      "line": 1
-    },
+
     {
       "path": "specs/artifacts/planning/hub-consolidation-roadmap-status.md",
       "exists": true,
@@ -689,19 +612,6 @@
         "subject": "Align OpenMRS PRs with tested integration heads (#45)"
       },
       "line": 3
-    },
-    {
-      "path": "specs/007-llm-config-overrides/spec.md",
-      "exists": true,
-      "role": "historical-spec",
-      "repository_relative_path": "specs/007-llm-config-overrides/spec.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/007-llm-config-overrides/spec.md#L1",
-      "last_commit": {
-        "sha": "d08c12e2381af33b38917a4899ac10e839896d98",
-        "date": "2026-07-10T11:07:24-10:00",
-        "subject": "feat: two-call Answer/In-Depth parity eval + multi-class baselines + report/coverage hardening (#33)"
-      },
-      "line": 1
     },
     {
       "path": "Makefile",
@@ -825,10 +735,10 @@
       }
     },
     {
-      "path": "scripts/verify-dual-provider-parity-gates.sh",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-dual-provider-parity-gates.sh",
       "exists": true,
       "role": "evidence",
-      "repository_relative_path": "scripts/verify-dual-provider-parity-gates.sh",
+      "repository_relative_path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-dual-provider-parity-gates.sh",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/scripts/verify-dual-provider-parity-gates.sh",
       "last_commit": {
         "sha": "cfd7ed69ee44f69672884d636dd7e72a310099e8",
@@ -837,10 +747,10 @@
       }
     },
     {
-      "path": "scripts/artifact-provenance.py",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/artifact-provenance.py",
       "exists": true,
       "role": "evidence",
-      "repository_relative_path": "scripts/artifact-provenance.py",
+      "repository_relative_path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/artifact-provenance.py",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/scripts/artifact-provenance.py",
       "last_commit": {
         "sha": "fa36d9a02eb4736607fb89333efde17c0c6a55fe",
@@ -849,10 +759,10 @@
       }
     },
     {
-      "path": "scripts/probe-chartsearchai-relay.py",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/probe-chartsearchai-relay.py",
       "exists": true,
       "role": "evidence",
-      "repository_relative_path": "scripts/probe-chartsearchai-relay.py",
+      "repository_relative_path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/probe-chartsearchai-relay.py",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/scripts/probe-chartsearchai-relay.py",
       "last_commit": {
         "sha": "cfd7ed69ee44f69672884d636dd7e72a310099e8",
@@ -861,10 +771,10 @@
       }
     },
     {
-      "path": "scripts/verify-repository-lines.sh",
+      "path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-repository-lines.sh",
       "exists": true,
       "role": "evidence",
-      "repository_relative_path": "scripts/verify-repository-lines.sh",
+      "repository_relative_path": "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify-repository-lines.sh",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/scripts/verify-repository-lines.sh",
       "last_commit": {
         "sha": "cfd7ed69ee44f69672884d636dd7e72a310099e8",

@@ -1,6 +1,6 @@
 # Feature specification: Catalyst integration and delivery acceptance
 
-**Status:** Current integration and delivery-acceptance contract. The compatible
+**Status:** Current validation protocols and evidence requirements. The compatible
 Harness/Catalyst/Hub baseline is merged. Staff Workbench implementation,
 Dashboard Builder completion, dual-source local and server deployment, evidence,
 and owner acceptance remain open.
@@ -14,8 +14,9 @@ query-backed journeys below remain required; imported Dataset acceptance adds
 file upload/review/save without a fabricated query execution. Catalyst's product
 specification owns that additive contract and ordinary PostgreSQL support.
 
-This specification defines how Catalyst is assembled, deployed, and accepted in
-the Clinical AI Validation Harness. Catalyst application behavior belongs to its
+This specification defines validation protocols and evidence for an already
+prepared Catalyst target. Assembly, deployment and release coordination belong
+to the [OpenClinAI umbrella](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md). Catalyst application behavior belongs to its
 product specification; interaction and visual requirements belong to its
 binding design.
 
@@ -26,195 +27,75 @@ roadmap owns the delivery boundary and any separately authorized model evaluatio
 
 ## Authorities
 
-1. [plan.md](plan.md) owns implementation sequence and the delivery goal.
+1. [plan.md](plan.md) retains experiment/acceptance context; the umbrella owns delivery coordination.
 2. [tasks.md](tasks.md) owns detailed progress and acceptance evidence.
-3. Catalyst [product specification](../../targets/catalyst/docs/specification.md)
+3. Catalyst [product specification](https://github.com/DIGI-UW/openelis-catalyst/blob/main/docs/specification.md)
    owns application behavior and contracts.
-4. Catalyst [binding design](../../targets/catalyst/docs/dashboard-builder-mvp-design.md)
+4. Catalyst [binding design](https://github.com/DIGI-UW/openelis-catalyst/blob/main/docs/dashboard-builder-mvp-design.md)
    owns current interaction and visual requirements.
 5. The [program roadmap](../catalyst-program-roadmap.md) owns evaluation,
    comparison, and separately scheduled conversation decisions.
 
 Frozen Catalyst Workbench mocks, research, overlap findings, and handoffs are
-dated evidence. The retired implementation plan and Dashboard delivery goal
-point to their successors and define no current work.
+dated evidence, not alternate product requirements or a delivery authority.
 
-## Integration boundary
+## Product contracts and experiment observations
 
-A data source supplies:
+Catalyst's maintained product specification and binding design own source
+configuration/discovery, query generation, context assembly, advisory validation,
+editor behavior, immutable state, connection execution, Dataset/Widget/Dashboard
+behavior, publication and importer receipts. The harness does not duplicate those
+requirements or implement their transport. [API consumption](contracts/workbench-api.md)
+and local machine schemas define the captured formats used by current consumers.
 
-- a stable identifier and label;
-- connection information;
-- an explicit SQL dialect;
-- availability; and
-- the complete set of tables, views, columns, and types readable through that
-  connection.
+Design experiment cases around these observable boundaries:
 
-Optional source annotations may add descriptions, relationships, units, or
-examples. They cannot hide, approve, or rank readable relations.
+- Record the selected source identity, explicit SQL dialect and complete readable schema
+  snapshot actually supplied to the model/editor. Credentials are excluded.
+- Capture complete instructions, actual model context and omitted-item reasons,
+  writer/checker identities, settings and available prompt/configuration provenance.
+- Exercise ready, clarification and unsupported outcomes. Ready selected SQL runs
+  once through Catalyst; the other outcomes execute none and preserve prior work.
+- Preserve exact selected SQL and typed parameters, advisory findings, query lineage,
+  digests, bounded typed rows or the native database diagnostic and timing. Generated
+  and manually corrected queries both remain valid observations.
+- Capture follow-up, failure/retry, refresh and saved-query reuse evidence against the
+  product-owned behavior. A successful old result must not be mistaken for execution
+  of a changed query. Do not invent state acceptance from backend unit tests.
+- For query-backed publication, retain the originating execution, saved objects,
+  bundle and explicit importer receipt; inspect one rendered value against the
+  captured originating result without a second database query. Imported Datasets
+  retain file/source provenance without fabricated SQL or query executions.
 
-A session binds one data source when it is created. A person starts another
-session to use another source. An unavailable source is reported without
-preventing the application from starting or another source from being used.
+The caller prepares Catalyst, sources, model services and Superset and supplies
+connection settings, reviewed scenarios, evaluator settings, provenance and an
+output directory. The umbrella owns selected revisions and workspace operations.
+The harness records supplied or observed identity and explicit missing metadata;
+it never reads gitlinks, enforces pins or scans product source trees.
 
-The harness pins exact remote-reachable Catalyst and med-agent-hub revisions.
-Catalyst owns request context, query versions, advisory validation, connection
-execution, bounded results, saved objects, bundle generation, and importer
-status. med-agent-hub owns configured profiles, prompts, role mappings, and
-model settings. Superset owns Dashboard rendering.
+## Evaluation boundary
 
-## User journeys
+The [program roadmap](../catalyst-program-roadmap.md) owns the reader-led model
+comparison and separately scheduled broader conversation decisions. Each ready
+reference is authored, run and reviewed once through accepted Catalyst before
+comparison. Store static expected facts; clarification/unsupported cases store
+reviewed expected responses based on the actual readable schema.
 
-### Ask, inspect, and run
+Collect the same complete suite and rubric for each selected team. The harness
+never reruns reference SQL, connects directly to an analytics database, computes
+automatic factual equivalence, applies rankings or chooses a model team. A bad
+query or native SQL error is evidence, not an automatic disqualification.
 
-1. The person starts a session against a configured source and asks a question.
-2. The model receives the source's declared dialect and the same complete
-   readable schema shown by the editor.
-3. Catalyst retains the generated SQL, parameters, findings, and provenance.
-4. The person may edit and format the query.
-5. Run saves the visible draft as an immutable version, records advisory
-   findings, and submits the exact selected SQL through the configured
-   connection.
-6. Catalyst shows bounded typed rows or the database's native diagnostic.
-7. A follow-up uses the current visible editor state and retained session
-   instructions to produce a complete successor query.
-8. Refresh restores the session, selected version, findings, executions, and
-   result state.
+Preserve full conversation, actual model context, source/dialect/schema identity,
+SQL, rows/error, static reference or expected response, frozen rubric and available
+model/target provenance. One full-context reader pass is the default; retain actor,
+input digest and rationale. Additional runs/readers are deliberate follow-up,
+not mandatory repetition. A frontier-model reader is labeled model interpretation,
+not independent human review. Incomplete collection stays visible.
 
-### Clarify or decline
-
-The writer has three outcomes:
-
-- `ready`: a query candidate is available;
-- `needs_clarification`: one clarifying question and no SQL;
-- `unsupported`: a concise explanation and no SQL.
-
-Clarification and unsupported turns do not execute SQL or replace the previous
-selected query. Gateway contract or orchestration failures remain failures, not
-writer outcomes.
-
-### Reuse a saved query
-
-From Saved work, the person reviews a saved Dataset and selects **Start from
-this SQL**. Its exact parameterized SQL and typed values become a draft in the
-single editor, with the saved version and source/dialect retained. Existing
-drafts are preserved; a different source requires an explicit matching or new
-session. Loading does not execute SQL or change saved versions. Saved query
-configuration remains available independently of historical execution details.
-Both real-source acceptance journeys include reuse, explicit Run, failure/retry
-and saving a successful successor version.
-
-### Build and publish a dashboard
-
-1. A successful current execution creates or refreshes one Dataset draft.
-2. The person saves an immutable Dataset version.
-3. Catalyst suggests a compatible visualization from the typed result shape;
-   the person reviews or changes the compatible type.
-4. The person saves Widgets, arranges one or more in a Dashboard, and publishes.
-5. Catalyst creates a deterministic native Superset bundle in its outbox.
-6. The explicit importer records success or an actionable failure.
-7. The stable Superset URL opens the rendered dashboard.
-
-Superset renders the saved query against the same configured data source.
-Catalyst does not implement a second chart runtime or embed result rows in the
-bundle.
-
-## Requirements
-
-### Connection and schema
-
-- A source configuration MUST contain an identifier, label, connection
-  configuration or reference, and explicit dialect. Credentials MUST NOT appear
-  in browser payloads, logs, or stored evidence.
-- Catalyst MUST use the simplest connection implementation supported by the
-  chosen client. It MUST NOT require a connector framework or translate SQL
-  between engines.
-- Schema discovery MUST include every table, view, column, and type readable
-  through the connection. Tests MUST prove inclusion with arbitrary fixture
-  names rather than a fixed count.
-- The model request, Available data view, editor completion, validation, and
-  execution MUST use the same source identity, dialect, and schema snapshot.
-- Optional annotations MAY enrich the live schema but MUST NOT filter it.
-- A schema refresh MUST show changed access without making ordinary application
-  startup depend on a previous schema snapshot.
-- One unavailable source MUST NOT prevent another source or the application
-  shell from remaining usable.
-
-### Query generation and context
-
-- The current instruction is authoritative.
-- A follow-up MAY receive prior user instructions, the current editor snapshot,
-  relevant failure information, and verified examples from the same session.
-- Evidence MUST record the context actually sent and any omitted item with its
-  reason. The application MUST NOT silently summarize, rank, or substitute
-  context.
-- Result rows MUST NOT enter model context.
-- Writer and checker identities, prompts, settings, source, dialect, schema
-  snapshot, and query lineage MUST remain inspectable.
-
-### Editor and execution
-
-- Exactly one editable SQL control exists in the active turn.
-- Highlighting, formatting, and keyword/function completion MUST follow the
-  selected source's declared dialect. Relation and column completion MUST come
-  from the shared live schema.
-- Formatting and validation MUST NOT execute SQL.
-- Validation is advisory. Findings MUST remain visible but MUST NOT disable Run
-  or rewrite the selected SQL.
-- Run MUST submit the exact visible SQL and typed parameters through shared
-  connection-execution code used by generated and manually edited queries.
-- The configured connection or deployment MUST enforce read-only access.
-  Catalyst MUST apply a time limit and returned-row limit.
-- Successful execution MUST retain typed columns, bounded rows, counts, source,
-  dialect, query digest, and timing. Failure MUST retain the database's native
-  diagnostic without pretending it was a model failure.
-- A normal bad query or database diagnostic is a valid experimental observation.
-
-### Notebook and state
-
-- Each generated, manually edited, or checker-produced query version is
-  immutable and has one explicit parent when applicable.
-- Only the latest turn owns the editor. Earlier turns remain readable summaries.
-- A stale successful result remains inspectable after an edit and is visibly
-  marked stale until the new digest runs successfully.
-- New session is explicit and is the only action that clears the active thread.
-- Refresh MUST restore durable product state without reseeding the source data.
-- The working surface MUST remain keyboard operable with visible focus, usable
-  error announcements, and the accepted desktop and narrow-layout behavior.
-
-### Dashboard Builder
-
-- Only a successful execution for the exact current query digest may create a
-  Dataset draft.
-- The Dataset panel owns the sole full row-table presentation for that result.
-- Dataset, Widget, and Dashboard saves MUST be immutable, idempotent for the same
-  content, and retain their source and query lineage.
-- Visualization compatibility and the initial suggestion MUST be deterministic
-  from the typed result shape. The person MUST be able to review and choose
-  another compatible type.
-- A Dashboard MUST contain Widgets from one source. Every saved Dataset retains
-  the readable-schema snapshot used for its query; a harmless later schema
-  refresh does not by itself prevent combining same-source Datasets.
-- Publication MUST create a deterministic Superset bundle and expose the same
-  bytes for download.
-- Import status MUST be based on an explicit importer receipt. A bundle's
-  existence alone MUST NOT be shown as imported.
-- The stable Dashboard URL MUST open only after the selected bundle imports
-  successfully.
-- Superset MUST render the originating saved Dataset through the configured
-  connection. Acceptance inspects one rendered value against the originating
-  Catalyst result and performs no second database query.
-- Superset application programming interface publication, embedded viewing,
-  bidirectional synchronization, sharing, scheduling, and model-generated chart
-  specifications are outside this milestone.
-
-### Evaluation boundary
-
-The program roadmap owns model comparison, reader packets, and broader
-conversation decisions. This delivery preserves the product path required for
-that future work but does not schedule or redefine it. The harness never reruns
-reference SQL, computes automatic factual equivalence, applies thresholds or
-rankings, or chooses a model team.
+[Feature 006](../006-validation-harness-mvp/spec.md) owns reusable runner execution,
+capture, review and offline report generation. Reports consume run-local frozen
+inputs and evidence, not current targets, product files or authored dataset paths.
 
 ## Selected reference deployment
 
@@ -233,7 +114,7 @@ Catalyst core. The retained demo data is reused; ordinary development does not
 require reseeding, environment parity, or a live Spark service on every pull
 request.
 
-Use [`scripts/catalyst-mvp.sh`](../../scripts/catalyst-mvp.sh) for lifecycle,
+From the umbrella root, use its [`scripts/catalyst-mvp.sh`](https://github.com/pmanko/openclinai.org/blob/main/scripts/catalyst-mvp.sh) for lifecycle,
 health, and Superset operations. It owns isolated ports, sibling Hub context,
 source configuration, and the no-reseed default. Seeding and reset remain
 explicit. Whether both sources can share a Spark endpoint is an implementation
@@ -293,8 +174,9 @@ requires the owner's browser review.
 
 ## Local, server, and evidence acceptance
 
-Deploy exact merged compatible revisions locally and to the existing Catalyst
-demo server with `scripts/catalyst-mvp.sh` and retained data. In each environment,
+The umbrella owner deploys compatible reviewed revisions and prepares retained
+data locally and on the demo server. Its `scripts/catalyst-mvp.sh` runs from the
+umbrella root; it is not invoked by the harness. In each environment,
 both OpenELIS and OpenMRS complete the real path from drafting and schema
 browsing through preparation, explicit execution, refinement, Dataset save and
 restore, visualization, Dashboard arrangement, publication, import, and
@@ -306,9 +188,9 @@ Short captions and cards remain visible for at least five seconds; longer text
 uses about three words per second plus two seconds. Results and details remain
 for at least eight seconds. Normal reading and interaction speed is used,
 accelerated waits are labelled, holds retain captions, and captions do not cover
-demonstrated content. Watch final cuts at normal speed. Publish immutable server
-videos for both sources, link local proof, and update all public video and poster
-references together.
+demonstrated content. Watch final cuts at normal speed. Supply reviewed cuts and evidence to the umbrella website owner for publication.
+That owner publishes immutable videos for both sources and updates public video
+and poster references together; website relocation remains separate and pending.
 
 ## Out of scope
 

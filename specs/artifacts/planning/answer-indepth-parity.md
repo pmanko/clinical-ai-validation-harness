@@ -1,8 +1,9 @@
 # Answer / In-Depth Parity — Architecture Dashboard
 
-> **SUPERSEDED HISTORICAL STATUS (2026-07):** This document records the pre-stage-engine two-call
-> design. Current Answer, review, grounding, and In-Depth phases are composed by one med-agent-hub
-> product profile and relayed by ChartSearchAI. See `hub-consolidation-roadmap.md`.
+This document records the pre-stage-engine two-call design. Current product
+behavior follows the [dual-provider contract](openmrs-dual-provider-conformance-contract.md);
+[Feature 006](../../006-validation-harness-mvp/spec.md) owns validation of captured
+final Answer/In-Depth evidence and separately labeled review-only drafts.
 
 > Living design + status doc for evolving Answer and In-Depth into two **truly separate,
 > independently-measured, asynchronous** responses — for BOTH the vanilla chartsearchai single

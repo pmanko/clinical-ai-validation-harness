@@ -1,13 +1,12 @@
-schema_version: 1
+schema_version: 2
 kind: RunManifest002Extensions
 description: >-
-  Feature-002 extensions to the base run manifest schema defined by M0
-  (specs/001-harness-control-plane-foundation/contracts/run-manifest-control-plane.schema.yaml).
-  All fields below are ADDITIONAL top-level keys in run_manifest.json; none replace
-  or shadow M0 keys. A 002 run manifest MUST validate against the M0 schema AND
-  populate the additional fields here.
+  Corpus/mapping extensions to the shared experiment manifest semantic contract.
+  These additional fields do not redefine shared provenance or introduce Git,
+  source checkout, pin-enforcement or service lifecycle requirements.
+  Emitters own executable schemas and wire-format version alignment.
 
-extends: specs/001-harness-control-plane-foundation/contracts/run-manifest-control-plane.schema.yaml
+extends: specs/001-harness-control-plane-foundation/contracts/run-manifest.schema.yaml
 
 additional_top_level_required:
   - conceptmap_path
@@ -21,9 +20,7 @@ additional_top_level_required:
   - mariadb_image_digest
   - fhir_validator_version
   - sqlmesh_version
-  - dlt_version
-  - dlt_pipeline_run_id
-  - dlt_state_hash
+
   - python_version
   - equivalence_labels
   - policy_buckets
@@ -69,32 +66,16 @@ fields:
         checksum:
           type: string
   openmrs_refapp_image_digest:
-    type: string
-    description: Digest of openmrs/openmrs-reference-application-3-backend (and gateway/frontend when relevant) at compose-up time.
+    type: [string, "null"]
+    description: Caller-supplied or API-observed image digest; null when unavailable, never fetched by runner setup.
   mariadb_image_digest:
-    type: string
-    description: Digest of mariadb:10.11.7 at compose-up time.
+    type: [string, "null"]
+    description: Caller-supplied or observed database image digest; null when unavailable.
   fhir_validator_version:
     type: string
   sqlmesh_version:
     type: string
-  dlt_version:
-    type: string
-    description: dlt package version (e.g., "1.4.0"). Pinned in pyproject.toml.
-  dlt_pipeline_run_id:
-    type: string
-    description: >-
-      dlt's pipeline run UUID stamped at end of the load step
-      (`pipeline.last_trace.run_id`). Identifies the specific load run within
-      .dlt/openmrs_loadback/trace.json for cross-reference.
-  dlt_state_hash:
-    type: string
-    description: >-
-      SHA-256 of .dlt/openmrs_loadback/state.json after the load run completes.
-      Determinism witness — same SQLMesh inputs + same dlt config + same source
-      data should produce the same state hash across replays. Mismatch indicates
-      either (a) intentional pipeline-shape change, or (b) non-determinism that
-      needs investigation.
+
   python_version:
     type: string
   equivalence_labels:
@@ -182,7 +163,9 @@ fields:
             - sha256_of_canonical_dump
 
 rules:
-  - When `evidence_status != release`, M0's base schema already requires `decision_rationale`. 002 inherits that rule; no override.
-  - `ocl_collection_versions` MUST contain at least one CIEL entry. LOINC is required when the ConceptMap references LOINC reference terms (typical for lab analyte concepts).
-  - `concept_translation_seed_checksum` MUST match the checksum that `harness.conceptmap.seed_emit` produces when run against the file at `conceptmap_path` with checksum `conceptmap_checksum`. Mismatch indicates the seed CSV was hand-edited and is a release-evidence disqualifier.
-  - `target_provenance[]` (from M0) MUST include entries for every target consumed at run time. For 002: chartsearchai is always present (M2-F invokes `mvn -pl api test`); querystore is optional (only if M4 has begun integration); catalyst is optional (umbrella reference only).
+  - Evidence classification retains rationale and claim limits; it does not grant release approval or enforce product pins.
+  - OCL collection versions MUST contain at least one CIEL entry. LOINC is required when the ConceptMap references LOINC reference terms (typical for lab analyte concepts).
+  - The concept translation seed checksum MUST match deterministic seed emission from the accepted ConceptMap at its recorded checksum. Mismatch blocks accepted transform evidence.
+  - Record supplied/observed provenance only for interfaces actually exercised in the selected stage, with nullable target revisions and explicit missing metadata. Repository-only references are not runtime targets.
+  - Keep caller assertions separate from observations and disclose conflicts; no Git lookup or pin/override status.
+  - Capture mapping/snapshot/fixture bytes required for offline reports under safe run-relative evidence references.

@@ -8,7 +8,7 @@
 #                                                   verify the completed evidence and
 #                                                   write the reviewer's input file
 #   scripts/catalyst-comparison.sh finish <run-id>  verify evidence, require the attached
-#                                                   reader review, and publish the report
+#                                                   reader review, and render the report
 #
 # The run lands in artifacts/catalyst-notebook-validation/<run-id>/ where the
 # live dashboard (scripts/validate-dashboard.py, :8099) picks it up; `finish`
@@ -64,7 +64,7 @@ case "${cmd}" in
   prepare-review|finish)
     run_id="${2:?${cmd} needs the run id}"
     run_dir="${OUT_DIR}/${run_id}"
-    # The run's own seed decides how it is judged and published.
+    # The run's own seed decides how it is reviewed.
     if [[ -f "${run_dir}/run-config.json" ]]; then
       CONFIG="${run_dir}/run-config.json"
       frozen_out_dir="${ROOT}/$(cfg "${CONFIG}" outputDir)"
@@ -74,8 +74,7 @@ case "${cmd}" in
       }
       OUT_DIR="${frozen_out_dir}"
     fi
-    SLUG="${SLUG:-$(cfg "${CONFIG}" publish.slug)}"
-    SLUG="${SLUG:-catalyst-phase1-comparison-${run_id%%-*}}"
+
     [[ -f "${run_dir}/results.json" ]] || { echo "ERROR: ${run_dir} has no results.json (run not finished — use resume)" >&2; exit 1; }
 
     echo "==> verify: every conversation has the evidence its question requires"
@@ -96,11 +95,8 @@ case "${cmd}" in
     echo "==> full-evidence report with the attached reader review"
     (cd "${ROOT}" && uv run harness-cli catalyst report "${run_dir}")
 
-    echo "==> stage the report and its evidence into the curated index"
-    "${ROOT}/scripts/publish-report.sh" catalyst "${run_dir}" "${SLUG}" \
-      "${TITLE:-$(cfg "${CONFIG}" publish.title)}" \
-      "${SUMMARY:-$(cfg "${CONFIG}" publish.summary)}" \
-      "${TAKEAWAY:-$(cfg "${CONFIG}" publish.takeaway)}"
+    echo "==> rendered report and evidence: ${run_dir}"
+    echo "Review/redact the packet before passing it to OpenClinAI publication tooling."
     ;;
   *)
     echo "unknown command ${cmd}" >&2; exit 1;;

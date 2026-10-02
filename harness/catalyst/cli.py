@@ -30,6 +30,14 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     )
     run.add_argument("--gateway-url", default=DEFAULT_GATEWAY_URL)
     run.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
+    run.add_argument(
+        "--target-provenance",
+        help="JSON file containing caller-supplied target provenance objects; not verified against checkouts",
+    )
+    run.add_argument(
+        "--git-sha",
+        help="caller-supplied runner revision; omitted revisions are recorded as null",
+    )
     run.add_argument("--scenario", action="append", dest="scenarios")
     run.add_argument("--repetitions", type=int)
     run.add_argument(
@@ -90,6 +98,16 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
 
     from .notebook_validation import NotebookHttpClient, run_notebook_suite
     from .run_config import publishable, resolve
+    from ..metadata import copy_target_provenance
+
+    target_provenance = None
+    if args.target_provenance:
+        try:
+            target_provenance = copy_target_provenance(json.loads(
+                Path(args.target_provenance).read_text(encoding="utf-8")
+            ))
+        except (OSError, ValueError) as error:
+            raise SystemExit(f"cannot load target provenance: {error}") from error
 
     frozen_config = None
     warmup_question = None
@@ -154,7 +172,8 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
             timeout_seconds=args.timeout_seconds,
         ),
         output_dir=Path(args.output_dir),
-        project_root=project_root,
+        git_sha=args.git_sha,
+        target_provenance=target_provenance,
         scenario_ids=set(args.scenarios) if args.scenarios else None,
         repetitions=args.repetitions,
         include_manual=args.include_manual,

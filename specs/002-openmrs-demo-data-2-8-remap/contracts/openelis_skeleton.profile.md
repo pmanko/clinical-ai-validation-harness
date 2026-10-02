@@ -20,7 +20,7 @@ target:
   product: OpenELIS Global
   version: <built-release-version>
   source: built-release
-  catalyst_umbrella_submodule: targets/catalyst
+  catalyst_repository_url: https://github.com/DIGI-UW/openelis-catalyst
 generated_at: <iso-timestamp>
 generated_from:
   openmrs_profile: artifacts/<run>/profile/inventory.json
@@ -79,4 +79,5 @@ For `test`, `analyte`, `result`, `observation` entities, the structural skeleton
 - Catalyst code execution
 - Any data being loaded into OpenELIS
 
-The Catalyst submodule (`targets/catalyst`, pinned by PR #4) is referenced as the documented umbrella entry point for a future loader feature, not invoked here.
+[Catalyst](https://github.com/DIGI-UW/openelis-catalyst) is a related product
+reference, not an invoked target or an assigned owner for a future loader.

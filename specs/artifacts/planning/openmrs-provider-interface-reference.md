@@ -2,10 +2,11 @@
 
 The one place the three interfaces behind ChartSearchAI's dual-provider design are written down: the
 bundled engine, the med-agent-hub relay, and the provider-neutral stream the ESM consumes. Every
-statement cites the source file that defines it (paths relative to `targets/`). OpenAI's
+statement cites the source file that defines it (product-relative paths; the
+[umbrella](https://github.com/pmanko/openclinai.org) owns direct component checkouts). OpenAI's
 chat-completions shapes are used at every engine hop; the extensions on top of them are named
-explicitly. `tests/test_provider_interface_reference.py` keeps the event vocabulary here pinned to the
-code.
+explicitly. Product contracts and tests own transport behavior; this reference
+does not provide an independent harness event-vocabulary check.
 
 Companion documents: `openmrs-dual-provider-conformance-contract.md` (what both providers must
 guarantee), `openmrs-dual-provider-parity-roadmap-status.md` (gate evidence).
@@ -132,8 +133,10 @@ same three values with the same meaning from `DrugSafetyValidator.validateWithSt
 
 The hub itself speaks OpenAI to the router: `/v1/chat/completions` for generation, `/v1/models` for
 discovery, and llama.cpp's `/tokenize` and `/v1/chat/completions/input_tokens` for exact budgets
-(`server/engine.py`). Router profiles are declared in `server/levels.yaml`; the harness runs the router
-with `scripts/llama-router-up.sh`.
+(`server/engine.py`). Router profiles are product configuration in `server/levels.yaml`.
+The caller prepares the model service; OpenClinAI's
+[router lifecycle script](https://github.com/pmanko/openclinai.org/blob/main/scripts/llama-router-up.sh)
+runs from the umbrella root, never as part of harness execution.
 
 ## 4. Module to ESM: the provider-neutral surface
 

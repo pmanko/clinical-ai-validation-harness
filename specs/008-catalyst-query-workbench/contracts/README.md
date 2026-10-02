@@ -1,13 +1,15 @@
 # Feature 008 contracts
 
-The Markdown contracts in this directory describe the accepted product
-behavior. The JSON schemas mirror formats used by the current implementation so
-the running code and its tests use the same definitions.
+The Markdown guide describes the harness's API consumption and evidence boundary.
+Product behavior belongs to the maintained [Catalyst contracts](https://github.com/DIGI-UW/catalyst-ai/tree/main/docs/contracts).
+The JSON schemas mirror formats used by current runtime consumers so the running
+code and tests use the same definitions.
 
 Some running wire formats retain legacy fields while their current consumers
 are consolidated. Change a schema and its consumers together. Catalyst product
 behavior belongs to its product specification and binding design; Feature 008
-owns integration and delivery acceptance; the program roadmap owns comparison
+owns validation protocols and evidence; the umbrella owns delivery coordination;
+the program roadmap owns comparison
 and broader conversation decisions. Human-readable API contracts describe the
 current interface.
 

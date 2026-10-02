@@ -1,21 +1,24 @@
+# Claude context
+
 <!-- SPECKIT START -->
-For four-pathway OpenELIS–Catalyst delivery, start with
-`specs/openelis-reporting-catalyst-integration.md`; it owns the shared sequence.
-Keep native reporting tasks in OpenELIS and Catalyst tasks in the existing
-register below. Product behavior and binding mocks remain product-owned.
-For Catalyst delivery, read the authoritative current plan and task register:
-`specs/008-catalyst-query-workbench/plan.md` and
-`specs/008-catalyst-query-workbench/tasks.md`.
+Active feature: `specs/006-validation-harness-mvp/spec.md`.
+Read `specs/006-validation-harness-mvp/plan.md` for the standalone runtime slice
+and verification obligations. Use `SPECIFY_FEATURE=006-validation-harness-mvp`.
 <!-- SPECKIT END -->
 
-## Catalyst work: read these first
+Read `AGENTS.md` and `.specify/memory/constitution.md` before changing this
+repository. Spec 001 retains readiness/configuration/evidence; the shared metadata
+guide owns common provenance semantics. Product behavior is governed by its owning
+repository, linked from `AGENTS.md`, not by local nested source paths.
 
-If `HANDOFF.md` exists at the repository root, it is a session handoff from the
-previous session — read it before any code.
+The harness runs configured experiments and generates captured evidence and
+reports. The caller prepares services; the umbrella manages workspaces, pins,
+builds, deployment, release coordination and website publication. Do not introduce
+Git/pin/source prerequisites, model-service lifecycle control or source scanning
+for runtime metadata. Reports consume run-local captured inputs only.
 
-Follow the Feature 008 plan and task register named above. Use
-`specs/catalyst-program-roadmap.md` for evaluation and comparison decisions,
-the Feature 008 specification for integration acceptance, and the pinned
-Catalyst product specification and binding design for application behavior and
-the frozen interaction contract. `HANDOFF.md` is supporting session evidence,
-not a requirements authority.
+Session handoffs and run reports are supporting evidence, not current requirements.
+Keep implementation, verification and publication distinct. The umbrella owns
+component gitlinks, workspace operations, website sources and publication tooling;
+`openmrs_chatbot` is excluded. Reconcile mixed specs, including Feature 008,
+by requirement, maintained owner and consumer.

@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from harness.validate.report import build_report
+from harness.validate.report import build_report, _embed_json
 
 from .dom_canon import canonicalize_html
 
@@ -32,9 +32,24 @@ def _parse_embedded_data(html: str) -> dict:
     return json.loads(m.group(1))
 
 
-def test_report_regeneration_is_byte_identical_to_pre_p0_baseline(monkeypatch) -> None:
+def _baseline_with_captured_arm_cards() -> str:
+    """The former live-source arm cards are no longer part of the report contract."""
+    baseline = (FIXTURE / "report.pre-p0.html").read_text(encoding="utf-8")
+    data = _parse_embedded_data(baseline)
+    meta_path = FIXTURE / "run_meta.json"
+    frozen = json.loads(meta_path.read_text()).get("arm_cards", {}) if meta_path.exists() else {}
+    for run in data["runs"]:
+        run["arm_cards"] = {bid: frozen.get(bid) for bid in run["backends"]}
+    return re.sub(
+        r"(<script type='application/json' id='report-data'>).*?(</script>)",
+        lambda match: match[1] + _embed_json(data) + match[2],
+        baseline, flags=re.DOTALL,
+    )
+
+
+def test_report_regeneration_changes_only_retired_live_arm_cards(monkeypatch) -> None:
     _freeze_report_clock(monkeypatch)
-    baseline = (FIXTURE / "report.pre-p0.html").read_bytes()
+    baseline = _baseline_with_captured_arm_cards().encode("utf-8")
     regenerated = build_report(FIXTURE).read_bytes()
     assert regenerated == baseline
 
@@ -42,7 +57,7 @@ def test_report_regeneration_is_byte_identical_to_pre_p0_baseline(monkeypatch) -
 def test_report_regeneration_matches_pre_p0_dom_and_embedded_data(monkeypatch) -> None:
     """P1 semantic parity: canonical HTML structure + exact parsed data island."""
     _freeze_report_clock(monkeypatch)
-    baseline_html = (FIXTURE / "report.pre-p0.html").read_text(encoding="utf-8")
+    baseline_html = _baseline_with_captured_arm_cards()
     regenerated_html = build_report(FIXTURE).read_text(encoding="utf-8")
 
     assert canonicalize_html(regenerated_html) == canonicalize_html(baseline_html)

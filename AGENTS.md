@@ -1,150 +1,86 @@
-# AGENTS.md
+# Working in the validation harness
 
 <!-- SPECKIT START -->
-Active feature plan: `specs/008-catalyst-query-workbench/plan.md`
-
-For the four OpenELIS–Catalyst reporting pathways, first read
-`specs/openelis-reporting-catalyst-integration.md`. It owns the cross-project
-scope and iteration sequence. Feature 008 remains the Catalyst delivery task
-register; native reporting stays in OpenELIS's existing specification and tasks.
-Do not create a specification family or checklist per pathway. PostgreSQL
-support, CSV import/table support and the approved raw-row chart controls are
-merged. Integrated rendering, runtime verification and four-pathway acceptance remain; existing AI-assisted
-Widget/Dashboard design remains Follow-on A.
-
-For this delivery, apply the roadmap's **Workflow acceptance and scope** before
-choosing a repair. Manual SQL correction is an intended success path. If a model
-proposal is wrong but the user can correct/run/save/publish it, record the finding
-and continue; do not optimize model accuracy or benchmark performance. Repair
-actual failures of that supported workflow. Separately authorized performance
-tests require at least a 12B writer with Qwen review; this is not authorization
-to run them. Older performance tasks do not override the active delivery scope.
-
-For Catalyst, read these authorities in order:
-
-1. `specs/008-catalyst-query-workbench/plan.md` for the authoritative
-   implementation sequence and delivery goal;
-2. `specs/008-catalyst-query-workbench/tasks.md` for detailed progress and
-   acceptance evidence;
-3. `specs/008-catalyst-query-workbench/spec.md` for integration requirements;
-4. `specs/catalyst-program-roadmap.md` for evaluation, comparison, and
-   separately scheduled conversation decisions;
-5. `targets/catalyst/docs/specification.md` for Catalyst application behavior
-   and contracts; and
-6. `targets/catalyst/docs/dashboard-builder-mvp-design.md` for the binding
-   interaction contract and `targets/catalyst/docs/specs/staff-workbench-ux/index.html`
-   for the approved visual reference. Obsolete prototypes in Git history are
-   not current authorities.
-
-Only the listed current documents define requirements. Run reports record
-observations and do not define product behavior.
-
-Catalyst core is a generic SQL-connected application. A source declares its
-identity, label, connection configuration or reference, and SQL dialect. Model
-and human tools receive every readable table, view, column, and type. Optional
-descriptions may enrich that information but cannot hide relations. FHIR Data
-Pipes -> Parquet -> Spark SQL is the selected reference deployment; its harness
-baseline is merged and live acceptance remains open. It is not the Catalyst
-product contract.
-
-Validation is advisory. Exact selected SQL reaches the configured connection
-through shared connection-execution code and returns bounded rows or the
-database error. Do not add an application relation allowlist, fixed relation
-count, SQL translation, direct-database harness replay, automatic factual
-equivalence, score threshold, ranking, required repeated reader, or automatic
-team choice.
-
-The approved delivery priority is the frozen usability design followed by
-Dashboard Builder functionality. Model comparison and broader conversation are
-separately scheduled in the program roadmap; do not make them prerequisites for
-this delivery. The narrow Dataset-to-Superset regression smoke does not close or
-reduce Dashboard Builder acceptance.
-
-Before each owner review pause, surface unresolved implementation findings and
-environment choices. Do not add a subsystem to solve a hypothetical problem;
-record a concrete failure and return to the owner first.
-
-For Phase 3, compare the live Workbench, Dataset review/library, Widget
-review/library, Dashboard library/arrangement, and publish/import states side by
-side with the binding design. Backend or evidence work cannot substitute for
-browser-visible acceptance, and only explicit owner approval may change product
-scope. On `codex/*` branches, run SpecKit with
-`SPECIFY_FEATURE=008-catalyst-query-workbench`.
-
-Use `scripts/catalyst-mvp.sh` for isolated-stack lifecycle, health, and Superset
-operations. Do not invoke the target Compose file alone: the harness wrapper
-establishes the isolated override, ports, sibling Hub context, and no-reseed
-defaults. Seeding and reset remain explicit user-visible operations.
+Active feature: `specs/006-validation-harness-mvp/spec.md`.
+Implementation and isolation verification: `specs/006-validation-harness-mvp/plan.md`.
+Readiness/configuration/evidence foundation: `specs/001-harness-control-plane-foundation/spec.md`.
+Shared metadata: `specs/artifacts/planning/metadata-schema.md`.
+Use `SPECIFY_FEATURE=006-validation-harness-mvp` for this validation work.
 <!-- SPECKIT END -->
 
-Guidance for AI agents and contributors working in this repository.
+## Scope and authorities
 
-## Project Purpose
+- Read `.specify/memory/constitution.md` before changes. It governs this independent,
+  modular experiment runner: adapters, scenario execution, evidence, evaluation,
+  review and offline reports.
+- Read the [OpenClinAI roadmap](https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md)
+  first for cross-project coordination; its
+  [architecture](https://github.com/pmanko/openclinai.org/blob/main/specs/architecture.md)
+  defines ownership, not another task register.
+- The caller prepares targets and supplies connection settings, inputs, provenance
+  and output locations. The harness must run without Git, submodules, product pins,
+  local product source trees or an umbrella installation. Do not add checkout,
+  build, deployment, release-policy or model-service process control to the runner.
+- Record target provenance supplied by the caller or observed through product
+  interfaces. Missing revision/model/prompt information must remain explicit;
+  never infer it by scanning product sources or enforce workspace pins.
+- Product contracts remain product-owned. Read the owning repository's instructions
+  before component edits. References:
+  [ChartSearchAI](https://github.com/pmanko/openmrs-module-chartsearchai),
+  [ChartSearchAI ESM](https://github.com/pmanko/openmrs-esm-chartsearchai),
+  [QueryStore API](https://github.com/pmanko/openmrs-module-querystore/blob/harness-integration/docs/rest-api.md),
+  [Med Agent Hub](https://github.com/pmanko/med-agent-hub), and
+  [Catalyst specification](https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specification.md).
+  Repository URLs are references, not required local checkouts.
+- Do not redefine product transport, provider selection, authorization, cancellation,
+  persistence, safety or evidence semantics in harness specs. Preserve bundled
+  ChartSearchAI and configured Hub distinctions; no silent provider fallback.
+- Products have one canonical direct gitlink each in the umbrella, never nested
+  harness gitlinks; `openmrs_chatbot` is excluded. The umbrella owns workspace
+  operations and website sources, build tooling and publication workflows.
+  Use its roadmap for implementation and verification status. Reconcile mixed
+  specifications, including Feature 008, by requirement and owner.
 
-This is a standalone validation harness for early clinical AI prototypes across OpenMRS and OpenELIS work. The first milestone is a deterministic OpenMRS 2.8 Ref App-compatible remap/import path for `large-demo-data-2-7-0.sql`, followed by validation through real `chartsearchai` and `querystore` paths.
+## Evidence and safety
 
-The active OpenMRS architecture is governed by
-`specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md`: bundled ChartSearchAI inference
-and configured med-agent-hub inference are separate providers behind one OpenMRS contract. Do not
-remove bundled behavior, introduce silent provider fallback, or make Querystore a mandatory hub
-dependency without an approved roadmap amendment. Consult the matching status, upstream inventory,
-and conformance contract before changing provider, context, temporal, safety, or evidence behavior.
+- Test doubles prove runner mechanics, not product or clinical acceptance. Use real
+  product interfaces for those claims and label fixture/scaffolding evidence.
+- Preserve record-level evidence and decision rationale; counts alone do not prove
+  mapping, retrieval, answer quality or clinical meaning.
+- Keep deterministic findings separate from optional model judgments and human
+  review. Judges cannot override deterministic safety findings.
+- Keep final Answer/In-Depth evidence separate from changed or rejected drafts.
+  Preserve both for review; exclude review-only drafts from final evidence/judge input.
+- Capture scenario/configuration bytes and required clinical fixtures with the run,
+  plus responses, traces, provenance, evaluation and review records. Reports must
+  regenerate from the copied run directory without targets, evaluator services,
+  authored dataset directories or product sources.
+- Keep bounded clinical evidence separate from operating metadata. Exclude secrets
+  and private model reasoning; curate/redact before publication. Offline does not
+  mean safe to publish.
+- LLM mapping proposals are advisory. Accepted transforms/mappings live in reviewed,
+  deterministic artifacts. OpenMRS remap corpus work uses `large-demo-data-2-7-0.sql`
+  and a Core 2.8 Ref App-compatible baseline; experiment inputs are caller-selected.
+- Material model, prompt, retrieval, mapping, evaluation or pipeline changes require
+  PCCP-style review context: change, protocol, impact and residual risk.
 
-## Operating Principles
+## Implementation and verification
 
-- Treat `.specify/memory/constitution.md` as the canonical governance source;
-  keep this file, README, user-facing docs, and specs aligned when the constitution changes.
-- Use real production paths for validation; do not simulate chartsearchai, querystore, OpenMRS, or Catalyst behavior when the real path can be exercised.
-- Treat LLM-assisted mapping as advisory analysis only. Accepted mappings must live in reviewed config and deterministic scripts.
-- Preserve record-level evidence and decision rationale. Do not claim a filter, mapping, retrieval result, or answer is correct from counts alone.
-- Include diverse validation scenarios so tests do not only prove the exact case used to tune a prompt, mapping, adapter, or fixture.
-- Keep clinical evidence data separate from operating metadata. Query Store/CQRS is for searchable clinical records; this harness stores run, trace, response, evaluation, and review metadata.
-- Prefer small, reviewable changes that preserve reproducibility.
-
-## Repository Branch Policy
-
-- `clinical-ai-validation-harness` and `med-agent-hub` are maintained here. Changes use a
-  short-lived branch and pull request, then server release and final acceptance revisions must already be in `main`.
-  Local development and testing may use current unmerged work; do not make a
-  merge or release build a prerequisite for local UI review.
-- ChartSearchAI, ChartSearchAI ESM, and QueryStore are upstream-owned OpenMRS projects. Their
-  proven companion work is consolidated on each fork's `harness-integration` branch, and this
-  repository pins that exact remote head. The OpenMRS pull request must use
-  `pmanko:harness-integration` as its head; do not publish the same tested commit from a separate
-  feature branch.
-- Other submodules remain on clean, remote-reachable commits unless an approved integration
-  effort gives them an explicit branch policy.
-- Run `scripts/verify-repository-lines.sh` before deployment. During a harness pull request, use
-  `scripts/verify-repository-lines.sh --allow-harness-branch`; the strict check must pass after
-  the pull request is merged. Before upstream publication or release signoff, also run
-  `scripts/verify-repository-lines.sh --check-publication-prs` (or
-  `make repository-publication-check` while the harness PR is open).
-
-## Testing Expectations
-
-- Add or update tests when implementing behavior.
-- Do not weaken tests to match broken behavior.
-- Smoke tests should grow from placeholders into real OpenMRS startup, REST/API readability, schema integrity, indexing, and retrieval checks.
-- Metadata tests must verify emitted `run_manifest.json` and `events.jsonl` remain valid and versioned.
-
-## Data Mapping Rules
-
-- Source corpus: `large-demo-data-2-7-0.sql` unless explicitly changed.
-- Target environment: OpenMRS Platform/Core 2.8 Ref App-compatible database.
-- Store LLM proposals separately from accepted mappings.
-- Promote only reviewed mappings into `datasets/mappings/openmrs-2.7-to-2.8.yaml`.
-- Transforms in `datasets/transforms/` must be deterministic and repeatable from a clean baseline.
-
-## Documentation
-
-- Keep `README.md` current for quickstart and milestone status.
-- Keep `specs/artifacts/planning/metadata-schema.md` aligned with emitted artifacts.
-- Keep `specs/artifacts/planning/data-remap-2.8.md` aligned with the current import/remap strategy.
-- Treat `specs/artifacts/` as durable planning and research snapshots, not generated build output.
-- Keep `docs/` reserved for user-facing documentation.
-
-## Safety and Governance
-
-- Capture model/provider/prompt/dataset/schema-mapping provenance for every run.
-- Align shared metadata fields with OpenTelemetry GenAI conventions where practical, while preserving clinical evaluation fields separately.
-- Use PCCP-style change records for material model, prompt, retrieval, mapping, or pipeline changes.
+- Make focused, reviewable changes. Preserve retained requirement IDs and one
+  maintained owner per requirement. Reconcile obsolete specs instead of adding
+  superseded banners, archived plans or compatibility entry points without a
+  current requirement. Dated reports and handoffs are evidence, not authority.
+- Add/update behavioral tests; do not weaken them or tune only to the happy-path
+  fixture. Include absent metadata, ambiguous/missing evidence, unsupported claims,
+  abstention and API failure cases where relevant.
+- Test emitted versioned `run_manifest.json` and `events.jsonl`, safe relative
+  evidence references, supplied/observed provenance and nullable revisions.
+- Run focused tests first, then `uv run pytest`. Verify both clinical and Catalyst
+  execution without Git/registry/source access and portable offline reporting.
+  Local unit tests are not component, deployed-runtime or release acceptance.
+- Keep README and `docs/` useful to new operators; keep governance and implementation
+  direction in specs and these instructions. Update consumers directly when a
+  contract changes. Report out-of-scope consumers for their owners to reconcile.
+- Harness changes belong in this repository; product changes belong in the product
+  repository; component gitlinks and publication belong to the umbrella. Do not
+  commit, publish or update gitlinks unless explicitly asked.

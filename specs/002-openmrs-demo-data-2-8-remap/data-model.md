@@ -3,21 +3,21 @@
 **Feature**: 002-openmrs-demo-data-2-8-remap
 **Date**: 2026-05-13
 
-This document enumerates the artifacts produced and consumed by the feature. It anchors on the M0 control-plane primitives (PR #2, merged to main via PR #3) plus the M0 follow-up (PR #4, in review) which pins `targets/catalyst` and aligns `compose/openmrs-2.8-refapp.yml` with the O3 RefApp stack.
+This document defines the corpus/mapping and evidence artifacts, not environment
+setup. Reusable data-tooling ownership remains an open umbrella decision; data
+functionality is retained pending that assignment.
 
-## 0. Anchored on M0 / PR #4
+## 0. Supplied inputs and shared evidence
 
-The following primitives are **not redefined here** — they are consumed as-is:
+The caller supplies the source dump, reviewed mappings/snapshots, a prepared
+baseline/build database, target connection settings and provenance. Product
+setup, restoration and build/test orchestration belong outside validation.
+No registry, Git, pin or product source lookup is required.
 
-| M0 primitive | Path | What 002 uses it for |
-|---|---|---|
-| Target registry | `harness/targets.yaml` | Reads `targets.chartsearchai.validation_surface.command` for M2-F cross-target validation; reads `shared_infrastructure.openmrs_refapp` for bringup. |
-| Submodule pins | `.gitmodules`, `targets/<id>/` | `targets/chartsearchai`, `targets/querystore` (pinned by M0); `targets/catalyst` (pinned by PR #4) reference points. |
-| Shared compose | `compose/openmrs-2.8-refapp.yml` (post-PR #4 = O3 stack on Core 2.8.x + MariaDB 10.11.7) | M2-F real-bringup; M2-A clean-baseline snapshot. |
-| Run manifest | `harness.metadata.RunManifest` | Base manifest record. 002 adds top-level fields; see `contracts/run_manifest_002_extensions.schema.yaml`. |
-| Events log | `harness.metadata.append_event` | All 002 events route through this writer. |
-| Compose lifecycle | `harness.compose.compose_files_for_profile` | Plan compose ups/downs for M2-F. |
-| Targets loader | `harness.targets.load_target_registry` | Load `harness/targets.yaml`; classify `evidence_status`. |
+Use `harness.metadata.RunManifest` and `append_event` for the shared envelope;
+[Spec 001](../001-harness-control-plane-foundation/contracts/run-manifest.schema.yaml)
+owns common meanings and [002 extensions](contracts/run_manifest_002_extensions.schema.yaml)
+define corpus-specific fields. Concrete emitters own executable schemas.
 
 ## 1. Source corpus
 
@@ -64,7 +64,7 @@ The empty typed clinical tables + zero reference-map state IS the M2-A discovery
 
 ## §R-bridge-rule. Identity bridge between legacy concept IDs and the seeded CIEL dictionary
 
-> Discovered during M2-A profiling; see [`specs/artifacts/canvases/concept-mapping-discovery.canvas.tsx`](../artifacts/canvases/concept-mapping-discovery.canvas.tsx) for the visual derivation, and `research.md` §R-bridge-rule for the rationale.
+Discovered during M2-A profiling; see [research.md §R-bridge-rule](research.md#r-bridge-rule-legacy-concept-id--seeded-ciel-identity-bridge-m2-a-discovery-2026-05-14) for the identity-bridge derivation and rationale.
 
 The 2.7 demo dump uses AMPATH-style concept numbering. Empirically, **every legacy `concept_id N` that is referenced by ≥1 row in `obs` corresponds to the seeded CIEL concept whose UUID is `RPAD(CAST(N AS CHAR), 36, 'A')`** (the canonical CIEL UUID pattern: the integer ID left-padded by `A` to 36 chars). Reproduction:
 
@@ -101,19 +101,19 @@ Documented per-rule below; encoded as one ConceptMap element each (FR-029–FR-0
 
 Field mapping per rule is recorded canonically in the ConceptMap element's harness extensions (see `contracts/conceptmap.profile.md`). The SQLMesh model is the executable instantiation; `audits/audit_<mart>_row_count_min.sql` are the **single source of truth** for the minimum row-count floor — the audits fail the pipeline if a mart drops below its floor (catches silent-zero materialization failures, the C2-class incident from M2-A close). The "Expected rows (measured)" column above is illustrative; the audit SQL is canonical. Cross-cutting decisions (typed-table canonicalization — no duplicate obs, deterministic UUID, vaccine handling, orderer source, sampler strategy) are in `research.md` §R-typed-table-promotion.
 
-## §R-load-stage. OLTP load layer (dlt; per research.md §R-load-pattern)
+## §R-load-stage. Direct SQL load into a disposable build schema
 
-After SQLMesh materializes the transform into `refapp_28_demo` (virtual views over `sqlmesh__refapp_28_demo.*` snapshot tables), **dlt** moves the data into the live OpenMRS DB. This is the second half of the SQLMesh+dlt handover; see `contracts/dlt_pipeline.profile.md` for the load-layer contract.
+SQLMesh materializes views over physical snapshot tables. The direct loader
+(`harness/load/`, stdlib + PyMySQL) resolves those snapshots and projects rows
+into an existing caller-prepared OpenMRS build schema in FK dependency order.
+See [load profile](contracts/load.profile.md).
 
-- **Path**: `harness/load/` (package), `datasets/load/openmrs-loadback.review.md` (companion review doc)
-- **Inputs**:
-  - `sqlmesh__refapp_28_demo.*` — the physical snapshot tables SQLMesh writes (resolved via `harness/load/snapshot_resolver.py` mapping each `refapp_28_demo.<view>` to its underlying snapshot)
-  - FK reconciliation seed maps under `datasets/transforms/sqlmesh/models/terminology/<entity>_map.sql` (legacy ↔ openmrs ID harmonization; default identity)
-- **Outputs**: rows in `openmrs_test.*` (iteration target) or `openmrs.*` (promotion target).
-- **Tool**: dlt `>=1.0` with the sqlalchemy destination, MySQL/MariaDB via PyMySQL.
-- **Idempotency**: per-resource via `write_disposition='merge'` with declared `primary_key`. Re-runs produce no row deltas if SQLMesh inputs are unchanged.
-- **Stamping**: each run writes `dlt_pipeline_run_id` + `dlt_state_hash` into the run manifest, plus per-table row counts into `materialized_outputs[]`.
-- **Lifecycle**: replayed on every iteration of the validation loop (edit SQLMesh model → re-run plan + audit → re-run dlt → restart backend → smoke). Wall-time per incremental iteration < 10 min.
+Inputs are the physical snapshots, reviewed per-table dispositions and FK seed
+maps. Outputs are build-schema rows, per-table counts/content checksums and
+column-projection findings. Repeated loads of unchanged snapshots must preserve
+normalized content. A portable module-clean dump is handed to the deploying
+owner for restoration into a fresh target; the loader does not restart services
+or mutate a running deployment. No ETL pipeline state is required.
 
 ## 3. Pinned OCL snapshots
 
@@ -183,9 +183,9 @@ After SQLMesh materializes the transform into `refapp_28_demo` (virtual views ov
 ## 9. Import smoke + RefApp tests + binding report
 
 - **Paths**:
-  - `artifacts/<run>/import-smoke/report.json` — Liquibase startup, Compose health, REST/FHIR readback for canonical endpoints
+  - `artifacts/<run>/import-smoke/report.json` — REST/FHIR readback from caller-prepared canonical endpoints; externally supplied startup evidence is separately attributed
   - `artifacts/<run>/refapp-binding/report.json` — bundled-form rendering, default order types, drug catalog resolution against translated concepts
-  - `artifacts/<run>/chartsearchai-tests/results.xml` — surefire XML from invoking `harness/targets.yaml.targets.chartsearchai.validation_surface.command` (`mvn -pl api test`) inside `targets/chartsearchai/` with the translated demo DB connection
+  - `artifacts/<run>/chartsearchai-tests/results.xml` — externally supplied product-test evidence from the owning product/umbrella workflow; not a harness source-build invocation
 - **Per check captured**: check_id, target endpoint, inputs, pass/fail, evidence (response excerpt or test output), elapsed_ms
 - **FR coverage**: FR-014, FR-CD5, SC-002 (binding), SC-013
 
@@ -210,29 +210,32 @@ After SQLMesh materializes the transform into `refapp_28_demo` (virtual views ov
   - `shared_identifier_proposal`: how OpenMRS patients would match OpenELIS patients
   - `terminology_translation_required`: boolean + notes
   - `loinc_bridge_coverage`: % of clinical references that have a LOINC mapping via CIEL (lab entities only)
-- **Source for OE Global schema**: the sibling checkout at `/Users/pmanko/code/OpenELIS-Global-2/` (read-only; not a submodule of this harness)
-- **No Catalyst code is executed**: the `targets/catalyst` submodule (PR #4) is referenced as the documented umbrella entry point for future loader work
+- **Source for OE Global schema**: explicit caller-selected schema artifact with version/digest.
+- **No Catalyst code is executed**: [Catalyst](https://github.com/DIGI-UW/openelis-catalyst)
+  is a related product reference, not exercised target provenance.
 - **FR coverage**: US4, FR-017..FR-020, SC-007, SC-008
 
 ## 12. Run manifest
 
 - **Path**: `artifacts/<run>/run_manifest.json`
-- **Authoring**: via `harness.metadata.RunManifest(...).to_dict()` (M0). 002 adds top-level fields as schema-compatible additions, enumerated in [`contracts/run_manifest_002_extensions.schema.yaml`](./contracts/run_manifest_002_extensions.schema.yaml). 002 does NOT define a new manifest schema.
-- **M0-required fields populated by 002**:
+- **Authoring**: shared manifest envelope plus [002 extensions](contracts/run_manifest_002_extensions.schema.yaml).
+- **Shared fields populated by 002**:
   - `run_id`, `project=clinical-ai-validation-harness`, `component=002-openmrs-demo-data-2-8-remap`
-  - `git_sha` (harness repo HEAD)
+  - `git_sha` (supplied harness revision, null when unavailable; no Git lookup)
   - `dataset_id=openmrs-large-demo-2-7-0`, `dataset_version=<source_dump_sha256>`, `schema_mapping_version=<conceptmap_checksum>:<sqlmesh_project_checksum>`
   - `generated_at`, `evidence_status` (per stage; `development` or `scaffolding` for OpenELIS portion)
-  - `decision_rationale` (when not `release`, required per M0 schema)
-  - `target_provenance[]` for each consumed target (chartsearchai, querystore if used, catalyst as scaffolding-only): `target_id`, `target_source=reviewed_submodule`, `target_path`, `target_actual_sha` (from `git submodule status`), `target_reviewed_sha`, `target_override=false`, `evidence_status`
+  - `decision_rationale` explains evidence classification and missing facts.
+  - `target_provenance[]` identifies only exercised interfaces with supplied/observed
+    origin and nullable `target_actual_sha`; reference-only products are not targets.
+    Keep conflicts visible, without checkout or pin/override status.
   - `otel.semconv_status=development`, `otel.semconv_stability_opt_in=gen_ai_latest_experimental`, `otel.gen_ai.provider.name` (N/A here — no LLM at runtime; the field is omitted with `decision_rationale` noting model_or_agent_involved == false)
 - **002 extensions** (additional top-level fields):
   - `conceptmap_path`, `conceptmap_checksum`
   - `sqlmesh_project_path`, `sqlmesh_project_checksum`
   - `concept_translation_seed_checksum`, `module_table_policy_seed_checksum`
   - `ocl_collection_versions[]` (array of `{collection, version, snapshot_path, checksum}`)
-  - `openmrs_refapp_image_digest` (the `openmrs-reference-application-3-backend:3.6.0` digest pulled at run time)
-  - `mariadb_image_digest` (the `mariadb:10.11.7` digest)
+  - `openmrs_refapp_image_digest` (supplied/observed image digest, nullable when unavailable)
+  - `mariadb_image_digest` (supplied/observed image digest, nullable when unavailable)
   - `fhir_validator_version`, `sqlmesh_version`, `python_version`
   - `policy_buckets[]` (enumerated from the ConceptMap)
   - `reviewer_signoffs[]` (paths to ConceptMap review doc + SQLMesh project review doc + signer identity + signoff date + per-doc checksum)
@@ -241,8 +244,8 @@ After SQLMesh materializes the transform into `refapp_28_demo` (virtual views ov
 ## 13. Events log
 
 - **Path**: `artifacts/<run>/events.jsonl`
-- **Authoring**: via `harness.metadata.append_event` (M0)
-- **002 event types** (one JSONL line each): `profile_start`, `profile_table`, `profile_complete`, `diff_start`, `diff_item`, `diff_complete`, `liquibase_cost_estimated`, `conceptmap_loaded`, `conceptmap_validated`, `sqlmesh_seed`, `sqlmesh_run_model`, `sqlmesh_audit`, `orphan_fk_detected`, `compose_up`, `compose_down`, `import_smoke_check`, `binding_check`, `chartsearchai_test_invoked`, `sample_drawn`, `openelis_classification`, `pccp_record_emitted`, `run_complete`
+- **Authoring**: via `harness.metadata.append_event`
+- **002 event types** (one JSONL line each): `profile_start`, `profile_table`, `profile_complete`, `diff_start`, `diff_item`, `diff_complete`, `liquibase_cost_estimated`, `conceptmap_loaded`, `conceptmap_validated`, `sqlmesh_seed`, `sqlmesh_run_model`, `sqlmesh_audit`, `orphan_fk_detected`, `import_smoke_check`, `binding_check`, `sample_drawn`, `openelis_classification`, `pccp_record_emitted`, `run_complete`
 - **Fields per event**: `event_id`, `event_type`, `timestamp` (auto-set by `append_event`), `run_id`, type-specific payload, optional `decision_rationale` for events carrying a reviewer decision
 - **FR coverage**: FR-021, SC-009
 
@@ -270,9 +273,8 @@ stateDiagram-v2
   SQLMeshProjectReviewed --> SeedEmitted: concept_translation.csv emitted
   SeedEmitted --> Transformed: sqlmesh seed/run/audit (M2-E)
   Transformed --> OrphanFKChecked: orphan-fk-report
-  OrphanFKChecked --> Imported: O3 RefApp boots via harness.compose (M2-F)
-  Imported --> RefAppTestsRun: chartsearchai mvn -pl api test
-  RefAppTestsRun --> BindingChecked: forms/orders/drugs resolve
+  OrphanFKChecked --> Imported: caller restores target (external handoff)
+  Imported --> BindingChecked: prepared REST/FHIR forms/orders/drugs resolve
   BindingChecked --> Sampled: translation-coverage sampler (M2-G)
   Profiled --> OpenELISAnalyzed: feasibility + skeleton (M2-H, parallel)
   ConceptMapValidated --> OpenELISAnalyzed
@@ -286,5 +288,8 @@ stateDiagram-v2
 - Every source concept_id referenced by ≥1 row in `obs`, `conditions`, `diagnosis`, `allergy`, `drug_order`, `encounter_diagnosis`, `concept_set` MUST appear in `concept_translation.csv` with a policy_bucket. Verified by `harness/conceptmap/validate.py` (cross-checks `profile/inventory.json` against the ConceptMap).
 - Every diff item with `clinical_meaningful: true` MUST be referenced in at least one SQLMesh model's `description` / `diff_items_covered`. Verified by `harness/transform/run.py` pre-flight.
 - Every PCCP change record MUST cite ≥1 before/after record example. Verified by `tests/test_pccp_records.py`.
-- `run_manifest.json` MUST validate against `specs/001-harness-control-plane-foundation/contracts/run-manifest-control-plane.schema.yaml` (M0 base) AND `specs/002-openmrs-demo-data-2-8-remap/contracts/run_manifest_002_extensions.schema.yaml` (002 extensions). Verified at run-end and by CI.
-- `harness/targets.yaml.targets.chartsearchai.validation_surface.command` MUST be the M2-F cross-target validation invocation; M2-F MUST NOT re-implement chartsearchai test logic.
+- `run_manifest.json` follows [shared semantics](../001-harness-control-plane-foundation/contracts/run-manifest.schema.yaml)
+  and [002 extensions](contracts/run_manifest_002_extensions.schema.yaml); emitters
+  and validators must verify their declared wire-format versions.
+- Product-native build/tests and setup remain external; validation MUST NOT
+  reimplement product behavior or require its source checkout.

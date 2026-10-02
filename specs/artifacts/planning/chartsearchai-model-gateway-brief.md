@@ -278,7 +278,7 @@ What does `chartsearchai.llm.remote.modelName` hold when the gateway is active?
 - `targets/chartsearchai-esm/tests/e2e/specs/model-picker.spec.ts` (Playwright spec to extend per SC-008.4)
 
 **Related specs**:
-- `specs/004-real-adapter-entrypoints/{spec,plan,tasks}.md` — chartsearchai PoC baseline 008 extends
+- [Feature 006](../../006-validation-harness-mvp/spec.md#real-chartsearchai-medication-history-smoke) — retained real ChartSearchAI smoke protocol (`SC-004.4`); product/gateway implementation remains product-owned
 - `specs/005-med-agent-hub-bridge/{spec,plan,tasks}.md` — agentic-provider precedent 008 absorbs; D1 (peer-of-LM-Studio posture), D4 (response_format end-to-end), FR-005.3 / FR-005.4 (the wire-shape invariants 008 generalizes)
 - `specs/001-harness-control-plane-foundation/{spec,plan,tasks}.md` — compose overlay and adapter contract shape
 

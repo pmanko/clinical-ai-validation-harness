@@ -28,11 +28,11 @@ import requests
 import rfc8785
 
 from ..common.jsonl import append_jsonl
-from ..metadata import RunManifest, append_event
-from ..submodules import read_harness_git_sha
+from ..metadata import RunManifest, append_event, copy_target_provenance, write_manifest
 from .events import NOTEBOOK_EVENT_SCHEMA_VERSION, notebook_result_events
+from .provenance import observed_api_provenance
 from .run_config import publishable
-from .validation import _response_payload, _target_provenance
+from .validation import _response_payload
 
 
 @dataclass(frozen=True)
@@ -2642,9 +2642,15 @@ def _validate_recovery_identity(
         ),
         "suite bytes": (source_manifest.get("suite_sha256"), suite_sha256),
         "Harness revision": (source_manifest.get("git_sha"), manifest.git_sha),
-        "component revisions": (
-            source_manifest.get("target_provenance") or [],
-            manifest.target_provenance,
+        "supplied target provenance": (
+            [
+                item for item in source_manifest.get("target_provenance") or []
+                if item.get("target_source") != "observed_api"
+            ],
+            [
+                item for item in manifest.target_provenance
+                if item.get("target_source") != "observed_api"
+            ],
         ),
         "dataset ID": (source_manifest.get("dataset_id"), manifest.dataset_id),
         "dataset version": (
@@ -2767,12 +2773,12 @@ def run_notebook_suite(
     suite_path: Path | str,
     client: NotebookTransport,
     output_dir: Path | str = "artifacts/catalyst-notebook-validation",
-    project_root: Path | str = ".",
     scenario_ids: set[str] | None = None,
     repetitions: int | None = None,
     include_manual: bool = False,
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None = None,
-    provenance_loader: Callable[[Path], list[dict[str, Any]]] = _target_provenance,
+    git_sha: str | None = None,
+    target_provenance: list[dict[str, Any]] | None = None,
     resume_from: Path | str | None = None,
     frozen_config: dict[str, Any] | None = None,
     warmup_question: str | None = None,
@@ -2830,8 +2836,7 @@ def run_notebook_suite(
     run_id = str(uuid4())
     run_dir = Path(output_dir) / run_id
     recorder = _EvidenceRecorder(run_dir, run_id)
-    root = Path(project_root).resolve()
-    target_provenance = provenance_loader(root)
+    target_provenance = copy_target_provenance(target_provenance)
     suite_sha256 = hashlib.sha256(suite_path.read_bytes()).hexdigest()
     public_config = publishable(frozen_config or {
         "contractVersion": "harness.catalyst-notebook.run-config.v1",
@@ -2849,7 +2854,7 @@ def run_notebook_suite(
         run_id=run_id,
         project="clinical-ai-validation-harness",
         component="catalyst-iterative-query-notebook-validation",
-        git_sha=read_harness_git_sha(root),
+        git_sha=git_sha,
         dataset_id=suite.dataset_id,
         dataset_version=suite.dataset_version,
         schema_mapping_version=suite.catalog_version,
@@ -3171,6 +3176,25 @@ def run_notebook_suite(
             evidence_prefix="discovery",
         )
     _require_discovery(suite, profiles_exchange, catalog_exchange)
+    target_provenance.extend([
+        observed_api_provenance(
+            "catalyst",
+            catalog=catalog,
+            catalog_sha256=_canonical_sha256(catalog),
+        ),
+        observed_api_provenance(
+            "med-agent-hub",
+            profile_discovery=profiles_exchange.response_body,
+            profile_discovery_sha256=_canonical_sha256(profiles_exchange.response_body),
+        ),
+    ])
+    write_manifest(run_dir / "run_manifest.json", manifest)
+    recorder.file(
+        "run_manifest.json",
+        kind="run_manifest",
+        media_type="application/json",
+        replace=True,
+    )
     finished_sources = [
         (source, _finished_pairs(source)) for source in recovery_chain
     ]

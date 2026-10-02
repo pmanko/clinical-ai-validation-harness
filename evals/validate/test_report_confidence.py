@@ -1,8 +1,8 @@
 """Per-section confidence presentation in the validate report (parity with the dashboard).
 
-The med-agent-hub writes a per-turn reasoning trace (answer/in-depth confidence
-{level, note}) to a sibling ``artifacts/.../hub-trace/trace.jsonl``; the report
-correlates it to a cell by ``level_id == backend_id`` within the cell's
+The run captures a per-turn trace (answer/in-depth confidence {level, note}) in
+``<run>/trace.jsonl``; the report correlates it using captured model identity
+and request/session/question keys within the cell's
 ``[started_at, ended_at]`` window and heads each answer section with a confidence
 chip and review state per level:
 
@@ -25,7 +25,7 @@ _ANSWER = "**Answer**\nRegimen is current [1].\n\n**In Depth**\nStavudine-free p
 
 
 def _write_run(run_dir: Path, results, traces=None, judge=None):
-    """Write a run two levels under tmp so run_dir.parent.parent/hub-trace is a sibling."""
+    """Write a self-contained packet with frozen routing metadata and optional traces."""
     run_dir.mkdir(parents=True)
     (run_dir / "run_manifest.json").write_text(
         json.dumps({
@@ -47,12 +47,13 @@ def _write_run(run_dir: Path, results, traces=None, judge=None):
         with (run_dir / "judge.jsonl").open("w", encoding="utf-8") as f:
             for j in judge:
                 f.write(json.dumps(j) + "\n")
+    (run_dir / "run_meta.json").write_text(json.dumps({
+        "backends": {r["backend_id"]: {"modelName": r["backend_id"]} for r in results},
+    }), encoding="utf-8")
     if traces is not None:
-        trace_dir = run_dir.parent.parent / "hub-trace"
-        trace_dir.mkdir(parents=True, exist_ok=True)
         # `traces` entries may be dicts (serialized) or raw strings (malformed lines).
         lines = [t if isinstance(t, str) else json.dumps(t) for t in traces]
-        (trace_dir / "trace.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        (run_dir / "trace.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _result(answer, backend="med-agent-team", refs=(({"index": 1, "resourceType": "MedicationRequest"}),)):
@@ -67,7 +68,7 @@ def _result(answer, backend="med-agent-team", refs=(({"index": 1, "resourceType"
 
 
 def _trace(answer_conf, indepth_conf, backend="med-agent-team"):
-    return {"level_id": backend, "ts": "2026-05-30T10:00:15",
+    return {"level_id": backend, "ts": "2026-05-30T10:00:15", "question": "q",
             "answer_confidence": answer_conf, "indepth_confidence": indepth_conf}
 
 
@@ -158,7 +159,7 @@ def test_malformed_trace_line_is_tolerated(tmp_path):
 
 def test_no_trace_falls_back_to_plain_answer(tmp_path):
     run_dir = tmp_path / "validate" / "run"
-    # No hub-trace at all (direct single-LLM arm / older run) -> plain answer, no chips.
+    # No captured trace (direct single-LLM arm / incomplete packet) -> plain answer, no chips.
     _write_run(run_dir, [_result(_ANSWER)], traces=None)
     ans = _answer_html(run_dir)
     assert "confidence" not in ans.lower()
@@ -190,8 +191,7 @@ def test_report_and_dashboard_share_flagged_output_semantics(tmp_path):
     report_cell = _report_cell(run_dir)
     dashboard = _dashboard_module()
     dashboard._RUN_OVERRIDE = str(run_dir)
-    dashboard.TRACE_FILE = run_dir.parent.parent / "hub-trace" / "trace.jsonl"
-    dashboard.DATA = tmp_path / "missing-validation-data"
+
     dashboard_turn = dashboard.detail("s", "med-agent-team")["turns"][0]
 
     for key in (
@@ -250,3 +250,23 @@ def test_judge_scores_are_loaded_when_present(tmp_path):
     ).group(1)
     rows = json.loads(body)["runs"][0]["judge_rows"]
     assert rows and rows[0]["scores"]["accuracy"] == 8
+
+
+def test_report_and_dashboard_ignore_uncaptured_sibling_trace(tmp_path):
+    run_dir = tmp_path / "validate" / "run"
+    _write_run(run_dir, [_result(_ANSWER)])
+    live_traces = run_dir.parent.parent / "hub-trace"
+    live_traces.mkdir()
+    trace = _trace({"level": "red", "note": "UNRELATED LIVE REVIEW"}, None)
+    (live_traces / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
+
+    cell = _report_cell(run_dir)
+    dashboard = _dashboard_module()
+    dashboard._RUN_OVERRIDE = str(run_dir)
+    turn = dashboard.detail("s", "med-agent-team")["turns"][0]
+
+    assert cell["answer_confidence_display"] is None
+    assert turn["answer_confidence_display"] is None
+    assert turn["trace"] is None
+    assert "UNRELATED LIVE REVIEW" not in cell["answer_html"]
+    assert "Regimen is current" in cell["answer_html"]

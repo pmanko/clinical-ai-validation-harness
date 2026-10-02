@@ -5,26 +5,24 @@
     {
       "id": "harness.foundation",
       "title": "Harness foundation",
-      "status": "Implemented; maintenance",
-      "intent": "One control plane for target pins, setup, metadata and real validation commands.",
+      "status": "Topology/runtime cut implemented; isolation verification separate",
+      "intent": "Independent configured-target execution, readiness and evidence capture.",
       "implemented": [
-        "Target registry, local/VM profiles, CLI, submodule and compose helpers."
+        "Workspace registry, pin gates and service lifecycle have been removed from the runner; API execution and metadata remain."
       ],
       "evidence": [
         "README records complete; implementation files and metadata tests exist."
       ],
-      "acceptance": "Existing completion claim retained; current machine setup is not validated.",
-      "next_deliverable": "Restore a clean usable checkout and verify target readiness without disturbing preserved local state.",
+      "acceptance": "Clinical and Catalyst experiments run without Git, product sources, pins or umbrella installation; local checks do not establish deployed acceptance.",
+      "next_deliverable": "Verify configured-target isolation and portable offline evidence under Feature 006.",
       "dependencies": [],
       "sources": [
-        "README.md",
-        "harness/targets.yaml",
         ".specify/memory/constitution.md",
-        "harness/cli.py",
-        "harness/submodules.py",
-        "specs/001-harness-control-plane-foundation/spec.md"
+        "specs/001-harness-control-plane-foundation/spec.md",
+        "specs/006-validation-harness-mvp/plan.md",
+        "harness/cli.py"
       ],
-      "last_checked": "2026-09-06",
+      "last_checked": "2026-09-30",
       "implementation_owner": null,
       "notes": [],
       "related_pull_requests": [
@@ -95,7 +93,7 @@
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
         "specs/artifacts/planning/openmrs-dual-provider-conformance-contract.md",
-        "scripts/verify_dual_provider_parity_gates.py",
+        "https://github.com/pmanko/openclinai.org/blob/main/scripts/verify_dual_provider_parity_gates.py",
         "artifacts/chartsearchai-local/relay-probe.json"
       ],
       "last_checked": "2026-09-12",
@@ -169,16 +167,14 @@
         "Exact pinned source inspected through available local Git objects; no live service demonstrated."
       ],
       "acceptance": "Shared-service availability and each consumer regression need distinct proof.",
-      "next_deliverable": "Rebuild the pinned service and exercise both clinical and Catalyst consumers after shared changes.",
+      "next_deliverable": "The product/workspace owner prepares the selected service; validate clinical and Catalyst consumers separately after shared changes.",
       "dependencies": [
         "harness.foundation"
       ],
       "sources": [
-        "README.md",
-        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
-        "specs/005-med-agent-hub-bridge/spec.md",
-        "targets/med-agent-hub/server/engine.py",
-        "targets/med-agent-hub/server/generic_role.py"
+        "https://github.com/pmanko/med-agent-hub",
+        "https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/med-agent-hub.md",
+        "https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md"
       ],
       "last_checked": "2026-09-06",
       "implementation_owner": null,
@@ -202,8 +198,8 @@
         "67 checked-in clinical scenario files and9 comparison-set files; metadata/source/report/adjudication tests exist.",
         "Historical published and preserved run artifacts; none revalidated as current release proof."
       ],
-      "acceptance": "README says in progress while spec006 says shipped spine; remaining as-built reconciliation must not be conflated with rebuilding working tooling.",
-      "next_deliverable": "Define one current completion checklist for reusable spine and finish per-run snapshot/cache/checking provenance required by clinical roadmap.",
+      "acceptance": "Feature 006 owns independent collection, evidence, evaluation, review and offline reporting; historical product proof is separate.",
+      "next_deliverable": "Verify isolation and portable reports under Feature 006, including SC-004.4 and MAH-CONSOLIDATION-2026-07-09-v1:G09/G21.",
       "dependencies": [
         "harness.foundation"
       ],
@@ -230,28 +226,26 @@
       "id": "harness.real_adapters",
       "title": "Real application adapter entrypoints",
       "status": "Partly implemented",
-      "intent": "Run actual target APIs/builds rather than harness simulations.",
+      "intent": "Invoke prepared real product APIs and capture observations, not build command plans.",
       "implemented": [
-        "OpenMRS lifecycle/build/source-pair scripts, real ChartSearchAI chat client, QueryStore integration, Catalyst workflow wrapper.",
-        "Small legacy adapter classes expose command plans; they are not the whole runtime integration."
+        "ChartSearchAI clinical API client and Catalyst Gateway collection paths."
       ],
       "evidence": [
-        "Production-path historical evidence exists for clinical and Catalyst; registry still marks chatbot unavailable."
+        "Historical real-path evidence remains separate from current isolation and product acceptance."
       ],
-      "acceptance": "The old feature004 PoC is explicitly historical and even its hub-only supersession note predates current bundled-preserving authority.",
-      "next_deliverable": "Update entrypoint/readiness inventory around existing real wrappers and identify the remaining missing targets.",
+      "acceptance": "Supported API collection works without source checkouts; real product claims use actual endpoints.",
+      "next_deliverable": "Verify independent API collection and the SC-004.4 smoke protocol owned by Feature 006.",
       "dependencies": [
         "harness.foundation"
       ],
       "sources": [
-        "harness/targets.yaml",
-        "specs/004-real-adapter-entrypoints/spec.md",
-        "harness/adapters/chartsearchai.py",
+        "adapters/README.md",
+
+        "specs/006-validation-harness-mvp/spec.md",
         "harness/validate/client.py",
-        "scripts/chartsearchai-local.sh",
-        "scripts/openmrs-source-pair-test.sh"
+        "harness/catalyst/notebook_validation.py"
       ],
-      "last_checked": "2026-09-06",
+      "last_checked": "2026-09-30",
       "implementation_owner": null,
       "notes": [],
       "related_pull_requests": []
@@ -275,8 +269,7 @@
       ],
       "sources": [
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
-        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
-        "reports-index.json"
+        "https://github.com/pmanko/openclinai.org/blob/main/reports-index.json"
       ],
       "last_checked": "2026-09-06",
       "implementation_owner": null,
@@ -305,7 +298,7 @@
       ],
       "sources": [
         "README.md",
-        "specs/roadmap.canvas.tsx",
+        "specs/006-validation-harness-mvp/spec.md",
         "evals/retrieval/test_known_answer_fixture_shape.py",
         "scripts/parity-engine-probe.py"
       ],
@@ -364,7 +357,7 @@
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
-        "targets/med-agent-hub/server/drug_safety.py"
+        "https://github.com/pmanko/med-agent-hub/blob/main/server/drug_safety.py"
       ],
       "last_checked": "2026-09-06",
       "implementation_owner": null,
@@ -395,7 +388,7 @@
         "README.md",
         "specs/artifacts/planning/clinical-kb-brief.md",
         "specs/artifacts/planning/kb-scope.md",
-        "targets/med-agent-hub/server/kb.py"
+        "https://github.com/pmanko/med-agent-hub/blob/main/server/kb.py"
       ],
       "last_checked": "2026-09-06",
       "implementation_owner": null,
@@ -422,7 +415,7 @@
       ],
       "sources": [
         "README.md",
-        "specs/roadmap.canvas.tsx",
+        "specs/006-validation-harness-mvp/spec.md",
         ".specify/memory/constitution.md"
       ],
       "last_checked": "2026-09-06",
@@ -479,7 +472,6 @@
       ],
       "sources": [
         "README.md",
-        "specs/roadmap.canvas.tsx",
         "specs/artifacts/planning/openmrs-dual-provider-conformance-contract.md"
       ],
       "last_checked": "2026-09-06",
@@ -534,7 +526,7 @@
         "scripts/validate-dashboard.py",
         "harness/validate/report.py",
         "harness/report_shell/document.py",
-        "reports-index.json",
+        "https://github.com/pmanko/openclinai.org/blob/main/reports-index.json",
         "specs/artifacts/planning/reports-frontend-consolidation-roadmap.md"
       ],
       "last_checked": "2026-09-06",
@@ -554,7 +546,7 @@
     {
       "id": "harness.public_surfaces",
       "title": "Landing page, documentation, evidence archive and live demos",
-      "status": "Published; source and deployed manifests differ",
+      "status": "Umbrella-owned website and publication",
       "intent": "Give each public surface a distinct purpose and reproducible publication source.",
       "implemented": [
         "landing/ is front door; site/ renders docs; reports are generated evidence; OpenMRS demo requires runtime.",
@@ -565,18 +557,19 @@
         "Deployed report manifest contains 19 entries, main contains 16; three Catalyst reports are deployed-only."
       ],
       "acceptance": "Old July audit assertions about unmerged landing or VM-only reports are outdated; do not treat them as current.",
-      "next_deliverable": "Reconcile report manifest and family labels, preserve historical methods, and publish a reviewed current summary through existing flows.",
+      "next_deliverable": "Verify and publish the umbrella website sources and tooling; harness supplies reviewed validation artifacts.",
       "dependencies": [
         "harness.reports",
         "clinical.dual_provider"
       ],
       "sources": [
         "README.md",
-        "landing/index.html",
-        "scripts/publish-landing.sh",
-        "scripts/publish-report.sh",
-        ".github/workflows/pages.yml",
-        "specs/artifacts/planning/reports-frontend-consolidation-roadmap.md"
+        "https://github.com/pmanko/openclinai.org/blob/main/landing/index.html",
+        "https://github.com/pmanko/openclinai.org/blob/main/scripts/publish-landing.sh",
+        "https://github.com/pmanko/openclinai.org/blob/main/scripts/publish-report.sh",
+        "https://github.com/pmanko/openclinai.org/blob/main/.github/workflows/pages.yml",
+        "specs/artifacts/planning/reports-frontend-consolidation-roadmap.md",
+        "https://github.com/pmanko/openclinai.org/blob/main/specs/roadmap.md"
       ],
       "last_checked": "2026-09-06",
       "implementation_owner": null,
@@ -611,60 +604,7 @@
       "sources": [
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
-        "targets/med-agent-hub/server/patient_ledger_cache.py"
-      ],
-      "last_checked": "2026-09-06",
-      "implementation_owner": null,
-      "notes": [],
-      "related_pull_requests": []
-    },
-    {
-      "id": "harness.chatbot_expansion",
-      "title": "openmrs_chatbot and cross-project expansion",
-      "status": "Parked scaffolding",
-      "intent": "Reuse the common validation instrument for role-aware chat and handoffs.",
-      "implemented": [
-        "Pinned external chatbot repository; shared target metadata."
-      ],
-      "evidence": [
-        "Registry marks validation surface unavailable and scaffolding_only."
-      ],
-      "acceptance": "No real-path validation or release acceptance established.",
-      "next_deliverable": "A declared real adapter and one source-grounded conversation proof before broad comparison.",
-      "dependencies": [
-        "harness.validation_spine",
-        "harness.real_adapters",
-        "harness.red_team",
-        "harness.clinician_governance"
-      ],
-      "sources": [
-        "README.md",
-        "harness/targets.yaml",
-        "specs/roadmap.canvas.tsx"
-      ],
-      "last_checked": "2026-09-06",
-      "implementation_owner": null,
-      "notes": [],
-      "related_pull_requests": []
-    },
-    {
-      "id": "harness.retired_routes",
-      "title": "Retired endpoint overrides, hub-only consolidation and MCP/A2A work",
-      "status": "Superseded",
-      "intent": "Retain history without allowing obsolete runtime plans to direct resumption.",
-      "implemented": [],
-      "evidence": [
-        "README explicitly retires old config/MCP work; active dual-provider roadmap supersedes hub-only architecture."
-      ],
-      "acceptance": "These are not pending deliverables.",
-      "next_deliverable": "Maintain explicit superseded links in the inventory; no implementation action. ",
-      "dependencies": [],
-      "sources": [
-        "README.md",
-        "specs/artifacts/planning/hub-consolidation-roadmap.md",
-        "specs/artifacts/planning/hub-consolidation-roadmap-status.md",
-        "specs/artifacts/lanes/dev-roadmap.md",
-        "specs/007-llm-config-overrides/spec.md"
+        "https://github.com/pmanko/med-agent-hub/blob/main/server/patient_ledger_cache.py"
       ],
       "last_checked": "2026-09-06",
       "implementation_owner": null,
@@ -724,7 +664,7 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/findings/superset-retains-the-retired-database-record.md",
         "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/contracts/README.md",
         "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/tests/fixtures/superset-6.1/fixture.json",
-        "targets/catalyst/runtime/superset/receipts/latest/1ab809bea8ad2229b473ad95672f9d08eaf4b21dabda411b31c97fa49890db1d.json"
+        "https://github.com/DIGI-UW/catalyst-ai/blob/main/runtime/superset/receipts/latest/1ab809bea8ad2229b473ad95672f9d08eaf4b21dabda411b31c97fa49890db1d.json"
       ],
       "evidence": "Gateway connection and dialect work is included in merged Catalyst main pinned at 47c80d9. Final Catalyst and harness baseline checks passed; recorded live facts remain historical until the dual-source owner gate.",
       "last_checked": "2026-09-09",
@@ -997,7 +937,6 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/tasks.md",
         "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/docs/dashboard-builder-mvp-design.md",
         "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/docs/prototypes/dashboard-builder-mvp/Catalyst%20Dashboard%20Builder%204c.dc.html",
-        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md",
         "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/contracts/README.md",
         "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/tests/fixtures/superset-6.1/fixture.json"
       ],
@@ -1082,7 +1021,7 @@
       "sources": [
         "specs/008-catalyst-query-workbench/plan.md",
         "specs/008-catalyst-query-workbench/tasks.md",
-        "targets/catalyst/docs/dashboard-builder-mvp-design.md"
+        "https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/dashboard-builder-mvp-design.md"
       ],
       "evidence": "Feature 008 main records complete local two-source walkthroughs and authorization to continue saved work. Catalyst #117 has five green hosted checks at ccd5d06. Harness #157 merged as a5703cc; the runtime task owns deployment/evidence. Closed #151 does not amend the roadmap.",
       "last_checked": "2026-09-12",

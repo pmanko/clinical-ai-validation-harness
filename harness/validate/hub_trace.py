@@ -7,20 +7,29 @@ traces are matched by level, exact question, and the timestamp nearest the cell 
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from harness.common.jsonl import read_jsonl
 
 
-def trace_model_for_result(result: dict[str, Any], fallback_model: str) -> str:
+def trace_model_for_result(result: dict[str, Any], fallback_model: str | None = None) -> str | None:
     """Return the model/profile identity recorded with a result, if available.
 
     Historical reports must not depend on today's backend registry: aliases may be
     renamed or deleted after a run while its trace still uses the original profile.
+    JSON-string responses are decoded; malformed JSON or non-object envelopes raise.
     """
-    response_model = str((result.get("response") or {}).get("model") or "").strip()
-    return response_model or fallback_model
+    response = result.get("response")
+    if isinstance(response, str):
+        response = json.loads(response)
+    if response is None:
+        response = {}
+    if not isinstance(response, dict):
+        raise ValueError("result response must be a JSON object or null")
+    response_model = str(response.get("model") or "").strip()
+    return response_model or (result.get("request") or {}).get("profile") or fallback_model
 
 
 def load_traces(trace_file: Path) -> list[dict[str, Any]]:

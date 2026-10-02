@@ -15,27 +15,24 @@ from __future__ import annotations
 
 import inspect
 import json
-from collections.abc import Callable
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
 
-from ..metadata import RunManifest, append_event, utc_now_iso, write_manifest
-from ..submodules import read_harness_git_sha
+from ..metadata import RunManifest, append_event, copy_target_provenance, utc_now_iso, write_manifest
+from .bundle import capture_traces, freeze_inputs
+from .hub_trace import load_traces
 from .client import ChatResult
 from .dataset_provenance import build_dataset_provenance
 from .metrics import compute_metrics
 from .model_registry import arm_card
-from .models import Backend
 from .models import load_comparison_set, load_scenario
 from .report import build_report
 from .repository import JsonlRepository
 from .resolver import resolve_backends
-from .router_policy import reconcile_llama_router_for_backend
-
-RouterPolicy = Callable[[Backend], dict[str, Any] | None]
 
 
 def write_run_meta(
@@ -45,21 +42,18 @@ def write_run_meta(
     backend_ids: list[str],
     reference_date: str | None,
     backends: list[Any] | None = None,
+    arm_metadata: dict[str, dict[str, Any]] | None = None,
 ) -> Path:
-    """Freeze each arm's FULL resolved card (incl. config: knobs/prompts/retrieval) into
-    `<run_dir>/run_meta.json` at run time — the per-run capture layer so a report reflects
-    the config the run ACTUALLY used (provenance), not whatever the static config files say
-    at render time. Best-effort per arm: a resolve error on one backend never aborts the run
-    (that arm is simply omitted from the frozen cards). When the resolved ``backends`` are
-    given, their engine config (endpoint, model, pinned provider) is frozen under
-    ``backends`` — the engine-parity proof that AC-1 held for the whole run. Returns the
-    written path."""
-    cards: dict[str, Any] = {}
-    for b in backend_ids:
-        try:
-            cards[b] = arm_card(b)
-        except Exception:
-            continue
+    """Freeze configured labels/models and optional supplied arm metadata for reports.
+
+    Model internals, prompts and retrieval settings stay unknown unless supplied.
+    Resolved connection settings are captured separately under ``backends``.
+    """
+    resolved = {backend.id: backend for backend in backends or []}
+    cards = {
+        bid: arm_card(bid, backend=resolved.get(bid), metadata=(arm_metadata or {}).get(bid))
+        for bid in backend_ids
+    }
     frozen_backends: dict[str, Any] = {}
     for backend in backends or []:
         frozen_backends[backend.id] = {
@@ -164,15 +158,17 @@ def run_comparison(
     client: _Client,
     data_root: Path | str = "datasets/validation",
     output_dir: Path | str = "artifacts/validate",
-    project_root: Path | str = ".",
     git_sha: str | None = None,
+    target_provenance: list[dict[str, Any]] | None = None,
+    arm_metadata: dict[str, dict[str, Any]] | None = None,
+    corpus_provenance: dict[str, Any] | None = None,
+    trace_file: Path | str | None = None,
     dataset_id: str = "large-demo-data-2-7-0",
     dataset_version: str = "2.7.0",
     schema_mapping_version: str = "openmrs-2.7-to-2.8@v0",
     gen_ai_provider_name: str | None = None,
     resume_from: Path | str | None = None,
     reference_date: str | None = None,
-    router_policy: RouterPolicy | None = None,
 ) -> RunResult:
     # An explicit "now" for temporal scoring. Unset -> None, so every recorded row's
     # reference_date is absent and downstream falls back to the data era (today's
@@ -207,9 +203,8 @@ def run_comparison(
             f"backend(s) {', '.join(provider_arms)} pin a provider but the client "
             "cannot route providers (chat/new_session lack a provider kwarg)"
         )
-    project_root = Path(project_root)
     dataset_provenance = build_dataset_provenance(
-        data_root, comparison_set_id, project_root=project_root
+        data_root, comparison_set_id, corpus_provenance=corpus_provenance
     )
 
     # Capture a rich patient profile (demographics + clinical snapshot) for each unique
@@ -232,7 +227,8 @@ def run_comparison(
         run_id=run_id,
         project="clinical-ai-validation-harness",
         component="validate",
-        git_sha=git_sha if git_sha is not None else read_harness_git_sha(Path(project_root)),
+        git_sha=git_sha,
+        target_provenance=copy_target_provenance(target_provenance),
         dataset_id=dataset_id,
         dataset_version=dataset_version,
         schema_mapping_version=schema_mapping_version,
@@ -243,19 +239,15 @@ def run_comparison(
     manifest_path = run_dir / "run_manifest.json"
     events_path = run_dir / "events.jsonl"
     write_manifest(manifest_path, manifest)
-    # Freeze each arm's resolved config (knobs/prompts/retrieval) into run_meta.json BEFORE
-    # any turn runs, so the report reflects what THIS run used even if the static config
-    # files change later. Best-effort — never abort the run on a resolve/write error.
-    try:
-        write_run_meta(
-            run_dir,
-            run_id=run_id,
-            backend_ids=[b.id for b in backends],
-            reference_date=reference_date,
-            backends=backends,
-        )
-    except Exception:
-        pass
+    freeze_inputs(data_root, run_dir, comparison_set_id)
+    write_run_meta(
+        run_dir,
+        run_id=run_id,
+        backend_ids=[b.id for b in backends],
+        reference_date=reference_date,
+        backends=backends,
+        arm_metadata=arm_metadata,
+    )
     append_event(
         events_path,
         {
@@ -272,11 +264,6 @@ def run_comparison(
 
     repo = JsonlRepository(authored_root=data_root, run_dir=run_dir)
     result_count = 0
-    policy = router_policy if router_policy is not None else (
-        lambda backend: reconcile_llama_router_for_backend(
-            backend, project_root=project_root,
-        )
-    )
 
     # On resume, carry over every scenario×backend that already completed cleanly in a
     # prior run dir; only the missing/partial cells are re-run below.
@@ -288,17 +275,6 @@ def run_comparison(
     # The backend is selected per /chat request (a per-request override), so a run
     # never mutates chartsearchai's config-controlled global default.
     for backend in backends:
-        router_event = policy(backend)
-        if router_event:
-            append_event(
-                events_path,
-                {
-                    "event_type": "llama_router_policy",
-                    "run_id": run_id,
-                    "backend_id": backend.id,
-                    **router_event,
-                },
-            )
         append_event(
             events_path,
             {
@@ -309,7 +285,6 @@ def run_comparison(
                 "endpointUrl": backend.endpoint_url,
                 "modelName": backend.model_name,
                 "transport": cset.transport,
-                "llamaRouterModelsMax": backend.llama_router_models_max,
             },
         )
         for scenario in scenarios:
@@ -363,7 +338,7 @@ def run_comparison(
                 request_id = str(uuid4()) if client_takes_request_id else None
                 started = utc_now_iso()
                 # The bundled provider has no product profiles — its modelName is
-                # informative (run_meta/router policy), never sent as a profile.
+                # informative (run_meta), never sent as a profile.
                 chat_kwargs: dict[str, Any] = (
                     {} if backend.provider == "bundled" else {"profile": backend.model_name}
                 )
@@ -407,15 +382,18 @@ def run_comparison(
                     )
                     if client_takes_request_id:
                         id_kwargs["request_id"] = indepth_request_id
+                    indepth_session = session
+                    indepth_started = utc_now_iso()
                     try:
                         ires = client.chat(
-                            scenario.patient_ref, session,
+                            scenario.patient_ref, indepth_session,
                             "Now provide the in-depth clinical background for that answer.",
                             **id_kwargs,
                         )
                     except Exception as exc:
                         ires = ChatResult(status=0, envelope=None, latency_ms=0,
                                           raw_text=f"in-depth request failed: {type(exc).__name__}: {exc}")
+                    indepth_ended = utc_now_iso()
                     # Do NOT propagate the In-Depth's session — it is an evaluation artifact, not part of
                     # the conversation; later turns continue from the answer's session (no contamination).
                     indepth_artifact = {
@@ -423,6 +401,9 @@ def run_comparison(
                         "latency_ms": ires.latency_ms,
                         "http_status": ires.status,
                         "model_name": backend.indepth_model,
+                        "session": indepth_session,
+                        "started_at": indepth_started,
+                        "ended_at": indepth_ended,
                         "error": None if ires.status == 200 else (ires.raw_text or "")[:500],
                         **(
                             {"request_id": indepth_request_id}
@@ -439,6 +420,8 @@ def run_comparison(
                         "patient": scenario.patient_ref,
                         "session": session_sent,
                         "question": turn.question,
+                        "profile": chat_kwargs.get("profile"),
+                        "provider": backend.provider or None,
                         **({"request_id": request_id} if request_id else {}),
                     },
                     "response": res.envelope,
@@ -468,6 +451,10 @@ def run_comparison(
                 result_count += 1
                 first_turn = False
 
+    candidates = load_traces(Path(resume_from) / "trace.jsonl") if resume_from else []
+    if trace_file is not None:
+        candidates.extend(load_traces(Path(trace_file)))
+    capture_traces(run_dir, candidates)
     report_path = build_report(run_dir)
 
     return RunResult(

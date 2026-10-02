@@ -1,158 +1,162 @@
-<!--
-Sync Impact Report
-Version change: 1.0.0 -> 1.1.0
-Modified principles:
-- I. Real Production Paths: unchanged
-- II. Deterministic Reviewed Transforms: unchanged
-- III. Record-Level Evidence: expanded to require rationale-bearing evidence
-- IV. Metadata, Provenance, and Traceability: expanded to capture decision rationale
-- V. Tests Define Behavior: expanded to require scenario diversity and overfit checks
-Added sections:
-- none
-Removed sections:
-- none
-Templates requiring updates:
-- updated: .specify/templates/plan-template.md
-- updated: .specify/templates/spec-template.md
-- updated: .specify/templates/tasks-template.md
-- updated: .specify/templates/checklist-template.md
-- updated: .specify/templates/commands/*.md (no command templates present)
-- updated: README.md
-- updated: AGENTS.md
-- updated: specs/artifacts/planning/data-remap-2.8.md
-- updated: specs/artifacts/planning/metadata-schema.md
-Follow-up TODOs: none
--->
 # clinical-ai-validation-harness Constitution
 
 ## Core Principles
 
-### I. Real Production Paths
+### I. Independent Runner and Real Production Paths
 
-Validation MUST exercise the real OpenMRS, OpenELIS Catalyst, `chartsearchai`,
-`querystore`, and `openmrs_chatbot` paths whenever those paths are available.
-Adapters may orchestrate setup and command/API invocation, but they MUST NOT
-replace target project behavior with harness-only simulations for validation
-claims. Any mock, fixture, synthetic shortcut, or narrow honeypot scenario MUST
-be labelled as development scaffolding and excluded from release evidence unless
-paired with a real-path validation run.
+The harness MUST be an independently installable, modular experiment runner for
+configured targets. Its responsibilities are adapters, scenario execution, input
+and output/trace capture, provenance, evaluation, review and report generation.
+It MUST run without Git, submodules, product pins, local product source trees or
+an umbrella installation. Target preparation is owned by the caller; the runner
+MUST NOT perform checkout, build, deployment, release-policy enforcement or
+model-service process control.
 
-Rationale: the harness exists to validate integration behavior and clinical AI
-outputs as they will actually run, not an approximation of those systems.
+Product and clinical acceptance MUST exercise real product interfaces. Adapters
+invoke those interfaces; they MUST NOT replace product behavior with harness-only
+simulations. Mock, fixture and synthetic runs MUST be labeled as runner-development
+or fixture evidence, not real-path product/release acceptance. A passing test
+double cannot substitute for a real-path acceptance run.
+
+Rationale: portable experiment execution and honest product evidence do not depend
+on managing the product's development workspace.
 
 ### II. Deterministic Reviewed Transforms
 
-LLM-assisted analysis MAY propose schema mappings, record mappings, prompts, or
+LLM-assisted analysis MAY propose schema mappings, record mappings, prompts or
 retrieval changes, but accepted behavior MUST live in reviewed configuration,
-scripts, or code. Data transforms MUST be deterministic, repeatable from a clean
-baseline, and free of hidden manual repair steps. The default source corpus for
-OpenMRS remap work is `large-demo-data-2-7-0.sql`; the target for the first
-milestone is an OpenMRS Platform/Core 2.8 Ref App-compatible database.
+scripts or code. Data transforms MUST be deterministic, repeatable from a clean
+baseline and free of hidden manual repairs. OpenMRS remap corpus work uses
+`large-demo-data-2-7-0.sql` and an OpenMRS Platform/Core 2.8 Ref App-compatible
+baseline; this does not constrain every experiment to that corpus or deployment.
 
-Rationale: clinical validation evidence must be reproducible by reviewers and
-future agents without relying on unstated judgment or transient model output.
+Rationale: evidence must be reproducible without unstated judgment or transient
+model proposals.
 
 ### III. Record-Level Evidence
 
-Claims about filtering, mapping, import success, retrieval quality, answer
-quality, or safety MUST preserve record-level evidence and the rationale for the
-judgment made from that evidence. Aggregate counts, success rates, and smoke-test
-summaries are insufficient unless they link back to inspected records, cited
-record identifiers, reviewer labels, decision rationale, or reproducible queries.
-Known-answer fixtures and retrieval evaluations MUST make it possible to trace an
-answer to the supporting clinical records and to any abstention or review
-decision, including why the decision is clinically and operationally acceptable.
+Claims about filtering, mapping, import, retrieval, answer quality or safety MUST
+preserve record-level evidence and decision rationale. Aggregate counts, success
+rates and smoke summaries are insufficient unless linked to inspected records,
+cited identifiers, reviewer labels, rationale or reproducible queries. Known-answer
+fixtures and retrieval evaluation MUST trace answers to supporting clinical
+records and explain why abstention/review decisions are clinically and
+operationally acceptable.
 
-Rationale: clinical validation fails when a passing metric hides incorrect
-patient-level evidence, unsafe citations, or changed clinical meaning.
+Rationale: passing metrics must not hide patient-level errors, unsafe citations or
+changed clinical meaning.
 
-### IV. Metadata, Provenance, and Traceability
+### IV. Metadata, Provenance and Portable Evidence
 
-Every harness run that produces validation evidence MUST emit versioned
-metadata, including `run_manifest.json` and `events.jsonl` where applicable.
-Metadata MUST capture project/component identity, git revision, dataset and
-mapping versions, model/provider/prompt provenance when models are involved,
-retrieval details, reviewer decisions, decision rationale, and schema versions.
-Shared fields SHOULD align with OpenTelemetry GenAI conventions when practical,
-while clinical-evaluation fields remain explicit harness extensions.
+Evidence-producing runs MUST emit versioned metadata, including
+`run_manifest.json` and `events.jsonl` where applicable. Capture component/target
+identity, dataset/mapping versions, model/provider/prompt/configuration provenance
+when involved, retrieval details, reviewer decisions/rationale and schema versions.
 
-Rationale: reviewers need a durable chain from a result back to the code,
-dataset, mapping, prompt, model, and execution environment that produced it.
+Target provenance MUST record identity supplied by the caller or observed through
+target interfaces, with its origin and unavailable metadata explicit. Revisions
+are optional: `git_sha` MUST be nullable when unavailable. The harness MUST NOT
+invoke Git, enforce pins or scan product source trees to fill identity/model/prompt
+fields. A supplied revision is an assertion, not proof that a service runs it;
+conflicting observations MUST remain visible rather than silently overwritten.
+Shared fields SHOULD align with OpenTelemetry GenAI conventions where practical;
+clinical-evaluation fields remain explicit extensions.
+
+Run artifacts MUST capture the experiment inputs and bounded clinical fixtures
+needed by evaluators and reports, plus outputs, traces, evaluations and review
+records. Evaluation MAY call configured model services with separately attributed
+provenance. Report generation MUST be an offline transformation of captured
+run-local artifacts, with no target/evaluator service, original authored dataset
+location, product source or workspace access. Missing inputs MUST be disclosed,
+not silently replaced with current local files.
+
+Rationale: a reviewer must be able to move an evidence packet and regenerate its
+report without reconstructing the author's workspace or guessing unavailable facts.
 
 ### V. Tests Define Behavior
 
-Behavioral changes MUST add or update tests before the change is considered
-complete. Tests MUST NOT be weakened to match broken behavior, overfit to one
-known fixture, or validate only the exact scenario used to tune the behavior.
-Smoke tests MUST grow toward real OpenMRS startup, REST/API readability, schema
-integrity, indexing, retrieval, metadata validity, and adapter checks. Evaluation
-suites MUST include diverse clinical and operational scenarios when validation
-evidence depends on model behavior, retrieval behavior, mappings, or external
-tools, including ambiguous mappings, missing evidence, unsupported claims,
-abstentions, and tool/API failures when relevant. Metadata tests MUST verify
-emitted manifests and event traces remain valid and versioned.
+Behavioral changes MUST add/update tests and MUST NOT weaken tests to match broken
+behavior or overfit to a single tuning fixture. Test configuration, adapters,
+versioned metadata, evidence references and evaluation/report mechanics. Use diverse
+clinical and operational scenarios: ambiguous mappings, missing evidence,
+unsupported claims, abstentions and tool/API failures where relevant.
 
-Rationale: this repository is a validation harness; untested behavior changes
-undermine the evidence the harness is supposed to produce.
+Isolation tests MUST cover both clinical and Catalyst experiment paths without Git,
+registry initialization, product pins or sources; supplied/observed/missing metadata;
+no service process control; and portable offline report regeneration. Test doubles
+prove mechanics; real target interfaces establish product acceptance separately.
+
+Rationale: untested runner behavior undermines the evidence it produces.
 
 ## Validation Scope and Data Boundaries
 
-This repository is a lightweight monorepo-style control plane for local and
-VM-based setup, orchestration, and validation across early clinical AI projects.
-It SHOULD coordinate sibling or mounted checkouts instead of vendoring upstream
-code by default. Project registry, checkout, compose, and adapter work MUST keep
-the referenced projects' real commands and APIs as the validation surface.
+The caller supplies adapter/connection settings, scenarios, fixtures, evaluation
+settings, provenance and output location, and prepares required targets/services.
+Readiness checks validate the selected experiment's configuration, connectivity and
+capabilities, not workspace checkout state or release policy.
 
-Clinical evidence data and operating metadata MUST remain separate. Query Store
-and CQRS-style stores are for searchable clinical records; this harness stores
-run metadata, traces, responses, evaluations, review records, and reports.
-Artifacts generated by runs MUST live in ignored artifact/output locations unless
-explicitly curated as durable documentation or fixtures.
+Product contracts remain product-owned and MUST be linked by repository URL, not
+made dependent on a nested checkout. The OpenClinAI umbrella owns canonical
+direct component gitlinks (one per product, none nested in the harness; the
+`openmrs_chatbot` target is excluded), pins, checkouts, builds, shared environments,
+deployment, release coordination and website content/build/publication. Harness outputs are
+inputs to publication. Physical topology and website relocation are separate
+implementation slices; assigning ownership does not establish their completion.
 
-Material changes to models, prompts, retrieval behavior, schema mappings, data
-transforms, validation criteria, or pipeline behavior MUST include PCCP-style
-change records or equivalent review context that describes the modification,
-validation protocol, impact assessment, and residual risk.
+Clinical evidence data and operating metadata MUST remain separate. QueryStore and
+CQRS stores own searchable clinical records; the harness stores bounded captured
+evidence, run metadata, traces, responses, evaluation and review records/reports.
+Generated outputs MUST use ignored output locations unless explicitly curated as
+reviewed fixtures or durable documentation. Credentials, secret-bearing connection
+strings and raw private model reasoning MUST NOT enter evidence. Absolute
+workstation paths and private deployment details MUST NOT enter publishable
+artifacts. Clinical disclosure requires deliberate review/redaction before sharing.
+
+Material changes to models, prompts, retrieval, mappings, transforms, validation
+criteria or pipelines MUST include PCCP-style change records or equivalent review
+context covering change, validation protocol, impact and residual risk.
 
 ## Development Workflow and Governance Gates
 
-Plans MUST document how each feature satisfies the constitution before
-implementation begins and again after design decisions are made. Specifications
-MUST include measurable success criteria, independently testable user stories,
-data boundaries, provenance needs, and evidence requirements when the feature
-touches clinical data, mappings, retrieval, model behavior, or validation
-artifacts. Plans and specifications MUST explain why the selected evidence,
-tests, and governance controls are sufficient, not merely list what actions will
-be taken.
+Plans MUST document constitutional compliance before implementation and after
+design. Specs MUST include independently testable stories, measurable outcomes,
+data/provenance boundaries, evidence requirements and why their controls suffice.
+Tasks MUST be small, reviewable and ordered so evidence capture and tests accompany
+the behavior they validate. Update changed quickstarts, metadata contracts and
+consumers directly.
 
-Tasks MUST be small, reviewable, and ordered so reproducibility and evidence
-capture are implemented with the behavior they validate. The task list MUST
-include tests for behavioral changes and documentation updates for any changed
-quickstart, metadata schema, remap strategy, or governance process.
+Each current requirement MUST have one maintained owner; retain its ID when its
+responsibility remains. Delete obsolete requirements and files without current
+responsibility rather than retaining archived specs, superseded banners or
+placeholders. Git history owns past specifications. Dated run reports, handoffs,
+sitreps and memory are evidence, not current requirements. Separate implementation,
+verification and publication; do not infer deployed acceptance from local tests.
 
-Pull requests and reviews MUST check for real-path validation, deterministic
-accepted mappings, record-level evidence, metadata emission, test coverage, and
-PCCP-style review records when applicable.
+Reviews MUST check real-path claim limits, deterministic accepted mappings,
+record-level evidence, metadata, isolation/portability tests, safety boundaries and
+PCCP context where applicable.
 
 ## Governance
 
-This constitution supersedes conflicting guidance in repository documentation,
-Spec Kit templates, feature plans, and agent instructions. Repository guidance
-such as `AGENTS.md`, `README.md`, user-facing `docs/`, and planning artifacts in
-`specs/` MUST be kept aligned when this constitution changes.
+This constitution supersedes conflicting harness docs, templates, feature plans
+and agent instructions; it does not override product governance. Keep consumers
+aligned when it changes. Amendments require a pull request explaining the change,
+updating affected templates/specs/docs and identifying synchronization impacts.
+Versioning is semantic: MAJOR redefines/removes a core principle incompatibly;
+MINOR adds/expands governance; PATCH clarifies without semantic change.
 
-Amendments require a pull request that explains the governance change, updates
-affected templates, specs, and docs, and includes a Sync Impact Report in this
-file.
-Versioning follows semantic versioning:
+Compliance review is required for feature plans/task sets and material clinical,
+metadata, retrieval, prompt, model or pipeline changes. Document exceptions with
+justification, a safer alternative and residual risk.
 
-- MAJOR: removes or redefines a core principle in a backward-incompatible way.
-- MINOR: adds a principle or materially expands governance requirements.
-- PATCH: clarifies wording, fixes typos, or makes non-semantic refinements.
+## Synchronization impact
 
-Compliance review is required for every feature plan, task set, and material
-change touching clinical evidence, mappings, metadata, retrieval, prompts,
-models, or validation pipelines. Exceptions MUST be documented in the feature
-plan with a justification, a safer alternative considered, and the residual risk.
+This amendment redefines the harness boundary as independent experiment execution
+and makes supplied/observed provenance and portable evidence explicit. Consumer
+alignment covers `AGENTS.md`, `CLAUDE.md`, `README.md`, `WORKSPACE.md`, SpecKit
+feature context/templates, Spec 001, Spec 002, Feature 006 and the shared metadata guide.
+Runtime isolation is verified under Feature 006; umbrella workspace operations,
+physical product topology, website relocation and Feature 008 ownership
+consolidation remain separately coordinated work.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-12 | **Last Amended**: 2026-05-12
+**Version**: 2.0.0 | **Ratified**: 2026-05-12 | **Last Amended**: 2026-09-30

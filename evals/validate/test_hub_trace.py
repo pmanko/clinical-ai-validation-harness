@@ -48,11 +48,7 @@ def test_match_trace_dashboard_style_latest_match_and_slack():
     assert matched and matched["n"] == 2
 
 
-def test_gate_for_row_present_and_absent(monkeypatch):
-    monkeypatch.setattr(
-        "harness.validate.report.arm_model_name",
-        lambda backend_id, **_: backend_id,
-    )
+def test_gate_for_row_present_and_absent():
     traces = [
         {
             "level_id": "arm-a",

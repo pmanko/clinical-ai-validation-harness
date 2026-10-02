@@ -43,6 +43,10 @@
 Answer each gate with `PASS`, `FAIL`, or `N/A`, and document any justified
 exception in Complexity Tracking.
 
+- **Independent runner**: Selected experiments run without Git, submodules,
+  product pins, product source trees or an umbrella installation. Caller-owned
+  target preparation stays outside the runner; no checkout/build/deploy/release
+  management or model-service process control is introduced.
 - **Real production paths**: Plan identifies the real project command/API path
   being exercised, or labels any fixture/mock use as non-evidence scaffolding.
 - **Deterministic reviewed transforms**: Accepted mappings, transforms, prompts,
@@ -54,7 +58,9 @@ exception in Complexity Tracking.
 - **Metadata and provenance**: Plan emits or updates versioned
   `run_manifest.json`, `events.jsonl`, schema/mapping versions, and relevant
   model/provider/prompt/dataset provenance, including decision rationale where
-  judgments are made.
+  judgments are made. Target identity is supplied/observed with nullable revisions
+  and explicit missing facts; no source scans or pin gates. Reports regenerate
+  from captured run-local inputs without live services or original data roots.
 - **Tests define behavior**: Behavioral changes include tests that fail before
   implementation or explicitly document why the change is documentation-only;
   validation tests cover scenario diversity and are not limited to the exact
@@ -88,7 +94,7 @@ specs/[###-feature]/
 -->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Harness/control-plane feature (DEFAULT)
+# [REMOVE IF UNUSED] Option 1: Modular validation runner (DEFAULT)
 harness/
 ├── adapters/
 ├── cli.py
@@ -102,9 +108,9 @@ evals/
 └── retrieval/
 
 docs/                 # user-facing documentation
-specs/                # roadmap, planning docs, and milestone artifacts
-datasets/
-compose/
+specs/                # validation contracts and implementation direction
+datasets/             # reviewed experiment inputs
+artifacts/            # captured run packets (ignored unless curated)
 
 # [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
 backend/

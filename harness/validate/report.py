@@ -41,9 +41,9 @@ from harness.report_shell.assets import (
 from harness.report_shell.document import render_document
 from harness.report_shell.stats import avg, box_stats, ordered_unique, percentile, robust_axis_max
 
+from .bundle import frozen_arm_cards, review_results, run_chart
 from .hub_trace import load_traces, match_trace, trace_model_for_result
-from .model_registry import arm_model_name
-from .model_registry import arm_card
+
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .review_presentation import (
     indepth_validation_display,
@@ -58,7 +58,7 @@ from .response_artifacts import (
     response_for_displayed_evidence,
     split_answer_sections,
 )
-from .sources import build_sources, load_scenario_chart, source_ref_labels
+from .sources import build_sources, source_ref_labels
 from .stage_timings import expected_stage_labels, extract_stage_timings, stage_timing_label
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
@@ -66,7 +66,7 @@ from .stage_timings import expected_stage_labels, extract_stage_timings, stage_t
 # answer to the harness. Surface it from the answer text so a broken backend is
 # visible instead of silently passing as an empty answer.
 _FALLBACK_MARKER = "could not produce a complete answer"
-_DATA_DIR = Path(__file__).resolve().parents[2] / "datasets" / "validation"
+
 
 
 def _is_degraded(r: dict[str, Any]) -> bool:
@@ -517,7 +517,7 @@ def _trace_for_row(r: dict[str, Any], traces: list[dict[str, Any]] | None) -> di
     request = r.get("request") or {}
     return match_trace(
         traces or [],
-        trace_model_for_result(r, arm_model_name(r.get("backend_id"))),
+        trace_model_for_result(r, r.get("backend_id")),
         r.get("started_at"),
         r.get("ended_at"),
         question=request.get("question"),
@@ -701,45 +701,18 @@ def _cell_blob(
 
 
 def _arm_cards_for(run_dir: Path, backends: list[str]) -> dict[str, Any]:
-    """Resolve the per-arm cards for the blob, preferring the run's FROZEN provenance.
-
-    WS1: when `<run_dir>/run_meta.json` exists and carries `arm_cards`, use those — they were
-    captured at run time, so the report reflects the config the run ACTUALLY used (knobs /
-    prompts / retrieval), not whatever the static config files say now. A backend absent from
-    the frozen set still resolves live (best-effort). When run_meta.json is absent (every
-    existing run) this falls back to live `arm_card(b)` resolution byte-for-byte as before."""
-    frozen: dict[str, Any] = {}
-    meta_path = run_dir / "run_meta.json"
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            if isinstance(meta, dict) and isinstance(meta.get("arm_cards"), dict):
-                frozen = meta["arm_cards"]
-        except Exception:
-            frozen = {}
-    def _resolve(b: str) -> dict[str, Any]:
-        live = arm_card(b)
-        if b in frozen:
-            # Config (knobs/prompts/models) stays FROZEN — what actually ran. But the display name
-            # (title/short_title/label) is refreshed from live so renaming/quant fixes show up in
-            # already-run reports (e.g. "Gemma 4 12B" -> "Gemma 4 12B · Q8").
-            return {**frozen[b], "title": live.get("title"),
-                    "short_title": live.get("short_title"), "label": live.get("label")}
-        return live
-    return {b: _resolve(b) for b in backends}
+    """Read captured arm cards only; unavailable cards remain explicitly absent."""
+    return frozen_arm_cards(run_dir, backends)
 
 
 def _run_blob(run_dir: Path) -> dict[str, Any]:
     """Assemble one run into the blob shape. Reads the same three files as before;
     a missing run_manifest.json still raises (contract), results/events tolerated."""
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
-    results = _read_jsonl(run_dir / "results.jsonl")
+    results = review_results(run_dir)
     events = _read_jsonl(run_dir / "events.jsonl")
     labels = _backend_labels(events)
-    # Per-turn diagnostics also live in the hub artifact. New runs correlate by request session;
-    # historical runs use level, exact question, and nearest completion time. artifacts/hub-trace
-    # is a sibling of artifacts/validate/<run>, i.e. run_dir.parent.parent / hub-trace.
-    traces = load_traces(run_dir.parent.parent / "hub-trace" / "trace.jsonl")
+    traces = load_traces(run_dir / "trace.jsonl")
 
     backends = _ordered_unique([r.get("backend_id") for r in results])
     scenario_ids = _ordered_unique([r.get("scenario_id") for r in results])
@@ -748,7 +721,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
 
     scenarios = []
     for sid in scenario_ids:
-        chart_fixture = load_scenario_chart(sid, _DATA_DIR / "scenarios", _DATA_DIR / "charts")
+        chart_fixture = run_chart(run_dir, sid)
         rs = [r for r in results if r.get("scenario_id") == sid]
         turns_seen = _ordered_unique([r.get("turn") for r in rs])
         index = {(r.get("turn"), r.get("backend_id")): r for r in rs}
