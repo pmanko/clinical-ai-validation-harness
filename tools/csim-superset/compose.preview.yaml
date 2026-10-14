@@ -1,0 +1,4 @@
+services:
+  superset:
+    environment:
+      SUPERSET_CONFIG_PATH: /repro/preview_config.py

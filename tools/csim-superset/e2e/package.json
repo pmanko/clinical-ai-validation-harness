@@ -1,0 +1,12 @@
+{
+  "name": "csim-dashboard-workflows",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node run.mjs",
+    "check-publication": "node check-publication.mjs",
+    "demo": "CSIM_RECORD=1 node run.mjs",
+    "report": "playwright show-report ../output/browser/latest/playwright-report"
+  },
+  "devDependencies": { "@playwright/test": "1.57.0" }
+}
