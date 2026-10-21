@@ -4,7 +4,15 @@
   "turns": [
     {
       "n": 1,
-      "question": "Share the history of CD4 counts since this patient came to clinic."
+      "question": "Share the history of CD4 counts since this patient came to clinic.",
+      "checks": {
+        "cite_types": [
+          "Observation"
+        ],
+        "answer_includes": [
+          "\\b72\\b"
+        ]
+      }
     }
   ],
   "tags": [

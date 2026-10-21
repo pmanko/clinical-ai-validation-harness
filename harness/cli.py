@@ -102,6 +102,13 @@ def _build_parser() -> argparse.ArgumentParser:
     val_report.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
     val_report.add_argument("--output-dir", default="artifacts/validate")
 
+    val_expect = val_sub.add_parser(
+        "expect", help="Check a completed run's answers against its scenarios' turn checks"
+    )
+    val_expect.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
+    val_expect.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
+    val_expect.add_argument("--output-dir", default="artifacts/validate")
+
     val_adj = val_sub.add_parser(
         "adjudicate",
         help="Guided human review of a judged run: sample cells, present each against "
@@ -287,6 +294,19 @@ def main(
             out = build_report(run_dir)
             print(f"report -> {out}")
             return 0
+        if args.validate_action == "expect":
+            from .validate.expectations import check_run
+
+            run_dir = Path(args.run_dir or Path(args.output_dir) / args.run_id)
+            outcomes = check_run(run_dir)
+            for o in outcomes:
+                mark = "pass" if o["passed"] else "FAIL"
+                print(f"{mark} {o['scenario_id']} turn {o['turn']} {o['backend_id']}"
+                      + "".join(f"\n     {f}" for f in o["failures"]))
+            failed = sum(not o["passed"] for o in outcomes)
+            print(f"{len(outcomes) - failed} of {len(outcomes)} checked turns passed"
+                  f" -> {run_dir / 'expectations.jsonl'}")
+            return 1 if failed or not outcomes else 0
         if args.validate_action == "adjudicate":
             from .validate.adjudicate import run_adjudication
 

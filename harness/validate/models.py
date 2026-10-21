@@ -21,6 +21,8 @@ def _require(data: dict[str, Any], keys: tuple[str, ...], what: str) -> None:
 class Turn:
     n: int
     question: str
+    # Machine-checkable expectations for this turn's answer (see expectations.py).
+    checks: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -37,7 +39,8 @@ class Scenario:
         turns_raw = data["turns"]
         if not isinstance(turns_raw, list) or not turns_raw:
             raise ValueError(f"scenario {data.get('id')!r}: 'turns' must be a non-empty list")
-        turns = [Turn(n=int(t["n"]), question=str(t["question"])) for t in turns_raw]
+        turns = [Turn(n=int(t["n"]), question=str(t["question"]), checks=dict(t.get("checks", {})))
+                 for t in turns_raw]
         return cls(
             id=str(data["id"]),
             patient_ref=str(data["patient_ref"]),

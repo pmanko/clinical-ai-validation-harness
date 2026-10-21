@@ -1,0 +1,13 @@
+{
+  "id": "review-smoke",
+  "description": "Review layer L3: four single-turn scenarios with machine-checkable turn checks (medications, a single CD4 value, a weight trend, an out-of-chart question) on the checked 12B profile.",
+  "scenario_ids": [
+    "am-cd4-history",
+    "am-weight-trend",
+    "am-medications",
+    "abstain-out-of-chart"
+  ],
+  "backend_ids": [
+    "single-12b-checked"
+  ]
+}
