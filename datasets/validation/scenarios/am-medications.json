@@ -7,11 +7,11 @@
       "question": "What medications is this patient currently on?",
       "checks": {
         "cite_types": [
-          "MedicationRequest"
+          "drug_order"
         ],
         "answer_includes": [
           "efavirenz",
-          "cotrimoxazole|co-trimoxazole"
+          "cotrimoxazole|co-trimoxazole|trimethoprim"
         ]
       }
     }

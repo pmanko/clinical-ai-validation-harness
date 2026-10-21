@@ -7,7 +7,7 @@
       "question": "How has this patient's weight changed over the past year?",
       "checks": {
         "cite_types": [
-          "Observation"
+          "obs"
         ],
         "answer_includes": [
           "\\b52\\b",
