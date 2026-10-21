@@ -1,0 +1,27 @@
+{
+  "id": "full-default",
+  "description": "Full evaluation default matrix: the twelve single-turn scenarios of hub-profile-candidate and five conversations (about 35 turns), on bundled ChartSearchAI and the Hub's checked 12B profile, both on the same 12B engine through the parity taps, so the arms differ only by the Hub being in the loop.",
+  "scenario_ids": [
+    "date-zabella-weight-table",
+    "date-zabella-weight-endpoints",
+    "date-aloice-orders-table",
+    "date-aloice-last-visit-exact",
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth",
+    "abstain-out-of-chart",
+    "convo-medications-adherence",
+    "convo-diagnosis-evidence",
+    "convo-vitals-monitoring",
+    "convo-abstention-honesty",
+    "convo-safety-escalation"
+  ],
+  "backend_ids": [
+    "engine-parity-bundled-12b",
+    "engine-parity-hub-12b"
+  ]
+}
