@@ -1,0 +1,19 @@
+{
+  "id": "ctx-mental-3666",
+  "patient_ref": "dd7fde7e-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does the patient have any mental health or psychiatric conditions?"
+    }
+  ],
+  "tags": [
+    "context-cohort",
+    "topic:mental",
+    "single-turn"
+  ],
+  "expectations": {
+    "gold_cell": "dd7fde7e-1691-11df-97a5-7038c432aabf|mental",
+    "should_abstain": false
+  }
+}

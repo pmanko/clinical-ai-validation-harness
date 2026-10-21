@@ -1,0 +1,19 @@
+{
+  "id": "ctx-eye-2606",
+  "patient_ref": "dd780925-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does the patient have any eye problems?"
+    }
+  ],
+  "tags": [
+    "context-cohort",
+    "topic:eye",
+    "single-turn"
+  ],
+  "expectations": {
+    "gold_cell": "dd780925-1691-11df-97a5-7038c432aabf|eye",
+    "should_abstain": true
+  }
+}

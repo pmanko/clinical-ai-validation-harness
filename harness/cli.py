@@ -109,6 +109,15 @@ def _build_parser() -> argparse.ArgumentParser:
     val_expect.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
     val_expect.add_argument("--output-dir", default="artifacts/validate")
 
+    val_cite = val_sub.add_parser(
+        "score-citations", help="Score a run's citations against a gold file of on-topic records"
+    )
+    val_cite.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
+    val_cite.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
+    val_cite.add_argument("--output-dir", default="artifacts/validate")
+    val_cite.add_argument("--gold", required=True, help="Gold file: per cell present/ontopic/focus_uuids")
+    val_cite.add_argument("--adjudication", help="Adjudicated off- and on-topic citations")
+
     val_adj = val_sub.add_parser(
         "adjudicate",
         help="Guided human review of a judged run: sample cells, present each against "
@@ -307,6 +316,14 @@ def main(
             print(f"{len(outcomes) - failed} of {len(outcomes)} checked turns passed"
                   f" -> {run_dir / 'expectations.jsonl'}")
             return 1 if failed or not outcomes else 0
+        if args.validate_action == "score-citations":
+            from .validate.citations import score_run
+
+            run_dir = Path(args.run_dir or Path(args.output_dir) / args.run_id)
+            out = score_run(run_dir, Path(args.gold),
+                            Path(args.adjudication) if args.adjudication else None)
+            print(json.dumps(out["summary"], indent=1))
+            return 0 if out["summary"] else 1
         if args.validate_action == "adjudicate":
             from .validate.adjudicate import run_adjudication
 
