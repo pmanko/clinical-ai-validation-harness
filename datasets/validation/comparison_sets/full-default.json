@@ -1,6 +1,11 @@
 {
   "id": "full-default",
   "description": "Full evaluation default matrix: the twelve single-turn scenarios of hub-profile-candidate and five conversations (about 35 turns), on bundled ChartSearchAI and the Hub's single-12b-answer product profile (one answer call with deterministic checks, no review or In-Depth), both on the same 12B engine through the parity taps, so the arms differ by the Hub being in the loop and not by the Hub's model review. A checked profile is an added arm (PROFILES=).",
+  "context": {
+    "text": "For how the two answer paths differ, what this comparison holds equal and what the scores can and cannot show, see",
+    "label": "Answer paths and their evaluation",
+    "url": "https://openclinai.org/chartsearchai/comparing-answer-paths/"
+  },
   "scenario_ids": [
     "date-zabella-weight-table",
     "date-zabella-weight-endpoints",
