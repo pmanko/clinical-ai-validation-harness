@@ -705,6 +705,35 @@ def _arm_cards_for(run_dir: Path, backends: list[str]) -> dict[str, Any]:
     return frozen_arm_cards(run_dir, backends)
 
 
+def _comparison_context(run_dir: Path, events: list[dict[str, Any]]) -> dict[str, str] | None:
+    """The reader context the run's captured comparison set links to, if it names one.
+
+    Only an https link is kept, with its label and a sentence introducing it.
+    """
+    set_id = next(
+        (e.get("comparison_set") for e in events
+         if e.get("event_type") == "run" and e.get("comparison_set")),
+        None,
+    )
+    if not set_id:
+        return None
+    path = run_dir / "inputs" / "comparison_sets" / f"{set_id}.json"
+    try:
+        context = json.loads(path.read_text(encoding="utf-8")).get("context")
+    except (OSError, ValueError):
+        return None
+    if not isinstance(context, dict):
+        return None
+    url = str(context.get("url") or "").replace("'", "%27").replace('"', "%22")
+    if not url.startswith("https://"):
+        return None
+    return {
+        "url": url,
+        "label": str(context.get("label") or url),
+        "text": str(context.get("text") or ""),
+    }
+
+
 def _run_blob(run_dir: Path) -> dict[str, Any]:
     """Assemble one run into the blob shape. Reads the same three files as before;
     a missing run_manifest.json still raises (contract), results/events tolerated."""
@@ -767,6 +796,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     judge_rows = _load_judge(run_dir)
     judge_actors = _load_judge_actors(run_dir)
     arm_cards = _arm_cards_for(run_dir, backends)
+    context = _comparison_context(run_dir, events)
 
     return {
         "run_id": run_id,
@@ -795,6 +825,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "calibrated": calibrated_summary(
             judge_rows, _load_adjudication(run_dir), backends),
         "patients": patients,
+        "context": context,
         # WS2: structured arm makeup (single and team med-agent-hub profiles +
         # role->model lineup) so the report's "what this run compares" section + badges render
         # from one resolver instead of parsing the label string. Best-effort: never blocks a render.
@@ -1623,7 +1654,12 @@ function renderArmConfig(cfg){
 function renderArms(run){
   const sec = el('section', 'arms-section');
   const cards = run.arm_cards || {};
-  let h = "<p class='intro'>Every setup answers the same questions, graded against the patient's chart. " +
+  let h = "";
+  if (run.context && run.context.url){
+    h += "<p class='intro context-link'>" + (run.context.text ? htmlEsc(run.context.text) + " " : "") +
+         "<a href='" + htmlEsc(run.context.url) + "' rel='noopener'>" + htmlEsc(run.context.label) + "</a></p>";
+  }
+  h += "<p class='intro'>Every setup answers the same questions, graded against the patient's chart. " +
        "A <b>single profile</b> uses one writer with configured checks, review, grounding, and In-Depth stages. " +
        "A <b>team profile</b> adds an orchestrator/expert gather stage before the same checked answer path. " +
        "Historical direct-router arms are labeled separately.</p>";

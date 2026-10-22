@@ -4,7 +4,16 @@
   "turns": [
     {
       "n": 1,
-      "question": "What medications is this patient currently on?"
+      "question": "What medications is this patient currently on?",
+      "checks": {
+        "cite_types": [
+          "drug_order"
+        ],
+        "answer_includes": [
+          "efavirenz",
+          "cotrimoxazole|co-trimoxazole|trimethoprim"
+        ]
+      }
     }
   ],
   "tags": [

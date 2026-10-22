@@ -81,6 +81,35 @@ def test_chat_posts_the_stream_endpoint_and_collapses_the_lifecycle():
     assert res.envelope["events"] == ["turn_started", "answer_done", "indepth_done", "turn_done"]
 
 
+def test_chat_keeps_the_settled_envelope_the_later_events_carry():
+    # ChartSearchAI sends the whole turn envelope on every event after answer_done: the answer
+    # check settles on answer_validation and the In-Depth arrives nested on indepth_done.
+    c = _client()
+    first = {"answer": "Weights below.", "session": "s1", "messageId": "m1",
+             "answerValidation": {"status": "checking"},
+             "confidence": {"answer": {"level": "green"}}}
+    settled = {**first, "answerValidation": {"status": "checked"},
+               "confidence": {"answer": {"level": "green"}, "in_depth": {"level": "red"}},
+               "inDepth": {"status": "needs_review", "answer": "", "error": "withheld"}}
+
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
+        return FakeStreamResp(_sse([
+            ("turn_started", {"provider": "hub"}),
+            ("answer_done", first),
+            ("answer_validation", {**first, "answerValidation": {"status": "checked"}}),
+            ("indepth_pending", {**first, "answerValidation": {"status": "checked"}}),
+            ("indepth_error", settled),
+            ("turn_done", settled),
+        ]))
+
+    c._session.post = fake_post
+    res = c.chat("p", "s", "q")
+    assert res.envelope["answer"] == "Weights below."
+    assert res.envelope["answerValidation"] == {"status": "checked"}
+    assert res.envelope["confidence"]["in_depth"] == {"level": "red"}
+    assert res.envelope["inDepth"] == {"status": "needs_review", "answer": "", "error": "withheld"}
+
+
 def test_chat_turn_error_yields_envelope_without_answer():
     c = _client()
 
