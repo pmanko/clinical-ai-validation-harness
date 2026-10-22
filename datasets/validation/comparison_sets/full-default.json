@@ -1,6 +1,6 @@
 {
   "id": "full-default",
-  "description": "Full evaluation default matrix: the twelve single-turn scenarios of hub-profile-candidate and five conversations (about 35 turns), on bundled ChartSearchAI and the Hub's checked 12B profile, both on the same 12B engine through the parity taps, so the arms differ only by the Hub being in the loop.",
+  "description": "Full evaluation default matrix: the twelve single-turn scenarios of hub-profile-candidate and five conversations (about 35 turns), on bundled ChartSearchAI and the Hub's answer-only 12B profile, both on the same 12B engine through the parity taps, so the arms differ by the Hub being in the loop and not by the Hub's checks. A checked profile is an added arm (PROFILES=).",
   "scenario_ids": [
     "date-zabella-weight-table",
     "date-zabella-weight-endpoints",
@@ -22,6 +22,6 @@
   ],
   "backend_ids": [
     "engine-parity-bundled-12b",
-    "engine-parity-hub-12b"
+    "engine-parity-hub-answer-only-12b"
   ]
 }

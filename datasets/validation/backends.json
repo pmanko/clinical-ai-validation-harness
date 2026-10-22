@@ -20,8 +20,15 @@
     "endpointUrl": "http://host.docker.internal:8078/v1/chat/completions",
     "modelName": "gemma-4-12b"
   },
+  "engine-parity-hub-answer-only-12b": {
+    "label": "Hub provider (eval-12b-answer-only via parity tap: answer stage only, like the bundled arm)",
+    "kind": "provider_arm",
+    "provider": "hub",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "eval-12b-answer-only"
+  },
   "engine-parity-hub-12b": {
-    "label": "Hub provider (single-12b-checked via parity tap)",
+    "label": "Hub provider (single-12b-checked via parity tap: review, gates and In-Depth)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
