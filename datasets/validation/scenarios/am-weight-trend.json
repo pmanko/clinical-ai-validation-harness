@@ -4,7 +4,16 @@
   "turns": [
     {
       "n": 1,
-      "question": "How has this patient's weight changed over the past year?"
+      "question": "How has this patient's weight changed over the past year?",
+      "checks": {
+        "cite_types": [
+          "obs"
+        ],
+        "answer_includes": [
+          "\\b52\\b",
+          "\\b41\\b"
+        ]
+      }
     }
   ],
   "tags": [

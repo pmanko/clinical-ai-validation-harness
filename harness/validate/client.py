@@ -45,10 +45,14 @@ def collapse_turn_stream(raw: str) -> dict[str, Any]:
     """Collapse a canonical /chat/stream SSE body into the classic /chat envelope.
 
     The answer_done payload IS the envelope (the module hydrates the full answer —
-    answer/references/blocks/session/messageId — into it). In-Depth results nest
-    under ``inDepth``; the lifecycle (minus per-token ``*_delta`` noise) is recorded
-    under ``events``. A turn_error before any answer yields its payload verbatim,
-    with no ``answer`` key — downstream completeness checks treat that as not-done."""
+    answer/references/blocks/session/messageId — into it). Every later event that carries
+    an ``answer`` is the same envelope as it settles: the answer check's result, the
+    In-Depth nested under ``inDepth`` and its confidence arrive on answer_validation,
+    indepth_done/indepth_error and turn_done, so each one replaces what came before. An
+    In-Depth event without an ``answer`` is a bare In-Depth object and nests under
+    ``inDepth`` as it is. The lifecycle (minus per-token ``*_delta`` noise) is recorded
+    under ``events``. A turn_error before any answer yields its payload verbatim, with no
+    ``answer`` key — downstream completeness checks treat that as not-done."""
     envelope: dict[str, Any] = {}
     indepth: dict[str, Any] | None = None
     events: list[str] = []
@@ -64,7 +68,8 @@ def collapse_turn_stream(raw: str) -> dict[str, Any]:
                 payload = {}
             if not event.endswith("_delta"):
                 events.append(event)
-            if event == "answer_done":
+            if event == "answer_done" or ("answer" in envelope and "answer" in payload
+                                          and event not in ("turn_error", "error")):
                 envelope.update(payload)
             elif event == "indepth_done":
                 indepth = payload
@@ -74,7 +79,7 @@ def collapse_turn_stream(raw: str) -> dict[str, Any]:
                 envelope.update(payload)
             event = ""
     out = dict(envelope)
-    if indepth is not None:
+    if indepth is not None and "inDepth" not in out:
         out["inDepth"] = indepth
     out["events"] = events
     return out

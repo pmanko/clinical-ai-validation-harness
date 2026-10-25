@@ -71,3 +71,32 @@ def test_in_depth_artifact_retains_legacy_separate_call_compatibility():
         "citations": [],
         "source": "row.indepth",
     }
+
+
+def test_in_depth_artifact_keeps_which_claims_the_checks_marked():
+    response = {
+        "inDepth": {
+            "status": "complete",
+            "answer": "- A claim [1].\n- A questioned claim [2]. *(Check: flagged on review.)*",
+            "validation": {
+                "status": "needs_review",
+                "flagged": [],
+                "marked": [2],
+                "review_status": "flagged",
+                "review_flagged": [2],
+                "review_issues": "Claim 2 overstates record 2.",
+            },
+        }
+    }
+
+    artifact = judge_prep.in_depth_artifact({}, response, "")
+
+    assert artifact["validation"]["marked"] == [2]
+    assert artifact["validation"]["review_flagged"] == [2]
+    assert judge_prep.validation_metadata(response["inDepth"]["validation"]) == {
+        "status": "needs_review",
+        "flagged": [],
+        "marked": [2],
+        "review_status": "flagged",
+        "review_flagged": [2],
+    }

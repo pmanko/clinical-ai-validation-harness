@@ -318,3 +318,23 @@ def test_the_narrative_report_sections_a_comparison_run_by_team(tmp_path):
     out = build_report(run_dir)
     html = out.read_text(encoding="utf-8")
     assert "team-a · A1" in html
+
+
+def test_report_carries_the_reader_context_the_comparison_set_links_to(tmp_path):
+    sets = tmp_path / "inputs" / "comparison_sets"
+    sets.mkdir(parents=True)
+    (sets / "full-default.json").write_text(
+        '{"id": "full-default", "context": {"text": "See", "label": "How it works",'
+        ' "url": "https://example.org/how"}}'
+    )
+    events = [{"event_type": "run", "comparison_set": "full-default"}]
+
+    assert report._comparison_context(tmp_path, events) == {
+        "url": "https://example.org/how",
+        "label": "How it works",
+        "text": "See",
+    }
+    (sets / "full-default.json").write_text(
+        '{"context": {"label": "x", "url": "javascript:alert(1)"}}'
+    )
+    assert report._comparison_context(tmp_path, events) is None

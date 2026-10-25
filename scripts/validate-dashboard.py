@@ -966,7 +966,7 @@ function renderTrace(tr){
   if(s.role==='answer_validator') return ['answer validator'+(s.attempt?' #'+s.attempt:''),(s.answer_ok?'PASS':'FLAG')+(s.answer_issues?' · '+esc(s.answer_issues):''),s.answer_ok?'ok':(s.answer_issues?'flag':'')];
   if(s.role==='indepth_synth') return ['in-depth synth',((s.claims||[]).map(c=>'• '+esc(c)).join('<br>')||'(no claims)')];
   if(s.role==='indepth_resynth') return ['in-depth re-synth',((s.claims||[]).map(c=>'• '+esc(c)).join('<br>')||'(no claims)')];
-  if(s.role==='indepth_validator') return ['in-depth validator'+(s.attempt?' #'+s.attempt:''),'drop '+JSON.stringify(s.drop||[])+' of '+(s.claims_in||0)+(s.issues?' · '+esc(s.issues):''),(s.drop&&s.drop.length)?'flag':'ok'];
+  if(s.role==='indepth_validator'){const f=s.flag||s.drop||[];return ['in-depth validator'+(s.attempt?' #'+s.attempt:''),(s.flag?'flag ':'drop ')+JSON.stringify(f)+' of '+(s.claims_in||0)+(s.issues?' · '+esc(s.issues):''),f.length?'flag':'ok'];}
   return [s.role,esc(JSON.stringify(s))];
  };
  const steps=(tr.steps||[]).filter(s=>s.role!=='stage_timing').map(s=>{

@@ -1,0 +1,19 @@
+{
+  "id": "ctx-fractures-39",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Has the patient had any fractures or broken bones?"
+    }
+  ],
+  "tags": [
+    "context-cohort",
+    "topic:fractures",
+    "single-turn"
+  ],
+  "expectations": {
+    "gold_cell": "dd5558ed-1691-11df-97a5-7038c432aabf|fractures",
+    "should_abstain": true
+  }
+}

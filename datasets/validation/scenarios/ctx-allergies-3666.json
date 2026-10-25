@@ -1,0 +1,19 @@
+{
+  "id": "ctx-allergies-3666",
+  "patient_ref": "dd7fde7e-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does the patient have any allergies?"
+    }
+  ],
+  "tags": [
+    "context-cohort",
+    "topic:allergies",
+    "single-turn"
+  ],
+  "expectations": {
+    "gold_cell": "dd7fde7e-1691-11df-97a5-7038c432aabf|allergies",
+    "should_abstain": true
+  }
+}

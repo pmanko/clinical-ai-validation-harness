@@ -46,7 +46,10 @@ _SAFE_VALIDATION_KEYS = {
     "source_indices",
     "claim_index",
     "removed",
+    "flagged",
+    "marked",
     "review_status",
+    "review_flagged",
     "review_removed",
     "review_attempts",
     "issues",
@@ -78,7 +81,7 @@ def validation_metadata(value):
             nested = validation_metadata(item)
             if nested:
                 sanitized[key] = nested
-        elif key in {"source_indices", "removed"}:
+        elif key in {"source_indices", "removed", "flagged", "marked", "review_flagged"}:
             sanitized[key] = [
                 entry
                 for entry in (item if isinstance(item, list) else [])
