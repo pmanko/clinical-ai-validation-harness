@@ -782,6 +782,14 @@ function renderJudgeScores(d){
    +'<td>'+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+'</td>'
    +'<td>'+fmt10(s.mean_abs_delta)+'</td><td>'+maxCell+'</td></tr>';
  });
+ const c=judging.consensus||{};
+ if(c.alpha){
+  const th=c.thresholds||{acceptable:0.667,good:0.8};
+  h+='<p class=judge-note>Agreement between the '+(c.actors||[]).length+' passes (Krippendorff’s alpha; '+th.acceptable+' acceptable, '+th.good+' good): '
+   +Object.keys(c.alpha).map(k=>esc(k)+' '+(c.alpha[k].alpha==null?'—':c.alpha[k].alpha.toFixed(3))+' ('+esc(c.alpha[k].verdict)+')').join(' · ')+'</p>';
+  const sp=(c.spread_cells||[]).slice(0,5);
+  if(sp.length) h+='<p class=judge-note>Widest cells: '+sp.map(s=>esc(s.scenario_id)+' × '+esc(armTitle(s.backend_id))+' range '+fmt10(s.range)).join(' · ')+'</p>';
+ }
  return h+'</tbody></table>';
 }
 // The background poll re-renders #arms wholesale; that wipes the user's expanded <details>.

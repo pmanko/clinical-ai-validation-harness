@@ -7,8 +7,10 @@ categorical axis, and the note of the pass whose Benchmark is nearest the aggreg
 on harm counts as harmful; a tie on another categorical axis takes the worse outcome. The
 deterministic citation_resolution is identical across passes and copied as it is.
 
-Writes <run>/judge.jsonl, <run>/judges/canonical.json (which passes, which rule) and
-<run>/judges/combined.json (per-cell actor scores and spread, as combine-judge-actors does).
+Writes <run>/judge.jsonl, <run>/judges/canonical.json (which passes, which rule),
+<run>/judges/combined.json (per-cell actor scores and spread, as combine-judge-actors does)
+and <run>/judges/consensus.json (Krippendorff's alpha per axis across the passes, with the
+thresholds the page states, and the cells whose scores spread most).
 
 Usage: scripts/judge-aggregate.py <run_dir-or-id> --actor <id> --actor <id> [...]
 """
@@ -26,6 +28,7 @@ from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from harness.validate.agreement import pass_agreement  # noqa: E402
 from harness.validate.reconcile import cell_benchmark_score  # noqa: E402
 
 NUMERIC = ("accuracy", "completeness", "relevance")
@@ -138,6 +141,8 @@ def main() -> None:
     spec.loader.exec_module(combiner)
     combined = combiner.build({a: rd / "judges" / a / "judge.jsonl" for a in args.actor})
     (rd / "judges" / "combined.json").write_text(json.dumps(combined, indent=2) + "\n", encoding="utf-8")
+    (rd / "judges" / "consensus.json").write_text(json.dumps(pass_agreement(actor_rows), indent=2) + "\n",
+                                                  encoding="utf-8")
     print(f"aggregated {len(rows)} cells from {len(args.actor)} passes -> {rd / 'judge.jsonl'}")
 
 

@@ -119,4 +119,14 @@ def judge_summary(run_dir: Path | str) -> dict[str, Any]:
     if cards and others:
         sentence += " Also scored by " + "; ".join(others) + "."
     return {"recorded": bool(cards), "cards": cards, "canonical": [c["actor_id"] for c in canonical],
-            "aggregation": aggregation, "sentence": sentence}
+            "aggregation": aggregation, "sentence": sentence, "consensus": consensus(run_dir)}
+
+
+def consensus(run_dir: Path | str) -> dict[str, Any]:
+    """``judges/consensus.json`` (alpha per axis, thresholds, widest cells); empty when absent."""
+    path = Path(run_dir) / "judges" / "consensus.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}

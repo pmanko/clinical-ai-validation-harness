@@ -1378,10 +1378,25 @@ function renderJudgeCombined(run){
       +"<td>"+fmt10(s.mean_abs_delta)+"</td>"
       +"<td>"+maxCell+"</td></tr>";
   }).join('');
-  h+='</tbody></table></div>';
+  h+='</tbody></table>'+renderPassAgreement((run.judging||{}).consensus)+'</div>';
   var wrap=el('div'); wrap.innerHTML=h;
   var tbl=wrap.querySelector('table'); if(tbl) makeSortable(tbl);
   return wrap;
+}
+function renderPassAgreement(c){
+  if(!c||!c.alpha) return '';
+  var th=c.thresholds||{acceptable:0.667,good:0.8};
+  var h='<h4>Agreement between the passes</h4>'
+    +'<p class="intro">Krippendorff’s alpha across the '+(c.actors||[]).length+' passes, per axis: 1 is perfect agreement, 0 is chance. Ordinal for the 0–10 axes, nominal for the labels. Thresholds applied: '+th.acceptable+' acceptable, '+th.good+' good.</p>'
+    +'<table class="summary"><thead><tr><th>axis</th><th>alpha</th><th>verdict</th></tr></thead><tbody>';
+  Object.keys(c.alpha).forEach(function(k){ var a=c.alpha[k]||{};
+    h+='<tr><td class="b">'+htmlEsc(k)+'</td><td>'+(a.alpha==null?'—':a.alpha.toFixed(3))+'</td><td>'+htmlEsc(a.verdict||'')+'</td></tr>'; });
+  h+='</tbody></table>';
+  var sp=(c.spread_cells||[]).slice(0,5);
+  if(sp.length){ h+='<p class="intro">Cells the passes disagree on most (Benchmark per pass):</p><ul class="judge-cards">'
+    +sp.map(function(s){ var parts=Object.keys(s.scores||{}).map(function(a){return htmlEsc(a)+' '+fmt10(s.scores[a]);}).join(' · ');
+      return '<li><code>'+htmlEsc(s.scenario_id)+'</code> × '+htmlEsc(armTitle(s.backend_id))+': range '+fmt10(s.range)+' ('+parts+')</li>'; }).join('')+'</ul>'; }
+  return h;
 }
 function judgeBarsSVG(series){
   var arms=[]; for(var k=0;k<series.length;k++){ if(series[k].n>0) arms.push(series[k]); }

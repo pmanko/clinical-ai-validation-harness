@@ -66,7 +66,7 @@ def test_a_run_without_cards_says_so_instead_of_inventing_a_judge(tmp_path):
     summary = judge_summary(run)
 
     assert summary == {"recorded": False, "cards": [], "canonical": [], "aggregation": "",
-                       "sentence": "Judge not recorded for this run."}
+                       "sentence": "Judge not recorded for this run.", "consensus": {}}
     assert load_judge_cards(run) == []
 
 
