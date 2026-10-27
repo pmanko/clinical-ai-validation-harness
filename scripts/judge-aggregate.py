@@ -29,7 +29,7 @@ from typing import Any
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.agreement import pass_agreement  # noqa: E402
-from harness.validate.reconcile import cell_benchmark_score  # noqa: E402
+from harness.validate.reconcile import cell_benchmark_score, scout_summary  # noqa: E402
 
 NUMERIC = ("accuracy", "completeness", "relevance")
 # Worse outcomes first: a tie resolves to the earlier one.
@@ -113,6 +113,36 @@ def aggregate(actor_rows: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any
     return out
 
 
+def judge_of(manifest: dict[str, Any]) -> str:
+    """One judge across its passes: agent, model and effort, as the actor id without the pass."""
+    parts = [str(manifest.get(k) or "") for k in ("agent", "model", "reasoning_effort")]
+    return "-".join(p for p in parts if p).lower() or str(manifest.get("actor_id") or "judge")
+
+
+def judges_block(rd: pathlib.Path, actor_rows: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    """When the passes come from more than one judge: each judge's passes aggregated into
+    one rating, its per-arm scores, and the agreement between the judges."""
+    from harness.validate.agreement import pass_agreement
+    groups: dict[str, list[str]] = {}
+    for actor in actor_rows:
+        try:
+            manifest = json.loads((rd / "judges" / actor / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            manifest = {"actor_id": actor}
+        groups.setdefault(judge_of(manifest), []).append(actor)
+    if len(groups) < 2:
+        return {}
+    per_judge_rows = {judge: aggregate({a: actor_rows[a] for a in actors}) for judge, actors in groups.items()}
+    backends = sorted({r["backend_id"] for rows in per_judge_rows.values() for r in rows})
+    agreement = pass_agreement(per_judge_rows)
+    return {
+        "per_judge": {judge: {"actors": actors, "scout": scout_summary(per_judge_rows[judge], backends)}
+                      for judge, actors in groups.items()},
+        "alpha": agreement["alpha"], "thresholds": agreement["thresholds"],
+        "spread_cells": agreement["spread_cells"],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("run")
@@ -141,8 +171,11 @@ def main() -> None:
     spec.loader.exec_module(combiner)
     combined = combiner.build({a: rd / "judges" / a / "judge.jsonl" for a in args.actor})
     (rd / "judges" / "combined.json").write_text(json.dumps(combined, indent=2) + "\n", encoding="utf-8")
-    (rd / "judges" / "consensus.json").write_text(json.dumps(pass_agreement(actor_rows), indent=2) + "\n",
-                                                  encoding="utf-8")
+    consensus = pass_agreement(actor_rows)
+    judges = judges_block(rd, actor_rows)
+    if judges:
+        consensus["judges"] = judges
+    (rd / "judges" / "consensus.json").write_text(json.dumps(consensus, indent=2) + "\n", encoding="utf-8")
     print(f"aggregated {len(rows)} cells from {len(args.actor)} passes -> {rd / 'judge.jsonl'}")
 
 

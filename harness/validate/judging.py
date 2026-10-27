@@ -99,6 +99,53 @@ def judge_card_line(card: dict[str, Any]) -> str:
 
 AGENT_NAMES = {"codex": "Codex CLI", "claude": "Claude Code CLI", "gemini": "Gemini CLI"}
 
+# A model's family from its name: the arms' models are known by name, a judge by its card.
+FAMILY_PREFIXES = (
+    ("gemma", "google"), ("medgemma", "google"), ("gemini", "google"),
+    ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"), ("o4", "openai"), ("codex", "openai"),
+    ("claude", "anthropic"), ("llama", "meta"), ("qwen", "alibaba"), ("mistral", "mistral"),
+    ("deepseek", "deepseek"),
+)
+
+
+def model_family(name: Any) -> str | None:
+    """The family a model name belongs to, or None when the name says nothing (a Hub profile)."""
+    text = str(name or "").strip().lower()
+    for prefix, family in FAMILY_PREFIXES:
+        if text.startswith(prefix):
+            return family
+    return None
+
+
+def arm_families(run_dir: Path | str) -> dict[str, str]:
+    """Each arm's model family, from the run's frozen run_meta.json (backends' modelName and
+    arm cards' model ids); arms whose model names say nothing are left out."""
+    try:
+        meta = json.loads((Path(run_dir) / "run_meta.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    out: dict[str, str] = {}
+    for arm, backend in (meta.get("backends") or {}).items():
+        family = model_family((backend or {}).get("modelName"))
+        if family:
+            out[arm] = family
+    for arm, card in (meta.get("arm_cards") or {}).items():
+        for model in (card or {}).get("models") or []:
+            family = model_family((model or {}).get("id"))
+            if family and arm not in out:
+                out[arm] = family
+    return out
+
+
+def self_preference(card: dict[str, Any], run_dir: Path | str) -> dict[str, Any]:
+    """Whether the judge on ``card`` is from the same family as an arm it judges: the
+    fields a card records so a reader can weigh that risk."""
+    judge_family = model_family(card.get("model"))
+    arms = arm_families(run_dir)
+    same = sorted(arm for arm, family in arms.items() if judge_family and family == judge_family)
+    return {"judge_family": judge_family, "arm_families": arms,
+            "self_preference_risk": bool(same), "self_preference_arms": same}
+
 
 def judge_summary(run_dir: Path | str) -> dict[str, Any]:
     """What a page shows about the judging: the cards, which are canonical, and one

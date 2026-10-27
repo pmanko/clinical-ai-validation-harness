@@ -30,8 +30,9 @@ test: setup
 smoke: setup
 	$(UV) run pytest evals/dataset_import evals/metadata
 
+BLIND ?=
 validate-judge-prep: setup
-	$(UV) run python scripts/judge-prep.py $(RUN)
+	$(UV) run python scripts/judge-prep.py $(RUN) $(if $(BLIND),--blind,)
 
 JUDGE_ACTOR_TYPE ?= llm-judge
 JUDGE_MODEL ?=

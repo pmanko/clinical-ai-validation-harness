@@ -12,13 +12,18 @@ question(s) + patient demographics. Writes:
 The semantic scoring (the rubric) is done by a Claude judge agent per cell; this script
 only does the parts that must be deterministic + identical every run.
 
-Usage: scripts/judge-prep.py <run_dir-or-run_id>
+With --blind the same cells are also written as one bundle per scenario under
+<run>/judge-bundles/, the arms replaced by letters, with judge-blind-map.json beside them for
+judge-finalize to map the letters back. judge-cells.jsonl is unchanged either way.
+
+Usage: scripts/judge-prep.py <run_dir-or-run_id> [--blind]
 """
 from __future__ import annotations
 import json, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from harness.validate.blinding import write_bundles  # noqa: E402
 from harness.validate.reconcile import resolve_citations  # noqa: E402
 from harness.validate.bundle import frozen_arm_cards, review_results, run_chart  # noqa: E402
 from harness.validate.hub_trace import load_traces, match_trace, trace_model_for_result  # noqa: E402
@@ -161,7 +166,9 @@ def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
 
 
 def main() -> None:
-    rd = run_dir(sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: judge-prep.py <run>"))
+    args = [a for a in sys.argv[1:] if a != "--blind"]
+    blind = "--blind" in sys.argv[1:]
+    rd = run_dir(args[0] if args else sys.exit("usage: judge-prep.py <run> [--blind]"))
     results = review_results(rd)
     traces = load_traces(rd / "trace.jsonl")
     cards = frozen_arm_cards(rd, list(dict.fromkeys(r["backend_id"] for r in results)))
@@ -280,6 +287,9 @@ def main() -> None:
             fh.write(json.dumps(c) + "\n")
     background = sum(1 for c in out if c.get("score_background"))
     print(f"wrote {len(out)} cells ({background} with In-Depth / {len(out)-background} answer-only) -> {cells_path}")
+    if blind:
+        bundles = write_bundles(rd, out, rd.name)
+        print(f"blinded: {len(bundles)} bundles -> {rd / 'judge-bundles'}, map -> {rd / 'judge-blind-map.json'}")
     print(f"snapshots -> {snap_dir}/*.snapshot.txt")
 
 

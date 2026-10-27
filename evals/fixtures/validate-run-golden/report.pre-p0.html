@@ -636,6 +636,20 @@ function renderPassAgreement(c){
   if(sp.length){ h+='<p class="intro">Cells the passes disagree on most (Benchmark per pass):</p><ul class="judge-cards">'
     +sp.map(function(s){ var parts=Object.keys(s.scores||{}).map(function(a){return htmlEsc(a)+' '+fmt10(s.scores[a]);}).join(' · ');
       return '<li><code>'+htmlEsc(s.scenario_id)+'</code> × '+htmlEsc(armTitle(s.backend_id))+': range '+fmt10(s.range)+' ('+parts+')</li>'; }).join('')+'</ul>'; }
+  return h+renderJudgePanel(c.judges);
+}
+function renderJudgePanel(j){
+  if(!j||!j.per_judge) return '';
+  var judges=Object.keys(j.per_judge), arms={};
+  judges.forEach(function(id){ (j.per_judge[id].scout||[]).forEach(function(s){ arms[s.backend]=arms[s.backend]||{}; arms[s.backend][id]=s; }); });
+  var h='<h4>Judges side by side</h4><p class="intro">Each judge’s passes combined into one rating (median per axis, majority per label), then its Benchmark per setup; alpha between the judges says how far they agree.</p>'
+    +'<table class="summary"><thead><tr><th>setup</th>'+judges.map(function(id){return '<th>'+htmlEsc(id)+'</th>';}).join('')+'</tr></thead><tbody>';
+  Object.keys(arms).forEach(function(b){ h+='<tr><td class="b" title="'+htmlEsc(b)+'">'+htmlEsc(armTitle(b))+'</td>'
+    +judges.map(function(id){ var s=arms[b][id]; return '<td>'+(s&&s.benchmark_score!=null?fmt10(s.benchmark_score)+(s.harm_count?' <span title="harm">☠'+s.harm_count+'</span>':''):'—')+'</td>'; }).join('')+'</tr>'; });
+  h+='</tbody></table>';
+  var th=j.thresholds||{acceptable:0.667,good:0.8};
+  h+='<p class="intro">Agreement between the judges (Krippendorff’s alpha; '+th.acceptable+' acceptable, '+th.good+' good): '
+    +Object.keys(j.alpha||{}).map(function(k){ var a=j.alpha[k]||{}; return htmlEsc(k)+' '+(a.alpha==null?'—':a.alpha.toFixed(3))+' ('+htmlEsc(a.verdict||'')+')'; }).join(' · ')+'</p>';
   return h;
 }
 function judgeBarsSVG(series){

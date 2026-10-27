@@ -29,7 +29,8 @@ from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from harness.validate.judging import CARD_SCHEMA, RUNNER_FIELDS, actor_id  # noqa: E402
+from harness.validate.blinding import load_map, unblind_rows  # noqa: E402
+from harness.validate.judging import CARD_SCHEMA, RUNNER_FIELDS, actor_id, self_preference  # noqa: E402
 
 
 def run_dir(arg: str) -> pathlib.Path:
@@ -113,6 +114,10 @@ def main() -> None:
     rows = json.load(open(args.rows))
     if isinstance(rows, dict):  # tolerate {result:[...]} or similar wrappers
         rows = rows.get("result") or rows.get("rows") or rows.get("return") or list(rows.values())
+    # A blinded pass scored letters; the map written by judge-prep --blind names the arms.
+    rows, unblinded = unblind_rows(rows, load_map(rd))
+    if unblinded:
+        print(f"unblinded {unblinded} rows through {rd / 'judge-blind-map.json'}")
 
     # Deterministic side-data per cell: citation_resolution and whether a separate
     # Background/In-Depth block should be retained. Older judge-cells used the
@@ -190,6 +195,7 @@ def main() -> None:
         if args.actor and not canonical:
             manifest = {
                 **card,
+                **self_preference({**card, "model": args.model}, rd),
                 "schema_version": CARD_SCHEMA,
                 "actor_id": args.actor,
                 "actor_type": args.actor_type,
@@ -200,6 +206,7 @@ def main() -> None:
                 "source_rows": str(pathlib.Path(args.rows)),
                 "output": "judge.jsonl",
                 "promoted_to_canonical": promote,
+                "blinded": bool(unblinded),
                 "n_rows": len(out),
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "rubric": "clinical-answer-scoring/rubric.md",

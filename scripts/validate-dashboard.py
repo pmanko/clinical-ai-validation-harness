@@ -794,6 +794,12 @@ function renderJudgeScores(d){
    +Object.keys(c.alpha).map(k=>esc(k)+' '+(c.alpha[k].alpha==null?'—':c.alpha[k].alpha.toFixed(3))+' ('+esc(c.alpha[k].verdict)+')').join(' · ')+'</p>';
   const sp=(c.spread_cells||[]).slice(0,5);
   if(sp.length) h+='<p class=judge-note>Widest cells: '+sp.map(s=>esc(s.scenario_id)+' × '+esc(armTitle(s.backend_id))+' range '+fmt10(s.range)).join(' · ')+'</p>';
+  const j=c.judges||{};
+  if(j.per_judge){
+   const jt=j.thresholds||{acceptable:0.667,good:0.8};
+   h+='<p class=judge-note>Judges side by side (Benchmark per setup): '+Object.keys(j.per_judge).map(id=>esc(id)+' ['+(j.per_judge[id].scout||[]).map(s=>esc(armTitle(s.backend))+' '+fmt10(s.benchmark_score)).join(', ')+']').join(' · ')
+    +'. Agreement between judges (alpha; '+jt.acceptable+' acceptable, '+jt.good+' good): '+Object.keys(j.alpha||{}).map(k=>esc(k)+' '+(j.alpha[k].alpha==null?'—':j.alpha[k].alpha.toFixed(3))).join(' · ')+'</p>';
+  }
  }
  return h+'</tbody></table>';
 }
