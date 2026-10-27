@@ -508,8 +508,13 @@ def detail(scenario, backend):
                                 "steps": tr.get("steps") or [],
                                 "stage_timings": extract_stage_timings(tr),
                                 "models": tr.get("models") or {}} if tr else None})
+    # Each judge pass's row for this cell, so the panel can show every judge's scores and note.
+    judge = {actor: next((r for r in rows_ if r.get("scenario_id") == scenario
+                          and r.get("backend_id") == backend), None)
+             for actor, rows_ in read_judge_actors(run).items()}
     return {"scenario": scenario, "backend": backend, "expectations": exp,
-            "catalystExpected": catalyst_expected, "turns": turns}
+            "catalystExpected": catalyst_expected, "turns": turns,
+            "judge": {a: r for a, r in judge.items() if r}}
 
 
 PAGE = (
@@ -1007,6 +1012,10 @@ async function openD(s,b){
   h+='</div>';
  }else{
   h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
+ }
+ const jp=d.judge||{}, jids=Object.keys(jp);
+ if(jids.length){
+  h+='<div class=exp><b>Judged:</b> '+jids.map(a=>{const r=jp[a];return esc(a)+' '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+(r.harm?' HARM':'')+(r.note?' — '+esc(r.note):'');}).join('<br>')+'</div>';
  }
  const reps=(d.turns||[]);
  if(reps.length&&reps[0].catalyst){

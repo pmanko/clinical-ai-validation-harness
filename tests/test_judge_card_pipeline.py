@@ -93,6 +93,8 @@ def test_the_report_names_the_judge_from_the_cards(tmp_path):
     assert blob["judging"]["sentence"] == \
         "Judged by claude-opus-5-5, reasoning high, Claude Code CLI, pass 1 of 1."
     assert "Judged by claude-opus-5-5, reasoning high, Claude Code CLI, pass 1 of 1." in html
+    assert list(blob["judge_passes"]) == ["claude-claude-opus-5-5-high-p1"]
+    assert blob["judge_passes"]["claude-claude-opus-5-5-high-p1"][0]["note"] == "fine"
 
 
 def test_the_report_says_when_no_judge_was_recorded(tmp_path):
@@ -103,3 +105,24 @@ def test_the_report_says_when_no_judge_was_recorded(tmp_path):
 
     assert blob["judging"] == {"recorded": False, "cards": [], "canonical": [], "aggregation": "not-recorded",
                                "sentence": "Judge not recorded for this run.", "consensus": {}}
+
+
+def test_the_dashboard_cell_detail_carries_every_passes_row(tmp_path, monkeypatch):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("vd", ROOT / "scripts" / "validate-dashboard.py")
+    assert spec and spec.loader
+    vd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vd)
+    run = _run_dir(tmp_path)
+    for i in (1, 2):
+        d = run / "judges" / f"p{i}"
+        d.mkdir(parents=True)
+        (d / "judge.jsonl").write_text(json.dumps({"scenario_id": "s1", "backend_id": "b1",
+                                                   "accuracy": 7 + i, "note": f"pass {i}"}) + "\n")
+    monkeypatch.setattr(vd, "newest_run", lambda: str(run))
+
+    detail = vd.detail("s1", "b1")
+
+    assert detail["judge"]["p1"]["note"] == "pass 1"
+    assert detail["judge"]["p2"]["accuracy"] == 9
+    assert vd.detail("s1", "other")["judge"] == {}

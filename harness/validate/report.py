@@ -820,6 +820,8 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "judge_actors": sorted(judge_actors.keys()),
         # Who judged: the cards under judges/*/manifest.json, named on every judged score.
         "judging": judge_summary(run_dir),
+        # Every pass's rows, so a cell can be opened to each judge's scores and note.
+        "judge_passes": judge_actors,
         "judge_combined": combined_judge_summary(judge_actors, backends),
         # WS4: adjudication-calibrated Benchmark. adjudication.jsonl is OPTIONAL — when
         # absent (the default) every calibrated block is judge-only (no CI / no κ) and the
@@ -1440,15 +1442,26 @@ function judgeHeatmap(run){
     }
     h+='</tr>';
   }
-  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note. ⚑ = failed to abstain · ✗ = unsupported citation · ☠ = harm</div>';
+  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note, and each pass’s scores where the run was judged more than once. ⚑ = failed to abstain · ✗ = unsupported citation · ☠ = harm</div>';
   var wrap=el('div','judge-heatmap-wrap'); wrap.innerHTML=h;
   var cells=wrap.querySelectorAll('td.jh');
   for(var c=0;c<cells.length;c++){
     cells[c].onclick=(function(td){ return function(){
-      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b><br>'+htmlEsc(td.dataset.det)+'<br>'+htmlEsc(td.dataset.note||'(no note)');
+      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b><br>'+htmlEsc(td.dataset.det)+'<br>'+htmlEsc(td.dataset.note||'(no note)')+judgePassLines(run, td.dataset.sid, td.dataset.arm);
     }; })(cells[c]);
   }
   return wrap;
+}
+function judgePassLines(run, sid, arm){
+  var passes=run.judge_passes||{}, ids=Object.keys(passes); if(ids.length<2) return '';
+  var cards={}; (((run.judging||{}).cards)||[]).forEach(function(c){ cards[c.actor_id]=c; });
+  var out='<div class="jh-passes"><b>Each pass:</b><ul>';
+  ids.forEach(function(a){
+    var r=(passes[a]||[]).filter(function(x){return x.scenario_id===sid&&x.backend_id===arm;})[0]; if(!r) return;
+    var who=cards[a]?judgeCardLine(cards[a]):a;
+    out+='<li><code>'+htmlEsc(a)+'</code> ('+htmlEsc(who)+'): '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+' · '+htmlEsc(r.abstention_outcome||'')+' · '+htmlEsc(r.citation_groundedness||'')+(r.harm?' · HARM':'')+(r.note?' — '+htmlEsc(r.note):'')+'</li>';
+  });
+  return out+'</ul></div>';
 }
 // WS4 calibrated benchmark: map run.calibrated (per-arm + a "__run__" row) by backend.
 function calIndex(run){ var m={}, c=run.calibrated||[]; for(var i=0;i<c.length;i++){ m[c[i].backend]=c[i].calibrated||{}; } return m; }
