@@ -99,34 +99,35 @@ def test_red_answer_section_keeps_body_visible_with_caveat(tmp_path):
         traces=[_trace({"level": "red", "note": "claim unsupported by chart"},
                        {"level": "yellow", "note": "partly supported"})],
     )
-    ans = _answer_html(run_dir)
+    cell = _report_cell(run_dir)
+    ans = cell["answer_html"]
 
-    # Answer section: red -> low self-check chip, the note rendered as a caveat, and the
-    # flagged body remains visible so a reviewer can inspect it.
-    assert "Self-check low" in ans
-    assert "<div class='caveat red'>claim unsupported by chart</div>" in ans
-    assert "Regimen is current" in ans
-    assert "<summary>show answer</summary>" not in ans
-    # In-Depth section: yellow -> medium self-check chip, body shown, note collapsed.
-    assert "Self-check medium" in ans
-    assert "<summary>show review note</summary>" in ans
-    assert "<div class='caveat yellow'>partly supported</div>" in ans
+    # A section rated without a check lifecycle carries its confidence as its one status;
+    # the note precedes the body, which stays visible for a reviewer.
+    assert cell["answer_view"]["tone"] == "danger"
+    assert cell["indepth_view"]["tone"] == "warning"
+    assert "self-check" not in ans.lower()
+    assert ans.index("claim unsupported by chart") < ans.index("Regimen is current")
     assert "Stavudine-free per WHO" in ans
+    assert "partly supported" in ans
+    assert "<details" not in ans
 
 
 def test_green_answer_section_renders_body_plainly(tmp_path):
     run_dir = tmp_path / "validate" / "run"
-    # No In-Depth header -> only the Answer section is rendered.
+    # No In-Depth header -> the In-Depth says neutrally there is none.
     _write_run(
         run_dir, [_result("**Answer**\nRegimen is current [1].")],
         traces=[_trace({"level": "green", "note": ""}, None)],
     )
-    ans = _answer_html(run_dir)
+    cell = _report_cell(run_dir)
+    ans = cell["answer_html"]
 
-    assert "Self-check high" in ans
+    assert cell["answer_view"]["tone"] == "success"
+    assert cell["indepth_view"]["status"] == "not_in_profile"
     assert "Regimen is current" in ans
-    # green never caveats or collapses.
-    assert "caveat" not in ans
+    # green never adds a note or collapses anything.
+    assert "snote" not in ans
     assert "<details" not in ans
 
 
@@ -152,9 +153,9 @@ def test_malformed_trace_line_is_tolerated(tmp_path):
         traces=["", "{ this is not json",
                 _trace({"level": "red", "note": "bad"}, {"level": "green", "note": ""})],
     )
-    ans = _answer_html(run_dir)
-    assert "Self-check low" in ans
-    assert "<div class='caveat red'>bad</div>" in ans
+    cell = _report_cell(run_dir)
+    assert cell["answer_view"]["confidence_level"] == "red"
+    assert "bad" in cell["answer_html"]
 
 
 def test_no_trace_falls_back_to_plain_answer(tmp_path):
@@ -194,14 +195,9 @@ def test_report_and_dashboard_share_flagged_output_semantics(tmp_path):
 
     dashboard_turn = dashboard.detail("s", "med-agent-team")["turns"][0]
 
-    for key in (
-        "answer_confidence_display",
-        "indepth_confidence_display",
-        "answer_validation_display",
-        "indepth_validation_display",
-    ):
+    for key in ("answer_view", "indepth_view"):
         assert report_cell[key] == dashboard_turn[key]
-    assert report_cell["answer_confidence_display"]["show_output"] is True
+    assert report_cell["answer_view"]["status"] == "needs_review"
     assert "Flagged answer [1]." in report_cell["answer_html"]
     assert "show answer" not in report_cell["answer_html"]
     assert "function fmt10(v)" in dashboard.PAGE
@@ -265,8 +261,8 @@ def test_report_and_dashboard_ignore_uncaptured_sibling_trace(tmp_path):
     dashboard._RUN_OVERRIDE = str(run_dir)
     turn = dashboard.detail("s", "med-agent-team")["turns"][0]
 
-    assert cell["answer_confidence_display"] is None
-    assert turn["answer_confidence_display"] is None
+    assert cell["answer_view"] is None
+    assert turn["answer_view"] is None
     assert turn["trace"] is None
     assert "UNRELATED LIVE REVIEW" not in cell["answer_html"]
     assert "Regimen is current" in cell["answer_html"]

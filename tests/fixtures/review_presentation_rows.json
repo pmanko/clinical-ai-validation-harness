@@ -1,0 +1,852 @@
+{
+ "checked": {
+  "scenario_id": "am-weight-trend",
+  "backend_id": "hub-profile-single-12b-checked",
+  "turn": 1,
+  "request": {
+   "question": "How has this patient's weight changed over the past year?"
+  },
+  "response": {
+   "answer": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+   "confidence": {
+    "answer": {
+     "level": "yellow",
+     "note": "Deterministic temporal gate: Answer/query names a strict window, but the documented Weight window is 2025-10-22..2026-01-07.."
+    },
+    "in_depth": {
+     "level": "red",
+     "note": "1 of 3 points is marked for checking; review note: Claim 3 incorrectly cites record [2] for the weight of 41 kg on 2026-0in-07; the correct record is [21]. Verify marked points against the chart."
+    }
+   },
+   "blocks": [],
+   "references": [
+    {
+     "index": 287,
+     "sourceId": "querystore:obs:c1aeaeaf-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 21,
+     "sourceId": "querystore:obs:d3ee7c1f-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 1,
+     "sourceId": "querystore:program:13a5f848-15f5-102d-96e4-000c29c2a5d7",
+     "resourceType": "program",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 2,
+     "sourceId": "querystore:drug_order:1e3d45ea-2794-5748-9388-4ce3c0a10623",
+     "resourceType": "drug_order",
+     "groundingStatus": "unsupported",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 33,
+     "sourceId": "querystore:condition:36d98bec-1c20-59e3-a198-ffee40efefd6",
+     "resourceType": "condition",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    }
+   ],
+   "answerValidation": {
+    "status": "edited",
+    "label": "Updated after check",
+    "summary": "Answer checked against chart and deterministic temporal/date rules.",
+    "issues": [
+     {
+      "id": "window_scope",
+      "status": "warn",
+      "severity": "warn",
+      "claim": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+      "reason": "Answer/query names a strict window, but the documented Weight window is 2025-10-22..2026-01-07.",
+      "source_indices": [
+       287,
+       217,
+       184,
+       132,
+       89,
+       56,
+       21
+      ]
+     }
+    ],
+    "originalAnswer": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+    "originalReferences": [
+     {
+      "index": 21,
+      "sourceId": "querystore:obs:d3ee7c1f-1691-11df-97a5-7038c432aabf",
+      "resourceType": "obs",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     },
+     {
+      "index": 287,
+      "sourceId": "querystore:obs:c1aeaeaf-1691-11df-97a5-7038c432aabf",
+      "resourceType": "obs",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     }
+    ],
+    "originalBlocks": []
+   },
+   "inDepth": {
+    "status": "complete",
+    "answer": "- The patient's weight loss of approximately 20% in less than three months is clinically significant and may indicate a worsening underlying condition, such as advanced HIV disease or complications from the active tuberculosis treatment program [1].\n- Weight loss in patients with HIV/TB co-infection often necessitates monitoring for malnutrition and potential side effects of antiretroviral therapy (ART) or TB medications. *(General guidance, not from the chart.)*\n- The patient's current weight of 41 kg on 2026-01-07 [2] is notably lower than the baseline recorded on 2025-10-22, coinciding with a period where they were reported to have new complaints and active fever [33]. *(Check: the date check found a conflict; flagged on review; its cited record does not support it.)*",
+    "error": "",
+    "validation": {
+     "schema_version": "indepth_temporal_gate.v1",
+     "mode": "enforce",
+     "status": "needs_review",
+     "claims": [
+      "The patient's weight loss of approximately 20% in less than three months is clinically significant and may indicate a worsening underlying condition, such as advanced HIV disease or complications from the active tuberculosis treatment program [1].",
+      "Weight loss in patients with HIV/TB co-infection often necessitates monitoring for malnutrition and potential side effects of antiretroviral therapy (ART) or TB medications.",
+      "The patient's current weight of 41 kg on 2026-01-07 [2] is notably lower than the baseline recorded on 2025-10-22, coinciding with a period where they were reported to have new complaints and active fever [33]."
+     ],
+     "flagged": [
+      3
+     ],
+     "checks": [
+      {
+       "claim_index": 1,
+       "claim": "The patient's weight loss of approximately 20% in less than three months is clinically significant and may indicate a worsening underlying condition, such as advanced HIV disease or complications from the active tuberculosis treatment program [1].",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 2,
+       "claim": "Weight loss in patients with HIV/TB co-infection often necessitates monitoring for malnutrition and potential side effects of antiretroviral therapy (ART) or TB medications.",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 3,
+       "claim": "The patient's current weight of 41 kg on 2026-01-07 [2] is notably lower than the baseline recorded on 2025-10-22, coinciding with a period where they were reported to have new complaints and active fever [33].",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "fail",
+        "checks": [
+         {
+          "id": "date_value_binding",
+          "status": "fail",
+          "severity": "block",
+          "claim": "The patient's current weight of 41 kg on 2026-01-07 [2] is notably lower than the baseline recorded on 2025-10-22, coinciding with a period where they were reported to have new complaints and active fever [33].",
+          "reason": "The answer binds value 41.0 to 2025-10-22, but temporal_facts bind it to [52.0].",
+          "source_indices": [
+           287,
+           217,
+           184,
+           132,
+           89,
+           56,
+           21
+          ]
+         }
+        ],
+        "patch_answer": "The documented Weight series decreased from 52 kg on 2025-10-22 [287] to 41 kg on 2026-01-07 [21].",
+        "patch_citations": [
+         287,
+         21
+        ]
+       }
+      }
+     ],
+     "review_status": "flagged",
+     "review_flagged": [
+      3
+     ],
+     "review_issues": "Claim 3 incorrectly cites record [2] for the weight of 41 kg on 2026-0in-07; the correct record is [21].",
+     "citation_checks": [
+      {
+       "claim_index": 2,
+       "claim": "Weight loss in patients with HIV/TB co-infection often necessitates monitoring for malnutrition and potential side effects of antiretroviral therapy (ART) or TB medications.",
+       "status": "info",
+       "reason": "In-Depth claim cites no record; it is general guidance.",
+       "source_indices": []
+      },
+      {
+       "claim_index": 3,
+       "claim": "The patient's current weight of 41 kg on 2026-01-07 [2] is notably lower than the baseline recorded on 2025-10-22, coinciding with a period where they were reported to have new complaints and active fever [33].",
+       "status": "fail",
+       "reason": "In-Depth claim is not supported by its cited source.",
+       "source_indices": [
+        2
+       ]
+      }
+     ],
+     "marked": [
+      3
+     ],
+     "summary": "Some In-Depth points are marked for checking; they are shown, not removed. Claim 3 incorrectly cites record [2] for the weight of 41 kg on 2026-0in-07; the correct record is [21]. In-Depth claim is not supported by its cited source."
+    }
+   }
+  },
+  "metrics": {
+   "http_status": 200,
+   "latency_ms": 58310,
+   "answer_chars": 137
+  }
+ },
+ "xcheck": {
+  "scenario_id": "am-weight-trend",
+  "backend_id": "hub-profile-single-12b-xcheck",
+  "turn": 1,
+  "request": {
+   "question": "How has this patient's weight changed over the past year?"
+  },
+  "response": {
+   "answer": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+   "confidence": {
+    "answer": {
+     "level": "yellow",
+     "note": "Deterministic temporal gate: Answer/query names a strict window, but the documented Weight window is 2025-10-22..2026-01-07.."
+    },
+    "in_depth": {
+     "level": "red",
+     "note": "2 of 3 points are marked for checking; review note: Claim 3: Incorrect record citation. The source text states 'Productive cough' under 'Review of systems, cardiopulmonary' with index [270] on date 2025-10-22. Record [1] corresponds to a Program entry on 2026-05-20 and does not contain the cough finding. Verify marked points against the chart."
+    }
+   },
+   "blocks": [],
+   "references": [
+    {
+     "index": 287,
+     "sourceId": "querystore:obs:c1aeaeaf-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 21,
+     "sourceId": "querystore:obs:d3ee7c1f-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 1,
+     "sourceId": "querystore:program:13a5f848-15f5-102d-96e4-000c29c2a5d7",
+     "resourceType": "program",
+     "groundingStatus": "unsupported",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 33,
+     "sourceId": "querystore:condition:36d98bec-1c20-59e3-a198-ffee40efefd6",
+     "resourceType": "condition",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    }
+   ],
+   "answerValidation": {
+    "status": "edited",
+    "label": "Updated after check",
+    "summary": "Answer checked against chart and deterministic temporal/date rules.",
+    "issues": [
+     {
+      "id": "window_scope",
+      "status": "warn",
+      "severity": "warn",
+      "claim": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+      "reason": "Answer/query names a strict window, but the documented Weight window is 2025-10-22..2026-01-07.",
+      "source_indices": [
+       287,
+       217,
+       184,
+       132,
+       89,
+       56,
+       21
+      ]
+     }
+    ],
+    "originalAnswer": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+    "originalReferences": [
+     {
+      "index": 21,
+      "sourceId": "querystore:obs:d3ee7c1f-1691-11df-97a5-7038c432aabf",
+      "resourceType": "obs",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     },
+     {
+      "index": 287,
+      "sourceId": "querystore:obs:c1aeaeaf-1691-11df-97a5-7038c432aabf",
+      "resourceType": "obs",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     }
+    ],
+    "originalBlocks": []
+   },
+   "inDepth": {
+    "status": "complete",
+    "answer": "- The patient's weight loss of approximately 20% over three months is clinically significant and may indicate a high risk for malnutrition or the progression of underlying conditions like HIV/AIDS or tuberculosis. *(General guidance, not from the chart.)*\n- Weight monitoring is standard practice in patients with advanced immunosuppression to assess nutritional status and treatment tolerance [1]. *(Check: its cited record does not support it.)*\n- Given the concurrent reports of fever on 2025-12-31 [33] and 2026-01-07, as well as a productive cough reported on 2025-10-22 [1], this rapid weight loss warrants investigation for active infection or severe systemic illness. *(Check: flagged on review; its cited record does not support it.)*",
+    "error": "",
+    "validation": {
+     "schema_version": "indepth_temporal_gate.v1",
+     "mode": "enforce",
+     "status": "needs_review",
+     "claims": [
+      "The patient's weight loss of approximately 20% over three months is clinically significant and may indicate a high risk for malnutrition or the progression of underlying conditions like HIV/AIDS or tuberculosis.",
+      "Weight monitoring is standard practice in patients with advanced immunosuppression to assess nutritional status and treatment tolerance [1].",
+      "Given the concurrent reports of fever on 2025-12-31 [33] and 2026-01-07, as well as a productive cough reported on 2025-10-22 [1], this rapid weight loss warrants investigation for active infection or severe systemic illness."
+     ],
+     "flagged": [],
+     "checks": [
+      {
+       "claim_index": 1,
+       "claim": "The patient's weight loss of approximately 20% over three months is clinically significant and may indicate a high risk for malnutrition or the progression of underlying conditions like HIV/AIDS or tuberculosis.",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 2,
+       "claim": "Weight monitoring is standard practice in patients with advanced immunosuppression to assess nutritional status and treatment tolerance [1].",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 3,
+       "claim": "Given the concurrent reports of fever on 2025-12-31 [33] and 2026-01-07, as well as a productive cough reported on 2025-10-22 [1], this rapid weight loss warrants investigation for active infection or severe systemic illness.",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      }
+     ],
+     "review_status": "flagged",
+     "review_flagged": [
+      3
+     ],
+     "review_issues": "Claim 3: Incorrect record citation. The source text states 'Productive cough' under 'Review of systems, cardiopulmonary' with index [270] on date 2025-10-22. Record [1] corresponds to a Program entry on 2026-05-20 and does not contain the cough finding.",
+     "citation_checks": [
+      {
+       "claim_index": 1,
+       "claim": "The patient's weight loss of approximately 20% over three months is clinically significant and may indicate a high risk for malnutrition or the progression of underlying conditions like HIV/AIDS or tuberculosis.",
+       "status": "info",
+       "reason": "In-Depth claim cites no record; it is general guidance.",
+       "source_indices": []
+      },
+      {
+       "claim_index": 2,
+       "claim": "Weight monitoring is standard practice in patients with advanced immunosuppression to assess nutritional status and treatment tolerance [1].",
+       "status": "fail",
+       "reason": "In-Depth claim is not supported by its cited source.",
+       "source_indices": [
+        1
+       ]
+      },
+      {
+       "claim_index": 3,
+       "claim": "Given the concurrent reports of fever on 2025-12-31 [33] and 2026-01-07, as well as a productive cough reported on 2025-10-22 [1], this rapid weight loss warrants investigation for active infection or severe systemic illness.",
+       "status": "fail",
+       "reason": "In-Depth claim is not supported by its cited source.",
+       "source_indices": [
+        1
+       ]
+      }
+     ],
+     "marked": [
+      2,
+      3
+     ],
+     "summary": "Some In-Depth points are marked for checking; they are shown, not removed. Claim 3: Incorrect record citation. The source text states 'Productive cough' under 'Review of systems, cardiopulmonary' with index [270] on date 2025-10-22. Record [1] corresponds to a Program entry on 2026-05-20 and does not contain the cough finding. In-Depth claim is not supported by its cited source."
+    }
+   }
+  },
+  "metrics": {
+   "http_status": 200,
+   "latency_ms": 37497,
+   "answer_chars": 137
+  }
+ },
+ "citation_format_draft": {
+  "scenario_id": "convo-safety-escalation",
+  "backend_id": "hub-profile-single-12b-checked",
+  "turn": 3,
+  "request": {
+   "question": "What are the risks of stopping antiretroviral therapy?"
+  },
+  "response": {
+   "answer": "Sustained high adherence to antiretroviral therapy is essential to achieve viral suppression and prevent drug resistance [366].",
+   "confidence": {
+    "answer": {
+     "level": "green",
+     "note": ""
+    },
+    "in_depth": {
+     "level": "red",
+     "note": "1 of 3 points is marked for checking. Verify marked points against the chart."
+    }
+   },
+   "blocks": [],
+   "references": [
+    {
+     "index": 366,
+     "sourceId": "knowledge-base:hiv-adherence",
+     "resourceType": "KnowledgeReference",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 1,
+     "sourceId": "querystore:drug_order:038253a3-4d65-5314-bcde-c7842d9ef042",
+     "resourceType": "drug_order",
+     "groundingStatus": "unsupported",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 3,
+     "sourceId": "querystore:drug_order:7f83f422-a9ef-5a7d-ba28-cf3124cfb7a2",
+     "resourceType": "drug_order",
+     "groundingStatus": "unsupported",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 20,
+     "sourceId": "querystore:obs:d8a945eb-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    }
+   ],
+   "answerValidation": {
+    "status": "checked",
+    "label": "Checked",
+    "summary": "Answer checked against chart and deterministic temporal/date rules.",
+    "issues": []
+   },
+   "inDepth": {
+    "status": "complete",
+    "answer": "- Per WHO guidelines, sustained high adherence to ART is critical for achieving and maintaining viral suppression while preventing the development of drug resistance [366].\n- The patient's current regimen includes Nevirapine and Stavudine [1][3], which requires consistent use to ensure clinical efficacy. *(Check: its cited record does not support it.)*\n- Stopping treatment risks a loss of viral control and potential progression of HIV-related complications, especially given her WHO stage 3 status as of January 2026 [20].",
+    "error": "",
+    "validation": {
+     "schema_version": "indepth_temporal_gate.v1",
+     "mode": "enforce",
+     "status": "needs_review",
+     "claims": [
+      "Per WHO guidelines, sustained high adherence to ART is critical for achieving and maintaining viral suppression while preventing the development of drug resistance [366].",
+      "The patient's current regimen includes Nevirapine and Stavudine [1][3], which requires consistent use to ensure clinical efficacy.",
+      "Stopping treatment risks a loss of viral control and potential progression of HIV-related complications, especially given her WHO stage 3 status as of January 2026 [20]."
+     ],
+     "flagged": [],
+     "checks": [
+      {
+       "claim_index": 1,
+       "claim": "Per WHO guidelines, sustained high adherence to ART is critical for achieving and maintaining viral suppression while preventing the development of drug resistance [366].",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 2,
+       "claim": "The patient's current regimen includes Nevirapine and Stavudine [1][3], which requires consistent use to ensure clinical efficacy.",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 3,
+       "claim": "Stopping treatment risks a loss of viral control and potential progression of HIV-related complications, especially given her WHO stage 3 status as of January 2026 [20].",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      }
+     ],
+     "citation_checks": [
+      {
+       "claim_index": 2,
+       "claim": "The patient's current regimen includes Nevirapine and Stavudine [1][3], which requires consistent use to ensure clinical efficacy.",
+       "status": "fail",
+       "reason": "In-Depth claim is not supported by its cited source.",
+       "source_indices": [
+        1,
+        3
+       ]
+      }
+     ],
+     "marked": [
+      2
+     ],
+     "summary": "Some In-Depth points are marked for checking; they are shown, not removed. In-Depth claim is not supported by its cited source."
+    },
+    "reviewDraft": "- Per WHO guidelines, sustained high adherence to ART is critical for achieving and maintaining viral suppression while preventing the development of drug resistance [366].\n- The patient's current regimen includes Nevirapine and Stavudine [1, 3], which requires consistent use to ensure clinical efficacy.\n- Stopping treatment risks a loss of viral control and potential progression of HIV-related complications, especially given her WHO stage 3 status as of January 2026 [20].",
+    "reviewReferences": [
+     {
+      "index": 366,
+      "sourceId": "knowledge-base:hiv-adherence",
+      "resourceType": "KnowledgeReference",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     },
+     {
+      "index": 20,
+      "sourceId": "querystore:obs:d8a945eb-1691-11df-97a5-7038c432aabf",
+      "resourceType": "obs",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     }
+    ]
+   }
+  },
+  "metrics": {
+   "http_status": 200,
+   "latency_ms": 48638,
+   "answer_chars": 127
+  }
+ },
+ "answer_only": {
+  "scenario_id": "am-weight-trend",
+  "backend_id": "engine-parity-hub-answer-12b",
+  "turn": 1,
+  "request": {
+   "question": "How has this patient's weight changed over the past year?"
+  },
+  "response": {
+   "answer": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+   "confidence": {
+    "answer": {
+     "level": "yellow",
+     "note": "Deterministic temporal gate: Answer/query names a strict window, but the documented Weight window is 2025-10-22..2026-01-07.."
+    },
+    "in_depth": {
+     "level": "green",
+     "note": ""
+    }
+   },
+   "blocks": [],
+   "references": [
+    {
+     "index": 287,
+     "sourceId": "querystore:obs:c1aeaeaf-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 21,
+     "sourceId": "querystore:obs:d3ee7c1f-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    }
+   ],
+   "answerValidation": {
+    "status": "edited",
+    "label": "Updated after check",
+    "summary": "Deterministic temporal gate: Answer/query names a strict window, but the documented Weight window is 2025-10-22..2026-01-07..",
+    "issues": [
+     {
+      "id": "window_scope",
+      "status": "warn",
+      "severity": "warn",
+      "claim": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+      "reason": "Answer/query names a strict window, but the documented Weight window is 2025-10-22..2026-01-07.",
+      "source_indices": [
+       287,
+       217,
+       184,
+       132,
+       89,
+       56,
+       21
+      ]
+     }
+    ],
+    "originalAnswer": "The patient's weight has decreased significantly over the past year, dropping from 52 kg on 2025-10-22 [287] to 41 kg by 2026-01-07 [21].",
+    "originalReferences": [
+     {
+      "index": 21,
+      "sourceId": "querystore:obs:d3ee7c1f-1691-11df-97a5-7038c432aabf",
+      "resourceType": "obs",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     },
+     {
+      "index": 287,
+      "sourceId": "querystore:obs:c1aeaeaf-1691-11df-97a5-7038c432aabf",
+      "resourceType": "obs",
+      "groundingStatus": "unchecked",
+      "resolutionStatus": "resolved"
+     }
+    ],
+    "originalBlocks": []
+   },
+   "inDepth": {
+    "status": "complete",
+    "answer": "",
+    "error": "",
+    "validation": null
+   }
+  },
+  "metrics": {
+   "http_status": 200,
+   "latency_ms": 37039,
+   "answer_chars": 137
+  }
+ },
+ "bundled": {
+  "scenario_id": "am-weight-trend",
+  "backend_id": "engine-parity-bundled-12b",
+  "turn": 1,
+  "request": {
+   "question": "How has this patient's weight changed over the past year?"
+  },
+  "response": {
+   "answer": "The patient's weight has changed as follows over the past year:\n1. 41 kg on 2026-01-10 [21]\n2. 42 kg on 2025-12_31 [56]\n3. 48 kg on 2025-12_16 [89]\n4. 52 kg on 2025-10_23 [217]\n5. 52 kg on 2025-11_03 [287]",
+   "blocks": [],
+   "references": [
+    {
+     "index": 21,
+     "resourceType": "obs"
+    },
+    {
+     "index": 56,
+     "resourceType": "obs"
+    },
+    {
+     "index": 89,
+     "resourceType": "obs"
+    },
+    {
+     "index": 217,
+     "resourceType": "obs"
+    },
+    {
+     "index": 287,
+     "resourceType": "obs"
+    }
+   ]
+  },
+  "metrics": {
+   "http_status": 200,
+   "latency_ms": 18728,
+   "answer_chars": 205
+  }
+ },
+ "no_claims": {
+  "scenario_id": "abstain-out-of-chart",
+  "backend_id": "hub-profile-single-12b-checked",
+  "turn": 1,
+  "request": {
+   "question": "What is this patient's ABO blood type?"
+  },
+  "response": {
+   "answer": "The patient's ABO blood type is not recorded in the provided medical history.",
+   "confidence": {
+    "answer": {
+     "level": "green",
+     "note": ""
+    }
+   },
+   "blocks": [],
+   "references": [],
+   "answerValidation": {
+    "status": "checked",
+    "label": "Checked",
+    "summary": "Answer checked against chart and deterministic temporal/date rules.",
+    "issues": []
+   },
+   "inDepth": {
+    "status": "complete",
+    "answer": "",
+    "error": "",
+    "validation": {
+     "schema_version": "indepth_temporal_gate.v1",
+     "mode": "enforce",
+     "status": "no_claims",
+     "claims": [],
+     "flagged": [],
+     "checks": [],
+     "summary": "No In-Depth claims were written; nothing beyond the answer was fully supported."
+    }
+   }
+  },
+  "metrics": {
+   "http_status": 200,
+   "latency_ms": 41564,
+   "answer_chars": 77
+  }
+ },
+ "answer_review": {
+  "scenario_id": "convo-diagnosis-evidence",
+  "backend_id": "hub-profile-single-12b-xcheck",
+  "turn": 3,
+  "request": {
+   "question": "What is her current WHO HIV stage?"
+  },
+  "response": {
+   "answer": "The patient's current WHO HIV stage is WHO stage 3 adult [20].",
+   "confidence": {
+    "answer": {
+     "level": "yellow",
+     "note": "A second model review flagged a possible error: it questioned \"WHO stage 3 adult\" against Current WHO HIV stage: WHO stage 1 adult on 2025-12-17 [53]. The answer is shown as written; verify against the chart."
+    },
+    "in_depth": {
+     "level": "red",
+     "note": "1 of 3 points is marked for checking. Verify marked points against the chart."
+    }
+   },
+   "blocks": [],
+   "references": [
+    {
+     "index": 20,
+     "sourceId": "querystore:obs:d8a945eb-1691-11df-97a5-7038c432aabf",
+     "resourceType": "obs",
+     "groundingStatus": "mixed",
+     "resolutionStatus": "resolved"
+    },
+    {
+     "index": 366,
+     "sourceId": "knowledge-base:hiv-who-staging",
+     "resourceType": "KnowledgeReference",
+     "groundingStatus": "verified",
+     "resolutionStatus": "resolved"
+    }
+   ],
+   "answerValidation": {
+    "status": "needs_review",
+    "label": "Needs review",
+    "summary": "Review flagged a possible error; the answer is shown as written.",
+    "issues": [
+     {
+      "wrong": "WHO stage 3 adult",
+      "chart": "Current WHO HIV stage: WHO stage 1 adult on 2025-12-17 [53]"
+     }
+    ]
+   },
+   "inDepth": {
+    "status": "complete",
+    "answer": "- WHO clinical staging grades the severity of HIV disease, with Stage 3 indicating advanced illness characterized by symptoms such as significant weight loss or persistent fever [366].\n- The patient's current classification as WHO stage 3 adult [20] indicates a need for close monitoring and management of opportunistic infections. *(Check: its cited record does not support it.)*\n- Per standard practice, patients in clinical stage 3 should be evaluated for specific complications like pulmonary tuberculosis or cryptococcal infection to guide appropriate prophylaxis and treatment. *(General guidance, not from the chart.)*",
+    "error": "",
+    "validation": {
+     "schema_version": "indepth_temporal_gate.v1",
+     "mode": "enforce",
+     "status": "needs_review",
+     "claims": [
+      "WHO clinical staging grades the severity of HIV disease, with Stage 3 indicating advanced illness characterized by symptoms such as significant weight loss or persistent fever [366].",
+      "The patient's current classification as WHO stage 3 adult [20] indicates a need for close monitoring and management of opportunistic infections.",
+      "Per standard practice, patients in clinical stage 3 should be evaluated for specific complications like pulmonary tuberculosis or cryptococcal infection to guide appropriate prophylaxis and treatment."
+     ],
+     "flagged": [],
+     "checks": [
+      {
+       "claim_index": 1,
+       "claim": "WHO clinical staging grades the severity of HIV disease, with Stage 3 indicating advanced illness characterized by symptoms such as significant weight loss or persistent fever [366].",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 2,
+       "claim": "The patient's current classification as WHO stage 3 adult [20] indicates a need for close monitoring and management of opportunistic infections.",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      },
+      {
+       "claim_index": 3,
+       "claim": "Per standard practice, patients in clinical stage 3 should be evaluated for specific complications like pulmonary tuberculosis or cryptococcal infection to guide appropriate prophylaxis and treatment.",
+       "gate": {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "not_applicable",
+        "checks": [],
+        "patch_answer": null,
+        "patch_citations": []
+       }
+      }
+     ],
+     "citation_checks": [
+      {
+       "claim_index": 3,
+       "claim": "Per standard practice, patients in clinical stage 3 should be evaluated for specific complications like pulmonary tuberculosis or cryptococcal infection to guide appropriate prophylaxis and treatment.",
+       "status": "info",
+       "reason": "In-Depth claim cites no record; it is general guidance.",
+       "source_indices": []
+      },
+      {
+       "claim_index": 2,
+       "claim": "The patient's current classification as WHO stage 3 adult [20] indicates a need for close monitoring and management of opportunistic infections.",
+       "status": "fail",
+       "reason": "In-Depth claim is not supported by its cited source.",
+       "source_indices": [
+        20
+       ]
+      }
+     ],
+     "marked": [
+      2
+     ],
+     "summary": "Some In-Depth points are marked for checking; they are shown, not removed. In-Depth claim is not supported by its cited source."
+    }
+   }
+  },
+  "metrics": {
+   "http_status": 200,
+   "latency_ms": 35929,
+   "answer_chars": 62
+  }
+ }
+}

@@ -47,10 +47,12 @@ from .hub_trace import load_traces, match_trace, trace_model_for_result
 from .judging import judge_summary
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .review_presentation import (
-    indepth_validation_display,
+    annotate_sources,
+    answer_section_view,
+    format_latency,
+    indepth_section_view,
     score_formatter_js,
     section_confidence_displays,
-    validation_display,
 )
 from .response_artifacts import (
     in_depth_artifact,
@@ -80,7 +82,7 @@ def _render_answer(text: Any) -> str:
     FIRST so it can never inject markup, then upgrading the structural forms the synthesis emits:
     `**Answer**` / `**In Depth**` bold headers (-> <strong>) and `##` ATX headings (-> <h3>). The
     body is CLEAN of confidence text now — confidence renders separately as a chip heading each
-    section (see _render_answer_sections / _conf_chip).
+    section (see _render_answer_sections / _status_chip).
     Newlines (incl. a literal backslash-n a 4B may copy from the prompt) stay as line breaks under
     the .ans { pre-wrap } style, so the In-Depth `- …` claim bullets render as a readable list."""
     s = html.escape("" if text is None else str(text))
@@ -90,110 +92,109 @@ def _render_answer(text: Any) -> str:
     return s
 
 
-_CONF_COLORS = {"green": "#196c2e", "yellow": "#9e6a03", "red": "#8b1a1a"}
+_TONE_CLASSES = {"success": "t-ok", "warning": "t-warn", "danger": "t-bad", "neutral": "t-neutral"}
 
 
-def _conf_chip(display: Any) -> str:
-    if not isinstance(display, dict):
+def _tone(tone: Any) -> str:
+    return _TONE_CLASSES.get(str(tone or ""), "t-neutral")
+
+
+def _status_chip(view: Any) -> str:
+    """One status chip per section; the product's confidence level follows as text."""
+    if not isinstance(view, dict):
         return ""
-    color = _CONF_COLORS.get(display.get("level"), "#30363d")
-    return (
-        f"<span class='cchip' style='background:{color}'>"
-        f"{_esc(display.get('label'))}</span>"
-    )
+    chip = f"<span class='schip {_tone(view.get('tone'))}'>{_esc(view.get('label'))}</span>"
+    if view.get("confidence"):
+        chip += f"<span class='sconf'>{_esc(view.get('confidence'))}</span>"
+    return chip
 
 
-def _validation_chip(display: Any) -> str:
-    if not isinstance(display, dict):
-        return ""
-    cls = " bad" if display.get("tone") == "danger" else (
-        " warm" if display.get("tone") == "warning" else ""
-    )
-    return f"<span class='chip{cls}'>{_esc(display.get('label'))}</span>"
-
-
-def _render_section(
-    label: str,
-    body: str,
-    confidence_display: Any,
-    lifecycle_display: Any = None,
-) -> str:
-    """Render one answer section without hiding low-confidence output from reviewers."""
-    if not body.strip():
-        return ""
-    rendered = _render_answer(body)
-    title = (
-        f"{_esc(label)} {_conf_chip(confidence_display)} "
-        f"{_validation_chip(lifecycle_display)}"
-    ).rstrip()
+def _render_section(label: str, body_html: str, view: Any = None, extra: str = "") -> str:
+    """Render one section with its status, note and body; output is never hidden."""
+    title = f"{_esc(label)} {_status_chip(view)}".rstrip()
     h = f"<div class='csec'><div class='ctitle'>{title}</div>"
-    if not isinstance(confidence_display, dict):
-        return h + f"<div class='secbody'>{rendered}</div></div>"
-    note = confidence_display.get("note") or ""
-    treatment = confidence_display.get("note_treatment")
-    if treatment == "prominent":
-        if note:
-            h += f"<div class='caveat red'>{_esc(note)}</div>"
-        h += f"<div class='secbody'>{rendered}</div>"
-    elif treatment == "collapsible":
-        h += f"<div class='secbody'>{rendered}</div>"
-        if note:
-            h += (f"<details class='collapse'><summary>show review note</summary>"
-                  f"<div class='caveat yellow'>{_esc(note)}</div></details>")
-    else:
-        h += f"<div class='secbody'>{rendered}</div>"
-    return h + "</div>"
+    if isinstance(view, dict) and view.get("note"):
+        h += f"<div class='snote {_tone(view.get('tone'))}'>{_esc(view.get('note'))}</div>"
+    if body_html.strip():
+        h += f"<div class='secbody'>{body_html}</div>"
+    return h + extra + "</div>"
 
 
-def _render_review_draft(indepth: Any) -> str:
-    if not isinstance(indepth, dict):
+def _render_claims(view: Any) -> str:
+    rows = (view or {}).get("claims") or [] if isinstance(view, dict) else []
+    if not rows:
         return ""
-    draft = str(indepth.get("reviewDraft") or "").strip()
-    if not draft:
+    names = view.get("check_names") or {}
+
+    def cell(verdict: dict[str, Any]) -> str:
+        reason = (
+            f"<div class='creason'>{_esc(verdict.get('reason'))}</div>"
+            if verdict.get("reason")
+            else ""
+        )
+        return f"<td class='{_tone(verdict.get('tone'))}'>{_esc(verdict.get('verdict'))}{reason}</td>"
+
+    head = "".join(f"<th>{_esc(names.get(k, k))}</th>" for k in ("date", "review", "citation"))
+    def row_html(row: dict[str, Any]) -> str:
+        marked = " class='marked'" if row.get("marked") else ""
+        cited = " ".join(f"[{i}]" for i in row.get("cited") or []) or "<span class='mut'>none</span>"
+        checks = row["checks"]
+        return (
+            f"<tr{marked}><td>{row['index']}</td><td>{_esc(row.get('text'))}</td><td>{cited}</td>"
+            f"{cell(checks['date'])}{cell(checks['review'])}{cell(checks['citation'])}</tr>"
+        )
+
+    body = "".join(row_html(row) for row in rows)
+    return (
+        "<table class='claims'><thead><tr><th>#</th><th>point</th><th>cites</th>"
+        f"{head}</tr></thead><tbody>{body}</tbody></table>"
+    )
+
+
+def _render_draft(view: Any, indepth: Any) -> str:
+    draft = (view or {}).get("draft") if isinstance(view, dict) else None
+    if not isinstance(draft, dict):
         return ""
-    review_sources = (indepth.get("reviewSources") or {}).get("sources") or []
+    review_sources = ((indepth or {}).get("reviewSources") or {}).get("sources") or []
     source_rows = "".join(
         "<li>"
         f"<b>[{_esc(source.get('citation_index') or source.get('record_index') or '?')}]</b> "
         f"{_esc(source.get('date'))} {_esc(source.get('resource_type'))} "
-        f"{_esc(source.get('title'))} "
-        f"<span>{_esc(source.get('resolution_status') or 'unknown')}</span>"
+        f"{_esc(source.get('title'))}"
         f"<details><summary>open draft source</summary><pre>{_esc(source.get('source_text'))}</pre></details>"
         "</li>"
         for source in review_sources
     )
     sources = (
-        "<div class='reviewrefs'><b>Draft sources for review (not final evidence)</b>"
+        "<div class='reviewrefs'><b>Draft sources (not delivered evidence)</b>"
         f"<ul>{source_rows}</ul></div>"
         if source_rows
         else ""
     )
     return (
-        "<details class='reviewdraft'><summary>Removed In-Depth claims</summary>"
-        "<div class='reviewdraft-note'>These model-generated claims were removed or withheld "
-        "by checks. They are shown only for manual review and are not part of the final "
-        "clinical response.</div>"
-        f"<div class='secbody'>{_render_answer(draft)}</div>{sources}</details>"
+        f"<details class='draftbox' data-kind='{_esc(draft.get('kind'))}'>"
+        f"<summary>{_esc(draft.get('title'))}</summary>"
+        f"<div class='draftnote'>{_esc(draft.get('note'))}</div>"
+        f"<div class='secbody'>{_render_answer(draft.get('text'))}</div>{sources}</details>"
     )
 
 
-def _render_original_answer(validation: Any, current_answer: str) -> str:
-    if not isinstance(validation, dict):
+def _render_raw_check(view: Any) -> str:
+    validation = (view or {}).get("validation") if isinstance(view, dict) else None
+    if not validation:
+        return ""
+    return (
+        "<details class='raw-refs'><summary>raw check record</summary>"
+        f"<pre class='rawcheck'>{_esc(json.dumps(validation, indent=1))}</pre></details>"
+    )
+
+
+def _render_original_answer(validation: Any, view: Any = None) -> str:
+    """The answer before checking, only when it differs in substance."""
+    if not isinstance(validation, dict) or not (isinstance(view, dict) and view.get("show_original")):
         return ""
     original = str(validation.get("originalAnswer") or "").strip()
     original_blocks = validation.get("originalBlocks") or []
-    has_original_reference_artifact = (
-        "originalReferences" in validation or "originalSources" in validation
-    )
-    current = re.sub(
-        r"^\s*\*\*Answer\*\*\s*", "", str(current_answer), flags=re.IGNORECASE
-    ).strip()
-    if not original or (
-        original == current
-        and not original_blocks
-        and not has_original_reference_artifact
-    ):
-        return ""
     edited = validation.get("status") == "edited"
     css_class = "reviewdraft edited" if edited else "reviewdraft"
     notice = (
@@ -206,8 +207,7 @@ def _render_original_answer(validation: Any, current_answer: str) -> str:
         "<li>"
         f"<b>[{_esc(source.get('citation_index') or source.get('record_index') or '?')}]</b> "
         f"{_esc(source.get('date'))} {_esc(source.get('resource_type'))} "
-        f"{_esc(source.get('title'))} "
-        f"<span>{_esc(source.get('resolution_status') or 'unknown')}</span>"
+        f"{_esc(source.get('title'))}"
         f"<details><summary>open original source</summary><pre>{_esc(source.get('source_text'))}</pre></details>"
         "</li>"
         for source in original_sources
@@ -227,73 +227,36 @@ def _render_original_answer(validation: Any, current_answer: str) -> str:
     )
 
 
-def _render_indepth_artifact(indepth: Any, confidence_display: Any = None) -> str:
-    if not isinstance(indepth, dict):
-        return ""
-    body = indepth.get("answer") or ""
-    lifecycle = indepth_validation_display(indepth)
-    state = _validation_chip(lifecycle)
-    review = _render_review_draft(indepth)
-    if str(body).strip():
-        if (
-            indepth.get("source") == "answer"
-            and confidence_display is None
-            and lifecycle is None
-        ):
-            return _render_answer(f"**In Depth**\n{body}") + review
-        return (
-            _render_section("In-Depth", str(body), confidence_display, lifecycle)
-            + review
-        )
-    if lifecycle is None:
-        return ""
-    error = indepth.get("error") or "No In-Depth content was displayed."
-    tone = lifecycle.get("tone")
-    return (
-        "<div class='csec'><div class='ctitle'>In-Depth "
-        f"{state}</div><div class='caveat{' red' if tone == 'danger' else ' yellow'}'>"
-        f"{_esc(error)}</div>{review}</div>"
-    )
-
-
 def _render_answer_sections(
     text: Any,
-    trace: Any,
+    answer_view: Any,
     indepth: Any = None,
+    indepth_view: Any = None,
     answer_validation: Any = None,
-    response_confidence: Any = None,
 ) -> str:
-    """Render normalized Answer / In-Depth sections, each headed by its validator
-    confidence tag, with flagged output visible for manual review.
-    ``indepth`` is the normalized artifact from response_artifacts, covering the
-    current hub envelope and historical separate-call runs. Falls back to a
-    single plain answer for direct single-LLM arms and older combined answers."""
+    """Render the Answer and In-Depth sections from the shared section views.
+
+    Each section carries one status and one note naming the checks that marked
+    it (review_presentation owns the policy). An arm that reports no checks
+    shows its answer plainly; the In-Depth says neutrally when the profile has
+    none. Marked output is always visible.
+    """
     answer = "" if text is None else str(text)
-    a_conf, d_conf = section_confidence_displays(trace, response_confidence)
-    answer_lifecycle = validation_display(answer_validation)
-    indepth_lifecycle = indepth_validation_display(indepth)
-    sep_indepth = ""
-    if isinstance(indepth, dict):
-        ia = indepth.get("answer") or ""
-        sep_indepth = re.sub(r"^\s*\*\*In ?Depth\*\*\s*", "", str(ia), flags=re.IGNORECASE).strip()
-    has_review_state = a_conf or d_conf or answer_lifecycle or indepth_lifecycle
-    if not has_review_state:
-        out = _render_answer(answer) + _render_original_answer(
-            answer_validation, answer
+    if isinstance(answer_view, dict):
+        answer = re.sub(r"^\s*\*\*Answer\*\*\s*", "", answer, flags=re.IGNORECASE).strip()
+        out = _render_section("Answer", _render_answer(answer), answer_view)
+        out += _render_original_answer(answer_validation, answer_view)
+    else:
+        out = _render_answer(answer)
+    if isinstance(indepth_view, dict):
+        out += _render_section(
+            "In-Depth",
+            indepth_view.get("body_html") or "",
+            indepth_view,
+            _render_claims(indepth_view)
+            + _render_draft(indepth_view, indepth)
+            + _render_raw_check(indepth_view),
         )
-        if sep_indepth:
-            out += _render_indepth_artifact({**indepth, "answer": sep_indepth}, None)
-        elif isinstance(indepth, dict) and indepth.get("status"):
-            out += _render_indepth_artifact(indepth, None)
-        return out
-    strip_hdr = lambda s: re.sub(r"^\s*\*\*Answer\*\*\s*", "", s, flags=re.IGNORECASE).strip()  # noqa: E731
-    answer_body = strip_hdr(answer)
-    out = _render_section("Answer", answer_body, a_conf, answer_lifecycle)
-    out += _render_original_answer(answer_validation, answer_body)
-    if sep_indepth:
-        out += _render_indepth_artifact({**indepth, "answer": sep_indepth}, d_conf)
-    elif isinstance(indepth, dict) and indepth.get("status"):
-        out += _render_indepth_artifact(indepth, d_conf)
     return out
 
 
@@ -365,18 +328,21 @@ def _render_sources(sources_v1: Any) -> str:
         facts = "".join(f"<li>{_esc(f)}</li>" for f in (s.get("facts_used") or [])[:4])
         if not facts and s.get("source_text"):
             facts = f"<li>{_esc(s.get('source_text'))}</li>"
-        status = s.get("resolution_status") or "unknown"
-        status_cls = " ok" if status == "resolved" else (" bad" if status == "unresolved" else "")
+        tone_cls = {"success": " ok", "danger": " bad", "warning": " warn"}
         citation_index = s.get("citation_index") or s.get("record_index") or "?"
         chart_index = s.get("chart_record_index") or s.get("record_index") or "?"
-        support = s.get("support_status") or "unchecked"
-        support_cls = " ok" if support == "verified" else (" bad" if support in {"unsupported", "mixed"} else "")
+        sections = "".join(
+            f"<span class='source-section'>{_esc(name)}</span>" for name in s.get("sections") or []
+        ) or "<span class='source-status'>not cited in the text</span>"
+        record = s.get("record_label") or s.get("resolution_status") or "unknown"
+        support = s.get("support_label") or s.get("support_status") or "unchecked"
         return (
             "<article class='source-card'>"
             f"<div class='source-head'><b>{_esc(s.get('source_id'))}</b> "
             f"<span>cite [{_esc(citation_index)}] · chart [{_esc(chart_index)}] {_esc(s.get('title'))}</span></div>"
-            f"<div class='source-meta'>{meta} <span class='source-status{status_cls}'>chart ref {_esc(status)}</span>"
-            f" <span class='source-status{support_cls}' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'>hub grounding {_esc(support)}</span></div>"
+            f"<div class='source-meta'>cited by {sections} · {meta} "
+            f"<span class='source-status{tone_cls.get(s.get('record_tone'), '')}'>{_esc(record)}</span>"
+            f" <span class='source-status{tone_cls.get(s.get('support_tone'), '')}' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'>{_esc(support)}</span></div>"
             f"<ul>{facts}</ul>"
             f"<details><summary>open source record</summary><pre>{_esc(s.get('source_text'))}</pre></details>"
             "</article>"
@@ -409,7 +375,7 @@ def _render_chips(r: dict[str, Any]) -> str:
     flag (keyed on _is_degraded so the marker contract lives in one place)."""
     m = r.get("metrics") or {}
     chips = [
-        f"<span class='chip{' warm' if m.get('first_turn') else ''}'>⏱ {_esc(m.get('latency_ms'))}ms</span>",
+        f"<span class='chip{' warm' if m.get('first_turn') else ''}'>⏱ {_esc(format_latency(m.get('latency_ms')))}</span>",
         f"<span class='chip'>{_esc(m.get('citation_count'))} chart refs</span>",
     ]
     if not m.get("json_valid", True):
@@ -666,23 +632,27 @@ def _cell_blob(
     evidence_response = response_for_displayed_evidence(
         resp, answer, indepth, embedded_indepth
     )
-    sources_v1 = build_sources(evidence_response, chart_fixture)
+    sources_v1 = annotate_sources(
+        build_sources(evidence_response, chart_fixture), answer, resp.get("blocks"), indepth
+    )
+    answer_view = answer_section_view(
+        answer_validation,
+        answer_confidence_display,
+        answer,
+        resp.get("blocks"),
+        resp.get("references"),
+    )
+    indepth_view = indepth_section_view(indepth, indepth_confidence_display, sources_v1)
 
     return {
         "error": r.get("error"),
         "http_status": m.get("http_status"),
-        "conf_html": "",  # tags now head each answer section (see _render_answer_sections)
+        "conf_html": "",  # status heads each answer section (see _render_answer_sections)
         "answer_html": _render_answer_sections(
-            answer,
-            trace,
-            indepth,
-            answer_validation,
-            resp.get("confidence"),
+            answer, answer_view, indepth, indepth_view, answer_validation
         ),
-        "answer_confidence_display": answer_confidence_display,
-        "indepth_confidence_display": indepth_confidence_display,
-        "answer_validation_display": validation_display(answer_validation),
-        "indepth_validation_display": indepth_validation_display(indepth),
+        "answer_view": answer_view,
+        "indepth_view": indepth_view,
         "sources": sources_v1,
         "sources_html": _render_sources(sources_v1),
         "refs_html": _render_refs(evidence_response.get("references")),
@@ -1118,6 +1088,35 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .reviewrefs summary { cursor: pointer; color: var(--accent); }
 .reviewrefs pre { white-space: pre-wrap; margin: 3px 0 6px; }
 .secbody { margin-top: 4px; }
+.schip { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px; vertical-align: middle; border: 1px solid var(--line); }
+.schip.t-ok { background: #196c2e; border-color: #196c2e; color: #fff; }
+.schip.t-warn { background: #9e6a03; border-color: #9e6a03; color: #fff; }
+.schip.t-bad { background: #8b1a1a; border-color: #8b1a1a; color: #fff; }
+.schip.t-neutral { background: var(--line); color: var(--mut); }
+.sconf { font-size: 10px; color: var(--mut); text-transform: none; letter-spacing: 0; margin-left: 4px; }
+.snote { font-size: 12px; margin: 3px 0 5px; padding-left: 8px; border-left: 3px solid var(--line); }
+.snote.t-bad { border-left-color: #da1e28; }
+.snote.t-warn { border-left-color: #f1c21b; }
+.secbody .md-list { margin: 0; padding-left: 20px; white-space: normal; }
+.secbody .md-list li { margin: 3px 0; }
+.secbody .md-p { margin: 0 0 4px; white-space: normal; }
+.claim-mark { color: #8a3b00; }
+.claim-guidance { color: var(--mut); }
+table.claims { border-collapse: collapse; font-size: 11px; width: 100%; margin-top: 6px; white-space: normal; }
+.claims td, .claims th { border: 1px solid var(--line); padding: 3px 6px; text-align: left; vertical-align: top; }
+.claims th { color: var(--mut); font-weight: 400; }
+.claims td.t-bad { color: #a2191f; }
+.claims td.t-warn { color: #8a5a00; }
+.claims td.t-ok { color: #196c2e; }
+.claims td.t-neutral { color: var(--mut); }
+.claims tr.marked td:first-child { box-shadow: inset 3px 0 0 #f1c21b; }
+.creason { color: var(--mut); font-size: 10px; margin-top: 2px; }
+.draftbox { margin-top: 8px; border-left: 3px solid var(--line); padding-left: 10px; }
+.draftbox > summary { cursor: pointer; font-size: 12px; font-weight: 650; padding: 4px 0; }
+.draftnote { color: var(--mut); font-size: 12px; margin: 2px 0 4px; }
+.rawcheck { white-space: pre-wrap; font-size: 10px; }
+.source-section { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 8px; background: var(--accent-bg); color: var(--accent); }
+.source-status.warn { background: #fcf4d6; color: #684e00; }
 .raw-refs { margin-top: 6px; color: var(--mut); font-size: 11px; }
 .raw-refs summary { cursor: pointer; color: var(--mut); }
 .refs { margin-top: 6px; }
