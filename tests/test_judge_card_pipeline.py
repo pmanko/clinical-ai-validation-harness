@@ -101,5 +101,5 @@ def test_the_report_says_when_no_judge_was_recorded(tmp_path):
 
     blob = report._run_blob(run)
 
-    assert blob["judging"] == {"recorded": False, "cards": [], "canonical": [],
+    assert blob["judging"] == {"recorded": False, "cards": [], "canonical": [], "aggregation": "not-recorded",
                                "sentence": "Judge not recorded for this run."}

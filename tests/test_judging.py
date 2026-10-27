@@ -65,7 +65,7 @@ def test_a_run_without_cards_says_so_instead_of_inventing_a_judge(tmp_path):
 
     summary = judge_summary(run)
 
-    assert summary == {"recorded": False, "cards": [], "canonical": [],
+    assert summary == {"recorded": False, "cards": [], "canonical": [], "aggregation": "",
                        "sentence": "Judge not recorded for this run."}
     assert load_judge_cards(run) == []
 
@@ -78,3 +78,20 @@ def test_a_card_that_is_not_json_is_skipped_not_fatal(tmp_path):
     (bad / "manifest.json").write_text("{not json")
 
     assert [c["actor_id"] for c in load_judge_cards(run)] == ["good"]
+
+
+def test_an_aggregated_headline_says_how_many_passes_and_the_rule(tmp_path):
+    run = tmp_path / "run"
+    for i in (1, 2, 3):
+        _pass(run, f"codex-gpt-6-astra-high-p{i}",
+              {"model": "gpt-6-astra", "reasoning_effort": "high", "agent": "codex",
+               "pass_index": i, "passes": 3})
+    (run / "judges" / "canonical.json").write_text(json.dumps({
+        "built_from": [f"codex-gpt-6-astra-high-p{i}" for i in (1, 2, 3)],
+        "aggregation": "median-majority"}))
+
+    summary = judge_summary(run)
+
+    assert summary["aggregation"] == "median-majority"
+    assert summary["sentence"].startswith("Judged in 3 passes by gpt-6-astra, reasoning high, Codex CLI, pass 1 of 3; ")
+    assert summary["sentence"].endswith("a harm tie counting as harmful.")

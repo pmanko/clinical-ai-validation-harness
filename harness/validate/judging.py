@@ -51,14 +51,19 @@ def load_judge_cards(run_dir: Path | str) -> list[dict[str, Any]]:
     return cards
 
 
-def canonical_actors(run_dir: Path | str) -> list[str]:
-    """The actor ids the canonical ``judge.jsonl`` was built from; empty when not recorded."""
+def canonical_record(run_dir: Path | str) -> dict[str, Any]:
+    """``judges/canonical.json`` as written by finalize or aggregate; empty when absent."""
     path = Path(run_dir) / "judges" / "canonical.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return []
-    built = data.get("built_from") if isinstance(data, dict) else None
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def canonical_actors(run_dir: Path | str) -> list[str]:
+    """The actor ids the canonical ``judge.jsonl`` was built from; empty when not recorded."""
+    built = canonical_record(run_dir).get("built_from")
     return [str(a) for a in built] if isinstance(built, list) else []
 
 
@@ -100,13 +105,18 @@ def judge_summary(run_dir: Path | str) -> dict[str, Any]:
     sentence. ``recorded`` is false when the run carries no card at all."""
     cards = load_judge_cards(run_dir)
     canonical = [c for c in cards if c["canonical"]] or cards[:1]
+    aggregation = str(canonical_record(run_dir).get("aggregation") or "")
     lines = [judge_card_line(c) for c in canonical]
     others = [judge_card_line(c) for c in cards if c not in canonical]
     if not cards:
         sentence = "Judge not recorded for this run."
+    elif aggregation == "median-majority" and len(canonical) > 1:
+        sentence = (f"Judged in {len(canonical)} passes by " + "; ".join(lines)
+                    + "; the headline is the median of each 0-10 axis and the majority of each label"
+                    " across the passes, a harm tie counting as harmful.")
     else:
         sentence = "Judged by " + "; ".join(lines) + "."
-        if others:
-            sentence += " Also scored by " + "; ".join(others) + "."
+    if cards and others:
+        sentence += " Also scored by " + "; ".join(others) + "."
     return {"recorded": bool(cards), "cards": cards, "canonical": [c["actor_id"] for c in canonical],
-            "sentence": sentence}
+            "aggregation": aggregation, "sentence": sentence}
