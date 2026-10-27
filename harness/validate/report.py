@@ -44,6 +44,7 @@ from harness.report_shell.stats import avg, box_stats, ordered_unique, percentil
 from .bundle import frozen_arm_cards, review_results, run_chart
 from .hub_trace import load_traces, match_trace, trace_model_for_result
 
+from .judging import judge_summary
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .review_presentation import (
     indepth_validation_display,
@@ -817,6 +818,8 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "judge": scout_summary(judge_rows, backends),
         "judge_rows": judge_rows,
         "judge_actors": sorted(judge_actors.keys()),
+        # Who judged: the cards under judges/*/manifest.json, named on every judged score.
+        "judging": judge_summary(run_dir),
         "judge_combined": combined_judge_summary(judge_actors, backends),
         # WS4: adjudication-calibrated Benchmark. adjudication.jsonl is OPTIONAL — when
         # absent (the default) every calibrated block is judge-only (no CI / no κ) and the
@@ -1343,13 +1346,27 @@ _SCRIPT_REST = r"""function renderMetrics(run){
 }
 
 __SHARED_SCORE_FORMATTER__
+function judgeCardLine(c){
+  if(!c) return 'judge not recorded';
+  if(c.actor_type==='human') return 'human review by '+(c.model||c.reviewer||'human reviewer');
+  if(!c.model) return 'judge not recorded';
+  var names={codex:'Codex CLI',claude:'Claude Code CLI',gemini:'Gemini CLI'};
+  var bits=[String(c.model)];
+  if(c.reasoning_effort) bits.push('reasoning '+c.reasoning_effort);
+  if(c.agent){ var a=names[c.agent]||c.agent; bits.push(c.agent_version?a+' '+c.agent_version:a); }
+  if(c.pass_index&&c.passes) bits.push('pass '+c.pass_index+' of '+c.passes); else if(c.pass_index) bits.push('pass '+c.pass_index);
+  if(c.brief_sha256) bits.push('brief '+String(c.brief_sha256).slice(0,7));
+  return bits.join(', ');
+}
 function renderJudgeCombined(run){
   var rows=(run.judge_combined||[]).slice().filter(function(s){return (s.n_actors||0)>1 && s.benchmark_score!=null;});
   if(!rows.length) return null;
   rows.sort(function(a,b){return (b.benchmark_score||0)-(a.benchmark_score||0);});
-  var actorNames=(run.judge_actors||[]).join(', ');
+  var cards=((run.judging||{}).cards||[]);
+  var actorNames=cards.length?cards.map(function(c){return c.actor_id+': '+judgeCardLine(c);}).join(' · '):(run.judge_actors||[]).join(', ');
   var h='<div class="judge-consensus"><h3>Reviewer consensus</h3>'
     +'<p class="intro">Combined score averages each scenario × setup across independent judge actors, then averages those cell means per setup. The range shows how far the actor-level arm scores spread; max Δ points to the cell with the largest judge disagreement.</p>'
+    +(cards.length?'<ul class="judge-cards">'+cards.map(function(c){return '<li><code>'+htmlEsc(c.actor_id)+'</code> '+htmlEsc(judgeCardLine(c))+(c.canonical?' <span class="muted">(headline)</span>':'')+'</li>';}).join('')+'</ul>':'')
     +'<table class="summary"><thead><tr><th>backend</th><th>combined Benchmark</th><th>actors</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
   h+=rows.map(function(s){
     var ar=s.actor_range||{}, sp=s.benchmark_spread||{};
@@ -1442,7 +1459,9 @@ function renderJudge(run){
   var nPatients=(run.patients||[]).length;
   var patientScope=nPatients===1?'one patient':nPatients+' patients';
   var judgeScope=nActors>1?nActors+' judges':'one judge';
-  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
+  var judging=run.judging||{};
+  var judgedBy=judging.recorded?htmlEsc(judging.sentence):'Judge not recorded for this run.';
+  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. An AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. <b>'+judgedBy+'</b> The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
    +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
    +'<dl class="legend-key">'
    +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'

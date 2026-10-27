@@ -34,6 +34,7 @@ from harness.report_shell.assets import (  # noqa: E402
 )
 from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart  # noqa: E402
 from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
+from harness.validate.judging import judge_summary  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.review_presentation import (  # noqa: E402
     indepth_validation_display,
@@ -288,6 +289,7 @@ def status():
             "judged_passed": judged_passed, "judged_scored": len(scored),
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "judge_actors": sorted(judge_actors.keys()),
+            "judging": judge_summary(run),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": models}
 
@@ -762,12 +764,13 @@ function renderJudgeScores(d){
  const rows=(d.judge_combined||[]).filter(s=>(s.n_actors||0)>=1&&s.benchmark_score!=null)
   .sort((a,b)=>(b.benchmark_score||0)-(a.benchmark_score||0));
  if(!rows.length)return '<span class=muted>no judged score yet</span>';
- const actors=(d.judge_actors||[]).join(', ');
+ const judging=d.judging||{};
+ const actors=judging.recorded?judging.sentence:'Judge not recorded for this run. Actors: '+(d.judge_actors||[]).join(', ');
  const multi=rows.some(s=>(s.n_actors||0)>1);
  let note=multi
   ?'Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement.'
   :'Score from one independent judge. Add another judge to show disagreement ranges.';
- let h='<p class=judge-note>'+note+' Actors: '+esc(actors)+'</p>';
+ let h='<p class=judge-note>'+esc(actors)+' '+note+'</p>';
  h+='<table class=judge-table><thead><tr><th>setup</th><th>score</th><th>actors</th><th>cell range</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
  rows.forEach(s=>{
   const ar=s.actor_range||{}, sp=s.benchmark_spread||{};

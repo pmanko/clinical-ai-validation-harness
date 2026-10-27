@@ -36,9 +36,11 @@ validate-judge-prep: setup
 JUDGE_ACTOR_TYPE ?= llm-judge
 JUDGE_MODEL ?=
 JUDGE_METHOD ?= clinical-answer-scoring
+JUDGE_CARD ?=
 validate-judge-finalize: setup
 	$(UV) run python scripts/judge-finalize.py $(RUN) $(ROWS) \
 		$(if $(JUDGE_ACTOR),--actor $(JUDGE_ACTOR) --actor-type $(JUDGE_ACTOR_TYPE) --model "$(JUDGE_MODEL)" --method "$(JUDGE_METHOD)",) \
+		$(if $(JUDGE_CARD),--card $(JUDGE_CARD),) \
 		$(if $(JUDGE_PROMOTE),--promote,)
 	@if [ -z "$(JUDGE_ACTOR)" ] || [ -n "$(JUDGE_PROMOTE)" ]; then \
 	  $(UV) run harness-cli validate report $(RUN); \
