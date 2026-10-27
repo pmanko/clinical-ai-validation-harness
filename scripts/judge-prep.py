@@ -103,6 +103,30 @@ def answer_validation_metadata(validation):
 
 
 
+def reference_date_of(rd: pathlib.Path) -> str | None:
+    """The run's reference date (its simulated "today"), from run_meta.json or the run event;
+    None when neither records one, so a judge is never handed a guessed date."""
+    for name, key in (("run_meta.json", "reference_date"),):
+        path = rd / name
+        if path.is_file():
+            try:
+                value = json.loads(path.read_text(encoding="utf-8")).get(key)
+            except (OSError, json.JSONDecodeError):
+                value = None
+            if value:
+                return str(value)
+    events = rd / "events.jsonl"
+    if events.is_file():
+        for line in events.read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line) if line.strip() else {}
+            except json.JSONDecodeError:
+                continue
+            if event.get("event_type") == "run" and event.get("reference_date"):
+                return str(event["reference_date"])
+    return None
+
+
 def run_dir(arg: str) -> pathlib.Path:
     p = pathlib.Path(arg)
     if p.is_dir():
@@ -174,6 +198,7 @@ def main() -> None:
     cards = frozen_arm_cards(rd, list(dict.fromkeys(r["backend_id"] for r in results)))
     snap_dir = rd / "charts"
     snap_dir.mkdir(exist_ok=True)
+    reference_date = reference_date_of(rd)
 
     # group result rows by (scenario, backend), ordered by turn
     cells: dict[tuple[str, str], list[dict]] = {}
@@ -259,6 +284,9 @@ def main() -> None:
         out.append({
             "scenario_id": scenario_id,
             "backend_id": backend_id,
+            # The run's "today", beside every cell, so a judge never scores a date against the
+            # wall clock or a date it read once at the top of a long prompt.
+            "reference_date": reference_date,
             "is_team": is_team,
             "has_in_depth": has_in_depth,
             "score_background": has_in_depth,
