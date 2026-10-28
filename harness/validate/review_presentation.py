@@ -59,7 +59,11 @@ CHECK_NAMES = {
     "date": "Date check",
     "review": "Model review",
     "citation": "Citation support",
+    "record": "Record check",
 }
+
+# The three In-Depth table columns; the record check reports on the sources list.
+CLAIM_CHECKS = ("date", "review", "citation")
 
 _DATE_CHECK_IDS = {
     "window_scope",
@@ -76,6 +80,11 @@ SUPPORT_LABELS = {
     "mixed": ("partly supports its claim", "warning"),
     "unchecked": ("support not checked", "neutral"),
     "checking": ("support being checked", "neutral"),
+    # Three-way labels (confidence-labels L2.1): only a contradiction is red; a
+    # record that does not hold the fact is a neutral note, never a warning.
+    "supported": ("supports its claim", "success"),
+    "contradicted": ("contradicts its claim", "danger"),
+    "not_addressed": ("does not hold this fact", "neutral"),
 }
 
 DRAFT_VIEWS = {
@@ -123,10 +132,52 @@ def worst_status(statuses: list[Any]) -> str | None:
     return max(present, key=lambda s: _SEVERITY.get(s, 1))
 
 
+def confidence_findings(confidence: Any) -> list[dict[str, str]]:
+    """The product's ``confidence.*.findings`` as named, placed, plain findings."""
+    if not isinstance(confidence, dict):
+        return []
+    findings = []
+    for item in confidence.get("findings") or []:
+        if not isinstance(item, dict):
+            continue
+        check = str(item.get("check") or "").strip().lower()
+        where = str(item.get("where") or "").strip()
+        says = str(item.get("says") or "").strip()
+        if not (check or says):
+            continue
+        findings.append(
+            {
+                "check": check,
+                "name": CHECK_NAMES.get(check, _humanize(check) if check else "Finding"),
+                "where": where,
+                "says": says,
+                "tone": "neutral",
+            }
+        )
+    return findings
+
+
 def confidence_display(confidence: Any) -> dict[str, Any] | None:
-    """Return renderer-neutral confidence behavior for one visible section."""
-    if not isinstance(confidence, dict) or not confidence.get("level"):
+    """Return renderer-neutral confidence behavior for one visible section.
+
+    A level of ``null`` is a withdrawn label (confidence-labels L2.3): the section
+    shows no confidence chip and lists the findings instead. The display then has
+    ``level`` None, ``label`` None and ``findings``.
+    """
+    if not isinstance(confidence, dict):
         return None
+    if not confidence.get("level"):
+        if "level" not in confidence and not confidence.get("findings"):
+            return None
+        return {
+            "level": None,
+            "label": None,
+            "note": str(confidence.get("note") or ""),
+            "note_treatment": "none",
+            "show_output": True,
+            "tone": "neutral",
+            "findings": confidence_findings(confidence),
+        }
     level = str(confidence.get("level")).strip().lower()
     note = str(confidence.get("note") or "")
     if level == "red":
@@ -146,6 +197,7 @@ def confidence_display(confidence: Any) -> dict[str, Any] | None:
         # Flagged output is evidence for a reviewer; confidence never hides it.
         "show_output": True,
         "tone": tone,
+        "findings": confidence_findings(confidence),
     }
 
 
@@ -278,9 +330,11 @@ def _points(indices: list[int]) -> str:
 
 def _confidence(confidence: Any) -> dict[str, Any] | None:
     """Accept a raw product confidence or an existing display; label it the product's way."""
-    if not isinstance(confidence, dict) or not confidence.get("level"):
+    if not isinstance(confidence, dict):
         return None
-    return confidence_display({"level": confidence["level"], "note": confidence.get("note")})
+    if "note_treatment" in confidence:
+        return confidence  # already a display, from section_confidence_displays
+    return confidence_display(confidence)
 
 
 def answer_check_findings(validation: Any) -> list[dict[str, str]]:
@@ -291,6 +345,7 @@ def answer_check_findings(validation: Any) -> list[dict[str, str]]:
     for issue in validation.get("issues") or []:
         if not isinstance(issue, dict) or str(issue.get("status") or "").lower() == "pass":
             continue
+        status = str(issue.get("status") or "fail").lower()
         check_id = str(issue.get("id") or "")
         if check_id in _DATE_CHECK_IDS or "temporal" in check_id or "date" in check_id:
             check = "date"
@@ -300,6 +355,9 @@ def answer_check_findings(validation: Any) -> list[dict[str, str]]:
             reason = str(issue.get("reason") or "")
             if check_id.endswith("unavailable"):
                 reason = reason or "Citation support could not be checked."
+        elif check_id.startswith("record") or check_id.startswith("unresolved"):
+            check = "record"
+            reason = str(issue.get("reason") or "")
         elif not check_id and (issue.get("wrong") or issue.get("chart")):
             check = "review"
             reason = f"questioned “{issue.get('wrong') or ''}”"
@@ -313,6 +371,10 @@ def answer_check_findings(validation: Any) -> list[dict[str, str]]:
                 "check": check,
                 "name": CHECK_NAMES.get(check, _humanize(check)),
                 "reason": reason.strip().rstrip("."),
+                # An info entry is a neutral note (a record that does not hold the fact,
+                # an unverified review doubt); it never questions the section.
+                "status": "info" if status == "info" else status,
+                "tone": "neutral" if status == "info" else ("warning" if status == "warn" else "danger"),
             }
         )
     return findings
@@ -366,10 +428,17 @@ def answer_section_view(
     """One status and note for the Answer, or None when the arm reports no checks."""
     conf = _confidence(confidence)
     has_validation = isinstance(validation, dict) and validation.get("status")
-    if not has_validation and conf is None:
+    if not has_validation and (conf is None or not (conf.get("level") or conf.get("findings"))):
         return None
-    display = status_display(validation.get("status")) if has_validation else _rated_display(conf)
-    findings = answer_check_findings(validation)
+    if has_validation:
+        display = status_display(validation.get("status"))
+    elif conf and conf.get("level"):
+        display = _rated_display(conf)
+    else:
+        display = status_display("not_checked")
+    all_findings = answer_check_findings(validation)
+    findings = [f for f in all_findings if f["status"] != "info"]
+    notes = [f for f in all_findings if f["status"] == "info"]
     note_parts = [f"{f['name']}: {f['reason']}" if f["reason"] else f["name"] for f in findings]
     show_original = answer_original_differs(
         validation, current_answer, current_blocks, current_references
@@ -381,16 +450,39 @@ def answer_section_view(
         and not show_original
     ):
         note_parts.append("the check reported a change, but the wording and cited records are the same")
-    if not note_parts and conf and conf.get("level") != "green" and conf.get("note"):
+    if not note_parts and conf and conf.get("level") not in (None, "green") and conf.get("note"):
         note_parts.append(str(conf["note"]).strip().rstrip("."))
     return {
         **display,
-        "confidence": conf.get("label") if conf and display["status"] != "rated" else None,
+        "confidence": conf.get("label") if conf and conf.get("level") and display["status"] != "rated" else None,
         "confidence_level": conf.get("level") if conf else None,
         "note": ("; ".join(note_parts) + ".") if note_parts else "",
         "checks": list(dict.fromkeys(f["name"] for f in findings)),
+        "findings": section_findings(conf, notes),
         "show_original": show_original,
     }
+
+
+def section_findings(conf: Any, notes: list[dict[str, str]] | None = None) -> list[dict[str, str]]:
+    """What a section lists under its status when the confidence label is withdrawn.
+
+    The product's findings (``confidence.*.findings``) come first; the check's own
+    info notes follow. A rated section (a level string) lists only the info notes.
+    """
+    out: list[dict[str, str]] = []
+    if isinstance(conf, dict) and not conf.get("level"):
+        out.extend(conf.get("findings") or [])
+    for note in notes or []:
+        out.append(
+            {
+                "check": note["check"],
+                "name": note["name"],
+                "where": "answer",
+                "says": note["reason"],
+                "tone": "neutral",
+            }
+        )
+    return out
 
 
 # ------------------------------------------------------------ In-Depth section
@@ -447,18 +539,25 @@ def _citation_verdict(
         if status == "info":
             return _verdict("general guidance", "neutral", reason)
         if status == "fail":
-            return _verdict("not supported", "danger", reason)
+            # Under the three-way contract a failing entry is a contradiction and says
+            # what the chart holds; an older entry only says the record did not support it.
+            contradicted = str(entry.get("support") or "").lower() == "contradicted" or entry.get("chart_value")
+            return _verdict("contradicted" if contradicted else "not supported", "danger", reason)
+        if status == "not_addressed":
+            return _verdict("not addressed", "neutral", reason)
         if status == "warn":
             return _verdict("not checked", "warning", reason)
         if status == "pass":
-            return _verdict("supported", "success", reason)
+            return _verdict("passed", "success", reason)
     if not cited:
         return _verdict("general guidance", "neutral")
     states = [support.get(index) for index in cited]
-    if states and all(state == "verified" for state in states):
+    if states and all(state in {"verified", "supported"} for state in states):
         return _verdict("supported", "success")
-    if any(state in {"unsupported", "mixed"} for state in states):
+    if any(state in {"unsupported", "mixed", "contradicted"} for state in states):
         return _verdict("not supported", "danger")
+    if states and all(state in {"verified", "supported", "not_addressed"} for state in states):
+        return _verdict("not addressed", "neutral")
     return _verdict("not checked", "neutral" if not checks_ran else "warning")
 
 
@@ -482,7 +581,7 @@ def indepth_claim_rows(indepth: Any, sources_v1: Any = None) -> list[dict[str, A
     }
     checks_ran = "citation_checks" in validation
     support = {
-        source.get("citation_index"): source.get("support_status")
+        source.get("citation_index"): source.get("support") or source.get("support_status")
         for source in (sources_v1 or {}).get("sources") or []
         if isinstance(source, dict)
     } if isinstance(sources_v1, dict) else {}
@@ -497,6 +596,8 @@ def indepth_claim_rows(indepth: Any, sources_v1: Any = None) -> list[dict[str, A
             review = _verdict("flagged", "warning", review_reasons.get(position, ""))
         elif review_status == "unavailable":
             review = _verdict("unavailable", "warning")
+        elif review_status == "clean":
+            review = _verdict("passed", "success")
         elif review_status == "flagged":
             review = _verdict("not flagged", "success")
         else:
@@ -553,7 +654,7 @@ def indepth_section_view(
         return None
     conf = _confidence(confidence)
     display = status_display(_indepth_status(indepth))
-    if display["status"] == "not_checked" and conf:
+    if display["status"] == "not_checked" and conf and conf.get("level"):
         display = _rated_display(conf)
     validation = indepth.get("validation") if isinstance(indepth.get("validation"), dict) else {}
     rows = indepth_claim_rows(indepth, sources_v1)
@@ -579,7 +680,7 @@ def indepth_section_view(
     if str(validation.get("review_status") or "").lower() == "unavailable":
         note = (note + " " if note else "") + "The model review was unavailable."
     if not note and display["status"] not in {"checked", "no_claims", "not_in_profile"} and not (
-        conf and conf.get("level") == "green"
+        conf and conf.get("level") in (None, "green")
     ):
         fallback = indepth.get("error") or (conf.get("note") if conf else "")
         note = str(fallback or "").strip()
@@ -588,11 +689,12 @@ def indepth_section_view(
         **display,
         "confidence": (
             conf.get("label")
-            if conf and display["status"] not in {"not_in_profile", "rated"}
+            if conf and conf.get("level") and display["status"] not in {"not_in_profile", "rated"}
             else None
         ),
         "confidence_level": conf.get("level") if conf else None,
         "note": note,
+        "findings": section_findings(conf),
         "checks": [CHECK_NAMES[c] for c in CHECK_NAMES if c in questioned],
         "marked": marked,
         "claim_count": len(rows),
@@ -639,8 +741,12 @@ def annotate_sources(
             for name, refs in (("Answer", answer_refs), ("In-Depth", indepth_refs))
             if index in refs
         ]
-        support = str(source.get("support_status") or "unchecked").lower()
+        # The three-way label wins when the product sends one; the older grounding
+        # status is the fallback. A contradiction names what the chart holds.
+        support = str(source.get("support") or source.get("support_status") or "unchecked").lower()
         support_label, support_tone = SUPPORT_LABELS.get(support, (_humanize(support).lower(), "neutral"))
+        if support == "contradicted" and source.get("support_detail"):
+            support_label = f"contradicts: {source['support_detail']}"
         if str(source.get("resource_type") or "").lower() == "knowledgereference":
             record_label, record_tone = "knowledge reference", "neutral"
         else:
