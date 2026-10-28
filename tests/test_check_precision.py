@@ -90,7 +90,7 @@ def test_a_judged_run_scores_every_check_overall_and_per_arm(tmp_path):
     answer = data["answer"]
     assert answer["cells"] == 6 and answer["unmatched_cells"] == 0
     overall = answer["overall"]
-    assert set(overall) == {"date", "record", "citation", "review", "needs_review"}
+    assert set(overall) == {"date", "date_patched", "record", "citation", "review", "needs_review"}
     # Two citation marks on final turns, one of which the judge also faulted.
     assert overall["citation"]["marked"] == 2 and overall["citation"]["hits"] == 1
     assert overall["citation"]["precision"] == 0.5
@@ -212,3 +212,13 @@ def test_the_report_carries_the_table_once_the_run_is_scored(tmp_path):
     assert after["check_precision"]["answer"]["cells"] == 6
     assert "<table" in after["check_precision_html"]
     assert "Label for engine-parity-bundled-12b" in after["check_precision_html"]
+
+
+def test_a_patched_answer_is_counted_apart_from_date_check_marks():
+    from harness.validate.check_precision import answer_marks
+
+    patched = answer_marks({"temporalGate": {"status": "fail", "applied": "patch"}, "answerValidation": {"status": "edited", "issues": []}})
+    flagged = answer_marks({"temporalGate": {"status": "fail", "applied": "none"}, "answerValidation": {"status": "needs_review", "issues": []}})
+
+    assert (patched["date"], patched["date_patched"]) == (False, True)
+    assert (flagged["date"], flagged["date_patched"]) == (True, False)

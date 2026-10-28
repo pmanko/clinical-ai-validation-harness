@@ -66,10 +66,11 @@ SCHEMA = "check_precision.v1"
 OUTPUT_PATH = Path("judges") / "check-precision.json"
 DEFAULT_ACCURACY_THRESHOLD = 7
 
-ANSWER_CHECKS = ("date", "record", "citation", "review", "needs_review")
+ANSWER_CHECKS = ("date", "date_patched", "record", "citation", "review", "needs_review")
 INDEPTH_CHECKS = ("date", "citation", "review", "marked")
 CHECK_LABELS = {
     "date": "Date check",
+    "date_patched": "Date check (answer patched; judged after the patch)",
     "record": "Record check",
     "citation": "Citation support",
     "review": "Model review",
@@ -113,6 +114,10 @@ def answer_marks(response: dict[str, Any]) -> dict[str, bool]:
     checks = {f["check"] for f in findings}
     gate = response.get("temporalGate")
     gate_failed = isinstance(gate, dict) and _status(gate.get("status")) == "fail"
+    # A date check that patched the answer from the chart is not a mark the judge can score:
+    # the judge reads the corrected text. Those cells are counted apart, and a low fault rate
+    # there says the patch worked, not that the check was wrong.
+    gate_patched = isinstance(gate, dict) and _status(gate.get("applied")) in {"patch", "repair"}
     references = [r for r in response.get("references") or [] if isinstance(r, dict)]
     record = any(_status(r.get("resolutionStatus")) == "unresolved" for r in references)
     citation = False
@@ -131,7 +136,8 @@ def answer_marks(response: dict[str, Any]) -> dict[str, bool]:
     note = _status(((confidence or {}).get("answer") or {}).get("note")) if isinstance(confidence, dict) else ""
     review = "review" in checks or any(word in note for word in _REVIEW_NOTE_WORDS)
     return {
-        "date": "date" in checks or gate_failed,
+        "date": ("date" in checks or gate_failed) and not gate_patched,
+        "date_patched": gate_patched,
         "record": record,
         "citation": citation,
         "review": review,
