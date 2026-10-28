@@ -19,7 +19,7 @@ judge-finalize to map the letters back. judge-cells.jsonl is unchanged either wa
 Usage: scripts/judge-prep.py <run_dir-or-run_id> [--blind]
 """
 from __future__ import annotations
-import json, sys, pathlib
+import json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -62,6 +62,14 @@ _SAFE_VALIDATION_KEYS = {
     "citation_checks",
     "gate",
 }
+
+
+_CHECK_MARK_RE = re.compile(r"\s*\*\((?:Check: |General guidance, not from the chart).*?\)\*")
+
+
+def strip_check_marks(text):
+    """The In-Depth as written, without the notes the checks append to its points."""
+    return _CHECK_MARK_RE.sub("", text or "")
 
 
 def validation_metadata(value):
@@ -247,20 +255,16 @@ def main() -> None:
             evidence = render_sources_for_judge(sources_v1)
             if evidence:
                 ans = (ans + "\n\n" + evidence).strip() if ans else evidence
-            indepth = indepth_artifact["answer"]
+            # The judge is measured against the checks, so it never sees their verdicts: the
+            # In-Depth goes without the marks and tags the checks print after each point.
+            indepth = strip_check_marks(indepth_artifact["answer"])
             turns.append({
                 "n": r.get("turn", 1),
                 "question": next((t.get("question") for t in scen.get("turns", []) if t.get("n") == r.get("turn", 1)),
                                  (scen.get("turns") or [{}])[0].get("question")),
                 "answer_section": ans,
                 "in_depth_section": indepth,
-                "answer_validation": answer_validation_metadata(
-                    resp.get("answerValidation")
-                ),
                 "in_depth_status": indepth_artifact["status"],
-                "in_depth_validation": validation_metadata(
-                    indepth_artifact["validation"]
-                ),
                 "indepth_latency_ms": indepth_artifact["latency_ms"],
                 "references": evidence_response.get("references") or [],
                 "sources": sources_v1.get("sources") or [],
@@ -298,14 +302,11 @@ def main() -> None:
             "turns": turns,
             "answer_section": final["answer_section"],
             "in_depth_section": final["in_depth_section"],
-            "answer_validation": final.get("answer_validation"),
             "in_depth_status": final.get("in_depth_status"),
-            "in_depth_validation": final.get("in_depth_validation"),
             "references": final["references"],
             "citation_resolution": cres,
             "sources": final.get("sources") or [],
             "source_diagnostics": final.get("source_diagnostics") or {},
-            "temporal_gate": validation_metadata(trace.get("temporal_gate")),
             "temporal_facts_summary": trace.get("temporal_facts_summary"),
         })
 

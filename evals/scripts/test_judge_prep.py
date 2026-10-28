@@ -248,21 +248,12 @@ def test_main_excludes_review_only_model_text_from_judge_cell(tmp_path, monkeypa
     serialized = json.dumps(cell)
     assert "Checked answer" in cell["answer_section"]
     assert cell["in_depth_section"] == ""
-    assert cell["answer_validation"] == {
-        "status": "edited",
-        "issues": [
-            {
-                "id": "date_value_binding",
-                "status": "fail",
-                "severity": "block",
-                "source_indices": [99],
-            }
-        ],
-    }
+    # The judge is measured against the checks, so it sees none of their verdicts.
+    assert "answer_validation" not in cell and "in_depth_validation" not in cell
+    assert "temporal_gate" not in cell
     assert "Discarded original answer" not in serialized
     assert "Rejected In-Depth draft" not in serialized
     assert "LEAKED" not in serialized
-    assert cell["in_depth_validation"]["checks"][0]["gate"]["status"] == "fail"
     assert [reference["index"] for reference in cell["references"]] == [1]
 
 
@@ -368,7 +359,7 @@ def test_main_parses_string_response_json(tmp_path, monkeypatch):
     cell = _read_cells(run_dir)[0]
     assert cell["answer_section"].startswith("parsed answer text")
     assert "[Evidence Used]" in cell["answer_section"]
-    assert cell["temporal_gate"] == gate
+    assert "temporal_gate" not in cell  # the date check's verdict is not shown to the judge
 
 
 def test_main_skips_error_rows(tmp_path, monkeypatch):
@@ -445,5 +436,18 @@ def test_main_uses_frozen_arm_card_and_correlated_temporal_trace(tmp_path, monke
     assert cell["is_team"] is True
     assert cell["has_in_depth"] is False
     assert cell["score_background"] is False
-    assert cell["temporal_gate"] == gate
+    assert "temporal_gate" not in cell
     assert cell["temporal_facts_summary"] == {"reference_date": "2026-05-30"}
+
+
+def test_the_judge_reads_the_indepth_without_the_checks_marks():
+    jp = _load()
+    shown = (
+        "- Weight fell to 41 kg [21]. *(Check: [21] does not state 52 kg (baseline); flagged on review.)*\n"
+        "- Monitor nutrition. *(General guidance, not from the chart.)*\n"
+        "- CD4 was 341 cells/uL [182]."
+    )
+
+    assert jp.strip_check_marks(shown) == (
+        "- Weight fell to 41 kg [21].\n- Monitor nutrition.\n- CD4 was 341 cells/uL [182]."
+    )
