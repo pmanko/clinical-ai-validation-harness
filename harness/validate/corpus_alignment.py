@@ -1,12 +1,9 @@
-"""Compare committed judge fixtures with the complete live hub evidence ledger."""
+"""Compare committed judge fixtures with a live evidence ledger the caller supplies."""
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
-import urllib.parse
-import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -51,37 +48,6 @@ def expected_ledgers(
     if missing:
         raise ValueError(f"no complete chart fixture for patient(s): {', '.join(missing)}")
     return fixtures
-
-
-def live_records(
-    endpoint: str,
-    patient: str,
-    username: str,
-    password: str,
-    *,
-    page_size: int = 500,
-) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    start = 0
-    token = base64.b64encode(f"{username}:{password}".encode()).decode()
-    while True:
-        query = urllib.parse.urlencode(
-            {"patient": patient, "limit": page_size, "startIndex": start}
-        )
-        request = urllib.request.Request(
-            f"{endpoint}?{query}", headers={"Authorization": f"Basic {token}"}
-        )
-        with urllib.request.urlopen(request, timeout=60) as response:
-            payload: dict[str, Any] = json.load(response)
-        page = payload.get("results") or []
-        records.extend(page)
-        start += len(page)
-        total = payload.get("totalCount")
-        if not page or len(page) < page_size or (
-            total is not None and start >= int(total)
-        ):
-            break
-    return records
 
 
 def alignment_issues(

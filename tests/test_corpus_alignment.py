@@ -6,7 +6,6 @@ import pytest
 from harness.validate.corpus_alignment import (
     alignment_issues,
     expected_ledgers,
-    live_records,
 )
 
 def test_expected_ledger_and_alignment_compare_complete_rendered_content(tmp_path):
@@ -52,37 +51,3 @@ def test_expected_ledgers_fails_without_patient_fixture(tmp_path):
 
     with pytest.raises(ValueError, match="no complete chart fixture"):
         expected_ledgers(root, "set")
-
-
-def test_live_records_pages_until_total_count(monkeypatch):
-    pages = [
-        {"results": [{"resourceUuid": "a"}], "totalCount": 2},
-        {"results": [{"resourceUuid": "b"}], "totalCount": 2},
-    ]
-    urls = []
-
-    class Response:
-        def __init__(self, payload):
-            self.payload = payload
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-        def read(self):
-            return json.dumps(self.payload).encode()
-
-    def urlopen(request, timeout):
-        urls.append(request.full_url)
-        return Response(pages.pop(0))
-
-    monkeypatch.setattr("urllib.request.urlopen", urlopen)
-
-    assert live_records("http://example/records", "p", "u", "pw", page_size=1) == [
-        {"resourceUuid": "a"},
-        {"resourceUuid": "b"},
-    ]
-    assert "startIndex=0" in urls[0]
-    assert "startIndex=1" in urls[1]
