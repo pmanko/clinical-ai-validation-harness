@@ -61,22 +61,37 @@ class WahsEvalCase:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WahsEvalCase":
-        for req in ("case_id", "patient_id", "use_case", "prompt"):
-            if not data.get(req):
-                raise ValueError(f"WAHS eval case missing required field {req!r}")
+        case_id = data.get("case_id")
+        patient_id = data.get("patient_id") or data.get("patient_bundle")
+        use_case = data.get("use_case")
+        prompt = data.get("prompt") or data.get("question")
+        if not case_id or not patient_id or not use_case or not prompt:
+            raise ValueError(
+                "WAHS eval case requires case_id, patient_id/patient_bundle, use_case, and prompt/question"
+            )
         budgets = [int(b) for b in (data.get("target_token_budgets") or [8192, 4096, 2048])]
+        exp_uuids = data.get("expected_target_uuids") or data.get("expected_resource_uuids") or []
+        forb_uuids = data.get("forbidden_uuids") or data.get("forbidden_resource_uuids") or []
+        exp_anoms = data.get("expected_anomaly_ids") or (
+            [data["anomaly_id"]] if data.get("anomaly_id") else []
+        )
+        must_abstain = (
+            bool(data.get("must_abstain", False))
+            or data.get("expected_answer_type") == "abstain_not_in_chart"
+            or str(use_case).endswith("abstention")
+        )
         return cls(
-            case_id=str(data["case_id"]),
-            patient_id=str(data["patient_id"]),
-            use_case=str(data["use_case"]),
-            prompt=str(data["prompt"]),
+            case_id=str(case_id),
+            patient_id=str(patient_id),
+            use_case=str(use_case),
+            prompt=str(prompt),
             sharing_posture=str(data.get("sharing_posture") or "patient_self"),
             target_token_budgets=budgets,
-            expected_anomaly_ids=[str(x) for x in (data.get("expected_anomaly_ids") or [])],
-            expected_target_uuids=[str(x) for x in (data.get("expected_target_uuids") or [])],
-            forbidden_uuids=[str(x) for x in (data.get("forbidden_uuids") or [])],
+            expected_anomaly_ids=[str(x) for x in exp_anoms],
+            expected_target_uuids=[str(x) for x in exp_uuids],
+            forbidden_uuids=[str(x) for x in forb_uuids],
             forbidden_terms=[str(x) for x in (data.get("forbidden_terms") or [])],
-            must_abstain=bool(data.get("must_abstain", False)),
+            must_abstain=must_abstain,
             rubric_criteria=[str(x) for x in (data.get("rubric_criteria") or [])],
         )
 
