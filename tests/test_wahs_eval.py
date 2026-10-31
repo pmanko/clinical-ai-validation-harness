@@ -32,10 +32,10 @@ def test_score_wahs_case_use_case_a_reconciliation_and_citation_resolution():
             "Therapeutic class duplication detected: Simvastatin 40 MG [1] and "
             "Atorvastatin 80 MG [2] are both active HMG-CoA reductase inhibitors."
         ),
-        "actual_tokens": 3120,
-        "references": [
-            {"index": 1, "resourceUuid": "urn:uuid:uuid-simva-40", "resourceType": "MedicationRequest"},
-            {"index": 2, "resourceUuid": "urn:uuid:uuid-atorva-80", "resourceType": "MedicationRequest"},
+        "tier_info": {"actual_tokens": 3120},
+        "citations": [
+            {"index": 1, "resource_uuid": "urn:uuid:uuid-simva-40", "resourceType": "MedicationRequest"},
+            {"index": 2, "resource_uuid": "urn:uuid:uuid-atorva-80", "resourceType": "MedicationRequest"},
         ],
     }
     score = score_wahs_case(case, envelope, budget_tokens=8192)
@@ -58,9 +58,9 @@ def test_score_wahs_case_flags_fabricated_citation_and_budget_overflow():
     )
     envelope = {
         "answer": "Patient underwent CABG [1] and had post-op troponin elevation [99].",
-        "actual_tokens": 2450,
-        "references": [
-            {"index": 1, "resourceUuid": "uuid-cabg-proc"},
+        "tier_info": {"actual_tokens": 2450},
+        "citations": [
+            {"index": 1, "resource_uuid": "uuid-cabg-proc"},
         ],
     }
     score = score_wahs_case(case, envelope, budget_tokens=2048)
@@ -85,8 +85,8 @@ def test_score_wahs_case_enforces_external_share_sdoh_zero_leakage():
     clean_envelope = {
         "answer": "Active cardiopulmonary and renal summary prepared for external share [1].",
         "condensed_text": "Tier 2 summary (sensitive SDOH redacted).",
-        "actual_tokens": 1800,
-        "references": [{"index": 1, "resourceUuid": "uuid-chf-cond"}],
+        "tier_info": {"actual_tokens": 1800},
+        "citations": [{"index": 1, "resource_uuid": "uuid-chf-cond"}],
     }
     clean_score = score_wahs_case(case, clean_envelope, budget_tokens=4096)
     assert clean_score.passed is True
@@ -95,8 +95,8 @@ def test_score_wahs_case_enforces_external_share_sdoh_zero_leakage():
     leaked_envelope = {
         "answer": "Patient history includes intimate partner violence screening positive [1].",
         "condensed_text": "Condition uuid-ipv-finding retained.",
-        "actual_tokens": 1800,
-        "references": [{"index": 1, "resourceUuid": "uuid-ipv-finding"}],
+        "tier_info": {"actual_tokens": 1800},
+        "citations": [{"index": 1, "resource_uuid": "uuid-ipv-finding"}],
     }
     leaked_score = score_wahs_case(case, leaked_envelope, budget_tokens=4096)
     assert leaked_score.passed is False
@@ -115,17 +115,17 @@ def test_score_wahs_case_verifies_abstention_on_unanswerable_query():
     )
     good_abstain = {
         "answer": "A 2025 brain MRI is not documented in the provided FHIR patient bundle.",
-        "abstains": True,
-        "actual_tokens": 1500,
-        "references": [],
+        "abstained": True,
+        "tier_info": {"actual_tokens": 1500},
+        "citations": [],
     }
     assert score_wahs_case(case, good_abstain, budget_tokens=4096).passed is True
 
     hallucinated = {
         "answer": "The 2025 brain MRI showed no acute infarct [88].",
-        "abstains": False,
-        "actual_tokens": 1500,
-        "references": [],
+        "abstained": False,
+        "tier_info": {"actual_tokens": 1500},
+        "citations": [],
     }
     bad_score = score_wahs_case(case, hallucinated, budget_tokens=4096)
     assert bad_score.passed is False
@@ -137,20 +137,20 @@ class _StubWahsClient:
         if case.must_abstain:
             return {
                 "answer": "Not documented in the provided FHIR chart.",
-                "abstains": True,
-                "actual_tokens": min(1024, budget_tokens),
-                "references": [],
+                "abstained": True,
+                "tier_info": {"actual_tokens": min(1024, budget_tokens)},
+                "citations": [],
             }
         refs = [
-            {"index": i + 1, "resourceUuid": u}
+            {"index": i + 1, "resource_uuid": u}
             for i, u in enumerate(case.expected_target_uuids)
         ]
         cites = " ".join(f"[{i + 1}]" for i in range(len(refs)))
         return {
             "answer": f"Grounded finding {cites}".strip(),
-            "abstains": False,
-            "actual_tokens": min(1500, budget_tokens),
-            "references": refs,
+            "abstained": False,
+            "tier_info": {"actual_tokens": min(1500, budget_tokens)},
+            "citations": refs,
         }
 
 
@@ -215,3 +215,33 @@ def test_run_and_offline_rescore_wahs_suite(tmp_path: Path):
     rescored = json.loads((result.run_dir / "summary.json").read_text(encoding="utf-8"))
     assert rescored["passed_cells"] == 4
     assert (result.run_dir / "expectations.jsonl").is_file()
+
+
+def test_hub_member_citations_and_missing_token_evidence():
+    case = WahsEvalCase(case_id="members", patient_id="beta", use_case="qa", prompt="q",
+                       expected_target_uuids=["member"])
+    envelope = {"answer": "Supported [10]", "abstained": False,
+                "tier_info": {"actual_tokens": 906},
+                "citations": [{"index": 10, "resource_uuid": "primary", "member_uuids": ["member"]}]}
+    score = score_wahs_case(case, envelope, budget_tokens=900)
+    assert score.actual_tokens == 906
+    assert score.required_uuid_recall == 1
+    assert score.fabricated_citation_count == 0
+    assert not score.token_budget_ok
+    del envelope["tier_info"]
+    assert not score_wahs_case(case, envelope).passed
+
+
+def test_client_sends_selected_patient():
+    from harness.wahs.evaluator import WahsHubClient
+    class Session:
+        headers = {}
+        def post(self, url, **kwargs):
+            assert kwargs["json"]["patient_id"] == "beta"
+            assert "bundle_id" not in kwargs["json"]
+            class Response:
+                status_code = 200
+                def json(self): return {"answer": "beta"}
+            return Response()
+    case = WahsEvalCase(case_id="identity", patient_id="beta", use_case="qa", prompt="q")
+    assert WahsHubClient(session=Session()).evaluate_case(case, budget_tokens=1024)["answer"] == "beta"

@@ -155,32 +155,16 @@ def _extract_known_uuids(envelope: dict[str, Any]) -> tuple[set[str], dict[str, 
         if isinstance(u, str) and u:
             uuids.add(u.replace("urn:uuid:", ""))
 
-    cmap = envelope.get("citation_map")
-    if isinstance(cmap, dict):
-        for k, v in cmap.items():
-            key_num = str(k).strip("[] ")
-            if isinstance(v, str) and v:
-                clean = v.replace("urn:uuid:", "")
-                uuids.add(clean)
-                idx_map[key_num] = clean
-            elif isinstance(v, dict):
-                raw_u = str(v.get("resourceUuid") or v.get("uuid") or v.get("id") or "")
-                if raw_u:
-                    clean = raw_u.replace("urn:uuid:", "")
-                    uuids.add(clean)
-                    idx_map[key_num] = clean
-
-    refs = envelope.get("references")
-    if isinstance(refs, list):
-        for idx, ref in enumerate(refs, start=1):
-            if not isinstance(ref, dict):
-                continue
-            raw_u = str(ref.get("resourceUuid") or ref.get("uuid") or ref.get("id") or "")
-            c_idx = str(ref.get("index") or idx).strip("[] ")
-            if raw_u:
-                clean = raw_u.replace("urn:uuid:", "")
-                uuids.add(clean)
-                idx_map[c_idx] = clean
+    for ref in envelope.get("citations") or []:
+        if not isinstance(ref, dict):
+            continue
+        raw = ref.get("resource_uuid")
+        members = ref.get("member_uuids") or []
+        for value in [raw, *members]:
+            if isinstance(value, str) and value:
+                uuids.add(value.removeprefix("urn:uuid:"))
+        if isinstance(raw, str) and raw and ref.get("index") is not None:
+            idx_map[str(ref["index"])] = raw.removeprefix("urn:uuid:")
 
     return uuids, idx_map
 
@@ -193,8 +177,11 @@ def score_wahs_case(
 ) -> WahsCaseScore:
     """Deterministically score a single WAHS evaluation case response envelope."""
     failures: list[str] = []
-    actual_tokens = int(envelope.get("actual_tokens") or 0)
-    token_budget_ok = actual_tokens <= budget_tokens
+    raw_tokens = (envelope.get("tier_info") or {}).get("actual_tokens")
+    actual_tokens = int(raw_tokens) if raw_tokens is not None else 0
+    if raw_tokens is None:
+        failures.append("missing actual token count")
+    token_budget_ok = raw_tokens is not None and actual_tokens <= budget_tokens
     if not token_budget_ok:
         failures.append(
             f"token budget exceeded: actual_tokens={actual_tokens} > budget_tokens={budget_tokens}"
@@ -257,13 +244,13 @@ def score_wahs_case(
         failures.append(f"privacy leakage detected: {', '.join(leaked_items)}")
 
     # 4. Abstention verification
-    explicit_abstains = bool(envelope.get("abstains")) or bool(_ABSTENTION_RE.search(answer))
+    explicit_abstains = bool(envelope.get("abstained")) or bool(_ABSTENTION_RE.search(answer))
     if case.must_abstain:
         abstention_ok = explicit_abstains and fabricated_citation_count == 0
         if not abstention_ok:
             failures.append("failed to abstain cleanly on unanswerable query")
     else:
-        abstention_ok = not bool(envelope.get("abstains")) and bool(answer.strip() or condensed_text.strip())
+        abstention_ok = not bool(envelope.get("abstained")) and bool(answer.strip() or condensed_text.strip())
         if not abstention_ok:
             failures.append("unexpected abstention or empty output on answerable query")
 
@@ -307,7 +294,7 @@ class WahsHubClient:
         chat_resp = self._session.post(
             f"{self.base_url}/wahs/api/chat",
             json={
-                "bundle_id": case.patient_id,
+                "patient_id": case.patient_id,
                 "question": case.prompt,
                 "sharing_posture": case.sharing_posture,
                 "target_tokens": budget_tokens,
