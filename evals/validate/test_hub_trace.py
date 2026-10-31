@@ -237,7 +237,9 @@ def test_match_trace_mixed_versions_allow_bounded_keyless_fallback():
     assert matched is traces[0]
 
 
-def test_match_trace_does_not_borrow_trace_with_different_request_id():
+def test_match_trace_uses_session_and_question_when_the_hub_never_saw_the_request_id():
+    """ChartSearchAI mints its own request id for each Hub call, so the runner's id is
+    in no trace; the same session and question inside the turn's window is that turn."""
     from harness.validate.hub_trace import match_trace
 
     traces = [
@@ -245,22 +247,27 @@ def test_match_trace_does_not_borrow_trace_with_different_request_id():
             "level_id": "profile",
             "ts": "2026-07-14T05:37:50+00:00",
             "question": "Same question",
-            "correlation": {"session": "session-a", "request_id": "another-request"},
-        }
+            "correlation": {"session": "session-a", "request_id": "hub-minted-request"},
+        },
+        {
+            "level_id": "profile",
+            "ts": "2026-07-14T05:37:51+00:00",
+            "question": "Another question",
+            "correlation": {"session": "session-a", "request_id": "hub-minted-other"},
+        },
     ]
 
-    assert (
-        match_trace(
-            traces,
-            "profile",
-            "2026-07-14T05:37:40+00:00",
-            "2026-07-14T05:37:52+00:00",
-            question="Same question",
-            session="session-a",
-            request_id="wanted-request",
-        )
-        is None
+    matched = match_trace(
+        traces,
+        "profile",
+        "2026-07-14T05:37:40+00:00",
+        "2026-07-14T05:37:52+00:00",
+        question="Same question",
+        session="session-a",
+        request_id="runner-request",
     )
+
+    assert matched is traces[0]
 
 
 def test_match_trace_does_not_borrow_trace_with_different_session():

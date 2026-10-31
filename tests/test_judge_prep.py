@@ -100,3 +100,14 @@ def test_in_depth_artifact_keeps_which_claims_the_checks_marked():
         "review_status": "flagged",
         "review_flagged": [2],
     }
+
+
+def test_reference_date_comes_from_the_run_meta_then_the_run_event_never_a_guess(tmp_path):
+    import json
+    run = tmp_path / "run"
+    run.mkdir()
+    assert judge_prep.reference_date_of(run) is None
+    (run / "events.jsonl").write_text(json.dumps({"event_type": "run", "reference_date": "2026-06-20"}) + "\n")
+    assert judge_prep.reference_date_of(run) == "2026-06-20"
+    (run / "run_meta.json").write_text(json.dumps({"reference_date": "2026-07-01"}))
+    assert judge_prep.reference_date_of(run) == "2026-07-01"

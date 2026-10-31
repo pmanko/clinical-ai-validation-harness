@@ -11,7 +11,13 @@ By default this writes the canonical <run>/judge.jsonl that the report renderer 
 Pass --actor <id> to also store the pass at <run>/judges/<id>/judge.jsonl; actor passes are
 not promoted to the canonical report file unless --promote is supplied.
 
-Usage: scripts/judge-finalize.py <run_dir-or-id> <workflow_rows.json> [--actor <id>] [--promote]
+Every pass gets a card, <run>/judges/<actor>/manifest.json (judge_actor.v2): what the runner
+supplies through --card (agent, version, model, effort, sampling, brief hash, pass, times)
+plus what this script knows (cells, rows and output hashes, rubric hash, row count). With
+--card and no --actor, the actor id is derived from the card. The canonical judge.jsonl
+records which pass it was built from in <run>/judges/canonical.json.
+
+Usage: scripts/judge-finalize.py <run_dir-or-id> <workflow_rows.json> [--actor <id>] [--card <json>] [--promote]
 """
 from __future__ import annotations
 import argparse
@@ -22,6 +28,9 @@ import sys
 from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from harness.validate.blinding import load_map, unblind_rows  # noqa: E402
+from harness.validate.judging import CARD_SCHEMA, RUNNER_FIELDS, actor_id, self_preference  # noqa: E402
 
 
 def run_dir(arg: str) -> pathlib.Path:
@@ -70,6 +79,11 @@ def _parse_args() -> argparse.Namespace:
         help="Review method or workflow identifier.",
     )
     parser.add_argument(
+        "--card",
+        help="JSON file with the runner's judge card fields (agent, agent_version, model, "
+             "reasoning_effort, sampling, brief_sha256, pass_index, passes, started_at, finished_at).",
+    )
+    parser.add_argument(
         "--promote",
         action="store_true",
         help="When --actor is set, also copy this actor pass to root judge.jsonl for report rendering.",
@@ -85,11 +99,25 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     rd = run_dir(args.run)
+    card = {}
+    if args.card:
+        card = json.loads(pathlib.Path(args.card).read_text(encoding="utf-8"))
+        if not isinstance(card, dict):
+            sys.exit(f"{args.card}: a judge card is a JSON object")
+        card = {k: card[k] for k in RUNNER_FIELDS if card.get(k) not in (None, "")}
+        if not args.model and card.get("model"):
+            args.model = card["model"]
+        if not args.actor:
+            args.actor = actor_id(card)
     if args.actor and not args.model:
         sys.exit("--model is required with --actor so independent judgments have provenance")
     rows = json.load(open(args.rows))
     if isinstance(rows, dict):  # tolerate {result:[...]} or similar wrappers
         rows = rows.get("result") or rows.get("rows") or rows.get("return") or list(rows.values())
+    # A blinded pass scored letters; the map written by judge-prep --blind names the arms.
+    rows, unblinded = unblind_rows(rows, load_map(rd))
+    if unblinded:
+        print(f"unblinded {unblinded} rows through {rd / 'judge-blind-map.json'}")
 
     # Deterministic side-data per cell: citation_resolution and whether a separate
     # Background/In-Depth block should be retained. Older judge-cells used the
@@ -154,9 +182,21 @@ def main() -> None:
             for row in out:
                 fh.write(json.dumps(row) + "\n")
         print(f"wrote {len(out)} judge rows -> {jpath}")
+        if canonical:
+            # The canonical file names the pass it came from; a legacy run with no actor
+            # records that nothing was recorded rather than inventing a judge.
+            (rd / "judges").mkdir(parents=True, exist_ok=True)
+            (rd / "judges" / "canonical.json").write_text(json.dumps({
+                "schema_version": "judge_canonical.v1",
+                "built_from": [args.actor] if args.actor else [],
+                "aggregation": "single-pass" if args.actor else "not-recorded",
+                "written_at": datetime.now(timezone.utc).isoformat(),
+            }, indent=2) + "\n", encoding="utf-8")
         if args.actor and not canonical:
             manifest = {
-                "schema_version": "judge_actor.v1",
+                **card,
+                **self_preference({**card, "model": args.model}, rd),
+                "schema_version": CARD_SCHEMA,
                 "actor_id": args.actor,
                 "actor_type": args.actor_type,
                 "model": args.model,
@@ -166,6 +206,7 @@ def main() -> None:
                 "source_rows": str(pathlib.Path(args.rows)),
                 "output": "judge.jsonl",
                 "promoted_to_canonical": promote,
+                "blinded": bool(unblinded),
                 "n_rows": len(out),
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "rubric": "clinical-answer-scoring/rubric.md",

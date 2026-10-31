@@ -18,66 +18,135 @@ def test_dashboard_shows_single_and_multi_actor_judgments_honestly():
     assert "no multi-judge score yet" not in DASHBOARD_SOURCE
 
 
-def test_dashboard_keeps_flagged_model_output_visible_for_manual_review():
-    assert "confidence inversion" not in DASHBOARD_SOURCE
-    assert "Removed In-Depth claims" in DASHBOARD_SOURCE
-    assert "not part of the final clinical response" in DASHBOARD_SOURCE
-    assert "<details open class=reviewdraft>" not in DASHBOARD_SOURCE
-    assert "function indepthReviewDraft" not in DASHBOARD_SOURCE
-    assert "const draft=(t.review_draft||'').trim()" in DASHBOARD_SOURCE
-    assert "renderOriginalAnswer(validation,currentAnswer)" in DASHBOARD_SOURCE
-    assert "current answer above remains flagged for review" in DASHBOARD_SOURCE
-    assert "Original-answer sources (not final evidence)" in DASHBOARD_SOURCE
-    assert '"answer_confidence_display": answer_confidence_display' in DASHBOARD_SOURCE
-    assert "const answerConf=t.answer_confidence_display" in DASHBOARD_SOURCE
-    assert "<details class=collapse><summary>show '+title.toLowerCase()" not in DASHBOARD_SOURCE
+FIXTURE_ROWS = json.loads(
+    (ROOT / "tests" / "fixtures" / "review_presentation_rows.json").read_text(encoding="utf-8")
+)
 
 
-def test_dashboard_renderer_shows_flagged_output_and_citation_only_original():
+def _run_js(body: str) -> dict:
+    """Run the dashboard's section renderers in node on the given views."""
     esc_line = "const esc=" + DASHBOARD_SOURCE.split("const esc=", 1)[1].split("\n", 1)[0]
-    confidence_js = DASHBOARD_SOURCE[
-        DASHBOARD_SOURCE.index("const CONF_COLORS=") : DASHBOARD_SOURCE.index(
-            "function renderReviewDraft"
-        )
+    tone_lines = DASHBOARD_SOURCE[
+        DASHBOARD_SOURCE.index("const TONE_CLS=") : DASHBOARD_SOURCE.index("let LAST_STATUS=")
     ]
-    original_js = DASHBOARD_SOURCE[
-        DASHBOARD_SOURCE.index("function renderOriginalAnswer") : DASHBOARD_SOURCE.index(
+    renderers = DASHBOARD_SOURCE[
+        DASHBOARD_SOURCE.index("function statusChip") : DASHBOARD_SOURCE.index(
             "function renderTrace"
         )
     ]
     script = f"""
 {esc_line}
-{confidence_js}
+{tone_lines}
 const renderBlocks=()=>'';
-{original_js}
-const flagged=confSection(
-  'Answer',
-  'Flagged model output [1].',
-  {{level:'red',label:'Self-check low',note:'Check the date.',note_treatment:'prominent'}},
-  {{status:'needs_review',label:'Needs review',tone:'danger'}}
-);
-const original=renderOriginalAnswer(
-  {{status:'edited',originalAnswer:'Flagged model output [1].',originalReferences:[{{index:1}}]}},
-  'Flagged model output [1].'
-);
-process.stdout.write(JSON.stringify({{flagged,original}}));
+{renderers}
+{body}
 """
-    rendered = json.loads(subprocess.run(
-        ["node", "-e", script],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout)
-
-    assert "Check the date." in rendered["flagged"]
-    assert "Flagged model output [1]." in rendered["flagged"]
-    assert "<details" not in rendered["flagged"]
-    assert "show answer" not in rendered["flagged"].lower()
-    assert rendered["flagged"].index("Check the date.") < rendered["flagged"].index(
-        "Flagged model output [1]."
+    return json.loads(
+        subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True).stdout
     )
-    assert "Original model answer" in rendered["original"]
-    assert "answer or its supporting citations was changed" in rendered["original"]
+
+
+def _cell_detail(tmp_path: Path, names: list[str]):
+    """A chart-answer run of captured rows, served through status() and detail()."""
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    rows = [FIXTURE_ROWS[name] for name in names]
+    scenarios = list(dict.fromkeys(r["scenario_id"] for r in rows))
+    backends = list(dict.fromkeys(r["backend_id"] for r in rows))
+    for sid in scenarios:
+        turns = max(r["turn"] for r in rows if r["scenario_id"] == sid)
+        (run / "inputs" / "scenarios" / f"{sid}.json").write_text(
+            json.dumps({"turns": [{}] * turns}), encoding="utf-8"
+        )
+    events = [{"event_type": "run", "scenario_ids": scenarios, "backend_ids": backends}]
+    events += [
+        {"event_type": "backend_selected", "backend_id": b, "label": f"Label for {b}"}
+        for b in backends
+    ]
+    (run / "events.jsonl").write_text(
+        "\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8"
+    )
+    (run / "results.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8"
+    )
+    vd._RUN_OVERRIDE = str(run)
+    return vd
+
+
+def test_section_renderers_show_one_status_the_note_and_every_claim_verdict(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["checked"])
+    try:
+        turn = vd.detail("am-weight-trend", "hub-profile-single-12b-checked")["turns"][0]
+    finally:
+        vd._RUN_OVERRIDE = None
+    views = json.dumps({"a": turn["answer_view"], "i": turn["indepth_view"]})
+    rendered = _run_js(f"""
+const v={views};
+const indepth=sectionHtml('In-Depth',v.i,v.i.body_html,renderClaims(v.i)+renderDraft(v.i,{{}})+renderRawCheck(v.i));
+const answer=sectionHtml('Answer',v.a,'Answer body [21].');
+process.stdout.write(JSON.stringify({{indepth,answer}}));
+""")
+
+    indepth = rendered["indepth"]
+    assert indepth.count("class=\"schip") == 1, "one status chip per section"
+    assert "self-check" not in (indepth + rendered["answer"]).lower()
+    # The note naming the checks precedes the visible In-Depth body.
+    assert indepth.index(turn["indepth_view"]["note"]) < indepth.index("<ul class='md-list'>")
+    assert indepth.count("<tr") == 1 + len(turn["indepth_view"]["claims"])
+    assert indepth.count("t-bad") >= 2
+    # The raw check record stays available, collapsed.
+    assert "<details class=rawrefs>" in indepth
+    assert "draftbox" not in indepth
+
+
+def test_a_draft_differing_only_in_citation_format_is_not_shown(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["citation_format_draft"])
+    try:
+        turns = vd.detail("convo-safety-escalation", "hub-profile-single-12b-checked")["turns"]
+    finally:
+        vd._RUN_OVERRIDE = None
+    view = json.dumps(turns[0]["indepth_view"])
+    rendered = _run_js(f"process.stdout.write(JSON.stringify({{d:renderDraft({view},{{}})}}));")
+
+    assert turns[0]["indepth_view"]["draft"] is None
+    assert rendered["d"] == ""
+
+
+def test_the_grid_carries_answer_and_in_depth_status_per_cell(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["checked", "answer_only", "bundled"])
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+    grid = {g["backend"]: g for g in status["grid"]}
+
+    checked = grid["hub-profile-single-12b-checked"]
+    assert checked["state"] == "done"
+    assert checked["answer"]["status"] == "edited"
+    assert checked["indepth"]["status"] == "needs_review"
+    assert checked["marked"] == 1
+    assert grid["engine-parity-hub-answer-12b"]["indepth"]["status"] == "not_in_profile"
+    assert grid["engine-parity-bundled-12b"]["answer"]["status"] == "not_checked"
+    assert {entry["status"] for entry in status["status_legend"]} >= {"checked", "needs_review"}
+    assert status["finished"] is True
+
+
+def test_a_hub_arm_carries_the_product_profile_title_from_captured_inputs(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["checked", "bundled"])
+    run = Path(vd._RUN_OVERRIDE)
+    (run / "inputs" / "backends.json").write_text(json.dumps({
+        "hub-profile-single-12b-checked": {"label": "Arm label", "provider": "hub", "modelName": "single-12b-checked"},
+        "engine-parity-bundled-12b": {"label": "Bundled", "provider": "bundled", "modelName": "single-12b-checked"},
+        "single-12b-checked": {"label": "Checked answer (12B profile)", "kind": "product_profile", "modelName": "single-12b-checked"},
+    }), encoding="utf-8")
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    assert status["profile_titles"] == {"hub-profile-single-12b-checked": "Checked answer (12B profile)"}
+    assert status["arm_cards"]["hub-profile-single-12b-checked"] is None
 
 
 def _load_dashboard_module():
