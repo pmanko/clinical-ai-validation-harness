@@ -33,13 +33,19 @@ from harness.report_shell.assets import (  # noqa: E402
     theme_toggle_js,
 )
 from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart  # noqa: E402
+from harness.validate.check_precision import load_scores as load_check_precision  # noqa: E402
+from harness.validate.check_precision import table_html as check_precision_html  # noqa: E402
 from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
+from harness.validate.judging import judge_summary  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.review_presentation import (  # noqa: E402
-    indepth_validation_display,
+    annotate_sources,
+    answer_section_view,
+    cell_review_summary,
+    indepth_section_view,
     score_formatter_js,
     section_confidence_displays,
-    validation_display,
+    status_legend,
 )
 from harness.validate.response_artifacts import (  # noqa: E402
     in_depth_artifact,
@@ -245,8 +251,15 @@ def status():
                 if marked:
                     break
 
-    grid_list = [{"scenario": s, "backend": b, "state": states[(s, b)]}
-                 for (s, b) in expected_cells]
+    grid_list = []
+    for (s, b) in expected_cells:
+        entry = {"scenario": s, "backend": b, "state": states[(s, b)]}
+        rows = cell_rows.get((s, b), [])
+        if rows and not any("passed" in (r.get("metrics") or {}) for r in rows):
+            # A chart-answer cell also says how the product's own checks labelled
+            # its Answer and In-Depth, worst across the cell's turns.
+            entry.update(cell_review_summary(rows))
+        grid_list.append(entry)
 
     feed = []
     for r in results[-14:]:
@@ -266,15 +279,19 @@ def status():
                      "ans": esc_inline(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
     arm_cards = frozen_arm_cards(run, back_ids)
-    models = sorted({
-        str(model["id"])
-        for card in arm_cards.values() if card
-        for model in card.get("models") or [] if model.get("id")
-    })
+    models = arm_models(run, arm_cards)
 
     judge_actors = read_judge_actors(run)
+    # The product's checks scored against the judge; the section appears once
+    # judges/check-precision.json exists (scripts/check-precision.py after judging).
+    check_precision = load_check_precision(run)
+    titles = profile_titles(run, back_ids)
 
     return {"run": os.path.basename(run), "family": run_family(run),
+            "check_precision_html": (
+                check_precision_html(check_precision, {b: (titles.get(b) or labels.get(b) or b) for b in back_ids})
+                if check_precision else ""
+            ),
             "set": set_id, "done": len(results), "total": total,
             "warning": (
                 None if CLASSIFIER_SOURCE else
@@ -288,8 +305,63 @@ def status():
             "judged_passed": judged_passed, "judged_scored": len(scored),
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "judge_actors": sorted(judge_actors.keys()),
+            "judging": judge_summary(run),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
-            "grid": grid_list, "feed": feed, "models": models}
+            "grid": grid_list, "feed": feed, "models": models,
+            "status_legend": status_legend(),
+            "profile_titles": titles,
+            "finished": bool(total) and len(results) >= total}
+
+
+def _captured_backends(run):
+    try:
+        return json.loads((Path(run) / "inputs" / "backends.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def profile_titles(run, back_ids):
+    """Product profile titles for Hub arms, from the run's captured backends.json.
+
+    When the captured inputs name a product profile served by the same Hub
+    profile an arm calls, its label is the profile's human title. Arm cards
+    stay exactly as frozen; a missing card stays missing.
+    """
+    meta_backends = load_run_meta(run).get("backends") or {}
+    captured = _captured_backends(run)
+    by_profile = {
+        str(entry.get("modelName")): str(entry.get("label"))
+        for entry in captured.values()
+        if isinstance(entry, dict) and entry.get("kind") == "product_profile"
+        and entry.get("modelName") and entry.get("label")
+    }
+    out = {}
+    for b in back_ids:
+        backend = meta_backends.get(b) or captured.get(b) or {}
+        if backend.get("provider") == "bundled":
+            continue
+        title = by_profile.get(str(backend.get("modelName") or ""))
+        if title:
+            out[b] = title
+    return out
+
+
+def arm_models(run, arm_cards):
+    """What the arms call, from the run's captured connection metadata.
+
+    A Hub arm names a Hub profile, not a loaded model; the bundled provider
+    names the model it calls. The harness does not ask a model server what is
+    loaded, so this list says what the arms request.
+    """
+    meta_backends = load_run_meta(run).get("backends") or {}
+    seen = {}
+    for b, card in arm_cards.items():
+        provider = (meta_backends.get(b) or {}).get("provider")
+        for model in (card or {}).get("models") or []:
+            ident = model.get("id")
+            if ident and ident not in seen:
+                seen[str(ident)] = "Hub profile" if provider == "hub" else "model"
+    return [{"id": ident, "kind": kind} for ident, kind in sorted(seen.items())]
 
 
 try:
@@ -465,34 +537,39 @@ def detail(scenario, backend):
         evidence_response = response_for_displayed_evidence(
             resp, direct_answer, review_artifact, embedded_indepth
         )
-        sources_v1 = build_sources(evidence_response, chart_fixture)
+        sources_v1 = annotate_sources(
+            build_sources(evidence_response, chart_fixture),
+            direct_answer,
+            resp.get("blocks"),
+            review_artifact,
+        )
         refs = evidence_response.get("references") or evidence_response.get("citations") or []
         answer_confidence_display, indepth_confidence_display = section_confidence_displays(
             tr, resp.get("confidence")
         )
-        ind = r.get("indepth") or {}
-        iresp = ind.get("response") or {}
-        if isinstance(iresp, str):
-            try:
-                iresp = json.loads(iresp)
-            except Exception:
-                iresp = {"answer": iresp}
+        trace_claims = (tr or {}).get("in_depth_claims") or []
+        if trace_claims and not (review_artifact.get("answer") or "").strip():
+            # Older team runs carried In-Depth only in the Hub trace.
+            review_artifact = {
+                **review_artifact,
+                "answer": "\n".join(f"- {claim}" for claim in trace_claims),
+            }
         turns.append({"turn": r.get("turn"),
                       "question": (r.get("request") or {}).get("question", ""),
                       "answer": direct_answer,
-                      "confidence": resp.get("confidence"),
                       "answer_validation": answer_validation,
-                      "answer_confidence_display": answer_confidence_display,
-                      "indepth_confidence_display": indepth_confidence_display,
-                      "answer_validation_display": validation_display(answer_validation),
-                      "indepth_validation_display": indepth_validation_display(review_artifact),
-                      "product_in_depth": (
-                          review_artifact if isinstance(resp.get("inDepth"), dict) else None
+                      "answer_view": answer_section_view(
+                          answer_validation,
+                          answer_confidence_display,
+                          direct_answer,
+                          resp.get("blocks"),
+                          resp.get("references"),
                       ),
-                      "review_draft": review_artifact.get("reviewDraft") or "",
+                      "indepth_view": indepth_section_view(
+                          review_artifact, indepth_confidence_display, sources_v1
+                      ),
+                      "indepth_latency_ms": (r.get("indepth") or {}).get("latency_ms"),
                       "review_sources": review_artifact.get("reviewSources") or {},
-                      "indepth": ({"answer": iresp.get("answer") or "", "status": ind.get("http_status"),
-                                   "latency_ms": ind.get("latency_ms")} if ind else None),
                       "blocks": resp.get("blocks") or [],
                       "sources": sources_v1,
                       "refs": refs,
@@ -506,8 +583,13 @@ def detail(scenario, backend):
                                 "steps": tr.get("steps") or [],
                                 "stage_timings": extract_stage_timings(tr),
                                 "models": tr.get("models") or {}} if tr else None})
+    # Each judge pass's row for this cell, so the panel can show every judge's scores and note.
+    judge = {actor: next((r for r in rows_ if r.get("scenario_id") == scenario
+                          and r.get("backend_id") == backend), None)
+             for actor, rows_ in read_judge_actors(run).items()}
     return {"scenario": scenario, "backend": backend, "expectations": exp,
-            "catalystExpected": catalyst_expected, "turns": turns}
+            "catalystExpected": catalyst_expected, "turns": turns,
+            "judge": {a: r for a, r in judge.items() if r}}
 
 
 PAGE = (
@@ -635,6 +717,34 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 .arm-config .ac-pfull>summary{cursor:pointer;color:var(--accent);font-size:10px;list-style:revert}
 .arm-config pre.ac-pre{white-space:pre-wrap;font:10.5px/1.45 ui-monospace,Menlo,monospace;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;margin:4px 0 0;max-height:16em;overflow:auto}
 .arm-config .ac-retr{font-size:11px;font-family:ui-monospace,Menlo,monospace;color:var(--text)}
+.arm-profile{font-size:11px;color:var(--muted);margin:0 0 4px}
+.schip{display:inline-block;padding:1px 9px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.03em;margin-left:6px;vertical-align:middle;border:1px solid var(--border)}
+.schip.t-ok{background:#196c2e;border-color:#196c2e;color:#e6ffe9}.schip.t-warn{background:#9e6a03;border-color:#9e6a03;color:#fff5d6}
+.schip.t-bad{background:#8b1a1a;border-color:#8b1a1a;color:#ffe9e9}.schip.t-neutral{background:var(--surface2);color:var(--muted)}
+.sconf{font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:4px}
+.snote{font-size:11.5px;margin:3px 0 5px;padding-left:8px;border-left:3px solid var(--border)}
+.snote.t-bad{border-left-color:var(--err)}.snote.t-warn{border-left-color:var(--flag)}.snote.t-ok{border-left-color:var(--ok)}
+.ans .md-list{margin:0;padding-left:20px;white-space:normal}.ans .md-list li{margin:3px 0}.ans .md-p{margin:0 0 4px;white-space:normal}
+.claim-mark{color:var(--flag)}.claim-guidance{color:var(--muted)}
+table.claims{border-collapse:collapse;font-size:11px;width:100%;margin-top:6px}
+.claims td,.claims th{border:1px solid var(--border2);padding:3px 6px;text-align:left;vertical-align:top}
+.claims th{color:var(--muted);font-weight:400;white-space:nowrap}
+.claims td.t-bad{color:var(--err)}.claims td.t-warn{color:var(--flag)}.claims td.t-ok{color:var(--ok)}.claims td.t-neutral{color:var(--muted)}
+.claims tr.marked td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
+.creason{color:var(--muted);font-size:10px;margin-top:2px}
+ul.findings{margin:2px 0 6px;padding-left:18px;font-size:11.5px}ul.findings li{margin:1px 0}.fwhere{color:var(--muted)}
+.checkprec table{border-collapse:collapse;font-size:11px;background:var(--surface);border:1px solid var(--border);margin:6px 0}
+.checkprec th,.checkprec td{padding:3px 8px;border-bottom:1px solid var(--border2);text-align:right}.checkprec th:first-child,.checkprec td:first-child{text-align:left}
+.checkprec caption{text-align:left;color:var(--muted);font-size:11px;padding:4px 0}.checkprec p.intro{color:var(--muted);font-size:11.5px;margin:4px 0}
+.ssec{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:var(--surface2);color:var(--accent)}
+.sstat.warn{color:var(--flag)}
+.draftbox{margin-top:8px;border-left:3px solid var(--border);padding-left:10px}
+.draftbox>summary{cursor:pointer;color:var(--text);font-size:11px;font-weight:700;padding:4px 0}
+.draftnote{color:var(--muted);font-size:11px;margin:2px 0 4px}
+.grid td.cdone{background:var(--surface)}
+.gpill{display:inline-block;padding:0 4px;margin:0 1px;border-radius:6px;font-size:10px;line-height:15px}
+.gpill.t-ok{background:#196c2e;color:#e6ffe9}.gpill.t-warn{background:#9e6a03;color:#fff5d6}.gpill.t-bad{background:#8b1a1a;color:#ffe9e9}.gpill.t-neutral{background:var(--surface2);color:var(--muted)}
+.gconf{font-size:9px;margin-left:3px;color:var(--ok)}.gconf.err{color:var(--err)}
 </style><script>"""
     + theme_bootstrap_js("oc-theme-dashboard")
     + r"""</script></head><body>
@@ -645,9 +755,10 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <div class=bar><div id=fill style=width:0%></div></div>
 <div id=prog class=muted></div>
 <div id=warnbar class="caveat red" style="display:none"></div>
-<section><h2>Models resident (llama-router)</h2><div id=models></div></section>
+<section><h2>Models and Hub profiles the arms call</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
 <section><h2>Judged scores</h2><div id=judges></div></section>
+<section id=checksec style="display:none"><h2>Checks against the judge</h2><div id=checkprec></div></section>
 <section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><p id=legend class=muted style="margin:2px 0 6px"></p><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
@@ -658,10 +769,16 @@ const sym=s=>({done:'✓',err:'×',running:'●',pending:'·'}[s]||'·');
 // backend id. Filled each tick from the latest /api/status. armTitle = full; armShort = tight
 // grid/column variant. Fall back to the raw id only if a card is missing.
 let ARM_CARDS={};
-const armTitle=b=>{const c=ARM_CARDS[b];return (c&&c.title)||b;};
-const armShort=b=>{const c=ARM_CARDS[b];return (c&&(c.short_title||c.title))||b;};
+let ARM_LABELS={};
+const armTitle=b=>{const c=ARM_CARDS[b];return (c&&c.title)||ARM_LABELS[b]||b;};
+const armShort=b=>{const c=ARM_CARDS[b];return (c&&(c.short_title||c.title))||ARM_LABELS[b]||b;};
 const shortB=b=>armShort(b);
 const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const TONE_CLS={success:'t-ok',warning:'t-warn',danger:'t-bad',neutral:'t-neutral'};
+const toneCls=t=>TONE_CLS[t]||'t-neutral';
+// Latency always reads in seconds (mirrors review_presentation.format_latency).
+const fmtS=ms=>ms==null||isNaN(ms)?'n/a':(Number(ms)/1000).toFixed(1)+' s';
+let LAST_STATUS=null;
 __SHARED_SCORE_FORMATTER__
 // sampler-knob display order + labels (mirrors report.py's KNOB_ORDER/KNOB_LABELS).
 const KNOB_ORDER=['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
@@ -732,13 +849,15 @@ function renderArmCards(d){
    :(c.kind==='single'?"<span class='badge single'>SINGLE</span>":"<span class=badge>?</span>");
   // Headline = the resolver's human-readable title; the raw backend_id survives only as a
   // tiny muted monospace sub-label under it, never as the headline.
-  const title=c.title||b;
+  const title=c.title||a.label||b;
   h+="<div class=arm-card>";
   h+="<div class=arm-head>"+badge+"<span class=arm-name>"+esc(title)+"</span></div>";
   h+="<div class=arm-id>"+esc(b)+"</div>";
+  const pt=(d.profile_titles||{})[b];
+  if(pt&&pt!==title)h+="<div class=arm-profile>product profile: "+esc(pt)+"</div>";
   if(c.path)h+="<div class=arm-path>"+esc(c.path)+"</div>";
   h+="<div class=arm-stats>"+(a.rows||0)+" rows · <span class='"+(a.errors?'err':'ok')+"'>"+(a.errors||0)+" err</span>"
-    +" · <span class=muted>~"+(a.avg_latency_ms||0)+"ms · "+(a.avg_chars||0)+"c"+(a.last?(' · '+esc(a.last)):'')+"</span></div>";
+    +" · <span class=muted>avg "+fmtS(a.avg_latency_ms||0)+" · "+(a.avg_chars||0)+"c"+(a.last?(' · '+esc(a.last)):'')+"</span></div>";
   if(team){
    // Makeup = role → readable family·params·quant; the raw dashed model id column is dropped.
    h+="<table class=makeup><tbody>";
@@ -762,12 +881,13 @@ function renderJudgeScores(d){
  const rows=(d.judge_combined||[]).filter(s=>(s.n_actors||0)>=1&&s.benchmark_score!=null)
   .sort((a,b)=>(b.benchmark_score||0)-(a.benchmark_score||0));
  if(!rows.length)return '<span class=muted>no judged score yet</span>';
- const actors=(d.judge_actors||[]).join(', ');
+ const judging=d.judging||{};
+ const actors=judging.recorded?judging.sentence:'Judge not recorded for this run. Actors: '+(d.judge_actors||[]).join(', ');
  const multi=rows.some(s=>(s.n_actors||0)>1);
  let note=multi
   ?'Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement.'
   :'Score from one independent judge. Add another judge to show disagreement ranges.';
- let h='<p class=judge-note>'+note+' Actors: '+esc(actors)+'</p>';
+ let h='<p class=judge-note>'+esc(actors)+' '+note+'</p>';
  h+='<table class=judge-table><thead><tr><th>setup</th><th>score</th><th>actors</th><th>cell range</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
  rows.forEach(s=>{
   const ar=s.actor_range||{}, sp=s.benchmark_spread||{};
@@ -779,6 +899,20 @@ function renderJudgeScores(d){
    +'<td>'+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+'</td>'
    +'<td>'+fmt10(s.mean_abs_delta)+'</td><td>'+maxCell+'</td></tr>';
  });
+ const c=judging.consensus||{};
+ if(c.alpha){
+  const th=c.thresholds||{acceptable:0.667,good:0.8};
+  h+='<p class=judge-note>Agreement between the '+(c.actors||[]).length+' passes (Krippendorff’s alpha; '+th.acceptable+' acceptable, '+th.good+' good): '
+   +Object.keys(c.alpha).map(k=>esc(k)+' '+(c.alpha[k].alpha==null?'—':c.alpha[k].alpha.toFixed(3))+' ('+esc(c.alpha[k].verdict)+')').join(' · ')+'</p>';
+  const sp=(c.spread_cells||[]).slice(0,5);
+  if(sp.length) h+='<p class=judge-note>Widest cells: '+sp.map(s=>esc(s.scenario_id)+' × '+esc(armTitle(s.backend_id))+' range '+fmt10(s.range)).join(' · ')+'</p>';
+  const j=c.judges||{};
+  if(j.per_judge){
+   const jt=j.thresholds||{acceptable:0.667,good:0.8};
+   h+='<p class=judge-note>Judges side by side (Benchmark per setup): '+Object.keys(j.per_judge).map(id=>esc(id)+' ['+(j.per_judge[id].scout||[]).map(s=>esc(armTitle(s.backend))+' '+fmt10(s.benchmark_score)).join(', ')+']').join(' · ')
+    +'. Agreement between judges (alpha; '+jt.acceptable+' acceptable, '+jt.good+' good): '+Object.keys(j.alpha||{}).map(k=>esc(k)+' '+(j.alpha[k].alpha==null?'—':j.alpha[k].alpha.toFixed(3))).join(' · ')+'</p>';
+  }
+ }
  return h+'</tbody></table>';
 }
 // The background poll re-renders #arms wholesale; that wipes the user's expanded <details>.
@@ -808,6 +942,8 @@ async function tick(){
  });
  if(!d.run){hdr.textContent='waiting for a run...';return}
  ARM_CARDS=d.arm_cards||{};
+ LAST_STATUS=d;
+ ARM_LABELS={};Object.keys(d.arms||{}).forEach(b=>{ARM_LABELS[b]=(d.arms[b]||{}).label;});
  const pct=d.total?Math.round(100*d.done/d.total):0;
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
  fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
@@ -819,23 +955,40 @@ async function tick(){
    let t='<b>'+(d.conformant||0)+'</b> followed an allowed path &nbsp;·&nbsp; <b>'+(d.unexpected||0)+'</b> unexpected behaviour';
    if(d.judged_scored) t+=' &nbsp;·&nbsp; judged <b>'+(d.judged_passed||0)+'/'+d.judged_scored+'</b> — see the report';
    lg.innerHTML=t+'<br><span class=c200 style="padding:0 4px">✓</span> allowed path (a refusal, a question or a wrong answer still counts) &nbsp;·&nbsp; <span class=cerr style="padding:0 4px">×</span> the system misbehaved &nbsp;·&nbsp; <span class=crun style="padding:0 4px">●</span> running';
-  } else lg.textContent='';
+  } else {
+   const L=(d.status_legend||[]).map(x=>'<span class="gpill '+toneCls(x.tone)+'">'+esc(x.symbol)+'</span> '+esc(x.label)).join(' &nbsp;');
+   lg.innerHTML='Each cell: <span class="gpill t-neutral">A</span> the Answer and <span class="gpill t-neutral">ID</span> the In-Depth, worst across the cell\'s turns; a number counts marked In-Depth points. '+L
+    +'<br>Corner mark: <span class=gconf>\u2713</span> the run followed an allowed path &nbsp;·&nbsp; <span class="gconf err">\u00d7</span> the system misbehaved (hover a cell for words).';
+  }
  }
- models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
+ models.innerHTML=(d.models||[]).map(m=>'<span class=chip title="'+esc(m.kind||'')+'">'+(m.kind?'<span class=muted>'+esc(m.kind)+'</span> ':'')+esc(m.id||m)+'</span>').join('')||'<span class=muted>no models recorded</span>';
  arms.innerHTML=renderArmCards(d);
  restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
  judges.innerHTML=renderJudgeScores(d);
- const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.state);
+ renderCheckPrecision(d);
+ const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g);
  let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th title="'+esc(b)+'">'+esc(armTitle(b))+'</th>').join('')+'</tr>';
- (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
+ (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const g=gm[s+'|'+b]||{};const st=g.state;
    const oc=(st==null||st==='pending')?'':' onclick="openD(\''+s+'\',\''+b+'\')"';
-   return '<td class='+cls(st)+oc+'>'+sym(st)+'</td>'}).join('')+'</tr>'});
+   return gridCell(g,oc)}).join('')+'</tr>'});
  grid.innerHTML=h+'</table>';
  feed.innerHTML=(d.feed||[]).slice().reverse().map(f=>'<div onclick="openD(\''+f.scenario+'\',\''+f.backend+'\')"><span class="'
    +(f.status===200?'ok':'err')+'">'+f.status+'</span> '+f.scenario+'/'+shortB(f.backend)+' t'+f.turn
    +' <span class=muted>'+f.chars+'c</span>'
    +(f.indepth_status!=null?' <span class="'+(f.indepth_status===200&&f.indepth_chars>0?'ok':'err')+'" title="In-Depth (separate call)">+ID '+f.indepth_chars+'c</span>':'')
    +' '+f.ans+'</div>').join('');
+}
+// A chart-answer cell shows the product's Answer and In-Depth status; the
+// conformance verdict (did the run follow an allowed path) stays as a corner mark.
+function gridCell(g,oc){
+ const st=g.state;
+ if(!g.answer&&!g.indepth) return '<td class='+cls(st)+oc+'>'+sym(st)+'</td>';
+ const conform={done:'followed an allowed path',err:'the system misbehaved',running:'running',pending:'pending'}[st]||'';
+ const tip=['Answer: '+(g.answer?g.answer.label:'none'),'In-Depth: '+(g.indepth?g.indepth.label:'none')+(g.marked?' ('+g.marked+' marked point'+(g.marked>1?'s':'')+')':''),conform].filter(Boolean).join(' \u00b7 ');
+ const pill=(tag,v,n)=>v?'<span class="gpill '+toneCls(v.tone)+'">'+tag+' '+(n?n+'':'')+esc(v.symbol)+'</span>':'';
+ const klass=st==='done'?'cdone':cls(st);
+ return '<td class='+klass+oc+' title="'+esc(tip)+'">'+pill('A',g.answer,0)+pill('ID',g.indepth,g.marked)
+  +'<span class="gconf'+(st==='err'?' err':'')+'">'+sym(st)+'</span></td>';
 }
 function srcLabels(sources){
  const out={}; ((sources&&sources.sources)||[]).forEach(s=>{ if(s.record_index!=null) out[s.record_index]=s.source_id; });
@@ -873,12 +1026,12 @@ function renderSources(sources){
  function card(s){
   const meta=[s.resource_type,s.date].filter(Boolean).map(esc).join(' · ');
   const facts=(s.facts_used&&s.facts_used.length?s.facts_used:[s.source_text||s.title||'']).slice(0,4);
-  const st=s.resolution_status||'unknown';
   const cite=s.citation_index||s.record_index||'?';
   const chart=s.chart_record_index||s.record_index||'?';
-  const support=s.support_status||'unchecked';
+  const tc=t=>({success:'ok',danger:'bad',warning:'warn'}[t]||'');
+  const secs=(s.sections||[]).length?s.sections.map(x=>'<span class=ssec>'+esc(x)+'</span>').join(''):'<span class=sstat>not cited in the text</span>';
   return '<div class=scard><div class=shead><b>'+esc(s.source_id||'')+'</b> cite ['+esc(cite)+'] · chart ['+esc(chart)+'] '+esc(s.title||'')+'</div>'
-   +'<div class=smeta>'+meta+' <span class="sstat '+(st==='resolved'?'ok':(st==='unresolved'?'bad':''))+'">chart ref '+esc(st)+'</span> <span class=sstat>support '+esc(support)+'</span></div>'
+   +'<div class=smeta>cited by '+secs+' · '+meta+' <span class="sstat '+tc(s.record_tone)+'">'+esc(s.record_label||s.resolution_status||'')+'</span> <span class="sstat '+tc(s.support_tone)+'">'+esc(s.support_label||s.support_status||'')+'</span></div>'
    +'<ul>'+facts.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul>'
    +'<details><summary>open source record</summary><pre>'+esc(s.source_text||'')+'</pre></details></div>';
  }
@@ -892,53 +1045,71 @@ function renderRawRefs(refs){
  if(!refs||!refs.length)return '';
  return '<details class=rawrefs><summary>raw resolved refs</summary><div>'+esc(refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div></details>';
 }
-const CONF_COLORS={green:'#196c2e',yellow:'#9e6a03',red:'#8b1a1a'};
-function chip(display){
- if(!display) return '';
- const color=CONF_COLORS[display.level]||'#30363d';
- return '<span class=cchip style="background:'+color+'">'+esc(display.label||'Unrated')+'</span>';
+// One status chip per section, named from the product's check lifecycle; the
+// product's confidence level follows it as secondary text. Policy (labels,
+// tones, which checks questioned a section) comes from review_presentation.py.
+function statusChip(v){
+ if(!v) return '';
+ return '<span class="schip '+toneCls(v.tone)+'">'+esc(v.label||'')+'</span>'+(v.confidence?'<span class=sconf>'+esc(v.confidence)+'</span>':'');
 }
-function validationChip(display){
- if(!display) return '';
- const cls=display.tone==='danger'?' bad':(display.tone==='warning'?' warm':'');
- return '<span class="chip'+cls+'">'+esc(display.label||display.status||'')+'</span>';
+// The findings listed under a section's status when its confidence label is withdrawn
+// (level null): what each check found and where, in a neutral list, never a chip.
+function findingsHtml(view){
+ const fs=(view&&view.findings)||[];
+ if(!fs.length) return '';
+ return '<ul class=findings>'+fs.map(f=>'<li class="'+toneCls(f.tone)+'"><b>'+esc(f.name||'')+'</b>'
+  +(f.where?' <span class=fwhere>('+esc(f.where)+')</span>':'')+(f.says?': '+esc(f.says):'')+'</li>').join('')+'</ul>';
 }
-// A confidence flag adds context but never hides the model output a reviewer needs to inspect.
-function confSection(title, bodyHtml, display, lifecycle){
- const note=(display&&display.note)||'', treatment=(display&&display.note_treatment)||'none';
- let h='<div class=csec><div class=ctitle>'+title+' '+chip(display)+' '+validationChip(lifecycle)+'</div>';
- if(treatment==='prominent'){
-  if(note) h+='<div class="caveat red">'+esc(note)+'</div>';
-  h+='<div class=ans>'+bodyHtml+'</div>';
- }else if(treatment==='collapsible'){
-  h+='<div class=ans>'+bodyHtml+'</div>';
-  if(note) h+='<details class=collapse><summary>show review note</summary><div class="caveat yellow">'+esc(note)+'</div></details>';
- }else{
-  h+='<div class=ans>'+bodyHtml+'</div>';
- }
- return h+'</div>';
+function sectionHtml(title, view, bodyHtml, extra){
+ let h='<div class=csec><div class=ctitle>'+title+' '+statusChip(view)+'</div>';
+ if(view&&view.note) h+='<div class="snote '+toneCls(view.tone)+'">'+esc(view.note)+'</div>';
+ h+=findingsHtml(view);
+ if(bodyHtml) h+='<div class=ans>'+bodyHtml+'</div>';
+ return h+(extra||'')+'</div>';
 }
-function renderReviewDraft(draft, sourcesV1){
- if(!draft) return '';
+// The checks-against-the-judge table is rendered in Python (check_precision.table_html),
+// the same words and numbers as the static report; the page only places it.
+function renderCheckPrecision(d){
+ const sec=document.getElementById('checksec'), box=document.getElementById('checkprec');
+ if(!sec||!box) return;
+ if(!d.check_precision_html){ sec.style.display='none'; box.innerHTML=''; return; }
+ sec.style.display='';
+ if(box.innerHTML!==d.check_precision_html) box.innerHTML=d.check_precision_html;
+}
+function renderClaims(view){
+ const rows=(view&&view.claims)||[];
+ if(!rows.length) return '';
+ const names=view.check_names||{};
+ const cell=c=>'<td class="'+toneCls(c.tone)+'">'+esc(c.verdict)+(c.reason?'<div class=creason>'+esc(c.reason)+'</div>':'')+'</td>';
+ let h='<table class=claims><thead><tr><th>#</th><th>point</th><th>cites</th>'
+  +['date','review','citation'].map(k=>'<th>'+esc(names[k]||k)+'</th>').join('')+'</tr></thead><tbody>';
+ rows.forEach(r=>{
+  h+='<tr'+(r.marked?' class=marked':'')+'><td>'+r.index+'</td><td>'+esc(r.text)+'</td><td>'
+   +((r.cited||[]).length?r.cited.map(i=>'['+i+']').join(' '):'<span class=muted>none</span>')+'</td>'
+   +cell(r.checks.date)+cell(r.checks.review)+cell(r.checks.citation)+'</tr>';
+ });
+ return h+'</tbody></table>';
+}
+function renderDraft(view, sourcesV1){
+ const d=view&&view.draft;
+ if(!d) return '';
  const sources=(sourcesV1&&sourcesV1.sources)||[];
- const sourceRows=sources.map(s=>{
+ const rows=sources.map(s=>{
   const idx=s.citation_index!=null?s.citation_index:(s.record_index!=null?s.record_index:'?');
-  const label=[s.date,s.resource_type,s.title,s.resolution_status].filter(Boolean).join(' · ');
+  const label=[s.date,s.resource_type,s.title].filter(Boolean).join(' · ');
   const record=s.source_text?'<details><summary>open draft source</summary><pre>'+esc(s.source_text)+'</pre></details>':'';
   return '<li><b>['+esc(String(idx))+']</b> '+esc(label)+record+'</li>';
  }).join('');
- const sourceHtml=sourceRows?'<div class=reviewrefs><b>Draft sources for review (not final evidence)</b><ul>'+sourceRows+'</ul></div>':'';
- return '<details class=reviewdraft><summary>Removed In-Depth claims</summary>'
-  +'<div class=reviewdraft-note>These model-generated claims were removed or withheld by checks. They are shown only for manual review and are not part of the final clinical response.</div>'
-  +'<div class=ans>'+esc(draft)+'</div>'+sourceHtml+'</details>';
+ const src=rows?'<div class=reviewrefs><b>Draft sources (not delivered evidence)</b><ul>'+rows+'</ul></div>':'';
+ return '<details class=draftbox data-kind="'+esc(d.kind)+'"><summary>'+esc(d.title)+'</summary><div class=draftnote>'+esc(d.note)+'</div><div class=ans>'+esc(d.text)+'</div>'+src+'</details>';
 }
-function renderOriginalAnswer(validation,currentAnswer){
- const originalBlocks=(validation&&validation.originalBlocks)||[];
- const hasOriginalReferenceArtifact=!!validation&&(
-  Object.prototype.hasOwnProperty.call(validation,'originalReferences')||
-  Object.prototype.hasOwnProperty.call(validation,'originalSources')
- );
- if(!validation||!validation.originalAnswer||(validation.originalAnswer.trim()===(currentAnswer||'').trim()&&!originalBlocks.length&&!hasOriginalReferenceArtifact)) return '';
+function renderRawCheck(view){
+ if(!view||!view.validation) return '';
+ return '<details class=rawrefs><summary>raw check record</summary><div><pre style="white-space:pre-wrap;margin:0">'+esc(JSON.stringify(view.validation,null,1))+'</pre></div></details>';
+}
+// Shown only when the answer before checking differs in substance from the current one.
+function renderOriginalAnswer(validation){
+ if(!validation||!validation.originalAnswer) return '';
  const edited=validation.status==='edited';
  const notice=edited
   ?'This answer or its supporting citations was changed by the answer check. The checked answer above is the current result.'
@@ -946,17 +1117,21 @@ function renderOriginalAnswer(validation,currentAnswer){
  const sources=((validation.originalSources||{}).sources)||[];
  const sourceRows=sources.map(s=>{
   const idx=s.citation_index!=null?s.citation_index:(s.record_index!=null?s.record_index:'?');
-  const label=[s.date,s.resource_type,s.title,s.resolution_status].filter(Boolean).join(' · ');
+  const label=[s.date,s.resource_type,s.title].filter(Boolean).join(' · ');
   const record=s.source_text?'<details><summary>open original source</summary><pre>'+esc(s.source_text)+'</pre></details>':'';
   return '<li><b>['+esc(String(idx))+']</b> '+esc(label)+record+'</li>';
  }).join('');
  const sourceHtml=sourceRows?'<div class=reviewrefs><b>Original-answer sources (not final evidence)</b><ul>'+sourceRows+'</ul></div>':'';
  return '<details open class="reviewdraft'+(edited?' edited':'')+'"><summary>Original model answer</summary>'
   +'<div class=reviewdraft-note>'+notice+'</div>'
-  +'<div class=ans>'+esc(validation.originalAnswer)+renderBlocks(originalBlocks,validation.originalSources||{})+'</div>'+sourceHtml+'</details>';
+  +'<div class=ans>'+esc(validation.originalAnswer)+renderBlocks(validation.originalBlocks||[],validation.originalSources||{})+'</div>'+sourceHtml+'</details>';
 }
 function renderTrace(tr){
- if(!tr) return '<div class=notrace>no reasoning trace captured for this turn (hub trace off, or older run)</div>';
+ if(!tr){
+  // Hub traces are joined into the run when it finishes, so a live run has none yet.
+  if(LAST_STATUS&&LAST_STATUS.total&&!LAST_STATUS.finished) return '<div class=notrace>reasoning traces are joined when the run finishes</div>';
+  return '<div class=notrace>no reasoning trace captured for this turn (hub trace off, or older run)</div>';
+ }
  const fmt=s=>{
   if(s.role==='orchestrator') return ['orchestrator','tools: '+((s.tool_calls||[]).join(', ')||'(none — straight to synthesis)')];
   if(s.role==='kb_search') return ['kb_search',(s.hit?'HIT':'miss')+(s.fallback?' (deterministic fallback)':'')+' · '+esc(s.query||'')+' · '+(s.chars||0)+'c'];
@@ -996,6 +1171,10 @@ async function openD(s,b){
   h+='</div>';
  }else{
   h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
+ }
+ const jp=d.judge||{}, jids=Object.keys(jp);
+ if(jids.length){
+  h+='<div class=exp><b>Judged:</b> '+jids.map(a=>{const r=jp[a];return esc(a)+' '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+(r.harm?' HARM':'')+(r.note?' — '+esc(r.note):'');}).join('<br>')+'</div>';
  }
  const reps=(d.turns||[]);
  if(reps.length&&reps[0].catalyst){
@@ -1064,60 +1243,24 @@ async function openD(s,b){
  }
  (d.turns||[]).forEach(t=>{
   const tr=t.trace;
-  const answerConf=t.answer_confidence_display;
-  const indepthConf=t.indepth_confidence_display;
-  const answerLifecycle=t.answer_validation_display;
-  const indepthLifecycle=t.indepth_validation_display;
+  const av=t.answer_view, iv=t.indepth_view;
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
-  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
+  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+fmtS(t.latency_ms||0)+' · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
   h+=renderStageTimings(tr&&tr.stage_timings);
   if(t.error){
    h+='<div class="ans err">'+esc(t.error)+'</div>';
-  }else if(answerConf||indepthConf||answerLifecycle||indepthLifecycle){
-   // Structured render with confidence and lifecycle details kept adjacent to visible output.
-   const blocksHtml=renderBlocks(t.blocks,t.sources);
-   h+=confSection('Answer', esc(t.answer||(tr&&tr.answer_text)||'')+blocksHtml, answerConf, answerLifecycle);
-   h+=renderOriginalAnswer(t.answer_validation,t.answer||(tr&&tr.answer_text)||'');
-   // In-Depth: two-call arms carry it as a SEPARATE call (row.indepth), single-pass, no validator —
-   // render THAT, not the Answer trace's empty in_depth_claims + the Answer's verdict as a stray chip.
-   if(t.indepth){
-    const ia=(t.indepth.answer||'').trim();
-    const body=ia?esc(ia):'<span class=muted>(no elaboration — e.g. an abstain)</span>';
-    h+='<div class=csec><div class=ctitle>In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div><div class=ans>'+body+'</div></div>';
-   }else if(t.product_in_depth){
-    const native=t.product_in_depth, finalDraft=(native.answer||'').trim();
-    if(finalDraft){
-     h+=confSection('In Depth',esc(finalDraft),indepthConf,indepthLifecycle);
-    }else if(native.status){
-     h+='<div class=csec><div class=ctitle>In Depth '+validationChip(indepthLifecycle)+'</div>'
-      +'<div class="caveat red">'+esc(native.error||'No In-Depth content was displayed.')+'</div></div>';
-    }
-    const draft=(t.review_draft||'').trim();
-    if(draft&&draft!==finalDraft) h+=renderReviewDraft(draft,t.review_sources);
-   }else{
-    const cl=(tr&&tr.in_depth_claims)||[];
-    const idConf=indepthConf||{};
-    const showId=cl.length||idConf.note||(idConf.level&&idConf.level!=='green');
-    if(showId){
-     const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
-     h+=confSection('In Depth', idb, indepthConf, indepthLifecycle);
-    }
-   }
   }else{
-   h+='<div class=ans>'+esc(t.answer)+'</div>';   // Answer (raw envelope / non-team backend)
-   h+=renderOriginalAnswer(t.answer_validation,t.answer||'');
-   if(t.product_in_depth){
-    const native=t.product_in_depth, finalDraft=(native.answer||'').trim();
-    if(finalDraft) h+='<div class=csec><div class=ctitle>In Depth</div><div class=ans>'+esc(finalDraft)+'</div></div>';
-    else if(native.status) h+='<div class=csec><div class=ctitle>In Depth</div><div class="caveat red">'+esc(native.error||native.status)+'</div></div>';
-    const draft=(t.review_draft||'').trim();
-    if(draft&&draft!==finalDraft) h+=renderReviewDraft(draft,t.review_sources);
+   const answerBody=esc(t.answer||(tr&&tr.answer_text)||'')+renderBlocks(t.blocks,t.sources);
+   if(av){
+    h+=sectionHtml('Answer',av,answerBody);
+    if(av.show_original) h+=renderOriginalAnswer(t.answer_validation);
+   }else{
+    h+='<div class=csec><div class=ctitle>Answer</div><div class=ans>'+answerBody+'</div></div>';
    }
-   if(t.indepth&&t.indepth.answer){               // two-call arms: the separate In-Depth call
-    h+='<div style="margin-top:8px;font-size:11px;font-weight:600;color:var(--accent)">In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div>';
-    h+='<div class=ans>'+esc(t.indepth.answer)+'</div>';
+   if(iv){
+    const title='In-Depth'+(t.indepth_latency_ms?' <span class=muted>(separate call, '+fmtS(t.indepth_latency_ms)+')</span>':'');
+    h+=sectionHtml(title,iv,iv.body_html,renderClaims(iv)+renderDraft(iv,t.review_sources)+renderRawCheck(iv));
    }
-   h+=renderBlocks(t.blocks,t.sources);
   }
   h+=renderSources(t.sources);
   h+=renderRawRefs(t.refs);

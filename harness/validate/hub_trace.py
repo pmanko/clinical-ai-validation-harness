@@ -51,8 +51,9 @@ def match_trace(
 
     Prefer a turn-unique request id, then the stable request session, then the exact
     question (needed for historical traces), and finally the timestamp nearest the
-    response completion. An explicit mismatching key returns no trace. The bounded
-    time window remains a guard against stale runs.
+    response completion. A request id no trace carries falls back to session and
+    question; a mismatching session or question returns no trace. The bounded time
+    window remains a guard against stale runs.
     """
     import datetime as _dt
 
@@ -130,11 +131,8 @@ def match_trace(
     if not candidates:
         return None
 
-    if wanted_request_id:
-        request_candidates = [item for item in candidates if _request_key(item[0])]
-        if request_candidates:
-            return None
-
+    # No trace carries this request id: ChartSearchAI mints its own id for each Hub call, so
+    # the runner's id never reaches the Hub. Session, question and time still pin the turn.
     candidates = _apply_explicit_key(candidates, wanted_session, _session_key)
     candidates = _apply_explicit_key(candidates, wanted_question, _question_key)
     if not candidates:

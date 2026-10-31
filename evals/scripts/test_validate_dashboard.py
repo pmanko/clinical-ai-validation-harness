@@ -152,9 +152,8 @@ def test_detail_nests_indepth_block(tmp_path, monkeypatch):
     d = vd.detail("s1", "b1")
     assert len(d["turns"]) == 1
     t = d["turns"][0]
-    assert t["indepth"]["answer"] == "the in-depth answer"
-    assert t["indepth"]["status"] == 200
-    assert t["indepth"]["latency_ms"] == 5500
+    assert "the in-depth answer" in t["indepth_view"]["body_html"]
+    assert t["indepth_latency_ms"] == 5500
     assert t["answer"].startswith("A")  # the Answer is preserved alongside
 
 
@@ -192,7 +191,8 @@ def test_detail_indepth_is_none_when_arm_has_none(tmp_path, monkeypatch):
     _setup_run(tmp_path, vd, monkeypatch,
                results=[_answer_row("s1", "b1", 1)])  # no in-depth
     t = vd.detail("s1", "b1")["turns"][0]
-    assert t["indepth"] is None
+    assert t["indepth_view"]["status"] == "not_in_profile"
+    assert t["indepth_view"]["body_html"] == ""
 
 
 def test_detail_includes_canonical_sources_v1(tmp_path, monkeypatch):
@@ -227,7 +227,7 @@ def test_detail_parses_string_indepth_response(tmp_path, monkeypatch):
     _setup_run(tmp_path, vd, monkeypatch,
                results=[_answer_row("s1", "b1", 1, indepth=indepth)])
     t = vd.detail("s1", "b1")["turns"][0]
-    assert t["indepth"]["answer"] == "string-encoded in-depth"
+    assert "string-encoded in-depth" in t["indepth_view"]["body_html"]
 
 
 @pytest.mark.parametrize("metadata", [{}, {"backends": {"b1": {"modelName": "known-model"}}}, None])
@@ -252,7 +252,7 @@ def test_status_uses_frozen_cards_models_and_expected_turn_count(tmp_path, monke
     st = vd.status()
     captured = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
     assert st["arm_cards"] == captured["arm_cards"]
-    assert st["models"] == ["captured-b1"]
+    assert [m["id"] for m in st["models"]] == ["captured-b1"]
     assert st["total"] == 2
     assert st["done"] == 1
     assert st["grid"][0]["state"] != "done"
@@ -272,4 +272,4 @@ def test_detail_uses_profile_frozen_in_run_meta_when_result_has_no_model(tmp_pat
     turn = vd.detail("s1", "historical-alias")["turns"][0]
 
     assert turn["trace"]["answer_confidence"] == trace["answer_confidence"]
-    assert turn["answer_confidence_display"] is not None
+    assert turn["answer_view"]["confidence_level"] == "yellow"
