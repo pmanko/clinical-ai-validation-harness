@@ -389,8 +389,7 @@ def render_sources_for_judge(sources_v1: dict[str, Any] | None) -> str:
         lines.append(
             f"- {s.get('source_id')} = cite [{citation_index}] chart [{chart_index}] {meta}: "
             f"{s.get('title') or ''}. Facts used: {facts or '(not localized)'}; "
-            f"chart resolution: {s.get('resolution_status', 'unknown')}; "
-            f"hub grounding: {s.get('support_status', 'unchecked')}."
+            f"chart resolution: {s.get('resolution_status', 'unknown')}."
         )
     flags = []
     for key in ("unresolved_refs", "unused_top_refs", "nested_only_refs", "malformed_tokens"):

@@ -106,9 +106,10 @@ def test_report_renders_markdown_answer_headings_as_html(tmp_path):
     team = cells["med-agent-team"]["answer_html"]
     gemma = cells["gemma-local"]["answer_html"]
 
-    # The bold **In Depth** header renders as a <strong> tag, and the raw "**In Depth**"
+    # The bold **In Depth** header becomes the In-Depth section, and the raw "**In Depth**"
     # markdown is gone (not shown verbatim).
-    assert "<strong>In Depth</strong>" in team
+    assert "**In Depth**" not in team
+    assert "The chart lists a stavudine-based regimen [4]." in team
     assert "<strong>Answer</strong>" in team
     assert "**In Depth**" not in team
     assert "**Answer**" not in team
@@ -143,7 +144,8 @@ def test_report_normalizes_literal_backslash_n_in_answer(tmp_path):
     # The bold headers still render (the literal-\n didn't block the ** pass) and the
     # literal backslash-n two-char sequence is gone from the answer (normalized to a
     # real newline, which pre-wrap renders as a line break).
-    assert "<strong>In Depth</strong>" in ans
+    assert "**In Depth**" not in ans
+    assert "stavudine regimen [4]." in ans
     assert "\\n" not in ans
 
 
@@ -241,10 +243,10 @@ def test_report_uses_final_grounding_verdict_and_data_derived_review_scope(tmp_p
     ).group(1)
     cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
 
+    supports = {s["citation_index"]: s["support_tone"] for s in cell["sources"]["sources"]}
+    assert supports == {29: "success", 30: "danger"}
     assert "source-status ok" in cell["sources_html"]
-    assert "hub grounding verified" in cell["sources_html"]
     assert "source-status bad" in cell["sources_html"]
-    assert "hub grounding unsupported" in cell["sources_html"]
     assert "not a whole-answer quality verdict" in cell["sources_html"]
     assert "var patientScope=nPatients===1?'one patient':nPatients+' patients';" in html
     assert "small N, one patient, single judge" not in html
