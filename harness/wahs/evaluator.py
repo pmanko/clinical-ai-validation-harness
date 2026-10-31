@@ -86,6 +86,60 @@ def compute_flesch_kincaid_grade(text: str) -> float:
     return round(max(0.0, grade), 2)
 
 
+def compute_sentence_citation_coverage(
+    answer_text: str,
+    idx_map: dict[str, str],
+    *,
+    must_abstain: bool = False,
+) -> float:
+    """Compute the fraction of substantive prose sentences (>= 4 words) in `answer_text`
+    that carry at least one valid `[N]` inline citation resolving in `idx_map`.
+    """
+    if must_abstain:
+        return 1.0
+    stripped = (answer_text or "").strip()
+    if not stripped:
+        return 0.0
+    if "\n" in stripped:
+        raw_segments = [s.strip() for s in re.split(r"\n+", stripped) if s.strip()]
+    else:
+        raw_segments = [s.strip() for s in _SENTENCE_SPLIT_RE.split(stripped) if s.strip()]
+    substantive: list[str] = []
+    for seg in raw_segments:
+        if seg.startswith("#") or seg.endswith(":"):
+            continue
+        words = _WORD_RE.findall(seg)
+        if len(words) >= 4:
+            substantive.append(seg)
+    if not substantive:
+        inline = _CITATION_RE.findall(answer_text)
+        return 1.0 if inline else 0.0
+
+    cited_count = 0
+    for seg in substantive:
+        nums = _CITATION_RE.findall(seg)
+        if nums and any((not idx_map) or (n in idx_map and idx_map[n]) for n in nums):
+            cited_count += 1
+    return round(cited_count / len(substantive), 4)
+
+
+def compute_readability_alignment_score(
+    fk_grade: float,
+    *,
+    must_abstain: bool = False,
+) -> float:
+    """Continuous readability alignment score in `[0.25, 1.0]` relative to the target
+    patient-facing Flesch-Kincaid Grade 5.5-9.0 band.
+    """
+    if must_abstain or fk_grade <= 0.0:
+        return 1.0
+    if 5.5 <= fk_grade <= 9.0:
+        return 1.0
+    if fk_grade > 9.0:
+        return round(max(0.25, 1.0 - 0.07 * (fk_grade - 9.0)), 4)
+    return round(max(0.70, 1.0 - 0.04 * (5.5 - fk_grade)), 4)
+
+
 @dataclass(frozen=True)
 class WahsEvalCase:
     case_id: str
@@ -203,6 +257,9 @@ class WahsCaseScore:
     patient_category: str
     passed: bool
     failures: list[str]
+    sentence_citation_coverage: float = 1.0
+    readability_alignment_score: float = 1.0
+    case_quality_score: float = 100.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -215,6 +272,7 @@ class WahsCaseScore:
             "token_budget_ok": self.token_budget_ok,
             "required_uuid_recall": round(self.required_uuid_recall, 4),
             "citation_resolution_rate": round(self.citation_resolution_rate, 4),
+            "sentence_citation_coverage": round(self.sentence_citation_coverage, 4),
             "fabricated_citation_count": self.fabricated_citation_count,
             "privacy_zero_leakage": self.privacy_zero_leakage,
             "leaked_items": list(self.leaked_items),
@@ -223,6 +281,8 @@ class WahsCaseScore:
             "atomic_entailment_rate": round(self.atomic_entailment_rate, 4),
             "citation_distortion_count": self.citation_distortion_count,
             "flesch_kincaid_grade": self.flesch_kincaid_grade,
+            "readability_alignment_score": round(self.readability_alignment_score, 4),
+            "case_quality_score": round(self.case_quality_score, 2),
             "question_horizon": self.question_horizon,
             "patient_category": self.patient_category,
             "passed": self.passed,
@@ -280,8 +340,12 @@ def _extract_known_uuids(envelope: dict[str, Any]) -> tuple[set[str], dict[str, 
 
 
 def _evaluate_weighted_rubric(case: WahsEvalCase, answer_text: str, condensed_text: str) -> tuple[float, list[str]]:
-    """Evaluate HealthBench-style positive weighted criteria and negative penalty items."""
-    combined_low = f"{answer_text}\n{condensed_text}".lower()
+    """Evaluate HealthBench-style positive weighted criteria and negative penalty items.
+
+    When `answer_text` is non-empty, rubric criteria are checked strictly against `answer_text`
+    so facts present only in the input `condensed_text` do not inflate answer quality scores.
+    """
+    target_low = answer_text.lower() if answer_text.strip() else condensed_text.lower()
     ans_low = answer_text.lower()
     rubric_failures: list[str] = []
 
@@ -291,7 +355,7 @@ def _evaluate_weighted_rubric(case: WahsEvalCase, answer_text: str, condensed_te
         weight = float(item.get("weight", 1.0))
         total_weight += weight
         req_any = [str(x).lower() for x in (item.get("required_any") or []) if str(x).strip()]
-        if not req_any or any(tok in combined_low for tok in req_any):
+        if not req_any or any(tok in target_low for tok in req_any):
             earned_weight += weight
         else:
             crit = item.get("criterion") or item.get("id") or str(req_any)
@@ -324,7 +388,7 @@ def _evaluate_atomic_entailment(
         return 1.0, 0, []
 
     ans_low = answer_text.lower()
-    combined_low = f"{answer_text}\n{condensed_text}".lower()
+    target_low = ans_low if answer_text.strip() else condensed_text.lower()
     cited_uuids = {
         idx_map[n]
         for n in _CITATION_RE.findall(answer_text)
@@ -341,7 +405,7 @@ def _evaluate_atomic_entailment(
         must_not_distort = [str(x).lower() for x in (assertion.get("must_not_distort") or []) if str(x).strip()]
 
         uuid_ok = (not target_uuid) or (target_uuid in cited_uuids)
-        mention_ok = (not must_mention) or any(tok in combined_low for tok in must_mention)
+        mention_ok = (not must_mention) or any(tok in target_low for tok in must_mention)
         distort_hit = [tok for tok in must_not_distort if tok in ans_low]
 
         if distort_hit:
@@ -415,6 +479,10 @@ def score_wahs_case(
         fabricated_citation_count = 0
         citation_resolution_rate = 1.0
 
+    sentence_citation_coverage = compute_sentence_citation_coverage(
+        answer, idx_map, must_abstain=case.must_abstain
+    )
+
     # 3. Privacy zero-leakage gate
     leaked_items: list[str] = []
     for fu in case.forbidden_uuids:
@@ -468,7 +536,33 @@ def score_wahs_case(
     )
     failures.extend(entailment_failures)
 
-    fk_grade = compute_flesch_kincaid_grade(answer)
+    plain_summary = str(envelope.get("patient_plain_summary") or "").strip()
+    fk_grade = compute_flesch_kincaid_grade(plain_summary if plain_summary else answer)
+    readability_alignment_score = compute_readability_alignment_score(
+        fk_grade, must_abstain=case.must_abstain
+    )
+
+    if not privacy_zero_leakage or not abstention_ok or not token_budget_ok:
+        case_quality_score = 0.0
+    elif case.must_abstain:
+        case_quality_score = round(
+            100.0 * (0.75 * float(abstention_ok) + 0.25 * citation_resolution_rate),
+            2,
+        )
+    else:
+        cite_factor = (
+            sentence_citation_coverage * citation_resolution_rate
+            if answer.strip()
+            else citation_resolution_rate
+        )
+        raw_quality = (
+            0.30 * required_uuid_recall
+            + 0.25 * rubric_weighted_score
+            + 0.20 * atomic_entailment_rate
+            + 0.15 * cite_factor
+            + 0.10 * readability_alignment_score
+        )
+        case_quality_score = round(100.0 * max(0.0, min(1.0, raw_quality)), 2)
 
     return WahsCaseScore(
         case_id=case.case_id,
@@ -492,6 +586,9 @@ def score_wahs_case(
         patient_category=case.patient_category,
         passed=len(failures) == 0,
         failures=failures,
+        sentence_citation_coverage=sentence_citation_coverage,
+        readability_alignment_score=readability_alignment_score,
+        case_quality_score=case_quality_score,
     )
 
 
@@ -563,8 +660,10 @@ def _summarize_scores(
                 "passed": 0,
                 "uuid_recall_sum": 0.0,
                 "citation_rate_sum": 0.0,
+                "sentence_cite_sum": 0.0,
                 "rubric_score_sum": 0.0,
                 "entailment_sum": 0.0,
+                "quality_score_sum": 0.0,
                 "privacy_leaks": 0,
             },
         )
@@ -572,18 +671,27 @@ def _summarize_scores(
         bucket["passed"] += int(s.passed)
         bucket["uuid_recall_sum"] += s.required_uuid_recall
         bucket["citation_rate_sum"] += s.citation_resolution_rate
+        bucket["sentence_cite_sum"] += s.sentence_citation_coverage
         bucket["rubric_score_sum"] += s.rubric_weighted_score
         bucket["entailment_sum"] += s.atomic_entailment_rate
+        bucket["quality_score_sum"] += s.case_quality_score
         bucket["privacy_leaks"] += int(not s.privacy_zero_leakage)
 
         h_bucket = by_horizon.setdefault(
             s.question_horizon,
-            {"total": 0, "passed": 0, "uuid_recall_sum": 0.0, "rubric_score_sum": 0.0},
+            {
+                "total": 0,
+                "passed": 0,
+                "uuid_recall_sum": 0.0,
+                "rubric_score_sum": 0.0,
+                "quality_score_sum": 0.0,
+            },
         )
         h_bucket["total"] += 1
         h_bucket["passed"] += int(s.passed)
         h_bucket["uuid_recall_sum"] += s.required_uuid_recall
         h_bucket["rubric_score_sum"] += s.rubric_weighted_score
+        h_bucket["quality_score_sum"] += s.case_quality_score
 
     use_case_summary = {}
     for uc, b in sorted(by_use_case.items()):
@@ -594,8 +702,10 @@ def _summarize_scores(
             "pass_rate": round(b["passed"] / n, 4),
             "mean_uuid_recall": round(b["uuid_recall_sum"] / n, 4),
             "mean_citation_resolution_rate": round(b["citation_rate_sum"] / n, 4),
+            "mean_sentence_citation_coverage": round(b["sentence_cite_sum"] / n, 4),
             "mean_rubric_weighted_score": round(b["rubric_score_sum"] / n, 4),
             "mean_atomic_entailment_rate": round(b["entailment_sum"] / n, 4),
+            "mean_case_quality_score": round(b["quality_score_sum"] / n, 2),
             "privacy_leaks": b["privacy_leaks"],
         }
 
@@ -608,6 +718,7 @@ def _summarize_scores(
             "pass_rate": round(hb["passed"] / n, 4),
             "mean_uuid_recall": round(hb["uuid_recall_sum"] / n, 4),
             "mean_rubric_weighted_score": round(hb["rubric_score_sum"] / n, 4),
+            "mean_case_quality_score": round(hb["quality_score_sum"] / n, 2),
         }
 
     return {
@@ -624,6 +735,9 @@ def _summarize_scores(
         "mean_citation_resolution_rate": round(
             sum(s.citation_resolution_rate for s in scores) / (total or 1), 4
         ),
+        "mean_sentence_citation_coverage": round(
+            sum(s.sentence_citation_coverage for s in scores) / (total or 1), 4
+        ),
         "mean_rubric_weighted_score": round(
             sum(s.rubric_weighted_score for s in scores) / (total or 1), 4
         ),
@@ -633,6 +747,12 @@ def _summarize_scores(
         "citation_distortion_count": sum(s.citation_distortion_count for s in scores),
         "mean_flesch_kincaid_grade": round(
             sum(s.flesch_kincaid_grade for s in scores) / (total or 1), 2
+        ),
+        "mean_readability_alignment_score": round(
+            sum(s.readability_alignment_score for s in scores) / (total or 1), 4
+        ),
+        "mean_case_quality_score": round(
+            sum(s.case_quality_score for s in scores) / (total or 1), 2
         ),
         "privacy_leak_count": sum(1 for s in scores if not s.privacy_zero_leakage),
         "abstention_accuracy": round(

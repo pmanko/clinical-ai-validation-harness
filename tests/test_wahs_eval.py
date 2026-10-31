@@ -376,3 +376,38 @@ def test_generated_case_patient_identity_reaches_client(identity, expected):
     })
     WahsHubClient(session=Session()).evaluate_case(case, budget_tokens=1024)
     assert requests[0]["patient_id"] == expected
+
+
+def test_continuous_case_quality_score_and_answer_only_rubric_sensitivity():
+    case = WahsEvalCase(
+        case_id="wahs_sensitivity_probe",
+        patient_id="Maurice742_Auer97",
+        use_case="B3_qa_answerable",
+        prompt="Explain the CKD stage conflict and latest eGFR.",
+        expected_target_uuids=["uuid-ckd-1", "uuid-ckd-2", "uuid-ckd-3"],
+        positive_rubric_items=[
+            {"id": "r1", "criterion": "Mentions Stage 1", "required_any": ["stage 1"], "weight": 1.0},
+            {"id": "r2", "criterion": "Mentions Stage 3", "required_any": ["stage 3"], "weight": 1.0},
+            {"id": "r3", "criterion": "Mentions eGFR 47.95", "required_any": ["47.95"], "weight": 1.0},
+        ],
+    )
+    # Partial answer: mentions Stage 1 [1], omits Stage 3 and 47.95 even though condensed_text has them,
+    # and includes an uncited second sentence.
+    partial_envelope = {
+        "answer": (
+            "Your chart shows Chronic kidney disease stage 1 [1]. "
+            "You should discuss your kidney tests with your doctor at your next visit."
+        ),
+        "condensed_text": "Condition: Chronic kidney disease stage 1; stage 3; eGFR 47.95 mL/min.",
+        "actual_tokens": 1200,
+        "references": [
+            {"index": 1, "resourceUuid": "uuid-ckd-1"},
+            {"index": 2, "resourceUuid": "uuid-ckd-2"},
+        ],
+    }
+    score = score_wahs_case(case, partial_envelope, budget_tokens=4096)
+    assert 0.60 < score.required_uuid_recall < 0.70  # 2/3 UUIDs
+    assert 0.30 < score.rubric_weighted_score < 0.36  # 1/3 rubric items (condensed_text ignored when answer present)
+    assert score.sentence_citation_coverage == 0.5  # 1/2 sentences cited
+    assert 50.0 < score.case_quality_score < 85.0
+
