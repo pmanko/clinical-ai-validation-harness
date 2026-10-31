@@ -194,7 +194,7 @@ class DecisionReplayTests(unittest.TestCase):
         report = score_grounding_and_review_arm(
             grounding_items, probs_by_id, human_by_id, binary_threshold=0.5
         )
-        self.assertTrue(report["gate_g1"]["pass"])
+        self.assertFalse(report["gate_g1"]["pass"])  # No errors cannot demonstrate distinct errors.
         self.assertEqual(report["recall_of_unsupported"]["decision_model"], 1.0)
 
     def test_fit_three_band_thresholds(self) -> None:
@@ -318,3 +318,18 @@ class DecisionReplayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_gate_rejects_strict_subset_of_baseline_errors():
+    from harness.validate.decision_replay import score_grounding_and_review_arm
+    items = [{"item_id": str(i), "hub_verdict": 5 <= i < 50} for i in range(100)]
+    labels = {str(i): "supported" if i < 50 else "unsupported" for i in range(100)}
+    for errors in (set(), {0, 1, 2, 3}, {0, 1, 2, 3, 4}):
+        probabilities = {str(i): .9 if (i < 50) != (i in errors) else .1 for i in range(100)}
+        gate = score_grounding_and_review_arm(items, probabilities, labels)["gate_g1"]
+        assert gate["kappa_within_0_05"]
+        assert gate["unsupported_recall_at_least_hub"]
+        assert not gate["errors_not_subset_of_hub"]
+        assert not gate["pass"]
+    probabilities = {str(i): .9 if (i < 50) != (i == 6) else .1 for i in range(100)}
+    assert score_grounding_and_review_arm(items, probabilities, labels)["gate_g1"]["pass"]

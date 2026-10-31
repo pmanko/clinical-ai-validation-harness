@@ -781,7 +781,7 @@ def score_grounding_and_review_arm(
     recall_unsupported_dec = _unsupported_recall(dec_binary, human_binary)
 
     errors_not_subset = bool(
-        not dec_errors or not dec_errors.issubset(hub_errors) or dec_errors != hub_errors
+        not dec_errors.issubset(hub_errors)
     )
     g1_pass = bool(
         kappa_hub is not None
