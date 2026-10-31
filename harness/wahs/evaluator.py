@@ -182,7 +182,7 @@ def score_wahs_case(
     if raw_tokens is None:
         failures.append("missing actual token count")
     token_budget_ok = raw_tokens is not None and actual_tokens <= budget_tokens
-    if not token_budget_ok:
+    if raw_tokens is not None and not token_budget_ok:
         failures.append(
             f"token budget exceeded: actual_tokens={actual_tokens} > budget_tokens={budget_tokens}"
         )
