@@ -110,7 +110,9 @@ class WahsEvalCase:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WahsEvalCase":
         case_id = data.get("case_id")
-        patient_id = data.get("patient_id") or data.get("patient_bundle")
+        patient_id = data.get("patient_id")
+        if not patient_id and data.get("patient_bundle"):
+            patient_id = Path(str(data["patient_bundle"])).stem
         use_case = data.get("use_case")
         prompt = data.get("prompt") or data.get("question")
         if not case_id or not patient_id or not use_case or not prompt:

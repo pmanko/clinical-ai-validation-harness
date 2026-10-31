@@ -341,3 +341,38 @@ def test_client_sends_selected_patient():
     case = WahsEvalCase(case_id="identity", patient_id="beta", use_case="qa", prompt="q")
     assert WahsHubClient(session=Session()).evaluate_case(case, budget_tokens=1024)["answer"] == "beta"
 
+
+
+@pytest.mark.parametrize(
+    "identity, expected",
+    [
+        ({"patient_bundle": "synthetic-beta.json"}, "synthetic-beta"),
+        ({"patient_bundle": "eval/synthetic-beta.json"}, "synthetic-beta"),
+        ({"patient_id": "explicit.id.json", "patient_bundle": "other.json"}, "explicit.id.json"),
+    ],
+)
+def test_generated_case_patient_identity_reaches_client(identity, expected):
+    from harness.wahs.evaluator import WahsHubClient
+
+    requests = []
+
+    class Session:
+        headers = {}
+
+        def post(self, url, **kwargs):
+            requests.append(kwargs["json"])
+
+            class Response:
+                status_code = 200
+
+                def json(self):
+                    return {"answer": "selected patient"}
+
+            return Response()
+
+    case = WahsEvalCase.from_dict({
+        "case_id": "generated-identity", "use_case": "qa", "question": "Who is this?",
+        **identity,
+    })
+    WahsHubClient(session=Session()).evaluate_case(case, budget_tokens=1024)
+    assert requests[0]["patient_id"] == expected
