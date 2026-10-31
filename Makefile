@@ -43,11 +43,17 @@ validate-judge-finalize: setup
 		$(if $(JUDGE_ACTOR),--actor $(JUDGE_ACTOR) --actor-type $(JUDGE_ACTOR_TYPE) --model "$(JUDGE_MODEL)" --method "$(JUDGE_METHOD)",) \
 		$(if $(JUDGE_CARD),--card $(JUDGE_CARD),) \
 		$(if $(JUDGE_PROMOTE),--promote,)
+	-$(UV) run python scripts/check-precision.py $(RUN) --quiet
 	@if [ -z "$(JUDGE_ACTOR)" ] || [ -n "$(JUDGE_PROMOTE)" ]; then \
 	  $(UV) run harness-cli validate report $(RUN); \
 	else \
 	  echo "judge actor stored; root judge.jsonl unchanged; skipping report render (set JUDGE_PROMOTE=1 to promote)"; \
 	fi
+
+# Score the product's checks against the judge rows: `make validate-check-precision RUN=<run_id>`.
+# Writes <run>/judges/check-precision.json and prints the table; judge-finalize runs it too.
+validate-check-precision: setup
+	$(UV) run python scripts/check-precision.py $(RUN)
 
 # Render report.html for a completed run: `make validate-report RUN=<run_id>`.
 validate-report: setup
@@ -69,4 +75,4 @@ RESUME ?=
 validate-run: setup
 	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE) $(if $(RESUME),--resume $(RESUME),)
 
-.PHONY: load-test orphan-fk-check import-smoke completeness-check setup python-pin test smoke validate-judge-prep validate-judge-finalize validate-report validate-adjudicate clean-venv validate-run
+.PHONY: load-test orphan-fk-check import-smoke completeness-check setup python-pin test smoke validate-judge-prep validate-judge-finalize validate-check-precision validate-report validate-adjudicate clean-venv validate-run

@@ -439,3 +439,56 @@ def test_single_line_sql_is_formatted_for_reading_and_nothing_else_is():
     prose = "The data records no home address."
     assert f(prose) == prose
     assert f(None) is None
+
+
+def test_the_checks_against_the_judge_section_appears_once_the_run_is_scored(tmp_path: Path):
+    """The dashboard renders check_precision.table_html from judges/check-precision.json
+    and the page shows it only when the file exists."""
+    import shutil
+
+    from harness.validate.check_precision import score_run, write_scores
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    shutil.copytree(ROOT / "tests" / "fixtures" / "check_precision_run", run)
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        before = vd.status()
+        write_scores(run, score_run(run))
+        after = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    assert before["check_precision_html"] == ""
+    assert "<table" in after["check_precision_html"]
+    assert "Precision: of the items a check marked" in after["check_precision_html"]
+    rendered = _run_js(f"""
+const d={json.dumps({"check_precision_html": after["check_precision_html"]})};
+const nodes={{}};
+global.document={{getElementById:id=>nodes[id]||(nodes[id]={{style:{{}},innerHTML:''}})}};
+renderCheckPrecision({{}});
+const hidden=nodes.checksec.style.display;
+renderCheckPrecision(d);
+process.stdout.write(JSON.stringify({{hidden,shown:nodes.checksec.style.display,html:nodes.checkprec.innerHTML}}));
+""")
+    assert rendered["hidden"] == "none" and rendered["shown"] == ""
+    assert "Citation support" in rendered["html"]
+
+
+def test_a_withdrawn_confidence_level_lists_findings_instead_of_a_chip():
+    view = {
+        "status": "needs_review", "label": "Needs review", "tone": "danger", "confidence": None,
+        "note": "Citation support: [311] states CD4 341, not 72.",
+        "findings": [
+            {"check": "citation", "name": "Citation support", "where": "answer", "says": "[311] states CD4 341, not 72", "tone": "neutral"},
+            {"check": "citation", "name": "Citation support", "where": "answer", "says": "[21] does not hold 52 kg", "tone": "neutral"},
+        ],
+    }
+    rendered = _run_js(f"""
+const v={json.dumps(view)};
+process.stdout.write(JSON.stringify({{h:sectionHtml('Answer',v,'body')}}));
+""")
+    html = rendered["h"]
+    assert html.count("class=\"schip") == 1 and "sconf" not in html
+    assert html.count("<li") == 2 and "does not hold 52 kg" in html
+    assert html.index("<ul class=findings>") < html.index("<div class=ans>")

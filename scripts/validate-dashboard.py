@@ -33,6 +33,8 @@ from harness.report_shell.assets import (  # noqa: E402
     theme_toggle_js,
 )
 from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart  # noqa: E402
+from harness.validate.check_precision import load_scores as load_check_precision  # noqa: E402
+from harness.validate.check_precision import table_html as check_precision_html  # noqa: E402
 from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
 from harness.validate.judging import judge_summary  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
@@ -280,8 +282,16 @@ def status():
     models = arm_models(run, arm_cards)
 
     judge_actors = read_judge_actors(run)
+    # The product's checks scored against the judge; the section appears once
+    # judges/check-precision.json exists (scripts/check-precision.py after judging).
+    check_precision = load_check_precision(run)
+    titles = profile_titles(run, back_ids)
 
     return {"run": os.path.basename(run), "family": run_family(run),
+            "check_precision_html": (
+                check_precision_html(check_precision, {b: (titles.get(b) or labels.get(b) or b) for b in back_ids})
+                if check_precision else ""
+            ),
             "set": set_id, "done": len(results), "total": total,
             "warning": (
                 None if CLASSIFIER_SOURCE else
@@ -299,7 +309,7 @@ def status():
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": models,
             "status_legend": status_legend(),
-            "profile_titles": profile_titles(run, back_ids),
+            "profile_titles": titles,
             "finished": bool(total) and len(results) >= total}
 
 
@@ -722,6 +732,10 @@ table.claims{border-collapse:collapse;font-size:11px;width:100%;margin-top:6px}
 .claims td.t-bad{color:var(--err)}.claims td.t-warn{color:var(--flag)}.claims td.t-ok{color:var(--ok)}.claims td.t-neutral{color:var(--muted)}
 .claims tr.marked td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
 .creason{color:var(--muted);font-size:10px;margin-top:2px}
+ul.findings{margin:2px 0 6px;padding-left:18px;font-size:11.5px}ul.findings li{margin:1px 0}.fwhere{color:var(--muted)}
+.checkprec table{border-collapse:collapse;font-size:11px;background:var(--surface);border:1px solid var(--border);margin:6px 0}
+.checkprec th,.checkprec td{padding:3px 8px;border-bottom:1px solid var(--border2);text-align:right}.checkprec th:first-child,.checkprec td:first-child{text-align:left}
+.checkprec caption{text-align:left;color:var(--muted);font-size:11px;padding:4px 0}.checkprec p.intro{color:var(--muted);font-size:11.5px;margin:4px 0}
 .ssec{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:var(--surface2);color:var(--accent)}
 .sstat.warn{color:var(--flag)}
 .draftbox{margin-top:8px;border-left:3px solid var(--border);padding-left:10px}
@@ -744,6 +758,7 @@ table.claims{border-collapse:collapse;font-size:11px;width:100%;margin-top:6px}
 <section><h2>Models and Hub profiles the arms call</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
 <section><h2>Judged scores</h2><div id=judges></div></section>
+<section id=checksec style="display:none"><h2>Checks against the judge</h2><div id=checkprec></div></section>
 <section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><p id=legend class=muted style="margin:2px 0 6px"></p><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
@@ -950,6 +965,7 @@ async function tick(){
  arms.innerHTML=renderArmCards(d);
  restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
  judges.innerHTML=renderJudgeScores(d);
+ renderCheckPrecision(d);
  const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g);
  let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th title="'+esc(b)+'">'+esc(armTitle(b))+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const g=gm[s+'|'+b]||{};const st=g.state;
@@ -1036,11 +1052,29 @@ function statusChip(v){
  if(!v) return '';
  return '<span class="schip '+toneCls(v.tone)+'">'+esc(v.label||'')+'</span>'+(v.confidence?'<span class=sconf>'+esc(v.confidence)+'</span>':'');
 }
+// The findings listed under a section's status when its confidence label is withdrawn
+// (level null): what each check found and where, in a neutral list, never a chip.
+function findingsHtml(view){
+ const fs=(view&&view.findings)||[];
+ if(!fs.length) return '';
+ return '<ul class=findings>'+fs.map(f=>'<li class="'+toneCls(f.tone)+'"><b>'+esc(f.name||'')+'</b>'
+  +(f.where?' <span class=fwhere>('+esc(f.where)+')</span>':'')+(f.says?': '+esc(f.says):'')+'</li>').join('')+'</ul>';
+}
 function sectionHtml(title, view, bodyHtml, extra){
  let h='<div class=csec><div class=ctitle>'+title+' '+statusChip(view)+'</div>';
  if(view&&view.note) h+='<div class="snote '+toneCls(view.tone)+'">'+esc(view.note)+'</div>';
+ h+=findingsHtml(view);
  if(bodyHtml) h+='<div class=ans>'+bodyHtml+'</div>';
  return h+(extra||'')+'</div>';
+}
+// The checks-against-the-judge table is rendered in Python (check_precision.table_html),
+// the same words and numbers as the static report; the page only places it.
+function renderCheckPrecision(d){
+ const sec=document.getElementById('checksec'), box=document.getElementById('checkprec');
+ if(!sec||!box) return;
+ if(!d.check_precision_html){ sec.style.display='none'; box.innerHTML=''; return; }
+ sec.style.display='';
+ if(box.innerHTML!==d.check_precision_html) box.innerHTML=d.check_precision_html;
 }
 function renderClaims(view){
  const rows=(view&&view.claims)||[];

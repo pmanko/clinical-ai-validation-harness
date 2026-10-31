@@ -134,6 +134,37 @@ def _reference_objects(response: dict[str, Any]) -> tuple[list[int], dict[int, d
     return _ordered_unique(refs), by_index
 
 
+_SUPPORT_LABELS = {"supported", "contradicted", "not_addressed", "unchecked"}
+
+
+def _support_label(reference: dict[str, Any]) -> str | None:
+    """The three-way support label when the product sends one; None otherwise."""
+    label = reference.get("support")
+    if isinstance(label, str) and label.strip().lower() in _SUPPORT_LABELS:
+        return label.strip().lower()
+    return None
+
+
+def _support_detail(reference: dict[str, Any]) -> str:
+    """What the chart holds for a contradicted citation: its value, or the facts not found."""
+    parts: list[str] = []
+    for check in reference.get("groundingChecks") or []:
+        if not isinstance(check, dict) or str(check.get("support") or "").lower() != "contradicted":
+            continue
+        value = check.get("chart_value")
+        if value:
+            parts.append(str(value))
+            continue
+        missing = [
+            str(f.get("fact"))
+            for f in check.get("facts") or []
+            if isinstance(f, dict) and f.get("fact") and not f.get("found")
+        ]
+        if missing:
+            parts.append("not found: " + ", ".join(missing))
+    return "; ".join(dict.fromkeys(parts))
+
+
 def _support_status(reference: dict[str, Any]) -> str:
     """Return the final hub grounding state without inventing a verdict."""
     status = reference.get("groundingStatus")
@@ -295,6 +326,8 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
             "used_by": usage_by_ref.get(idx, []),
             "resolution_status": resolution_status,
             "support_status": _support_status(ref_obj),
+            "support": _support_label(ref_obj),
+            "support_detail": _support_detail(ref_obj),
         })
 
     top_set = set(top_refs)
