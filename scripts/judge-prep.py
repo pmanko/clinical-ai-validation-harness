@@ -12,13 +12,18 @@ question(s) + patient demographics. Writes:
 The semantic scoring (the rubric) is done by a Claude judge agent per cell; this script
 only does the parts that must be deterministic + identical every run.
 
-Usage: scripts/judge-prep.py <run_dir-or-run_id>
+With --blind the same cells are also written as one bundle per scenario under
+<run>/judge-bundles/, the arms replaced by letters, with judge-blind-map.json beside them for
+judge-finalize to map the letters back. judge-cells.jsonl is unchanged either way.
+
+Usage: scripts/judge-prep.py <run_dir-or-run_id> [--blind]
 """
 from __future__ import annotations
 import json, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from harness.validate.blinding import write_bundles  # noqa: E402
 from harness.validate.reconcile import resolve_citations  # noqa: E402
 from harness.validate.bundle import frozen_arm_cards, review_results, run_chart  # noqa: E402
 from harness.validate.hub_trace import load_traces, match_trace, trace_model_for_result  # noqa: E402
@@ -98,6 +103,30 @@ def answer_validation_metadata(validation):
 
 
 
+def reference_date_of(rd: pathlib.Path) -> str | None:
+    """The run's reference date (its simulated "today"), from run_meta.json or the run event;
+    None when neither records one, so a judge is never handed a guessed date."""
+    for name, key in (("run_meta.json", "reference_date"),):
+        path = rd / name
+        if path.is_file():
+            try:
+                value = json.loads(path.read_text(encoding="utf-8")).get(key)
+            except (OSError, json.JSONDecodeError):
+                value = None
+            if value:
+                return str(value)
+    events = rd / "events.jsonl"
+    if events.is_file():
+        for line in events.read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line) if line.strip() else {}
+            except json.JSONDecodeError:
+                continue
+            if event.get("event_type") == "run" and event.get("reference_date"):
+                return str(event["reference_date"])
+    return None
+
+
 def run_dir(arg: str) -> pathlib.Path:
     p = pathlib.Path(arg)
     if p.is_dir():
@@ -161,12 +190,15 @@ def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
 
 
 def main() -> None:
-    rd = run_dir(sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: judge-prep.py <run>"))
+    args = [a for a in sys.argv[1:] if a != "--blind"]
+    blind = "--blind" in sys.argv[1:]
+    rd = run_dir(args[0] if args else sys.exit("usage: judge-prep.py <run> [--blind]"))
     results = review_results(rd)
     traces = load_traces(rd / "trace.jsonl")
     cards = frozen_arm_cards(rd, list(dict.fromkeys(r["backend_id"] for r in results)))
     snap_dir = rd / "charts"
     snap_dir.mkdir(exist_ok=True)
+    reference_date = reference_date_of(rd)
 
     # group result rows by (scenario, backend), ordered by turn
     cells: dict[tuple[str, str], list[dict]] = {}
@@ -252,6 +284,9 @@ def main() -> None:
         out.append({
             "scenario_id": scenario_id,
             "backend_id": backend_id,
+            # The run's "today", beside every cell, so a judge never scores a date against the
+            # wall clock or a date it read once at the top of a long prompt.
+            "reference_date": reference_date,
             "is_team": is_team,
             "has_in_depth": has_in_depth,
             "score_background": has_in_depth,
@@ -280,6 +315,9 @@ def main() -> None:
             fh.write(json.dumps(c) + "\n")
     background = sum(1 for c in out if c.get("score_background"))
     print(f"wrote {len(out)} cells ({background} with In-Depth / {len(out)-background} answer-only) -> {cells_path}")
+    if blind:
+        bundles = write_bundles(rd, out, rd.name)
+        print(f"blinded: {len(bundles)} bundles -> {rd / 'judge-bundles'}, map -> {rd / 'judge-blind-map.json'}")
     print(f"snapshots -> {snap_dir}/*.snapshot.txt")
 
 

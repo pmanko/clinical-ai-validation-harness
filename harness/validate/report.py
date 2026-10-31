@@ -44,6 +44,7 @@ from harness.report_shell.stats import avg, box_stats, ordered_unique, percentil
 from .bundle import frozen_arm_cards, review_results, run_chart
 from .hub_trace import load_traces, match_trace, trace_model_for_result
 
+from .judging import judge_summary
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .review_presentation import (
     indepth_validation_display,
@@ -817,6 +818,10 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "judge": scout_summary(judge_rows, backends),
         "judge_rows": judge_rows,
         "judge_actors": sorted(judge_actors.keys()),
+        # Who judged: the cards under judges/*/manifest.json, named on every judged score.
+        "judging": judge_summary(run_dir),
+        # Every pass's rows, so a cell can be opened to each judge's scores and note.
+        "judge_passes": judge_actors,
         "judge_combined": combined_judge_summary(judge_actors, backends),
         # WS4: adjudication-calibrated Benchmark. adjudication.jsonl is OPTIONAL — when
         # absent (the default) every calibrated block is judge-only (no CI / no κ) and the
@@ -1343,13 +1348,27 @@ _SCRIPT_REST = r"""function renderMetrics(run){
 }
 
 __SHARED_SCORE_FORMATTER__
+function judgeCardLine(c){
+  if(!c) return 'judge not recorded';
+  if(c.actor_type==='human') return 'human review by '+(c.model||c.reviewer||'human reviewer');
+  if(!c.model) return 'judge not recorded';
+  var names={codex:'Codex CLI',claude:'Claude Code CLI',gemini:'Gemini CLI'};
+  var bits=[String(c.model)];
+  if(c.reasoning_effort) bits.push('reasoning '+c.reasoning_effort);
+  if(c.agent){ var a=names[c.agent]||c.agent; bits.push(c.agent_version?a+' '+c.agent_version:a); }
+  if(c.pass_index&&c.passes) bits.push('pass '+c.pass_index+' of '+c.passes); else if(c.pass_index) bits.push('pass '+c.pass_index);
+  if(c.brief_sha256) bits.push('brief '+String(c.brief_sha256).slice(0,7));
+  return bits.join(', ');
+}
 function renderJudgeCombined(run){
   var rows=(run.judge_combined||[]).slice().filter(function(s){return (s.n_actors||0)>1 && s.benchmark_score!=null;});
   if(!rows.length) return null;
   rows.sort(function(a,b){return (b.benchmark_score||0)-(a.benchmark_score||0);});
-  var actorNames=(run.judge_actors||[]).join(', ');
+  var cards=((run.judging||{}).cards||[]);
+  var actorNames=cards.length?cards.map(function(c){return c.actor_id+': '+judgeCardLine(c);}).join(' · '):(run.judge_actors||[]).join(', ');
   var h='<div class="judge-consensus"><h3>Reviewer consensus</h3>'
     +'<p class="intro">Combined score averages each scenario × setup across independent judge actors, then averages those cell means per setup. The range shows how far the actor-level arm scores spread; max Δ points to the cell with the largest judge disagreement.</p>'
+    +(cards.length?'<ul class="judge-cards">'+cards.map(function(c){return '<li><code>'+htmlEsc(c.actor_id)+'</code> '+htmlEsc(judgeCardLine(c))+(c.canonical?' <span class="muted">(headline)</span>':'')+'</li>';}).join('')+'</ul>':'')
     +'<table class="summary"><thead><tr><th>backend</th><th>combined Benchmark</th><th>actors</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
   h+=rows.map(function(s){
     var ar=s.actor_range||{}, sp=s.benchmark_spread||{};
@@ -1361,10 +1380,39 @@ function renderJudgeCombined(run){
       +"<td>"+fmt10(s.mean_abs_delta)+"</td>"
       +"<td>"+maxCell+"</td></tr>";
   }).join('');
-  h+='</tbody></table></div>';
+  h+='</tbody></table>'+renderPassAgreement((run.judging||{}).consensus)+'</div>';
   var wrap=el('div'); wrap.innerHTML=h;
   var tbl=wrap.querySelector('table'); if(tbl) makeSortable(tbl);
   return wrap;
+}
+function renderPassAgreement(c){
+  if(!c||!c.alpha) return '';
+  var th=c.thresholds||{acceptable:0.667,good:0.8};
+  var h='<h4>Agreement between the passes</h4>'
+    +'<p class="intro">Krippendorff’s alpha across the '+(c.actors||[]).length+' passes, per axis: 1 is perfect agreement, 0 is chance. Ordinal for the 0–10 axes, nominal for the labels. Thresholds applied: '+th.acceptable+' acceptable, '+th.good+' good.</p>'
+    +'<table class="summary"><thead><tr><th>axis</th><th>alpha</th><th>verdict</th></tr></thead><tbody>';
+  Object.keys(c.alpha).forEach(function(k){ var a=c.alpha[k]||{};
+    h+='<tr><td class="b">'+htmlEsc(k)+'</td><td>'+(a.alpha==null?'—':a.alpha.toFixed(3))+'</td><td>'+htmlEsc(a.verdict||'')+'</td></tr>'; });
+  h+='</tbody></table>';
+  var sp=(c.spread_cells||[]).slice(0,5);
+  if(sp.length){ h+='<p class="intro">Cells the passes disagree on most (Benchmark per pass):</p><ul class="judge-cards">'
+    +sp.map(function(s){ var parts=Object.keys(s.scores||{}).map(function(a){return htmlEsc(a)+' '+fmt10(s.scores[a]);}).join(' · ');
+      return '<li><code>'+htmlEsc(s.scenario_id)+'</code> × '+htmlEsc(armTitle(s.backend_id))+': range '+fmt10(s.range)+' ('+parts+')</li>'; }).join('')+'</ul>'; }
+  return h+renderJudgePanel(c.judges);
+}
+function renderJudgePanel(j){
+  if(!j||!j.per_judge) return '';
+  var judges=Object.keys(j.per_judge), arms={};
+  judges.forEach(function(id){ (j.per_judge[id].scout||[]).forEach(function(s){ arms[s.backend]=arms[s.backend]||{}; arms[s.backend][id]=s; }); });
+  var h='<h4>Judges side by side</h4><p class="intro">Each judge’s passes combined into one rating (median per axis, majority per label), then its Benchmark per setup; alpha between the judges says how far they agree.</p>'
+    +'<table class="summary"><thead><tr><th>setup</th>'+judges.map(function(id){return '<th>'+htmlEsc(id)+'</th>';}).join('')+'</tr></thead><tbody>';
+  Object.keys(arms).forEach(function(b){ h+='<tr><td class="b" title="'+htmlEsc(b)+'">'+htmlEsc(armTitle(b))+'</td>'
+    +judges.map(function(id){ var s=arms[b][id]; return '<td>'+(s&&s.benchmark_score!=null?fmt10(s.benchmark_score)+(s.harm_count?' <span title="harm">☠'+s.harm_count+'</span>':''):'—')+'</td>'; }).join('')+'</tr>'; });
+  h+='</tbody></table>';
+  var th=j.thresholds||{acceptable:0.667,good:0.8};
+  h+='<p class="intro">Agreement between the judges (Krippendorff’s alpha; '+th.acceptable+' acceptable, '+th.good+' good): '
+    +Object.keys(j.alpha||{}).map(function(k){ var a=j.alpha[k]||{}; return htmlEsc(k)+' '+(a.alpha==null?'—':a.alpha.toFixed(3))+' ('+htmlEsc(a.verdict||'')+')'; }).join(' · ')+'</p>';
+  return h;
 }
 function judgeBarsSVG(series){
   var arms=[]; for(var k=0;k<series.length;k++){ if(series[k].n>0) arms.push(series[k]); }
@@ -1408,15 +1456,26 @@ function judgeHeatmap(run){
     }
     h+='</tr>';
   }
-  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note. ⚑ = failed to abstain · ✗ = unsupported citation · ☠ = harm</div>';
+  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note, and each pass’s scores where the run was judged more than once. ⚑ = failed to abstain · ✗ = unsupported citation · ☠ = harm</div>';
   var wrap=el('div','judge-heatmap-wrap'); wrap.innerHTML=h;
   var cells=wrap.querySelectorAll('td.jh');
   for(var c=0;c<cells.length;c++){
     cells[c].onclick=(function(td){ return function(){
-      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b><br>'+htmlEsc(td.dataset.det)+'<br>'+htmlEsc(td.dataset.note||'(no note)');
+      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b><br>'+htmlEsc(td.dataset.det)+'<br>'+htmlEsc(td.dataset.note||'(no note)')+judgePassLines(run, td.dataset.sid, td.dataset.arm);
     }; })(cells[c]);
   }
   return wrap;
+}
+function judgePassLines(run, sid, arm){
+  var passes=run.judge_passes||{}, ids=Object.keys(passes); if(ids.length<2) return '';
+  var cards={}; (((run.judging||{}).cards)||[]).forEach(function(c){ cards[c.actor_id]=c; });
+  var out='<div class="jh-passes"><b>Each pass:</b><ul>';
+  ids.forEach(function(a){
+    var r=(passes[a]||[]).filter(function(x){return x.scenario_id===sid&&x.backend_id===arm;})[0]; if(!r) return;
+    var who=cards[a]?judgeCardLine(cards[a]):a;
+    out+='<li><code>'+htmlEsc(a)+'</code> ('+htmlEsc(who)+'): '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+' · '+htmlEsc(r.abstention_outcome||'')+' · '+htmlEsc(r.citation_groundedness||'')+(r.harm?' · HARM':'')+(r.note?' — '+htmlEsc(r.note):'')+'</li>';
+  });
+  return out+'</ul></div>';
 }
 // WS4 calibrated benchmark: map run.calibrated (per-arm + a "__run__" row) by backend.
 function calIndex(run){ var m={}, c=run.calibrated||[]; for(var i=0;i<c.length;i++){ m[c[i].backend]=c[i].calibrated||{}; } return m; }
@@ -1442,7 +1501,9 @@ function renderJudge(run){
   var nPatients=(run.patients||[]).length;
   var patientScope=nPatients===1?'one patient':nPatients+' patients';
   var judgeScope=nActors>1?nActors+' judges':'one judge';
-  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
+  var judging=run.judging||{};
+  var judgedBy=judging.recorded?htmlEsc(judging.sentence):'Judge not recorded for this run.';
+  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. An AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. <b>'+judgedBy+'</b> The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
    +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
    +'<dl class="legend-key">'
    +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'

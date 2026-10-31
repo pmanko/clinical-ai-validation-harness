@@ -34,6 +34,7 @@ from harness.report_shell.assets import (  # noqa: E402
 )
 from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart  # noqa: E402
 from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
+from harness.validate.judging import judge_summary  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.review_presentation import (  # noqa: E402
     indepth_validation_display,
@@ -288,6 +289,7 @@ def status():
             "judged_passed": judged_passed, "judged_scored": len(scored),
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "judge_actors": sorted(judge_actors.keys()),
+            "judging": judge_summary(run),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": models}
 
@@ -506,8 +508,13 @@ def detail(scenario, backend):
                                 "steps": tr.get("steps") or [],
                                 "stage_timings": extract_stage_timings(tr),
                                 "models": tr.get("models") or {}} if tr else None})
+    # Each judge pass's row for this cell, so the panel can show every judge's scores and note.
+    judge = {actor: next((r for r in rows_ if r.get("scenario_id") == scenario
+                          and r.get("backend_id") == backend), None)
+             for actor, rows_ in read_judge_actors(run).items()}
     return {"scenario": scenario, "backend": backend, "expectations": exp,
-            "catalystExpected": catalyst_expected, "turns": turns}
+            "catalystExpected": catalyst_expected, "turns": turns,
+            "judge": {a: r for a, r in judge.items() if r}}
 
 
 PAGE = (
@@ -762,12 +769,13 @@ function renderJudgeScores(d){
  const rows=(d.judge_combined||[]).filter(s=>(s.n_actors||0)>=1&&s.benchmark_score!=null)
   .sort((a,b)=>(b.benchmark_score||0)-(a.benchmark_score||0));
  if(!rows.length)return '<span class=muted>no judged score yet</span>';
- const actors=(d.judge_actors||[]).join(', ');
+ const judging=d.judging||{};
+ const actors=judging.recorded?judging.sentence:'Judge not recorded for this run. Actors: '+(d.judge_actors||[]).join(', ');
  const multi=rows.some(s=>(s.n_actors||0)>1);
  let note=multi
   ?'Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement.'
   :'Score from one independent judge. Add another judge to show disagreement ranges.';
- let h='<p class=judge-note>'+note+' Actors: '+esc(actors)+'</p>';
+ let h='<p class=judge-note>'+esc(actors)+' '+note+'</p>';
  h+='<table class=judge-table><thead><tr><th>setup</th><th>score</th><th>actors</th><th>cell range</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
  rows.forEach(s=>{
   const ar=s.actor_range||{}, sp=s.benchmark_spread||{};
@@ -779,6 +787,20 @@ function renderJudgeScores(d){
    +'<td>'+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+'</td>'
    +'<td>'+fmt10(s.mean_abs_delta)+'</td><td>'+maxCell+'</td></tr>';
  });
+ const c=judging.consensus||{};
+ if(c.alpha){
+  const th=c.thresholds||{acceptable:0.667,good:0.8};
+  h+='<p class=judge-note>Agreement between the '+(c.actors||[]).length+' passes (Krippendorff’s alpha; '+th.acceptable+' acceptable, '+th.good+' good): '
+   +Object.keys(c.alpha).map(k=>esc(k)+' '+(c.alpha[k].alpha==null?'—':c.alpha[k].alpha.toFixed(3))+' ('+esc(c.alpha[k].verdict)+')').join(' · ')+'</p>';
+  const sp=(c.spread_cells||[]).slice(0,5);
+  if(sp.length) h+='<p class=judge-note>Widest cells: '+sp.map(s=>esc(s.scenario_id)+' × '+esc(armTitle(s.backend_id))+' range '+fmt10(s.range)).join(' · ')+'</p>';
+  const j=c.judges||{};
+  if(j.per_judge){
+   const jt=j.thresholds||{acceptable:0.667,good:0.8};
+   h+='<p class=judge-note>Judges side by side (Benchmark per setup): '+Object.keys(j.per_judge).map(id=>esc(id)+' ['+(j.per_judge[id].scout||[]).map(s=>esc(armTitle(s.backend))+' '+fmt10(s.benchmark_score)).join(', ')+']').join(' · ')
+    +'. Agreement between judges (alpha; '+jt.acceptable+' acceptable, '+jt.good+' good): '+Object.keys(j.alpha||{}).map(k=>esc(k)+' '+(j.alpha[k].alpha==null?'—':j.alpha[k].alpha.toFixed(3))).join(' · ')+'</p>';
+  }
+ }
  return h+'</tbody></table>';
 }
 // The background poll re-renders #arms wholesale; that wipes the user's expanded <details>.
@@ -996,6 +1018,10 @@ async function openD(s,b){
   h+='</div>';
  }else{
   h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
+ }
+ const jp=d.judge||{}, jids=Object.keys(jp);
+ if(jids.length){
+  h+='<div class=exp><b>Judged:</b> '+jids.map(a=>{const r=jp[a];return esc(a)+' '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+(r.harm?' HARM':'')+(r.note?' — '+esc(r.note):'');}).join('<br>')+'</div>';
  }
  const reps=(d.turns||[]);
  if(reps.length&&reps[0].catalyst){
