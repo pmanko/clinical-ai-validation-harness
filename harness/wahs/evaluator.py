@@ -1,14 +1,17 @@
-"""Deterministic evaluation and HTTP suite runner for WAHS+ FHIR R4 condensation & Q&A.
+"""Deterministic and multi-modality evaluation runner for WAHS+ FHIR R4 condensation & Q&A.
 
-Evaluates the four EHIgnite / WAHS+ Phase 2 target use cases:
-- Use Case A (`use_case_a_reconciliation`): Cross-clinic medication, problem, allergy,
-  and immunization reconciliation recall and conflict surfacing.
-- Use Case B-1 (`use_case_b1_summary`): Encounter, ICU, and longitudinal pattern
-  condensation under strict token budgets (16k -> 1k).
-- Use Case B-2 (`use_case_b2_privacy`): Sensitive SDOH / IPV / 42 CFR Part 2 / WA MHMDA
-  privacy segmentation (`patient_self` vs `external_share` zero-leakage gate).
-- Use Case B-3 (`use_case_b3_grounded_qa`): Grounded patient & clinician Q&A with
-  `[N] -> resourceUuid` citation resolution and explicit abstention on unanswerable queries.
+Supports three distinct evaluation modalities (`evaluation_modality`):
+1. `deterministic_pipeline` (Deterministic Pipeline Gate):
+   Evaluates the deterministic 5-Tier FHIR Condenser and 4-Layer Clinical KB rules
+   (token budget compliance, IPS safety core retention, deterministic conflict recall,
+   and zero-leakage privacy redaction).
+2. `condensation_retrieval_ablation` (Condensation & Retrieval Ablation):
+   Evaluates information retention across Tier 1 (16k) -> Tier 4 (2k) static condensation
+   vs. Tier 4 (2k) + On-Demand Full-Chart Lookup Tools stratified by question horizon.
+3. `live_model_and_team_eval` (Live Model & KB Team Evaluation):
+   Evaluates live local open-weight models and multi-agent KB setups over identical
+   condensed inputs, combining deterministic citation/privacy gates with HealthBench-style
+   weighted rubrics, VeriFact atomic claim entailment, and patient readability metrics.
 
 Runs offline against frozen run directories or live against a caller-supplied
 Med Agent Hub HTTP endpoint without importing product source trees or calling Git/Docker.
@@ -32,8 +35,21 @@ from ..metadata import RunManifest, append_event, copy_target_provenance, write_
 
 _CITATION_RE = re.compile(r"\[(\d+)\]")
 _ABSTENTION_RE = re.compile(
-    r"\b(not documented|no documented|no record|cannot verify|not found in|not present in|abstain)\b",
+    r"\b(not documented|no documented|no documentation|not recorded|no record|cannot verify|not found in|not present in|abstain|abstains|grounded abstention)\b",
     re.IGNORECASE,
+)
+_WORD_RE = re.compile(r"[A-Za-z]+")
+_SENTENCE_SPLIT_RE = re.compile(r"(?:[.!?;]+(?:\s|$))|\n+")
+_VOWEL_GROUP_RE = re.compile(r"[aeiouy]+", re.IGNORECASE)
+_REDACTION_BANNER_LINE_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?\*\*(?:Privacy-Protected|Sensitive SDOH Status|\d+\s+Sensitive SDOH).*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+VALID_EVALUATION_MODALITIES = (
+    "deterministic_pipeline",
+    "condensation_retrieval_ablation",
+    "live_model_and_team_eval",
 )
 
 DEFAULT_SENSITIVE_TERMS = (
@@ -42,6 +58,32 @@ DEFAULT_SENSITIVE_TERMS = (
     "ipv",
     "domestic violence",
 )
+
+
+def compute_flesch_kincaid_grade(text: str) -> float:
+    """Compute Flesch-Kincaid Grade Level on prose after stripping markdown code/citation noise."""
+    cleaned = re.sub(r"`[^`]*`", " ", text or "")
+    cleaned = re.sub(r"\[\d+\]", " ", cleaned)
+    cleaned = re.sub(r"[#*_>|]", " ", cleaned)
+    words = _WORD_RE.findall(cleaned)
+    if not words:
+        return 0.0
+    sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(cleaned) if _WORD_RE.search(s)]
+    num_sentences = max(len(sentences), 1)
+    num_words = len(words)
+
+    def _count_syllables(word: str) -> int:
+        w = word.lower()
+        if len(w) <= 3:
+            return 1
+        w = re.sub(r"(?:[^laeiouy]es|ed|[^laeiouy]e)$", "", w)
+        w = re.sub(r"^y", "", w)
+        groups = _VOWEL_GROUP_RE.findall(w)
+        return max(len(groups), 1)
+
+    syllables = sum(_count_syllables(w) for w in words)
+    grade = 0.39 * (num_words / num_sentences) + 11.8 * (syllables / num_words) - 15.59
+    return round(max(0.0, grade), 2)
 
 
 @dataclass(frozen=True)
@@ -58,6 +100,12 @@ class WahsEvalCase:
     forbidden_terms: list[str] = field(default_factory=list)
     must_abstain: bool = False
     rubric_criteria: list[str] = field(default_factory=list)
+    expected_facts: list[str] = field(default_factory=list)
+    positive_rubric_items: list[dict[str, Any]] = field(default_factory=list)
+    negative_penalty_items: list[dict[str, Any]] = field(default_factory=list)
+    citation_entailment_assertions: list[dict[str, Any]] = field(default_factory=list)
+    question_horizon: str = "current_active_state"
+    patient_category: str = "medication_reconciliation"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WahsEvalCase":
@@ -77,9 +125,25 @@ class WahsEvalCase:
         )
         must_abstain = (
             bool(data.get("must_abstain", False))
+            or bool(data.get("expect_abstention", False))
             or data.get("expected_answer_type") == "abstain_not_in_chart"
             or str(use_case).endswith("abstention")
         )
+        expected_facts = [str(x) for x in (data.get("expected_facts") or [])]
+        pos_items = list(data.get("positive_rubric_items") or [])
+        if not pos_items and expected_facts:
+            pos_items = [
+                {
+                    "id": f"fact_{idx + 1}",
+                    "criterion": f"Mentions grounded clinical fact '{fact}'",
+                    "required_any": [fact],
+                    "weight": 1.0,
+                }
+                for idx, fact in enumerate(expected_facts)
+            ]
+        neg_items = list(data.get("negative_penalty_items") or [])
+        entailment_items = list(data.get("citation_entailment_assertions") or [])
+
         return cls(
             case_id=str(case_id),
             patient_id=str(patient_id),
@@ -93,6 +157,12 @@ class WahsEvalCase:
             forbidden_terms=[str(x) for x in (data.get("forbidden_terms") or [])],
             must_abstain=must_abstain,
             rubric_criteria=[str(x) for x in (data.get("rubric_criteria") or [])],
+            expected_facts=expected_facts,
+            positive_rubric_items=pos_items,
+            negative_penalty_items=neg_items,
+            citation_entailment_assertions=entailment_items,
+            question_horizon=str(data.get("question_horizon") or "current_active_state"),
+            patient_category=str(data.get("patient_category") or "medication_reconciliation"),
         )
 
 
@@ -123,6 +193,12 @@ class WahsCaseScore:
     privacy_zero_leakage: bool
     leaked_items: list[str]
     abstention_ok: bool
+    rubric_weighted_score: float
+    atomic_entailment_rate: float
+    citation_distortion_count: int
+    flesch_kincaid_grade: float
+    question_horizon: str
+    patient_category: str
     passed: bool
     failures: list[str]
 
@@ -141,6 +217,12 @@ class WahsCaseScore:
             "privacy_zero_leakage": self.privacy_zero_leakage,
             "leaked_items": list(self.leaked_items),
             "abstention_ok": self.abstention_ok,
+            "rubric_weighted_score": round(self.rubric_weighted_score, 4),
+            "atomic_entailment_rate": round(self.atomic_entailment_rate, 4),
+            "citation_distortion_count": self.citation_distortion_count,
+            "flesch_kincaid_grade": self.flesch_kincaid_grade,
+            "question_horizon": self.question_horizon,
+            "patient_category": self.patient_category,
             "passed": self.passed,
             "failures": list(self.failures),
         }
@@ -155,18 +237,125 @@ def _extract_known_uuids(envelope: dict[str, Any]) -> tuple[set[str], dict[str, 
         if isinstance(u, str) and u:
             uuids.add(u.replace("urn:uuid:", ""))
 
-    for ref in envelope.get("citations") or []:
-        if not isinstance(ref, dict):
-            continue
-        raw = ref.get("resource_uuid")
-        members = ref.get("member_uuids") or []
-        for value in [raw, *members]:
-            if isinstance(value, str) and value:
-                uuids.add(value.removeprefix("urn:uuid:"))
-        if isinstance(raw, str) and raw and ref.get("index") is not None:
-            idx_map[str(ref["index"])] = raw.removeprefix("urn:uuid:")
+    cmap = envelope.get("citation_map")
+    if isinstance(cmap, dict):
+        for k, v in cmap.items():
+            key_num = str(k).strip("[] ")
+            if isinstance(v, str) and v:
+                clean = v.replace("urn:uuid:", "")
+                uuids.add(clean)
+                idx_map[key_num] = clean
+            elif isinstance(v, dict):
+                raw_u = str(v.get("resourceUuid") or v.get("uuid") or v.get("id") or "")
+                if raw_u:
+                    clean = raw_u.replace("urn:uuid:", "")
+                    uuids.add(clean)
+                    idx_map[key_num] = clean
+
+    for ref_key in ("references", "citations"):
+        refs = envelope.get(ref_key)
+        if isinstance(refs, list):
+            for idx, ref in enumerate(refs, start=1):
+                if not isinstance(ref, dict):
+                    continue
+                raw_u = str(
+                    ref.get("resourceUuid")
+                    or ref.get("resource_uuid")
+                    or ref.get("uuid")
+                    or ref.get("id")
+                    or ""
+                )
+                c_idx = str(ref.get("index") or idx).strip("[] ")
+                if raw_u:
+                    clean = raw_u.replace("urn:uuid:", "")
+                    uuids.add(clean)
+                    idx_map[c_idx] = clean
+                for mu in ref.get("member_uuids") or ref.get("memberUuids") or []:
+                    if isinstance(mu, str) and mu:
+                        uuids.add(mu.replace("urn:uuid:", ""))
 
     return uuids, idx_map
+
+
+def _evaluate_weighted_rubric(case: WahsEvalCase, answer_text: str, condensed_text: str) -> tuple[float, list[str]]:
+    """Evaluate HealthBench-style positive weighted criteria and negative penalty items."""
+    combined_low = f"{answer_text}\n{condensed_text}".lower()
+    ans_low = answer_text.lower()
+    rubric_failures: list[str] = []
+
+    total_weight = 0.0
+    earned_weight = 0.0
+    for item in case.positive_rubric_items:
+        weight = float(item.get("weight", 1.0))
+        total_weight += weight
+        req_any = [str(x).lower() for x in (item.get("required_any") or []) if str(x).strip()]
+        if not req_any or any(tok in combined_low for tok in req_any):
+            earned_weight += weight
+        else:
+            crit = item.get("criterion") or item.get("id") or str(req_any)
+            if item.get("strict", False):
+                rubric_failures.append(f"missing required rubric criterion: {crit}")
+
+    base_score = (earned_weight / total_weight) if total_weight > 0 else 1.0
+
+    penalty_total = 0.0
+    for neg in case.negative_penalty_items:
+        forb_any = [str(x).lower() for x in (neg.get("forbidden_any") or []) if str(x).strip()]
+        if forb_any and any(tok in ans_low for tok in forb_any):
+            penalty = float(neg.get("penalty", 0.25))
+            penalty_total += penalty
+            crit = neg.get("criterion") or neg.get("id") or str(forb_any)
+            rubric_failures.append(f"negative rubric penalty triggered: {crit}")
+
+    return max(0.0, min(1.0, base_score - penalty_total)), rubric_failures
+
+
+def _evaluate_atomic_entailment(
+    case: WahsEvalCase,
+    answer_text: str,
+    condensed_text: str,
+    known_uuids: set[str],
+    idx_map: dict[str, str],
+) -> tuple[float, int, list[str]]:
+    """Verify VeriFact / MiniCheck-style atomic claim entailment against cited FHIR UUIDs."""
+    if not case.citation_entailment_assertions:
+        return 1.0, 0, []
+
+    ans_low = answer_text.lower()
+    combined_low = f"{answer_text}\n{condensed_text}".lower()
+    cited_uuids = {
+        idx_map[n]
+        for n in _CITATION_RE.findall(answer_text)
+        if n in idx_map and idx_map[n]
+    } | known_uuids
+
+    passed_assertions = 0
+    distortions = 0
+    failures: list[str] = []
+
+    for assertion in case.citation_entailment_assertions:
+        target_uuid = str(assertion.get("resource_uuid") or "").replace("urn:uuid:", "")
+        must_mention = [str(x).lower() for x in (assertion.get("must_mention_any") or []) if str(x).strip()]
+        must_not_distort = [str(x).lower() for x in (assertion.get("must_not_distort") or []) if str(x).strip()]
+
+        uuid_ok = (not target_uuid) or (target_uuid in cited_uuids)
+        mention_ok = (not must_mention) or any(tok in combined_low for tok in must_mention)
+        distort_hit = [tok for tok in must_not_distort if tok in ans_low]
+
+        if distort_hit:
+            distortions += len(distort_hit)
+            failures.append(
+                f"citation distortion for {target_uuid or 'claim'}: found distorted value/status {', '.join(distort_hit)}"
+            )
+        elif uuid_ok and mention_ok:
+            passed_assertions += 1
+        else:
+            failures.append(
+                f"unentailed claim for {target_uuid or 'assertion'}: missing {', '.join(must_mention)}"
+            )
+
+    rate = passed_assertions / max(len(case.citation_entailment_assertions), 1)
+    return rate, distortions, failures
 
 
 def score_wahs_case(
@@ -177,7 +366,12 @@ def score_wahs_case(
 ) -> WahsCaseScore:
     """Deterministically score a single WAHS evaluation case response envelope."""
     failures: list[str] = []
-    raw_tokens = (envelope.get("tier_info") or {}).get("actual_tokens")
+    tier_info = envelope.get("tier_info") or {}
+    raw_tokens = (
+        tier_info.get("actual_tokens")
+        if tier_info.get("actual_tokens") is not None
+        else envelope.get("actual_tokens")
+    )
     actual_tokens = int(raw_tokens) if raw_tokens is not None else 0
     if raw_tokens is None:
         failures.append("missing actual token count")
@@ -230,7 +424,15 @@ def score_wahs_case(
     if case.sharing_posture == "external_share" and not terms_to_check:
         terms_to_check = list(DEFAULT_SENSITIVE_TERMS)
 
-    combined_text = f"{answer}\n{condensed_text}".lower()
+    # Exclude explicit redaction transparency notice banners when checking forbidden_terms
+    redaction_banner = str(envelope.get("redaction_notice") or "")
+    inspectable_answer = answer
+    if redaction_banner:
+        inspectable_answer = inspectable_answer.replace(redaction_banner, "")
+    if case.sharing_posture == "external_share" and "REDACTED in External Share" in inspectable_answer:
+        inspectable_answer = _REDACTION_BANNER_LINE_RE.sub("", inspectable_answer)
+
+    combined_text = f"{inspectable_answer}\n{condensed_text}".lower()
     for term in terms_to_check:
         t_low = term.lower()
         if len(t_low) <= 4:
@@ -243,16 +445,28 @@ def score_wahs_case(
     if not privacy_zero_leakage:
         failures.append(f"privacy leakage detected: {', '.join(leaked_items)}")
 
-    # 4. Abstention verification
-    explicit_abstains = bool(envelope.get("abstained")) or bool(_ABSTENTION_RE.search(answer))
+    # 4. Abstention verification (supports both `abstained` and `abstains` keys)
+    envelope_abstained = bool(envelope.get("abstained")) or bool(envelope.get("abstains"))
+    explicit_abstains = envelope_abstained or bool(_ABSTENTION_RE.search(answer))
     if case.must_abstain:
         abstention_ok = explicit_abstains and fabricated_citation_count == 0
         if not abstention_ok:
             failures.append("failed to abstain cleanly on unanswerable query")
     else:
-        abstention_ok = not bool(envelope.get("abstained")) and bool(answer.strip() or condensed_text.strip())
+        abstention_ok = not envelope_abstained and bool(answer.strip() or condensed_text.strip())
         if not abstention_ok:
             failures.append("unexpected abstention or empty output on answerable query")
+
+    # 5. Layer B: Weighted Rubric & Atomic Claim Entailment
+    rubric_weighted_score, rubric_failures = _evaluate_weighted_rubric(case, answer, condensed_text)
+    failures.extend(rubric_failures)
+
+    atomic_entailment_rate, citation_distortion_count, entailment_failures = _evaluate_atomic_entailment(
+        case, answer, condensed_text, known_uuids, idx_map
+    )
+    failures.extend(entailment_failures)
+
+    fk_grade = compute_flesch_kincaid_grade(answer)
 
     return WahsCaseScore(
         case_id=case.case_id,
@@ -268,6 +482,12 @@ def score_wahs_case(
         privacy_zero_leakage=privacy_zero_leakage,
         leaked_items=leaked_items,
         abstention_ok=abstention_ok,
+        rubric_weighted_score=rubric_weighted_score,
+        atomic_entailment_rate=atomic_entailment_rate,
+        citation_distortion_count=citation_distortion_count,
+        flesch_kincaid_grade=fk_grade,
+        question_horizon=case.question_horizon,
+        patient_category=case.patient_category,
         passed=len(failures) == 0,
         failures=failures,
     )
@@ -323,20 +543,45 @@ class WahsRunResult:
     summary: dict[str, Any]
 
 
-def _summarize_scores(scores: list[WahsCaseScore]) -> dict[str, Any]:
+def _summarize_scores(
+    scores: list[WahsCaseScore],
+    *,
+    evaluation_modality: str = "deterministic_pipeline",
+) -> dict[str, Any]:
     total = len(scores)
     passed = sum(1 for s in scores if s.passed)
     by_use_case: dict[str, dict[str, Any]] = {}
+    by_horizon: dict[str, dict[str, Any]] = {}
+
     for s in scores:
         bucket = by_use_case.setdefault(
             s.use_case,
-            {"total": 0, "passed": 0, "uuid_recall_sum": 0.0, "citation_rate_sum": 0.0, "privacy_leaks": 0},
+            {
+                "total": 0,
+                "passed": 0,
+                "uuid_recall_sum": 0.0,
+                "citation_rate_sum": 0.0,
+                "rubric_score_sum": 0.0,
+                "entailment_sum": 0.0,
+                "privacy_leaks": 0,
+            },
         )
         bucket["total"] += 1
         bucket["passed"] += int(s.passed)
         bucket["uuid_recall_sum"] += s.required_uuid_recall
         bucket["citation_rate_sum"] += s.citation_resolution_rate
+        bucket["rubric_score_sum"] += s.rubric_weighted_score
+        bucket["entailment_sum"] += s.atomic_entailment_rate
         bucket["privacy_leaks"] += int(not s.privacy_zero_leakage)
+
+        h_bucket = by_horizon.setdefault(
+            s.question_horizon,
+            {"total": 0, "passed": 0, "uuid_recall_sum": 0.0, "rubric_score_sum": 0.0},
+        )
+        h_bucket["total"] += 1
+        h_bucket["passed"] += int(s.passed)
+        h_bucket["uuid_recall_sum"] += s.required_uuid_recall
+        h_bucket["rubric_score_sum"] += s.rubric_weighted_score
 
     use_case_summary = {}
     for uc, b in sorted(by_use_case.items()):
@@ -347,10 +592,24 @@ def _summarize_scores(scores: list[WahsCaseScore]) -> dict[str, Any]:
             "pass_rate": round(b["passed"] / n, 4),
             "mean_uuid_recall": round(b["uuid_recall_sum"] / n, 4),
             "mean_citation_resolution_rate": round(b["citation_rate_sum"] / n, 4),
+            "mean_rubric_weighted_score": round(b["rubric_score_sum"] / n, 4),
+            "mean_atomic_entailment_rate": round(b["entailment_sum"] / n, 4),
             "privacy_leaks": b["privacy_leaks"],
         }
 
+    horizon_summary = {}
+    for hz, hb in sorted(by_horizon.items()):
+        n = hb["total"] or 1
+        horizon_summary[hz] = {
+            "total": hb["total"],
+            "passed": hb["passed"],
+            "pass_rate": round(hb["passed"] / n, 4),
+            "mean_uuid_recall": round(hb["uuid_recall_sum"] / n, 4),
+            "mean_rubric_weighted_score": round(hb["rubric_score_sum"] / n, 4),
+        }
+
     return {
+        "evaluation_modality": evaluation_modality,
         "total_cells": total,
         "passed_cells": passed,
         "pass_rate": round(passed / (total or 1), 4),
@@ -363,11 +622,22 @@ def _summarize_scores(scores: list[WahsCaseScore]) -> dict[str, Any]:
         "mean_citation_resolution_rate": round(
             sum(s.citation_resolution_rate for s in scores) / (total or 1), 4
         ),
+        "mean_rubric_weighted_score": round(
+            sum(s.rubric_weighted_score for s in scores) / (total or 1), 4
+        ),
+        "mean_atomic_entailment_rate": round(
+            sum(s.atomic_entailment_rate for s in scores) / (total or 1), 4
+        ),
+        "citation_distortion_count": sum(s.citation_distortion_count for s in scores),
+        "mean_flesch_kincaid_grade": round(
+            sum(s.flesch_kincaid_grade for s in scores) / (total or 1), 2
+        ),
         "privacy_leak_count": sum(1 for s in scores if not s.privacy_zero_leakage),
         "abstention_accuracy": round(
             sum(1 for s in scores if s.abstention_ok) / (total or 1), 4
         ),
         "by_use_case": use_case_summary,
+        "by_question_horizon": horizon_summary,
     }
 
 
@@ -381,8 +651,13 @@ def run_wahs_suite(
     target_provenance: list[dict[str, Any]] | None = None,
     dataset_id: str = "wahs-synthetic-r4",
     dataset_version: str = "2026.10",
+    evaluation_modality: str = "deterministic_pipeline",
 ) -> WahsRunResult:
     """Execute a WAHS evaluation suite against `client` and freeze all artifacts in `<output_dir>/<run_id>`."""
+    if evaluation_modality not in VALID_EVALUATION_MODALITIES:
+        raise ValueError(
+            f"Invalid evaluation_modality '{evaluation_modality}'. Expected one of {VALID_EVALUATION_MODALITIES}"
+        )
     cases_file = Path(cases_path)
     cases_bytes = cases_file.read_bytes()
     suite_sha256 = hashlib.sha256(cases_bytes).hexdigest()
@@ -409,6 +684,7 @@ def run_wahs_suite(
         evidence_status="development",
         target_provenance=frozen_provenance,
         report_family="wahs",
+        evaluation_modality=evaluation_modality,
         suite_id=cases_file.stem,
         suite_sha256=suite_sha256,
     )
@@ -421,6 +697,7 @@ def run_wahs_suite(
             "event_type": "run",
             "run_id": run_id,
             "component": "wahs-evaluation",
+            "evaluation_modality": evaluation_modality,
             "suite_sha256": suite_sha256,
         },
     )
@@ -450,7 +727,7 @@ def run_wahs_suite(
                 }
                 fh.write(json.dumps(row) + "\n")
 
-    summary = _summarize_scores(scores)
+    summary = _summarize_scores(scores, evaluation_modality=evaluation_modality)
     summary_path = run_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     append_event(
@@ -459,6 +736,7 @@ def run_wahs_suite(
             "event_type": "evaluation",
             "run_id": run_id,
             "check": "wahs_suite",
+            "evaluation_modality": evaluation_modality,
             "total_cells": summary["total_cells"],
             "passed_cells": summary["passed_cells"],
             "summary_path": "summary.json",
@@ -481,6 +759,15 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
     rdir = Path(run_dir)
     cases_path = rdir / "inputs" / "wahs_eval_cases.jsonl"
     results_path = rdir / "results.jsonl"
+    manifest_path = rdir / "run_manifest.json"
+    evaluation_modality = "deterministic_pipeline"
+    if manifest_path.is_file():
+        manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        evaluation_modality = str(manifest_data.get("evaluation_modality") or "deterministic_pipeline")
+        if "evaluation_modality" not in manifest_data:
+            manifest_data["evaluation_modality"] = evaluation_modality
+            manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
+
     cases_by_id = {c.case_id: c for c in load_wahs_cases(cases_path)}
 
     scores: list[WahsCaseScore] = []
@@ -496,6 +783,6 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
             scores.append(score)
             exp_fh.write(json.dumps(score.to_dict()) + "\n")
 
-    summary = _summarize_scores(scores)
+    summary = _summarize_scores(scores, evaluation_modality=evaluation_modality)
     (rdir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return summary
