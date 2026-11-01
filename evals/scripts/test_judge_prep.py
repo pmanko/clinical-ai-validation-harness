@@ -440,7 +440,7 @@ def test_main_uses_frozen_arm_card_and_correlated_temporal_trace(tmp_path, monke
     assert cell["temporal_facts_summary"] == {"reference_date": "2026-05-30"}
 
 
-def test_the_judge_reads_the_indepth_without_the_checks_marks():
+def test_the_judge_reads_the_indepth_without_the_checks_marks(tmp_path, monkeypatch):
     jp = _load()
     shown = (
         "- Weight fell to 41 kg [21]. *(Check: [21] does not state 52 kg (baseline); flagged on review.)*\n"
@@ -449,5 +449,67 @@ def test_the_judge_reads_the_indepth_without_the_checks_marks():
     )
 
     assert jp.strip_check_marks(shown) == (
+        "- Weight fell to 41 kg [21].\n- Monitor nutrition.\n- CD4 was 341 cells/uL [182]."
+    )
+
+    chart = {
+        "patient": {"uuid": "u1", "slug": "p", "name": "Pat"},
+        "valid_uuids": ["ref-21", "ref-182"],
+        "chart_snapshot": "Patient: 40F\n[21] Weight: 41 kg\n[182] CD4: 341 cells/uL",
+        "mappings": [
+            {"index": 21, "resourceType": "obs", "resourceUuid": "ref-21"},
+            {"index": 182, "resourceType": "obs", "resourceUuid": "ref-182"},
+        ],
+    }
+    scenario = {
+        "id": "s1",
+        "patient_ref": "u1",
+        "turns": [{"n": 1, "question": "How has weight changed?"}],
+    }
+    results = [
+        {
+            "scenario_id": "s1",
+            "backend_id": "b1",
+            "turn": 1,
+            "error": None,
+            "response": {
+                "answer": "Weight is 41 kg [21]. *(Check: [21] does not state 52 kg (baseline).)*",
+                "references": [
+                    {
+                        "index": 21,
+                        "resourceType": "obs",
+                        "resourceUuid": "ref-21",
+                        "groundingStatus": "unsupported",
+                        "groundingChecks": [{"status": "fail", "reason": "No 52 kg"}],
+                    },
+                    {
+                        "index": 182,
+                        "resourceType": "obs",
+                        "resourceUuid": "ref-182",
+                        "groundingStatus": "verified",
+                    },
+                ],
+                "inDepth": {
+                    "status": "needs_review",
+                    "answer": shown,
+                },
+            },
+        }
+    ]
+    run_dir = _fixture_run(tmp_path, results=results, scenario=scenario, chart=chart)
+    monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir), "--blind"])
+    jp.main()
+
+    cells_text = (run_dir / "judge-cells.jsonl").read_text(encoding="utf-8")
+    bundle_text = (run_dir / "judge-bundles" / "s1.jsonl").read_text(encoding="utf-8")
+    for payload in (cells_text, bundle_text):
+        assert "*(Check" not in payload
+        assert "*(General guidance" not in payload
+        assert "groundingStatus" not in payload
+        assert "groundingChecks" not in payload
+        assert "support_status" not in payload
+        assert "unsupported" not in payload
+    cell = _read_cells(run_dir)[0]
+    assert cell["in_depth_section"] == (
         "- Weight fell to 41 kg [21].\n- Monitor nutrition.\n- CD4 was 341 cells/uL [182]."
     )

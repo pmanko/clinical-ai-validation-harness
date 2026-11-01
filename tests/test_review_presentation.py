@@ -354,3 +354,161 @@ def test_a_contradicted_citation_without_a_chart_value_names_the_missing_facts()
                   {"fact": "52 kg", "found": False}, {"fact": "2025-10-22", "found": True}]}]}
     sources = annotate_sources(build_sources({"answer": "Weight 52 kg [5].", "references": [source]}))
     assert sources["sources"][0]["support_label"] == "contradicts: not found: 52 kg"
+
+    status_source = {
+        "index": 6,
+        "support": "contradicted",
+        "groundingStatus": "unsupported",
+        "groundingChecks": [
+            {
+                "support": "contradicted",
+                "facts": [
+                    {"fact": "2025-10-22", "status": "found"},
+                    {"fact": "CD4 72", "status": "differs"},
+                    {"fact": "viral load", "status": "not_found"},
+                ],
+            }
+        ],
+    }
+    status_sources = annotate_sources(
+        build_sources({"answer": "CD4 72 [6].", "references": [status_source]})
+    )
+    assert status_sources["sources"][0]["support_label"] == (
+        "contradicts: differs: CD4 72; not found: viral load"
+    )
+
+
+def test_hub_indepth_contradiction_fail_entry_reads_as_contradicted():
+    rows = indepth_claim_rows(
+        {
+            "validation": {
+                "status": "needs_review",
+                "claims": ["CD4 was 72 on 2025-10-22 [311]."],
+                "citation_checks": [
+                    {
+                        "claim_index": 1,
+                        "status": "fail",
+                        "reason": (
+                            "Cited record [311] states something different from this "
+                            "In-Depth claim: the record states CD4 341."
+                        ),
+                        "source_indices": [311],
+                    }
+                ],
+            }
+        }
+    )
+    assert rows[0]["checks"]["citation"]["verdict"] == "contradicted"
+    assert rows[0]["checks"]["citation"]["tone"] == "danger"
+
+
+def test_parenthetical_check_marks_are_ignored_in_draft_comparison_and_rendered_completely():
+    delivered = "- Weight fell to 41 kg [21]. *(Check: [21] does not state 52 kg (baseline); flagged on review.)*"
+    draft = "- Weight fell to 41 kg [21]."
+    assert draft_view({"answer": delivered, "reviewDraft": draft}) is None
+
+    rendered = markdown_html(delivered)
+    assert "<em class='claim-mark'>(Check: [21] does not state 52 kg (baseline); flagged on review.)</em>" in rendered
+    assert "; flagged on review.)*" not in rendered
+
+
+def test_answer_original_differs_when_uuid_changes_or_reference_is_removed_or_lacks_identity():
+    same_text = "Weight was 41 kg [21]."
+    # Reference swapped by `uuid` (legacy reference shape).
+    swapped_uuid = answer_section_view(
+        {
+            "status": "edited",
+            "originalAnswer": same_text,
+            "originalReferences": [{"index": 21, "uuid": "old-uuid"}],
+        },
+        None,
+        same_text,
+        None,
+        [{"index": 21, "uuid": "new-uuid"}],
+    )
+    assert swapped_uuid["show_original"] is True
+
+    # Cited reference removed after check.
+    removed_ref = answer_section_view(
+        {
+            "status": "edited",
+            "originalAnswer": same_text,
+            "originalReferences": [{"index": 21, "resourceUuid": "old-uuid"}],
+        },
+        None,
+        same_text,
+        None,
+        [],
+    )
+    assert removed_ref["show_original"] is True
+
+    # Display-only reference changed without UUIDs.
+    display_only = answer_section_view(
+        {
+            "status": "edited",
+            "originalAnswer": same_text,
+            "originalReferences": [{"index": 21, "display": "Old visit note"}],
+        },
+        None,
+        same_text,
+        None,
+        [{"index": 21, "display": "New visit note"}],
+    )
+    assert display_only["show_original"] is True
+
+
+def test_hub_check_ids_map_to_their_owning_check_names():
+    answer = answer_section_view(
+        {
+            "status": "needs_review",
+            "issues": [
+                {"id": "trend_direction", "status": "fail", "reason": "Weight rose, not fell."},
+                {"id": "series_endpoint", "status": "fail", "reason": "Latest value is 44 kg."},
+                {"id": "citation_unresolved", "status": "fail", "reason": "Record [99] is not in chart."},
+                {"id": "citation_grounding", "status": "fail", "reason": "Record [2] states 41 kg."},
+                {"id": "rule_single_regimen", "status": "fail", "reason": "Two active regimens listed."},
+                {"id": "agreement", "status": "fail", "reason": "Answer and In-Depth disagree."},
+                {"id": "review_doubt", "status": "warn", "reason": "Reviewer questioned trend."},
+            ],
+        },
+        None,
+        "Answer [2].",
+    )
+    assert answer["checks"] == [
+        "Date check",
+        "Record check",
+        "Citation support",
+        "Chart rule",
+        "Agreement",
+        "Model review",
+    ]
+
+    indepth = indepth_section_view(
+        {
+            "status": "needs_review",
+            "answer": "- Regimen point [1]. *(Check: chart rule.)*",
+            "validation": {
+                "status": "needs_review",
+                "claims": ["Regimen point [1]."],
+                "marked": [1],
+                "checks": [
+                    {
+                        "claim_index": 1,
+                        "gate": {
+                            "status": "fail",
+                            "checks": [
+                                {
+                                    "id": "rule_single_regimen",
+                                    "status": "fail",
+                                    "reason": "Two active regimens listed",
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        }
+    )
+    assert indepth["claims"][0]["checks"]["date"]["verdict"] == "chart rule"
+    assert indepth["checks"] == ["Chart rule"]
+    assert "chart rule (point 1)" in indepth["note"]

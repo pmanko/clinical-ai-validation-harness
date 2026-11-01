@@ -53,11 +53,27 @@ def test_answer_marks_read_each_check_from_the_envelope():
     # The new contract: only a contradicted citation marks; not addressed never does.
     assert answer_marks({"references": [{"support": "contradicted", "groundingStatus": "unsupported"}]})["citation"]
     assert not answer_marks({"references": [{"support": "not_addressed", "groundingStatus": "unsupported"}]})["citation"]
-    # Info entries are neutral notes, never marks.
+    # Info entries are neutral notes, never marks; warn and fail entries mark.
     assert not answer_marks({"answerValidation": {"status": "checked", "issues": [
         {"id": "citation_grounding", "status": "info", "reason": "[21] does not hold 52 kg"}]}})["citation"]
+    assert answer_marks({"answerValidation": {"status": "needs_review", "issues": [
+        {"id": "window_scope", "status": "warn", "reason": "Window boundary uncertain"}]}})["date"]
     assert answer_marks({"answerValidation": {"status": "checked", "issues": [
         {"wrong": "stage 3", "chart": "stage 1 [53]"}]}})["review"]
+    # An unresolved reference used only by In-Depth does not mark the Answer's record check.
+    assert not answer_marks({
+        "answer": "Weight is 41 kg [1].",
+        "references": [
+            {"index": 1, "resolutionStatus": "resolved", "usage": [{"location": "answer"}]},
+            {"index": 99, "resolutionStatus": "unresolved", "usage": [{"location": "in_depth"}]},
+        ],
+    })["record"]
+    assert answer_marks({
+        "answer": "Weight is 41 kg [99].",
+        "references": [
+            {"index": 99, "resolutionStatus": "unresolved", "usage": [{"location": "answer"}]},
+        ],
+    })["record"]
 
 
 def test_judged_faults_follow_the_threshold_and_every_axis():
@@ -217,8 +233,116 @@ def test_the_report_carries_the_table_once_the_run_is_scored(tmp_path):
 def test_a_patched_answer_is_counted_apart_from_date_check_marks():
     from harness.validate.check_precision import answer_marks
 
-    patched = answer_marks({"temporalGate": {"status": "fail", "applied": "patch"}, "answerValidation": {"status": "edited", "issues": []}})
+    for applied in ("patch", "repair", "fallback", "edit"):
+        patched = answer_marks({"temporalGate": {"status": "fail", "applied": applied}, "answerValidation": {"status": "edited", "issues": []}})
+        assert (patched["date"], patched["date_patched"]) == (False, True)
     flagged = answer_marks({"temporalGate": {"status": "fail", "applied": "none"}, "answerValidation": {"status": "needs_review", "issues": []}})
-
-    assert (patched["date"], patched["date_patched"]) == (False, True)
     assert (flagged["date"], flagged["date_patched"]) == (True, False)
+
+
+def test_legacy_separate_indepth_points_are_scored(tmp_path):
+    from harness.validate.check_precision import run_marks
+
+    rows = [
+        {
+            "scenario_id": "s1",
+            "backend_id": "b1",
+            "turn": 1,
+            "response": {"answer": "Direct answer [1]."},
+            "indepth": {
+                "response": {
+                    "answer": "- Point 1 [1].\n- Point 2 [99].",
+                    "validation": {
+                        "status": "needs_review",
+                        "claims": ["Point 1 [1].", "Point 2 [99]."],
+                        "marked": [2],
+                        "citation_checks": [
+                            {"claim_index": 1, "status": "pass"},
+                            {"claim_index": 2, "status": "fail"},
+                        ],
+                    },
+                }
+            },
+        }
+    ]
+    _, points, _ = run_marks(rows)
+    assert set(points) == {("s1", "b1", 1, 1), ("s1", "b1", 1, 2)}
+    assert points[("s1", "b1", 1, 2)]["citation"] is True
+    assert points[("s1", "b1", 1, 2)]["marked"] is True
+
+
+def test_blank_run_arg_and_invalid_accuracy_threshold_are_rejected(tmp_path):
+    import pytest
+
+    run = _copy_run(tmp_path)
+    for blank in ("", "   "):
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check-precision.py"), blank],
+            capture_output=True, text=True, cwd=run,
+        )
+        assert proc.returncode != 0
+        assert not (run / "judges" / "check-precision.json").exists()
+
+    for bad in (float("nan"), float("inf"), float("-inf"), -1, 11, True):
+        with pytest.raises(ValueError, match="accuracy_threshold"):
+            score_run(run, bad)
+
+    for flag in ("nan", "inf", "-1", "11"):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "check-precision.py"),
+                str(run),
+                "--accuracy-threshold",
+                flag,
+            ],
+            capture_output=True, text=True, cwd=ROOT,
+        )
+        assert proc.returncode != 0
+
+
+def test_malformed_jsonl_unmatched_counts_partial_adjudication_and_stale_cache(tmp_path):
+    import pytest
+
+    run = _copy_run(tmp_path)
+    # Partial adjudication row without reference axes is counted as unscored, not a clean pass;
+    # an unmatched cell and unmatched point verdict are surfaced in table_html.
+    cell = CELLS["hit"]
+    (run / "adjudication.jsonl").write_text(
+        json.dumps({"scenario_id": cell["scenario_id"], "backend_id": cell["backend_id"], "axes": {}}) + "\n"
+        + json.dumps({
+            "scenario_id": "no-such-scenario",
+            "backend_id": cell["backend_id"],
+            "axes": {"accuracy": 4},
+            "harm": False,
+        }) + "\n",
+        encoding="utf-8",
+    )
+    rows = _rows(run / "judge.jsonl")
+    rows[0].setdefault("background", {}).setdefault("claims", []).append(
+        {"turn": 99, "n": 99, "verdict": "wrong_fact"}
+    )
+    (run / "judge.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+    data = score_run(run)
+    adj_answer = data["actors"]["adjudication"]["answer"]
+    assert adj_answer["cells"] == 0
+    assert adj_answer["unscored_rows"] == 1
+    assert adj_answer["unmatched_cells"] == 1
+    assert data["indepth"]["unmatched_verdicts"] == 1
+    html = table_html({**data, "answer": adj_answer})
+    assert "1 unmatched" in html and "1 unscored" in html
+    assert "1 unmatched verdicts" in html
+
+    # Write scores, then mutate judge.jsonl -> load_scores must invalidate the stale cache.
+    write_scores(run, data)
+    assert load_scores(run) is not None
+    (run / "judge.jsonl").write_text(
+        (run / "judge.jsonl").read_text(encoding="utf-8") + "\n", encoding="utf-8"
+    )
+    assert load_scores(run) is None
+
+    # Malformed JSONL in judge.jsonl or results.jsonl raises ValueError instead of dropping rows.
+    (run / "judge.jsonl").write_text("{malformed json\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        score_run(run)

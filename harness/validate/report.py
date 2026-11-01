@@ -43,11 +43,12 @@ from harness.report_shell.stats import avg, box_stats, ordered_unique, percentil
 
 from .bundle import frozen_arm_cards, review_results, run_chart
 from .check_precision import load_scores as load_check_precision, table_html as check_precision_html
-from .hub_trace import load_traces, match_trace, trace_model_for_result
+from .hub_trace import load_traces, match_trace, trace_model_for_result, trace_transport_for_result
 
 from .judging import judge_summary
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .review_presentation import (
+    CLAIM_CHECKS,
     annotate_sources,
     answer_section_view,
     format_latency,
@@ -152,14 +153,15 @@ def _render_claims(view: Any) -> str:
         )
         return f"<td class='{_tone(verdict.get('tone'))}'>{_esc(verdict.get('verdict'))}{reason}</td>"
 
-    head = "".join(f"<th>{_esc(names.get(k, k))}</th>" for k in ("date", "review", "citation"))
+    head = "".join(f"<th>{_esc(names.get(k, k))}</th>" for k in CLAIM_CHECKS)
     def row_html(row: dict[str, Any]) -> str:
         marked = " class='marked'" if row.get("marked") else ""
         cited = " ".join(f"[{i}]" for i in row.get("cited") or []) or "<span class='mut'>none</span>"
         checks = row["checks"]
+        cells = "".join(cell(checks[k]) for k in CLAIM_CHECKS)
         return (
             f"<tr{marked}><td>{row['index']}</td><td>{_esc(row.get('text'))}</td><td>{cited}</td>"
-            f"{cell(checks['date'])}{cell(checks['review'])}{cell(checks['citation'])}</tr>"
+            f"{cells}</tr>"
         )
 
     body = "".join(row_html(row) for row in rows)
@@ -508,6 +510,7 @@ def _trace_for_row(r: dict[str, Any], traces: list[dict[str, Any]] | None) -> di
         question=request.get("question"),
         session=request.get("session"),
         request_id=request.get("request_id"),
+        transport=trace_transport_for_result(r),
     )
 
 
@@ -1531,9 +1534,16 @@ function renderJudge(run){
   var nActors=(run.judge_actors||[]).length;
   var nPatients=(run.patients||[]).length;
   var patientScope=nPatients===1?'one patient':nPatients+' patients';
-  var judgeScope=nActors>1?nActors+' judges':'one judge';
   var judging=run.judging||{};
-  var judgedBy=judging.recorded?htmlEsc(judging.sentence):'Judge not recorded for this run.';
+  var judgeCards=judging.cards||[];
+  var judgeGroups={};
+  judgeCards.forEach(function(c){
+    var g=[c.agent||'',c.model||'',c.reasoning_effort||''].filter(Boolean).join('-').toLowerCase()||c.actor_id||'judge';
+    judgeGroups[g]=1;
+  });
+  var nJudges=Object.keys((((judging.consensus||{}).judges||{}).per_judge)||{}).length||Object.keys(judgeGroups).length||nActors;
+  var judgeScope=nActors<=1?'one judge':(nJudges<=1?'one judge across '+nActors+' passes':(nActors>nJudges?nJudges+' judges across '+nActors+' passes':nJudges+' judges'));
+  var judgedBy=htmlEsc(judging.sentence||'Judge not recorded for this run.');
   sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. An AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. <b>'+judgedBy+'</b> The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
    +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
    +'<dl class="legend-key">'
@@ -1566,8 +1576,14 @@ function renderJudge(run){
       +"<td>"+(gr['supported']||0)+" / "+(gr['partly']||0)+" / "+(gr['unsupported']||0)+"</td>"
       +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td>"
       +"<td>"+(t.date_wrong||0)+"</td><td>"+(t.window_over||0)+"</td><td>"+(t.trend_fab||0)+"</td></tr>"; }).join('');
+  var canonActors=judging.canonical||[];
+  var canonCaption=judging.aggregation==='median-majority'&&canonActors.length>1
+    ?'Canonical judgment (median/majority across '+canonActors.length+' passes)'
+    :(judging.aggregation==='not-recorded'&&nActors>0
+      ?'Canonical judge pass (judge not recorded)'
+      :'Canonical judge pass'+(nActors>1?(canonActors.length===1?' (currently promoted actor: '+htmlEsc(canonActors[0])+')':' (currently promoted actor)'):''));
   var tbl=el('table','summary');
-  tbl.innerHTML='<caption>Canonical judge pass'+(nActors>1?' (currently promoted actor)':'')+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
+  tbl.innerHTML='<caption>'+canonCaption+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
   makeSortable(tbl);
   // Run-level calibrated callout — only when at least one cell was adjudicated.
@@ -1583,21 +1599,21 @@ function renderJudge(run){
   return sec;
 }
 
-// In-Depth — its own parity Benchmark, scored separately from the Answer. Split into
-// its own navigable section so the In-Depth axis is co-equal with the Answer headline,
-// not buried inside the Quality table. Returns null when no arm shipped an In-Depth.
 function renderCheckPrecision(run){
   // The table is rendered in Python (check_precision.table_html) so the report and the
   // live dashboard show the same numbers with the same words; the JS only places it.
   if(!run.check_precision_html) return null;
   var sec=el('section','checks-section');
   var intro=el('p','intro');
-  intro.textContent='How often each product check (date check, record check, citation support, model review, and the section status the clinician sees) agreed with the judge. A check earns a place in the clinician view only after its precision clears the bar set in the confidence-labels stream; until then it runs hidden and is reported here.';
+  intro.textContent='How often each product check (date check, record check, citation support, model review, and the section status the clinician sees) agreed with the judge. Under the confidence-labels target policy, a check earns a place in the clinician view only after its precision clears the calibration bar; this table measures each check against that bar.';
   sec.appendChild(intro);
   var wrap=el('div'); wrap.innerHTML=run.check_precision_html; sec.appendChild(wrap);
   wrap.querySelectorAll('table').forEach(function(t){ makeSortable(t); });
   return sec;
 }
+// In-Depth — its own parity Benchmark, scored separately from the Answer. Split into
+// its own navigable section so the In-Depth axis is co-equal with the Answer headline,
+// not buried inside the Quality table. Returns null when no arm shipped an In-Depth.
 function renderInDepth(run){
   var j=(run.judge||[]).slice();
   var anyBg=false; for(var b=0;b<j.length;b++){ if((j[b].background||{}).n_background>0){ anyBg=true; break; } }

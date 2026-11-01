@@ -35,9 +35,9 @@ from harness.report_shell.assets import (  # noqa: E402
 from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart  # noqa: E402
 from harness.validate.check_precision import load_scores as load_check_precision  # noqa: E402
 from harness.validate.check_precision import table_html as check_precision_html  # noqa: E402
-from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
+from harness.validate.hub_trace import match_trace, trace_model_for_result, trace_transport_for_result  # noqa: E402
 from harness.validate.judging import judge_summary  # noqa: E402
-from harness.validate.reconcile import combined_judge_summary  # noqa: E402
+from harness.validate.reconcile import combined_judge_summary, scout_summary  # noqa: E402
 from harness.validate.review_presentation import (  # noqa: E402
     annotate_sources,
     answer_section_view,
@@ -286,6 +286,7 @@ def status():
     # judges/check-precision.json exists (scripts/check-precision.py after judging).
     check_precision = load_check_precision(run)
     titles = profile_titles(run, back_ids)
+    canonical_rows = _read_jsonl(Path(run) / "judge.jsonl", strict=False)
 
     return {"run": os.path.basename(run), "family": run_family(run),
             "check_precision_html": (
@@ -304,6 +305,7 @@ def status():
             "unexpected": sum(1 for v in states.values() if v == "err"),
             "judged_passed": judged_passed, "judged_scored": len(scored),
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
+            "judge": scout_summary(canonical_rows, back_ids) if canonical_rows else [],
             "judge_actors": sorted(judge_actors.keys()),
             "judging": judge_summary(run),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
@@ -523,6 +525,7 @@ def detail(scenario, backend):
             question=request.get("question"),
             session=request.get("session"),
             request_id=request.get("request_id"),
+            transport=trace_transport_for_result(r),
         )
         direct_answer, embedded_indepth = split_answer_sections(resp.get("answer"))
         review_artifact = prepare_indepth_review(
@@ -548,7 +551,11 @@ def detail(scenario, backend):
             tr, resp.get("confidence")
         )
         trace_claims = (tr or {}).get("in_depth_claims") or []
-        if trace_claims and not (review_artifact.get("answer") or "").strip():
+        if (
+            trace_claims
+            and review_artifact.get("source") != "response.inDepth"
+            and not (review_artifact.get("answer") or "").strip()
+        ):
             # Older team runs carried In-Depth only in the Hub trace.
             review_artifact = {
                 **review_artifact,
@@ -882,18 +889,25 @@ function renderJudgeScores(d){
   .sort((a,b)=>(b.benchmark_score||0)-(a.benchmark_score||0));
  if(!rows.length)return '<span class=muted>no judged score yet</span>';
  const judging=d.judging||{};
- const actors=judging.recorded?judging.sentence:'Judge not recorded for this run. Actors: '+(d.judge_actors||[]).join(', ');
+ const actors=(judging.recorded||(judging.cards&&judging.cards.length))?judging.sentence:'Judge not recorded for this run. Actors: '+(d.judge_actors||[]).join(', ');
  const multi=rows.some(s=>(s.n_actors||0)>1);
+ const canon={};
+ (d.judge||[]).forEach(s=>{if(s&&s.benchmark_score!=null)canon[s.backend]=s.benchmark_score;});
+ const hasCanon=Object.keys(canon).length>0;
  let note=multi
-  ?'Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement.'
+  ?(hasCanon
+    ?'Canonical score = the headline above. Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement.'
+    :'Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement.')
   :'Score from one independent judge. Add another judge to show disagreement ranges.';
  let h='<p class=judge-note>'+esc(actors)+' '+note+'</p>';
- h+='<table class=judge-table><thead><tr><th>setup</th><th>score</th><th>actors</th><th>cell range</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
+ h+='<table class=judge-table><thead><tr><th>setup</th><th>'+(hasCanon?'canonical score':'score')+'</th>'+(multi&&hasCanon?'<th>mean across actors</th>':'')+'<th>actors</th><th>cell range</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
  rows.forEach(s=>{
   const ar=s.actor_range||{}, sp=s.benchmark_spread||{};
   const maxCell=s.max_cell_delta_scenario?(esc(s.max_cell_delta_scenario)+' · '+fmt10(s.max_cell_delta)):'—';
+  const primary=hasCanon&&canon[s.backend]!=null?canon[s.backend]:s.benchmark_score;
   h+='<tr><td title="'+esc(s.backend)+'">'+esc(armTitle(s.backend))+'</td>'
-   +'<td><span class=score>'+fmt10(s.benchmark_score)+'</span></td>'
+   +'<td><span class=score>'+fmt10(primary)+'</span></td>'
+   +(multi&&hasCanon?'<td>'+fmt10(s.benchmark_score)+'</td>':'')
    +'<td>'+(s.n_actors||0)+'</td>'
    +'<td>'+(sp.min==null?'—':fmt10(sp.min)+'–'+fmt10(sp.max))+'</td>'
    +'<td>'+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+'</td>'
@@ -1072,9 +1086,13 @@ function sectionHtml(title, view, bodyHtml, extra){
 function renderCheckPrecision(d){
  const sec=document.getElementById('checksec'), box=document.getElementById('checkprec');
  if(!sec||!box) return;
- if(!d.check_precision_html){ sec.style.display='none'; box.innerHTML=''; return; }
+ if(!d.check_precision_html){ sec.style.display='none'; box.innerHTML=''; box._rawHtml=''; return; }
  sec.style.display='';
- if(box.innerHTML!==d.check_precision_html) box.innerHTML=d.check_precision_html;
+ if(box._rawHtml!==d.check_precision_html){
+  box._rawHtml=d.check_precision_html;
+  box.innerHTML=d.check_precision_html;
+  if(typeof restoreOpenDetails==='function'&&box.querySelectorAll) restoreOpenDetails(box);
+ }
 }
 function renderClaims(view){
  const rows=(view&&view.claims)||[];

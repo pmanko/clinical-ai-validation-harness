@@ -93,21 +93,53 @@ def test_in_depth_artifact_keeps_which_claims_the_checks_marked():
 
     assert artifact["validation"]["marked"] == [2]
     assert artifact["validation"]["review_flagged"] == [2]
-    assert judge_prep.validation_metadata(response["inDepth"]["validation"]) == {
-        "status": "needs_review",
-        "flagged": [],
-        "marked": [2],
-        "review_status": "flagged",
-        "review_flagged": [2],
-    }
 
 
 def test_reference_date_comes_from_the_run_meta_then_the_run_event_never_a_guess(tmp_path):
     import json
+    import subprocess
+    import sys
+
     run = tmp_path / "run"
-    run.mkdir()
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    (run / "inputs" / "charts").mkdir(parents=True)
+    (run / "inputs" / "scenarios" / "s1.json").write_text(
+        json.dumps({"id": "s1", "patient_ref": "p1", "turns": [{"n": 1, "question": "Weight?"}]})
+    )
+    (run / "inputs" / "charts" / "p1.json").write_text(
+        json.dumps({
+            "patient": {"uuid": "p1", "slug": "p1", "name": "Pat"},
+            "valid_uuids": ["u1"],
+            "chart_snapshot": "[1] Weight 70 kg",
+            "mappings": [{"index": 1, "resourceUuid": "u1", "resourceType": "obs"}],
+        })
+    )
+    (run / "results.jsonl").write_text(
+        json.dumps({
+            "scenario_id": "s1", "backend_id": "b1", "turn": 1,
+            "response": {"answer": "Weight 70 kg [1].", "references": [{"index": 1, "resourceUuid": "u1"}]},
+        }) + "\n"
+    )
     assert judge_prep.reference_date_of(run) is None
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "judge-prep.py"), str(run), "--blind"],
+        check=True, capture_output=True, text=True, cwd=ROOT,
+    )
+    cell_absent = json.loads((run / "judge-cells.jsonl").read_text())
+    bundle_absent = json.loads((run / "judge-bundles" / "s1.jsonl").read_text())
+    assert cell_absent["reference_date"] is None
+    assert bundle_absent["reference_date"] is None
+
     (run / "events.jsonl").write_text(json.dumps({"event_type": "run", "reference_date": "2026-06-20"}) + "\n")
     assert judge_prep.reference_date_of(run) == "2026-06-20"
     (run / "run_meta.json").write_text(json.dumps({"reference_date": "2026-07-01"}))
     assert judge_prep.reference_date_of(run) == "2026-07-01"
+
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "judge-prep.py"), str(run), "--blind"],
+        check=True, capture_output=True, text=True, cwd=ROOT,
+    )
+    cell_present = json.loads((run / "judge-cells.jsonl").read_text())
+    bundle_present = json.loads((run / "judge-bundles" / "s1.jsonl").read_text())
+    assert cell_present["reference_date"] == "2026-07-01"
+    assert bundle_present["reference_date"] == "2026-07-01"

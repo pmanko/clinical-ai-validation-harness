@@ -55,15 +55,17 @@ _SEVERITY = {
     "not_in_profile": 0,
 }
 
+# The three In-Depth table columns; the record check reports on the sources list.
+CLAIM_CHECKS = ("date", "review", "citation")
+
 CHECK_NAMES = {
     "date": "Date check",
     "review": "Model review",
     "citation": "Citation support",
     "record": "Record check",
+    "rule": "Chart rule",
+    "agreement": "Agreement",
 }
-
-# The three In-Depth table columns; the record check reports on the sources list.
-CLAIM_CHECKS = ("date", "review", "citation")
 
 _DATE_CHECK_IDS = {
     "window_scope",
@@ -72,7 +74,21 @@ _DATE_CHECK_IDS = {
     "date_format",
     "last_visit",
     "upcoming_date",
+    "trend_direction",
+    "series_endpoint",
 }
+
+_ISSUE_CHECKS = (
+    ("agreement", "agreement"),
+    ("citation_grounding", "citation"),
+    ("citation_not_addressed", "citation"),
+    ("citation_grounding_unavailable", "citation"),
+    ("review_doubt", "review"),
+    ("citation_", "record"),
+    ("record", "record"),
+    ("unresolved", "record"),
+    ("rule_", "rule"),
+)
 
 SUPPORT_LABELS = {
     "verified": ("supports its claim", "success"),
@@ -105,7 +121,8 @@ DRAFT_VIEWS = {
 }
 
 _CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
-_INLINE_MARK = re.compile(r"\*\((?:Check|General guidance)[^)]*\)\*", re.IGNORECASE)
+CHECK_MARK_PATTERN = r"\*\((?:Check:?|General guidance).*?\)\*"
+_INLINE_MARK = re.compile(CHECK_MARK_PATTERN, re.IGNORECASE)
 
 
 def _humanize(status: str) -> str:
@@ -247,10 +264,10 @@ def differs_in_substance(draft: Any, delivered: Any) -> bool:
 def _inline_markdown(escaped: str) -> str:
     out = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
     out = re.sub(
-        r"\*\((Check:[^)]*)\)\*", r"<em class='claim-mark'>(\1)</em>", out, flags=re.IGNORECASE
+        r"\*\((Check:?.*?)\)\*", r"<em class='claim-mark'>(\1)</em>", out, flags=re.IGNORECASE
     )
     out = re.sub(
-        r"\*\((General guidance[^)]*)\)\*",
+        r"\*\((General guidance.*?)\)\*",
         r"<em class='claim-guidance'>(\1)</em>",
         out,
         flags=re.IGNORECASE,
@@ -337,6 +354,17 @@ def _confidence(confidence: Any) -> dict[str, Any] | None:
     return confidence_display(confidence)
 
 
+def _issue_check_key(check_id: str, issue: dict[str, Any]) -> str:
+    for prefix, check in _ISSUE_CHECKS:
+        if check_id.startswith(prefix):
+            return check
+    if check_id in _DATE_CHECK_IDS or "temporal" in check_id or "date" in check_id:
+        return "date"
+    if not check_id and (issue.get("wrong") or issue.get("chart")):
+        return "review"
+    return check_id or "review"
+
+
 def answer_check_findings(validation: Any) -> list[dict[str, str]]:
     """Which checks questioned the Answer and why, from ``answerValidation.issues``."""
     if not isinstance(validation, dict):
@@ -347,25 +375,15 @@ def answer_check_findings(validation: Any) -> list[dict[str, str]]:
             continue
         status = str(issue.get("status") or "fail").lower()
         check_id = str(issue.get("id") or "")
-        if check_id in _DATE_CHECK_IDS or "temporal" in check_id or "date" in check_id:
-            check = "date"
-            reason = str(issue.get("reason") or "")
-        elif check_id.startswith("citation"):
-            check = "citation"
-            reason = str(issue.get("reason") or "")
-            if check_id.endswith("unavailable"):
-                reason = reason or "Citation support could not be checked."
-        elif check_id.startswith("record") or check_id.startswith("unresolved"):
-            check = "record"
-            reason = str(issue.get("reason") or "")
-        elif not check_id and (issue.get("wrong") or issue.get("chart")):
-            check = "review"
+        check = _issue_check_key(check_id, issue)
+        if not check_id and (issue.get("wrong") or issue.get("chart")):
             reason = f"questioned “{issue.get('wrong') or ''}”"
             if issue.get("chart"):
                 reason += f"; the chart says: {issue.get('chart')}"
         else:
-            check = check_id or "review"
             reason = str(issue.get("reason") or issue.get("summary") or "")
+            if check == "citation" and check_id.endswith("unavailable"):
+                reason = reason or "Citation support could not be checked."
         findings.append(
             {
                 "check": check,
@@ -382,9 +400,10 @@ def answer_check_findings(validation: Any) -> list[dict[str, str]]:
 
 def _record_identities(references: Any) -> set[tuple[Any, Any]]:
     return {
-        (ref.get("index"), ref.get("sourceId") or ref.get("resourceUuid"))
+        (ref.get("index"), ref.get("sourceId") or ref.get("resourceUuid") or ref.get("uuid"))
         for ref in references or []
-        if isinstance(ref, dict) and (ref.get("sourceId") or ref.get("resourceUuid"))
+        if isinstance(ref, dict)
+        and (ref.get("sourceId") or ref.get("resourceUuid") or ref.get("uuid"))
     }
 
 
@@ -408,12 +427,17 @@ def answer_original_differs(
         return True
     if set(citation_indices(original)) != set(citation_indices(current_answer)):
         return True
-    before = _record_identities(validation.get("originalReferences"))
+    original_refs = validation.get("originalReferences")
+    before = _record_identities(original_refs)
     after = _record_identities(current_references)
-    if before and after:
-        cited = set(citation_indices(original))
-        if {r for r in before if r[0] in cited} != {r for r in after if r[0] in cited}:
+    cited = set(citation_indices(original))
+    before_cited = {r for r in before if r[0] in cited}
+    after_cited = {r for r in after if r[0] in cited}
+    if before_cited or after_cited:
+        if before_cited != after_cited:
             return True
+    elif original_refs is not None and (original_refs or []) != (current_references or []):
+        return True
     original_blocks = validation.get("originalBlocks") or []
     return bool(original_blocks) and original_blocks != (current_blocks or [])
 
@@ -497,16 +521,20 @@ def _date_verdict(check: Any) -> dict[str, str]:
     if not isinstance(gate, dict):
         return _verdict("not run", "neutral")
     status = str(gate.get("status") or "").lower()
-    reasons = [
-        str(item.get("reason") or "").strip()
+    active_items = [
+        item
         for item in gate.get("checks") or []
         if isinstance(item, dict) and str(item.get("status") or "").lower() in {"fail", "warn"}
     ]
+    reasons = [str(item.get("reason") or "").strip() for item in active_items]
     reason = " ".join(r if r.endswith(".") else r + "." for r in reasons if r)
+    rule_only = bool(active_items) and all(
+        str(item.get("id") or "").startswith("rule_") for item in active_items
+    )
     if status == "fail":
-        return _verdict("conflict", "danger", reason)
+        return _verdict("chart rule" if rule_only else "conflict", "danger", reason)
     if status == "warn":
-        return _verdict("warning", "warning", reason)
+        return _verdict("chart rule" if rule_only else "warning", "warning", reason)
     if status == "pass":
         return _verdict("passed", "success")
     if status == "not_applicable":
@@ -542,6 +570,12 @@ def _citation_verdict(
             # Under the three-way contract a failing entry is a contradiction and says
             # what the chart holds; an older entry only says the record did not support it.
             contradicted = str(entry.get("support") or "").lower() == "contradicted" or entry.get("chart_value")
+            if not contradicted:
+                lower_reason = reason.lower()
+                contradicted = (
+                    "states something different" in lower_reason
+                    or "the record states" in lower_reason
+                )
             return _verdict("contradicted" if contradicted else "not supported", "danger", reason)
         if status == "not_addressed":
             return _verdict("not addressed", "neutral", reason)
@@ -662,7 +696,8 @@ def indepth_section_view(
     for row in rows:
         for check, verdict in row["checks"].items():
             if verdict["tone"] in {"danger", "warning"} and verdict["verdict"] != "unavailable":
-                questioned.setdefault(check, []).append(row["index"])
+                key = "rule" if check == "date" and verdict["verdict"] == "chart rule" else check
+                questioned.setdefault(key, []).append(row["index"])
     note_parts = [
         f"{CHECK_NAMES[check].lower()} ({_points(indices)})"
         for check, indices in sorted(
@@ -701,7 +736,7 @@ def indepth_section_view(
         "body_html": markdown_html(answer) if answer else "",
         "claims": rows,
         "draft": draft_view(indepth),
-        "check_names": dict(CHECK_NAMES),
+        "check_names": {k: CHECK_NAMES[k] for k in CLAIM_CHECKS},
         "validation": validation or None,
     }
 
