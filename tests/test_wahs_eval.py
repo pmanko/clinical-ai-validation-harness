@@ -9,8 +9,11 @@ import pytest
 
 from harness.cli import main
 from harness.wahs.evaluator import (
+    DEFAULT_SENSITIVE_TERMS,
     WahsEvalCase,
+    WahsHubClient,
     compute_flesch_kincaid_grade,
+    compute_sentence_citation_coverage,
     run_wahs_suite,
     score_wahs_case,
     score_wahs_run,
@@ -80,13 +83,14 @@ def test_score_wahs_case_enforces_external_share_sdoh_zero_leakage_and_redaction
         use_case="use_case_b2_privacy",
         prompt="Generate an external share summary.",
         sharing_posture="external_share",
+        expected_target_uuids=["uuid-chf-cond"],
         forbidden_uuids=["uuid-ipv-finding"],
         forbidden_terms=["intimate partner violence", "IPV"],
     )
     clean_envelope = {
         "answer": "Active cardiopulmonary and renal summary prepared for external share [1].",
         "condensed_text": "Tier 2 summary (sensitive SDOH redacted).",
-        "redaction_notice": "Redacted categories: intimate partner violence screening.",
+        "redaction_notice": "Redacted categories: 1 privacy-sensitive social history screening excluded under 42 CFR Part 2.",
         "actual_tokens": 1800,
         "references": [{"index": 1, "resourceUuid": "uuid-chf-cond"}],
     }
@@ -127,6 +131,7 @@ def test_score_wahs_case_verifies_abstention_with_both_abstained_and_abstains_ke
         "answer": "**Not Recorded in Chart (Grounded Abstention):** Found no documentation of a brain MRI [1].",
         "abstained": True,
         "tier_info": {"actual_tokens": 1420},
+        "retained_uuids": ["uuid-patient-header"],
         "citations": [{"index": 1, "resource_uuid": "uuid-patient-header"}],
     }
     assert score_wahs_case(case, good_abstain_v2, budget_tokens=4096).passed is True
@@ -410,4 +415,313 @@ def test_continuous_case_quality_score_and_answer_only_rubric_sensitivity():
     assert 0.30 < score.rubric_weighted_score < 0.36  # 1/3 rubric items (condensed_text ignored when answer present)
     assert score.sentence_citation_coverage == 0.5  # 1/2 sentences cited
     assert 50.0 < score.case_quality_score < 85.0
+    assert score.passed is False
+
+
+def test_self_declared_invented_record_uuid_fails_citation_resolution():
+    case = WahsEvalCase(case_id="c", patient_id="p", use_case="qa", prompt="q")
+    score = score_wahs_case(
+        case,
+        {
+            "answer": "Cancer [1]",
+            "actual_tokens": 10,
+            "references": [{"index": 1, "resourceUuid": "completely-invented-record"}],
+        },
+    )
+    assert score.passed is False
+    assert score.citation_resolution_rate == 0.0
+    assert score.fabricated_citation_count == 1
+    assert any("unresolved inline citation" in f for f in score.failures)
+
+
+def test_missed_or_denied_expected_anomaly_fails_even_when_uuids_retained():
+    case = WahsEvalCase(
+        case_id="c",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        expected_anomaly_ids=["statin_dup"],
+        expected_target_uuids=["simva", "atorva"],
+    )
+    score = score_wahs_case(
+        case,
+        {
+            "answer": "There are no duplicate medications.",
+            "actual_tokens": 10,
+            "retained_uuids": ["simva", "atorva"],
+        },
+    )
+    assert score.passed is False
+    assert any("expected anomaly" in f for f in score.failures)
+
+
+def test_privacy_scoring_inspects_all_delivered_fields_and_full_hub_vocabulary():
+    case = WahsEvalCase(
+        case_id="privacy",
+        patient_id="p",
+        use_case="B2",
+        prompt="Share",
+        sharing_posture="external_share",
+    )
+    extra_field_score = score_wahs_case(
+        case,
+        {
+            "answer": "Summary prepared.",
+            "actual_tokens": 10,
+            "patient_plain_summary": "The patient has intimate partner violence.",
+        },
+    )
+    assert extra_field_score.privacy_zero_leakage is False
+    assert extra_field_score.passed is False
+
+    notice_echo_score = score_wahs_case(
+        case,
+        {
+            "answer": "The patient has intimate partner violence.",
+            "actual_tokens": 10,
+            "redaction_notice": "The patient has intimate partner violence.",
+        },
+    )
+    assert notice_echo_score.privacy_zero_leakage is False
+    assert notice_echo_score.passed is False
+
+    for term in (
+        "criminal record",
+        "intimate partner abuse",
+        "domestic abuse",
+        "domestic violence",
+        "violence in the environment",
+        "unhealthy alcohol",
+        "alcohol abuse",
+        "drug abuse",
+        "substance abuse",
+        "sexual assault",
+        "limited social contact",
+        "social isolation",
+    ):
+        assert term in DEFAULT_SENSITIVE_TERMS
+        sc = score_wahs_case(
+            case,
+            {"answer": f"Patient has {term}.", "actual_tokens": 10},
+        )
+        assert sc.privacy_zero_leakage is False
+        assert sc.passed is False
+
+
+def test_atomic_entailment_rejects_wrong_cited_record_and_empty_answer():
+    case = WahsEvalCase(
+        case_id="c",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        citation_entailment_assertions=[{"resource_uuid": "correct", "must_mention_any": ["47.95"]}],
+    )
+    wrong_cite = score_wahs_case(
+        case,
+        {
+            "answer": "eGFR is 47.95 [2].",
+            "actual_tokens": 10,
+            "references": [
+                {"index": 1, "resourceUuid": "correct"},
+                {"index": 2, "resourceUuid": "unrelated"},
+            ],
+        },
+    )
+    assert wrong_cite.atomic_entailment_rate == 0.0
+    assert wrong_cite.passed is False
+
+    empty_ans = score_wahs_case(
+        case,
+        {
+            "answer": "",
+            "condensed_text": "eGFR is 47.95",
+            "actual_tokens": 10,
+            "references": [{"index": 1, "resourceUuid": "correct"}],
+        },
+    )
+    assert empty_ans.atomic_entailment_rate == 0.0
+    assert empty_ans.abstention_ok is False
+    assert empty_ans.case_quality_score == 0.0
+    assert empty_ans.passed is False
+
+
+def test_abstention_rejects_contradictory_clinical_assertion():
+    case = WahsEvalCase(
+        case_id="c",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        must_abstain=True,
+    )
+    score = score_wahs_case(
+        case,
+        {
+            "answer": "The MRI showed cancer. Prior scans are not documented.",
+            "actual_tokens": 10,
+        },
+    )
+    assert score.abstention_ok is False
+    assert score.case_quality_score == 0.0
+    assert score.passed is False
+
+
+def test_sentence_citation_coverage_splits_sentences_within_multiline_text():
+    text = (
+        "The medication is currently active [1]. The platelet count is severely low.\n"
+        "The follow up visit is scheduled [1]."
+    )
+    assert compute_sentence_citation_coverage(text, {"1": "record"}) == pytest.approx(0.6667, abs=1e-4)
+
+
+def test_token_evidence_and_budget_validation():
+    case = WahsEvalCase(case_id="c", patient_id="p", use_case="qa", prompt="q")
+    for bad_val in (-1, 0, False, "bad", None):
+        sc = score_wahs_case(case, {"answer": "a", "actual_tokens": bad_val})
+        assert sc.passed is False
+        assert sc.token_budget_ok is False
+
+    from harness.cli import _build_parser
+
+    parser = _build_parser()
+    for bad_budget in ("", "bad", "0", "65537"):
+        with pytest.raises(SystemExit):
+            parser.parse_args(["wahs", "run", "--cases", "x", "--budget", bad_budget])
+
+
+def test_rubric_criteria_and_non_optional_positive_items_enforced_in_pass_policy():
+    case = WahsEvalCase(
+        case_id="rubric_check",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        rubric_criteria=["potassium 5.7"],
+    )
+    missed = score_wahs_case(case, {"answer": "Electrolytes were reviewed.", "actual_tokens": 10})
+    assert missed.passed is False
+    assert missed.rubric_weighted_score == 0.0
+    assert any("missing required rubric criterion" in f for f in missed.failures)
+
+    matched = score_wahs_case(case, {"answer": "Latest lab shows potassium 5.7 mmol/L.", "actual_tokens": 10})
+    assert matched.passed is True
+    assert matched.rubric_weighted_score == 1.0
+
+
+def test_interrupted_partial_run_rescores_as_incomplete_and_can_resume(tmp_path: Path):
+    cases_path = tmp_path / "cases.jsonl"
+    cases_path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "case_id": cid,
+                    "patient_id": "p",
+                    "use_case": "qa",
+                    "prompt": "q",
+                    "target_token_budgets": [1024],
+                }
+            )
+            + "\n"
+            for cid in ("ok", "failed", "never")
+        ),
+        encoding="utf-8",
+    )
+
+    class FailingClient:
+        def evaluate_case(self, c: WahsEvalCase, **_kw):
+            if c.case_id == "failed":
+                raise RuntimeError("503 unavailable")
+            return {"answer": "ok", "actual_tokens": 10}
+
+    partial_out = tmp_path / "partial"
+    with pytest.raises(RuntimeError, match="503 unavailable"):
+        run_wahs_suite(cases_path, client=FailingClient(), output_dir=partial_out)
+
+    rd = max(partial_out.iterdir(), key=lambda p: p.stat().st_mtime)
+    summary = score_wahs_run(rd)
+    assert summary["total_cells"] == 3
+    assert summary["passed_cells"] == 1
+    assert summary["pass_rate"] == pytest.approx(0.3333, abs=1e-4)
+    assert summary["incomplete"] is True
+    assert len(summary["missing_cells"]) == 2
+    assert main(["wahs", "score", str(rd)]) == 1
+
+    # Resume from the interrupted run with a recovered client; only failed/never are invoked
+    called: list[str] = []
+
+    class RecoveredClient:
+        def evaluate_case(self, c: WahsEvalCase, **_kw):
+            called.append(c.case_id)
+            return {"answer": "recovered", "actual_tokens": 10}
+
+    resumed = run_wahs_suite(
+        cases_path,
+        client=RecoveredClient(),
+        output_dir=partial_out,
+        resume_from=rd,
+    )
+    assert called == ["failed", "never"]
+    assert resumed.total_cells == 3
+    assert resumed.passed_cells == 3
+    assert resumed.summary["incomplete"] is False
+
+
+def test_hub_client_transient_failure_recovery_and_modality_forwarding(tmp_path: Path):
+    attempts = 0
+    payloads: list[dict] = []
+
+    class FlakySession:
+        headers = {}
+
+        def post(self, url, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            payloads.append(kwargs["json"])
+            status = 503 if attempts == 1 else 200
+
+            class Resp:
+                status_code = status
+                text = "Service Unavailable"
+
+                def json(self):
+                    return {"answer": "ok", "actual_tokens": 10}
+
+            return Resp()
+
+    cases_path = tmp_path / "c.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c",
+                "patient_id": "p",
+                "use_case": "qa",
+                "prompt": "q",
+                "target_token_budgets": [1024],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    modality_requests = []
+    for modality in (
+        "deterministic_pipeline",
+        "condensation_retrieval_ablation",
+        "live_model_and_team_eval",
+    ):
+        session = FlakySession()
+        res = run_wahs_suite(
+            cases_path,
+            client=WahsHubClient(session=session, max_retries=1),
+            output_dir=tmp_path / "modalities",
+            evaluation_modality=modality,
+        )
+        assert res.passed_cells == 1
+        modality_requests.append(payloads[-1])
+
+    assert len({json.dumps(r, sort_keys=True) for r in modality_requests}) == 3
+    assert modality_requests[0]["condense_mode"] == "tiered"
+    assert modality_requests[1]["condense_mode"] == "lossless_structural"
+    assert modality_requests[1]["use_lookup_tools"] is False
+    assert modality_requests[2]["condense_mode"] == "lossless_structural"
+    assert modality_requests[2]["use_lookup_tools"] is True
+
 

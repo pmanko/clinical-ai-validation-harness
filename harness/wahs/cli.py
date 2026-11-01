@@ -7,7 +7,19 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .evaluator import WahsHubClient, run_wahs_suite, score_wahs_run
+from .evaluator import VALID_EVALUATION_MODALITIES, WahsHubClient, run_wahs_suite, score_wahs_run
+
+
+def _positive_token_budget(raw: str) -> int:
+    try:
+        val = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid token budget: {raw!r}") from exc
+    if val <= 0 or val > 65536:
+        raise argparse.ArgumentTypeError(
+            f"token budget must be between 1 and 65536 (got {val})"
+        )
+    return val
 
 
 def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
@@ -36,9 +48,20 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     run_p.add_argument(
         "--budget",
         action="append",
-        type=int,
+        type=_positive_token_budget,
         dest="budgets",
-        help="Target token budget(s) to evaluate (repeatable; defaults to each case's primary budget)",
+        help="Target token budget(s) to evaluate in [1, 65536] (repeatable; defaults to each case's primary budget)",
+    )
+    run_p.add_argument(
+        "--evaluation-modality",
+        choices=VALID_EVALUATION_MODALITIES,
+        default="deterministic_pipeline",
+        help="Evaluation modality controlling Hub condensation/lookup mode and run metadata",
+    )
+    run_p.add_argument(
+        "--resume",
+        default=None,
+        help="Prior partial WAHS run directory to resume from",
     )
     run_p.add_argument("--git-sha", help="Caller-supplied runner revision (optional)")
     run_p.add_argument(
@@ -57,7 +80,7 @@ def dispatch(args: argparse.Namespace) -> int:
     if args.wahs_action == "score":
         summary = score_wahs_run(Path(args.run_dir))
         print(json.dumps(summary, indent=2))
-        return 0 if summary["passed_cells"] == summary["total_cells"] else 1
+        return 0 if (summary["passed_cells"] == summary["total_cells"] and not summary.get("incomplete")) else 1
 
     if args.wahs_action == "run":
         provenance = (
@@ -73,6 +96,8 @@ def dispatch(args: argparse.Namespace) -> int:
             budgets=args.budgets,
             git_sha=args.git_sha,
             target_provenance=provenance,
+            evaluation_modality=getattr(args, "evaluation_modality", "deterministic_pipeline"),
+            resume_from=getattr(args, "resume", None),
         )
         print(json.dumps(result.summary, indent=2))
         return 0 if result.passed_cells == result.total_cells else 1
