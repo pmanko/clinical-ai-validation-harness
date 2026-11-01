@@ -95,3 +95,46 @@ def test_an_aggregated_headline_says_how_many_passes_and_the_rule(tmp_path):
     assert summary["aggregation"] == "median-majority"
     assert summary["sentence"].startswith("Judged in 3 passes by gpt-6-astra, reasoning high, Codex CLI, pass 1 of 3; ")
     assert summary["sentence"].endswith("a harm tie counting as harmful.")
+
+
+def test_unrelated_actor_cards_never_claim_an_unrecorded_canonical_judgment(tmp_path):
+    run = tmp_path / "run"
+    _pass(run, "p1", {"model": "unrelated-model"})
+    (run / "judges" / "canonical.json").write_text(
+        json.dumps({"built_from": [], "aggregation": "not-recorded"})
+    )
+    (run / "judge.jsonl").write_text('{"scenario_id": "s1", "backend_id": "b1", "accuracy": 2}\n')
+
+    summary = judge_summary(run)
+
+    assert summary["recorded"] is False
+    assert summary["canonical"] == []
+    assert summary["sentence"] == "Judge not recorded for this run. Also scored by unrelated-model."
+
+
+def test_missing_canonical_card_preserves_canonical_actor_id_without_borrowing_other_card(tmp_path):
+    run = tmp_path / "run"
+    _pass(run, "other", {"model": "unrelated-model"})
+    (run / "judges" / "canonical.json").write_text(
+        json.dumps({"built_from": ["missing-card"], "aggregation": "single-pass"})
+    )
+
+    summary = judge_summary(run)
+
+    assert summary["recorded"] is False
+    assert summary["canonical"] == ["missing-card"]
+    assert summary["sentence"] == "Judge not recorded for this run. Also scored by unrelated-model."
+
+
+def test_actor_id_rejects_invalid_pass_numbers():
+    import pytest
+
+    for bad in (
+        {"model": "m", "pass_index": 0},
+        {"model": "m", "pass_index": -1},
+        {"model": "m", "pass_index": True},
+        {"model": "m", "passes": 0},
+        {"model": "m", "pass_index": 3, "passes": 2},
+    ):
+        with pytest.raises(ValueError):
+            actor_id(bad)

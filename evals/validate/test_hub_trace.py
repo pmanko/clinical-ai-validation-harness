@@ -265,9 +265,40 @@ def test_match_trace_uses_session_and_question_when_the_hub_never_saw_the_reques
         question="Same question",
         session="session-a",
         request_id="runner-request",
+        transport="chartsearchai",
     )
 
     assert matched is traces[0]
+
+
+def test_match_trace_does_not_borrow_trace_with_different_request_id():
+    """On direct Hub calls the Hub receives the runner's request_id, so a trace with a
+    different request_id is a different turn even when session and question match."""
+    from harness.validate.hub_trace import match_trace
+
+    traces = [
+        {
+            "level_id": "profile",
+            "ts": "2026-07-14T05:37:50+00:00",
+            "question": "Same question",
+            "correlation": {"session": "session-a", "request_id": "turn-1"},
+        }
+    ]
+
+    for transport in (None, "med-agent-hub"):
+        assert (
+            match_trace(
+                traces,
+                "profile",
+                "2026-07-14T05:37:40+00:00",
+                "2026-07-14T05:37:52+00:00",
+                question="Same question",
+                session="session-a",
+                request_id="turn-2",
+                transport=transport,
+            )
+            is None
+        )
 
 
 def test_match_trace_does_not_borrow_trace_with_different_session():

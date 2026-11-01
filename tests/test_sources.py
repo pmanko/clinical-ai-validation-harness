@@ -60,7 +60,9 @@ def test_source_tile_uses_uuid_resolved_chart_row_when_citation_index_differs():
 
     judge_text = render_sources_for_judge(sources)
     assert "cite [2] chart [28]" in judge_text
+    assert "chart resolution: resolved." in judge_text
     assert "hub grounding" not in judge_text  # the judge never sees the checks' verdicts
+    assert "support:" not in judge_text
 
 
 def test_source_tile_falls_back_to_chart_index_when_no_uuid_mapping_exists():

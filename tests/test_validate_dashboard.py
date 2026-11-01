@@ -469,10 +469,15 @@ global.document={{getElementById:id=>nodes[id]||(nodes[id]={{style:{{}},innerHTM
 renderCheckPrecision({{}});
 const hidden=nodes.checksec.style.display;
 renderCheckPrecision(d);
-process.stdout.write(JSON.stringify({{hidden,shown:nodes.checksec.style.display,html:nodes.checkprec.innerHTML}}));
+const firstHtml=nodes.checkprec.innerHTML;
+// Simulate browser quote normalization on innerHTML; re-polling same payload must not reset DOM.
+nodes.checkprec.innerHTML='normalized-dom-stays-intact';
+renderCheckPrecision(d);
+process.stdout.write(JSON.stringify({{hidden,shown:nodes.checksec.style.display,html:firstHtml,afterPoll:nodes.checkprec.innerHTML}}));
 """)
     assert rendered["hidden"] == "none" and rendered["shown"] == ""
     assert "Citation support" in rendered["html"]
+    assert rendered["afterPoll"] == "normalized-dom-stays-intact"
 
 
 def test_a_withdrawn_confidence_level_lists_findings_instead_of_a_chip():
@@ -492,3 +497,140 @@ process.stdout.write(JSON.stringify({{h:sectionHtml('Answer',v,'body')}}));
     assert html.count("class=\"schip") == 1 and "sconf" not in html
     assert html.count("<li") == 2 and "does not hold 52 kg" in html
     assert html.index("<ul class=findings>") < html.index("<div class=ans>")
+
+
+def test_dashboard_judge_scores_display_canonical_median_and_label_combined_mean_separately(
+    tmp_path: Path,
+):
+    import sys
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "dashboard-median"
+    run.mkdir()
+    row = {
+        "scenario_id": "s1", "backend_id": "b1", "accuracy": 8, "completeness": 8,
+        "relevance": 8, "harm": False, "abstention_outcome": "n-a",
+        "citation_groundedness": "supported", "note": "fine",
+    }
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "backend_ids": ["b1"], "scenario_ids": ["s1"]}) + "\n",
+        encoding="utf-8",
+    )
+    for i, score in enumerate((10, 8, 2), 1):
+        d = run / "judges" / f"p{i}"
+        d.mkdir(parents=True)
+        (d / "judge.jsonl").write_text(
+            json.dumps({**row, "accuracy": score, "completeness": score, "relevance": score}) + "\n",
+            encoding="utf-8",
+        )
+        (d / "manifest.json").write_text(
+            json.dumps({"model": "model", "pass_index": i}), encoding="utf-8"
+        )
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "judge-aggregate.py"), str(run),
+         "--actor", "p1", "--actor", "p2", "--actor", "p3"],
+        check=True, capture_output=True, text=True, cwd=ROOT,
+    )
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    fn = vd.PAGE.split("function renderJudgeScores(d){", 1)[1].split("// The background poll", 1)[0]
+    js = (
+        "const esc=s=>String(s), fmt10=s=>Number(s).toFixed(1), armTitle=s=>s;\n"
+        "function renderJudgeScores(d){" + fn + "\n"
+        "process.stdout.write(renderJudgeScores(" + json.dumps(status) + "));\n"
+    )
+    rendered = subprocess.run(
+        ["node", "-e", js], check=True, capture_output=True, text=True
+    ).stdout
+
+    assert status["judge"][0]["benchmark_score"] == 80.0
+    assert status["judge_combined"][0]["benchmark_score"] == 66.7
+    assert "<span class=score>80.0</span>" in rendered
+    assert "<span class=score>66.7</span>" not in rendered
+    assert "<th>mean across actors</th>" in rendered
+    assert "<td>66.7</td>" in rendered
+
+
+def test_withheld_response_indepth_is_not_repopulated_from_trace_in_depth_claims(tmp_path: Path):
+    from harness.validate.report import build_report
+    import re
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "withheld-indepth"
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    (run / "inputs" / "scenarios" / "s1.json").write_text(
+        json.dumps({"id": "s1", "turns": [{"n": 1, "question": "q1"}]}), encoding="utf-8"
+    )
+    (run / "run_manifest.json").write_text(
+        json.dumps({
+            "run_id": "r1",
+            "component": "validate",
+            "git_sha": "abc123",
+            "dataset_id": "demo",
+            "otel": {"gen_ai.provider.name": "lmstudio"},
+            "generated_at": "2026-05-30",
+        }),
+        encoding="utf-8",
+    )
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "scenario_ids": ["s1"], "backend_ids": ["b1"]}) + "\n"
+        + json.dumps({"event_type": "backend_selected", "backend_id": "b1", "modelName": "b1"}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps({"backends": {"b1": {"modelName": "b1"}}}), encoding="utf-8"
+    )
+    row = {
+        "run_id": "r1",
+        "scenario_id": "s1",
+        "backend_id": "b1",
+        "turn": 1,
+        "started_at": "2026-05-30T10:00:00",
+        "ended_at": "2026-05-30T10:00:30",
+        "request": {"question": "q1", "session": "s-1", "request_id": "req-1"},
+        "response": {
+            "answer": "Delivered answer [1].",
+            "references": [{"index": 1, "resourceType": "obs", "resourceUuid": "u1"}],
+            "inDepth": {
+                "status": "needs_review",
+                "answer": "",
+                "reviewDraft": "- Withheld claim [99].",
+                "error": "In-Depth was withheld.",
+                "validation": {"status": "needs_review", "claims": ["Withheld claim [99]."]},
+            },
+        },
+        "metrics": {"http_status": 200, "latency_ms": 100, "answer_chars": 20, "citation_count": 1},
+    }
+    trace = {
+        "level_id": "b1",
+        "ts": "2026-05-30T10:00:15",
+        "question": "q1",
+        "correlation": {"session": "s-1", "request_id": "req-1"},
+        "in_depth_claims": {
+            "text": "- Withheld claim [99].",
+            "status": "needs_review",
+            "validation": {"status": "needs_review", "claims": ["Withheld claim [99]."]},
+        },
+    }
+    (run / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    (run / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
+
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        dash_turn = vd.detail("s1", "b1")["turns"][0]
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    html = build_report(run).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    report_cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
+
+    assert dash_turn["indepth_view"]["body_html"] == ""
+    assert dash_turn["indepth_view"]["draft"]["kind"] == "withheld"
+    assert dash_turn["indepth_view"] == report_cell["indepth_view"]

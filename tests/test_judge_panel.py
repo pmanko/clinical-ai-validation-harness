@@ -28,12 +28,17 @@ def test_self_preference_flags_a_judge_from_an_arms_family(tmp_path):
     run.mkdir()
     (run / "run_meta.json").write_text(json.dumps({
         "backends": {"bundled": {"modelName": "gemma-4-12b"}, "hub": {"modelName": "single-12b-checked"}},
-        "arm_cards": {"hub": {"models": [{"id": "single-12b-checked"}]}},
+        "arm_cards": {
+            "hub": {"models": [{"id": "single-12b-checked"}]},
+            "mixed": {"models": [{"id": "gemma-4-12b"}, {"id": "qwen2.5-14b"}]},
+        },
     }))
 
-    assert arm_families(run) == {"bundled": "google"}
+    assert arm_families(run) == {"bundled": ["google"], "mixed": ["google", "alibaba"]}
     flagged = self_preference({"model": "gemma-4-12b-judge"}, run)
-    assert flagged["self_preference_risk"] is True and flagged["self_preference_arms"] == ["bundled"]
+    assert flagged["self_preference_risk"] is True and flagged["self_preference_arms"] == ["bundled", "mixed"]
+    qwen_flagged = self_preference({"model": "qwen2.5-14b"}, run)
+    assert qwen_flagged["self_preference_risk"] is True and qwen_flagged["self_preference_arms"] == ["mixed"]
     clear = self_preference({"model": "gpt-6-astra"}, run)
     assert clear["self_preference_risk"] is False and clear["judge_family"] == "openai"
 

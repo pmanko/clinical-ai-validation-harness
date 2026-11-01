@@ -30,6 +30,8 @@ from harness.validate.check_precision import (  # noqa: E402
 
 
 def run_dir(arg: str) -> pathlib.Path:
+    if not isinstance(arg, str) or not arg.strip():
+        sys.exit(f"no run dir for {arg!r}")
     p = pathlib.Path(arg)
     if p.is_dir():
         return p
@@ -51,7 +53,10 @@ def main() -> int:
     parser.add_argument("--quiet", action="store_true", help="Write the file without the table.")
     args = parser.parse_args()
     rd = run_dir(args.run)
-    data = score_run(rd, args.accuracy_threshold)
+    try:
+        data = score_run(rd, args.accuracy_threshold)
+    except ValueError as exc:
+        sys.exit(str(exc))
     if data is None:
         print(f"{rd.name}: no judge rows (judge.jsonl or judges/*/judge.jsonl); nothing scored")
         return 0

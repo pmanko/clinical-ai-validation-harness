@@ -11,19 +11,23 @@ Answer level. One cell per (scenario, backend); the judge scores the final turn
 with the conversation as context, so the marks come from the final turn's
 envelope, as judge-prep builds the cells. Marks read the envelope as follows:
 
-- ``date``: an ``answerValidation.issues[]`` entry with ``status: fail`` whose id is
-  a date-check id (``window_scope``, ``date_value_binding``, ``single_point_trend``,
-  ``date_format``, ``last_visit``, ``upcoming_date``, or any id naming ``date`` or
-  ``temporal``), or ``temporalGate.status == fail``.
-- ``record``: a cited record not in the chart, ``references[].resolutionStatus ==
-  unresolved``.
+- ``date``: an ``answerValidation.issues[]`` entry with ``status: fail`` or ``warn``
+  whose id is a date-check id (``window_scope``, ``date_value_binding``,
+  ``single_point_trend``, ``date_format``, ``last_visit``, ``upcoming_date``,
+  ``trend_direction``, ``series_endpoint``, or any id naming ``date`` or ``temporal``),
+  or ``temporalGate.status == fail`` when the gate did not rewrite or replace the
+  answer before judging (``applied`` in ``patch``, ``repair``, ``fallback``, ``edit``
+  is counted apart under ``date_patched``).
+- ``record``: a record cited by the Answer or a table block that is not in the chart,
+  ``references[].resolutionStatus == unresolved`` (or a ``record`` check issue on
+  ``answerValidation.issues[]``).
 - ``citation``: ``references[].groundingStatus`` in ``unsupported`` or ``mixed`` for
   a reference used by the Answer or a table block, or, under the three-way label
   contract, ``references[].support == contradicted``. ``not_addressed`` is not a mark.
-- ``review``: an ``answerValidation.issues[]`` entry without an id that carries the
-  reviewer's ``wrong``/``chart`` fields (the model review's flag shape), an issue whose
-  id names ``review``, or a ``confidence.answer.note`` that says a review flagged the
-  answer. Info entries never mark.
+- ``review``: an ``answerValidation.issues[]`` entry (``fail`` or ``warn``) without an
+  id that carries the reviewer's ``wrong``/``chart`` fields (the model review's flag
+  shape), an issue whose id names ``review``, or a ``confidence.answer.note`` that says
+  a review flagged the answer. Info entries never mark.
 - ``needs_review``: ``answerValidation.status == needs_review``, the section status
   the clinician sees.
 
@@ -51,8 +55,11 @@ actor when present. The headline block is the canonical pass.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
+import math
+import os
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,7 +67,8 @@ from typing import Any
 
 from ..common.jsonl import read_jsonl
 from .bundle import review_results
-from .review_presentation import answer_check_findings
+from .response_artifacts import in_depth_artifact, split_answer_sections
+from .review_presentation import answer_check_findings, citation_indices
 
 SCHEMA = "check_precision.v1"
 OUTPUT_PATH = Path("judges") / "check-precision.json"
@@ -104,6 +112,57 @@ def _status(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def _validate_accuracy_threshold(accuracy_threshold: float) -> float:
+    if (
+        isinstance(accuracy_threshold, bool)
+        or not isinstance(accuracy_threshold, (int, float))
+        or not math.isfinite(accuracy_threshold)
+        or not (0.0 <= float(accuracy_threshold) <= 10.0)
+    ):
+        raise ValueError(
+            f"accuracy_threshold must be a finite number in [0, 10], got {accuracy_threshold!r}"
+        )
+    return float(accuracy_threshold)
+
+
+def _answer_citation_indices(response: dict[str, Any]) -> tuple[set[int], set[int]]:
+    answer_text, embedded_indepth = split_answer_sections(response.get("answer"))
+    answer_cites = set(citation_indices(answer_text))
+    for block in response.get("blocks") if isinstance(response.get("blocks"), list) else []:
+        for row in (block.get("rows") or []) if isinstance(block, dict) else []:
+            for cell in ((row or {}).get("cells") or {}).values():
+                if isinstance(cell, dict):
+                    answer_cites.update(
+                        r for r in cell.get("refs") or [] if isinstance(r, int) and not isinstance(r, bool)
+                    )
+    indepth = response.get("inDepth")
+    indepth_cites = set(citation_indices(embedded_indepth))
+    if isinstance(indepth, dict):
+        indepth_cites.update(citation_indices(indepth.get("answer")))
+        indepth_cites.update(
+            r for r in indepth.get("citations") or [] if isinstance(r, int) and not isinstance(r, bool)
+        )
+        for ref in indepth.get("references") or []:
+            if isinstance(ref, dict) and isinstance(ref.get("index"), int) and not isinstance(ref.get("index"), bool):
+                indepth_cites.add(ref["index"])
+    return answer_cites, indepth_cites
+
+
+def _used_by_answer(ref: dict[str, Any], answer_cites: set[int], indepth_cites: set[int]) -> bool:
+    usages = [u for u in (ref.get("usage") or []) if isinstance(u, dict)]
+    if usages:
+        return any(_status(u.get("location")) in _ANSWER_USAGE for u in usages)
+    idx = ref.get("index")
+    if isinstance(idx, int) and not isinstance(idx, bool):
+        if idx in answer_cites:
+            return True
+        if idx in indepth_cites:
+            return False
+        if answer_cites:
+            return False
+    return True
+
+
 def answer_marks(response: dict[str, Any]) -> dict[str, bool]:
     """Which Answer checks marked this envelope (see the module docstring)."""
     validation = response.get("answerValidation")
@@ -114,20 +173,23 @@ def answer_marks(response: dict[str, Any]) -> dict[str, bool]:
     checks = {f["check"] for f in findings}
     gate = response.get("temporalGate")
     gate_failed = isinstance(gate, dict) and _status(gate.get("status")) == "fail"
-    # A date check that patched the answer from the chart is not a mark the judge can score:
-    # the judge reads the corrected text. Those cells are counted apart, and a low fault rate
-    # there says the patch worked, not that the check was wrong.
-    gate_patched = isinstance(gate, dict) and _status(gate.get("applied")) in {"patch", "repair"}
+    # A date check that rewrote or replaced the answer before the judge saw it is not a
+    # mark the judge can score on the original draft: the judge reads the post-gate text.
+    # Those cells are counted apart, and a low fault rate there says the intervention worked.
+    gate_patched = isinstance(gate, dict) and _status(gate.get("applied")) in {
+        "patch",
+        "repair",
+        "fallback",
+        "edit",
+    }
     references = [r for r in response.get("references") or [] if isinstance(r, dict)]
-    record = any(_status(r.get("resolutionStatus")) == "unresolved" for r in references)
-    citation = False
-    for ref in references:
-        usages = ref.get("usage") or []
-        used_by_answer = not usages or any(
-            _status((u or {}).get("location")) in _ANSWER_USAGE for u in usages
-        )
-        if not used_by_answer:
-            continue
+    answer_cites, indepth_cites = _answer_citation_indices(response)
+    answer_refs = [r for r in references if _used_by_answer(r, answer_cites, indepth_cites)]
+    record = "record" in checks or any(
+        _status(r.get("resolutionStatus")) == "unresolved" for r in answer_refs
+    )
+    citation = "citation" in checks
+    for ref in answer_refs:
         if _status(ref.get("support")) == "contradicted":
             citation = True
         elif _status(ref.get("groundingStatus")) in _GROUNDING_MARKS and "support" not in ref:
@@ -148,6 +210,8 @@ def answer_marks(response: dict[str, Any]) -> dict[str, bool]:
 def indepth_point_marks(response: dict[str, Any]) -> dict[int, dict[str, bool]]:
     """Marks per In-Depth point number (1-based), empty without a validation record."""
     indepth = response.get("inDepth")
+    if not isinstance(indepth, dict) and isinstance(response.get("indepth"), dict):
+        indepth = in_depth_artifact(response, _response(response))
     validation = indepth.get("validation") if isinstance(indepth, dict) else None
     if not isinstance(validation, dict):
         return {}
@@ -186,6 +250,7 @@ def indepth_point_marks(response: dict[str, Any]) -> dict[int, dict[str, bool]]:
 
 def judged_answer_faults(row: dict[str, Any], accuracy_threshold: float) -> dict[str, bool]:
     """What the judge faulted in one cell, per reference axis plus their union."""
+    accuracy_threshold = _validate_accuracy_threshold(accuracy_threshold)
     accuracy = row.get("accuracy")
     numeric = isinstance(accuracy, (int, float)) and not isinstance(accuracy, bool)
     temporal = any(
@@ -200,6 +265,18 @@ def judged_answer_faults(row: dict[str, Any], accuracy_threshold: float) -> dict
     }
     faults["any"] = any(faults.values())
     return faults
+
+
+def _has_reference_axes(row: dict[str, Any]) -> bool:
+    accuracy = row.get("accuracy")
+    has_acc = isinstance(accuracy, (int, float)) and not isinstance(accuracy, bool)
+    has_cit = _status(row.get("citation_groundedness")) in {"supported", "partly", "unsupported"}
+    has_harm = isinstance(row.get("harm"), bool)
+    has_temp = any(
+        row.get(axis) is not None
+        for axis in ("temporal_date_accuracy", "temporal_window", "temporal_trend")
+    )
+    return has_acc or has_cit or has_harm or has_temp
 
 
 def point_verdicts(row: dict[str, Any]) -> dict[tuple[int, int], str]:
@@ -219,7 +296,7 @@ def point_verdicts(row: dict[str, Any]) -> dict[tuple[int, int], str]:
 
 def _adjudication_as_judge_rows(path: Path) -> list[dict[str, Any]]:
     rows = []
-    for record in read_jsonl(path):
+    for record in read_jsonl(path, strict=True):
         if not isinstance(record, dict):
             continue
         axes = record.get("axes") if isinstance(record.get("axes"), dict) else {}
@@ -239,13 +316,13 @@ def load_references(run_dir: Path) -> dict[str, list[dict[str, Any]]]:
     refs: dict[str, list[dict[str, Any]]] = {}
     canonical = run_dir / "judge.jsonl"
     if canonical.is_file():
-        rows = [r for r in read_jsonl(canonical) if isinstance(r, dict)]
+        rows = [r for r in read_jsonl(canonical, strict=True) if isinstance(r, dict)]
         if rows:
             refs["canonical"] = rows
     judges = run_dir / "judges"
     if judges.is_dir():
         for path in sorted(judges.glob("*/judge.jsonl")):
-            rows = [r for r in read_jsonl(path) if isinstance(r, dict)]
+            rows = [r for r in read_jsonl(path, strict=True) if isinstance(r, dict)]
             if rows:
                 refs[path.parent.name] = rows
     adjudication = run_dir / "adjudication.jsonl"
@@ -311,13 +388,18 @@ def score_answer(
     with no captured envelope is counted in ``unmatched`` and otherwise ignored.
     ``any_turn`` optionally maps a cell to the marks of any of its turns, for the count.
     """
+    accuracy_threshold = _validate_accuracy_threshold(accuracy_threshold)
     items = []
     unmatched = 0
+    unscored = 0
     for row in judge_rows:
         key = (row.get("scenario_id"), row.get("backend_id"))
         marks = cells.get(key)
         if marks is None:
             unmatched += 1
+            continue
+        if not _has_reference_axes(row):
+            unscored += 1
             continue
         items.append(
             {
@@ -330,12 +412,15 @@ def score_answer(
     by_arm = defaultdict(list)
     for item in items:
         by_arm[item["arm"]].append(item)
-    return {
+    out = {
         "cells": len(items),
         "unmatched_cells": unmatched,
         "overall": _answer_block(items),
         "by_arm": {arm: _answer_block(rows) for arm, rows in sorted(by_arm.items())},
     }
+    if unscored:
+        out["unscored_rows"] = unscored
+    return out
 
 
 def _indepth_block(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -421,7 +506,9 @@ def run_marks(
         if key not in latest or turn >= (latest[key].get("turn") or 1):
             latest[key] = row
         response = _response(row)
-        for n, marks in indepth_point_marks(response).items():
+        _, embedded = split_answer_sections(response.get("answer"))
+        artifact = in_depth_artifact(row, response, embedded)
+        for n, marks in indepth_point_marks({**response, "inDepth": artifact}).items():
             points[(key[0], key[1], turn, n)] = marks
         turn_marks = answer_marks(response)
         seen = any_turn.setdefault(key, {check: False for check in ANSWER_CHECKS})
@@ -431,15 +518,29 @@ def run_marks(
     return cells, points, any_turn
 
 
+def _inputs_fingerprint(run_dir: Path) -> dict[str, str]:
+    files = [run_dir / "results.jsonl", run_dir / "judge.jsonl", run_dir / "adjudication.jsonl"]
+    judges = run_dir / "judges"
+    if judges.is_dir():
+        files.extend(sorted(judges.glob("*/judge.jsonl")))
+    digests: dict[str, str] = {}
+    for path in files:
+        if path.is_file():
+            rel = path.relative_to(run_dir).as_posix()
+            digests[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digests
+
+
 def score_run(
     run_dir: Path | str, accuracy_threshold: float = DEFAULT_ACCURACY_THRESHOLD
 ) -> dict[str, Any] | None:
     """The full scoring record for one run, or None when it has no judge rows."""
+    accuracy_threshold = _validate_accuracy_threshold(accuracy_threshold)
     run_dir = Path(run_dir)
     references = load_references(run_dir)
     if not references:
         return None
-    cells, points, any_turn = run_marks(review_results(run_dir, strict=False))
+    cells, points, any_turn = run_marks(review_results(run_dir, strict=True))
     actors = {}
     for actor, rows in references.items():
         actors[actor] = {
@@ -451,6 +552,7 @@ def score_run(
     return {
         "schema_version": SCHEMA,
         "run_id": run_dir.name,
+        "input_sha256": _inputs_fingerprint(run_dir),
         "reference": {
             "actors": list(actors),
             "headline": headline,
@@ -467,19 +569,27 @@ def score_run(
 
 
 def write_scores(run_dir: Path | str, data: dict[str, Any]) -> Path:
-    path = Path(run_dir) / OUTPUT_PATH
-    path.parent.mkdir(parents=True, exist_ok=True)
+    dest = Path(run_dir) / OUTPUT_PATH
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    path = dest.with_suffix(f".{os.getpid()}.tmp")
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return path
+    os.replace(path, dest)
+    return dest
 
 
 def load_scores(run_dir: Path | str) -> dict[str, Any] | None:
-    path = Path(run_dir) / OUTPUT_PATH
+    run_path = Path(run_dir)
+    path = run_path / OUTPUT_PATH
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    return data if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    recorded = data.get("input_sha256")
+    if isinstance(recorded, dict) and recorded != _inputs_fingerprint(run_path):
+        return None
+    return data
 
 
 # ------------------------------------------------------------------ presentation
@@ -615,7 +725,19 @@ def table_html(data: dict[str, Any], arm_titles: dict[str, str] | None = None) -
         + "</p>"
     )
     answer = data.get("answer") or {}
-    h += _html_table(_ANSWER_HEAD, _answer_rows(answer.get("overall") or {}), f"Answer checks, all arms ({answer.get('cells', 0)} judged cells)")
+    unmatched_cells = answer.get("unmatched_cells", 0)
+    unscored_rows = answer.get("unscored_rows", 0)
+    answer_extra = []
+    if unmatched_cells:
+        answer_extra.append(f"{unmatched_cells} unmatched")
+    if unscored_rows:
+        answer_extra.append(f"{unscored_rows} unscored")
+    answer_caption = (
+        f"Answer checks, all arms ({answer.get('cells', 0)} judged cells"
+        + (f", {', '.join(answer_extra)}" if answer_extra else "")
+        + ")"
+    )
+    h += _html_table(_ANSWER_HEAD, _answer_rows(answer.get("overall") or {}), answer_caption)
     arms = answer.get("by_arm") or {}
     if arms:
         h += "<details class='checkprec-arms'><summary>Answer checks per arm</summary>"
@@ -631,10 +753,16 @@ def table_html(data: dict[str, Any], arm_titles: dict[str, str] | None = None) -
             f" ({indepth.get('points', 0)} points; marks: {html.escape(marks)}).</p>"
         )
     else:
+        unmatched_verdicts = indepth.get("unmatched_verdicts", 0)
+        indepth_caption = (
+            f"In-Depth checks per point, all arms ({indepth.get('judged_points', 0)} judged of {indepth.get('points', 0)} points"
+            + (f", {unmatched_verdicts} unmatched verdicts" if unmatched_verdicts else "")
+            + ")"
+        )
         h += _html_table(
             _HEAD,
             _indepth_rows(indepth.get("overall") or {}),
-            f"In-Depth checks per point, all arms ({indepth.get('judged_points', 0)} judged of {indepth.get('points', 0)} points)",
+            indepth_caption,
         )
         verdict_head = ["check"] + [f"marked: {v}" for v in VERDICTS] + [f"unmarked: {v}" for v in VERDICTS]
         verdict_rows = []

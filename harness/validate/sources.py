@@ -155,10 +155,24 @@ def _support_detail(reference: dict[str, Any]) -> str:
         if value:
             parts.append(str(value))
             continue
+        differs = [
+            str(f.get("fact"))
+            for f in check.get("facts") or []
+            if isinstance(f, dict)
+            and f.get("fact")
+            and str(f.get("status") or "").lower() == "differs"
+        ]
+        if differs:
+            parts.append("differs: " + ", ".join(differs))
         missing = [
             str(f.get("fact"))
             for f in check.get("facts") or []
-            if isinstance(f, dict) and f.get("fact") and not f.get("found")
+            if isinstance(f, dict)
+            and f.get("fact")
+            and (
+                str(f.get("status") or "").lower() == "not_found"
+                or ("status" not in f and not f.get("found"))
+            )
         ]
         if missing:
             parts.append("not found: " + ", ".join(missing))

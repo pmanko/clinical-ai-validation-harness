@@ -13,7 +13,7 @@ from typing import Any
 
 from harness.common.jsonl import read_jsonl
 
-from .hub_trace import match_trace, trace_model_for_result
+from .hub_trace import match_trace, trace_model_for_result, trace_transport_for_result
 from .sources import load_scenario_chart
 
 
@@ -32,10 +32,29 @@ def frozen_arm_cards(run_dir: Path | str, backend_ids: list[str]) -> dict[str, A
     return {bid: frozen.get(bid) for bid in backend_ids}
 
 
+def _run_transport(run_dir: Path) -> str | None:
+    events_path = run_dir / "events.jsonl"
+    if events_path.is_file():
+        for event in read_jsonl(events_path, strict=False):
+            transport = str(event.get("transport") or "").strip()
+            if transport:
+                return transport
+    for path in sorted((run_dir / "inputs" / "comparison_sets").glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(data, dict) and data.get("transport"):
+            return str(data["transport"]).strip()
+    return None
+
+
 def review_results(run_dir: Path | str, *, strict: bool = True) -> list[dict[str, Any]]:
     """Resolve routing identity only from the result or frozen connection metadata."""
-    backends = load_run_meta(run_dir).get("backends") or {}
-    rows = read_jsonl(Path(run_dir) / "results.jsonl", strict=strict)
+    run_path = Path(run_dir)
+    backends = load_run_meta(run_path).get("backends") or {}
+    transport = _run_transport(run_path)
+    rows = read_jsonl(run_path / "results.jsonl", strict=strict)
     for row in rows:
         request = row.get("request") or {}
         row["request"] = request
@@ -44,6 +63,8 @@ def review_results(run_dir: Path | str, *, strict: bool = True) -> list[dict[str
             model = backend.get("modelName")
             if model:
                 request["profile"] = model
+        if "transport" not in request and transport:
+            request["transport"] = transport
     return rows
 
 
@@ -101,6 +122,7 @@ def capture_traces(run_dir: Path, candidates: list[dict[str, Any]]) -> None:
                 result.get("started_at"), result.get("ended_at"),
                 question=request.get("question"), session=request.get("session"),
                 request_id=request.get("request_id"),
+                transport=trace_transport_for_result(result),
             )
             if trace is not None and trace not in captured:
                 captured.append(trace)

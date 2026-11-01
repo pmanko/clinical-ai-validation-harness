@@ -3,9 +3,10 @@
 The dashboard serves these two JSON payloads to its frontend; the bug-prone parts are the
 two-call In-Depth fields. status()'s feed must surface indepth_status + indepth_chars
 (including when the nested in-depth response is a JSON *string* that needs parsing), and
-detail() must nest the In-Depth as its own {answer,status,latency_ms} block — or None when
-the arm shipped no in-depth. The run is pinned via DASH_RUN to a tmp fixture containing
-frozen inputs, metadata and traces. Loaded by path via importlib.
+detail() must expose the shared ``answer_view`` and ``indepth_view`` blocks (with
+``status: "not_in_profile"`` and empty ``body_html`` when the arm shipped no In-Depth).
+The run is pinned via DASH_RUN to a tmp fixture containing frozen inputs, metadata and
+traces. Loaded by path via importlib.
 """
 
 from __future__ import annotations

@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from harness.validate.hub_trace import load_traces, match_trace
+from harness.validate.hub_trace import load_traces, match_trace, trace_transport_for_result
 from harness.validate.stage_timings import (
     expected_stage_labels,
     extract_stage_timings,
@@ -213,6 +213,7 @@ def build_evidence(
             question=(row.get("request") or {}).get("question"),
             session=(row.get("request") or {}).get("session"),
             request_id=(row.get("request") or {}).get("request_id"),
+            transport=trace_transport_for_result(row),
         )
         selected.append({**pair, "trace": trace})
         response = row.get("response") or {}
