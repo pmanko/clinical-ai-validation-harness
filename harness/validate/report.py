@@ -42,7 +42,7 @@ from harness.report_shell.document import render_document
 from harness.report_shell.stats import avg, box_stats, ordered_unique, percentile, robust_axis_max
 
 from .bundle import frozen_arm_cards, review_results, run_chart
-from .hub_trace import load_traces, match_trace, trace_model_for_result
+from .hub_trace import load_traces, match_trace, trace_model_for_result, trace_transport_for_result
 
 from .judging import judge_summary
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
@@ -490,6 +490,7 @@ def _trace_for_row(r: dict[str, Any], traces: list[dict[str, Any]] | None) -> di
         question=request.get("question"),
         session=request.get("session"),
         request_id=request.get("request_id"),
+        transport=trace_transport_for_result(r),
     )
 
 

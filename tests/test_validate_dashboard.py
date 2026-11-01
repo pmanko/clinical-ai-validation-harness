@@ -495,3 +495,84 @@ def test_dashboard_judge_scores_display_canonical_median_and_label_combined_mean
     assert "<span class=score>66.7</span>" not in rendered
     assert "<th>mean across actors</th>" in rendered
     assert "<td>66.7</td>" in rendered
+
+
+def test_withheld_response_indepth_is_not_repopulated_from_trace_in_depth_claims(tmp_path: Path):
+    from harness.validate.report import build_report
+    import re
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "withheld-indepth"
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    (run / "inputs" / "scenarios" / "s1.json").write_text(
+        json.dumps({"id": "s1", "turns": [{"n": 1, "question": "q1"}]}), encoding="utf-8"
+    )
+    (run / "run_manifest.json").write_text(
+        json.dumps({
+            "run_id": "r1",
+            "component": "validate",
+            "git_sha": "abc123",
+            "dataset_id": "demo",
+            "otel": {"gen_ai.provider.name": "lmstudio"},
+            "generated_at": "2026-05-30",
+        }),
+        encoding="utf-8",
+    )
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "scenario_ids": ["s1"], "backend_ids": ["b1"]}) + "\n"
+        + json.dumps({"event_type": "backend_selected", "backend_id": "b1", "modelName": "b1"}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps({"backends": {"b1": {"modelName": "b1"}}}), encoding="utf-8"
+    )
+    row = {
+        "run_id": "r1",
+        "scenario_id": "s1",
+        "backend_id": "b1",
+        "turn": 1,
+        "started_at": "2026-05-30T10:00:00",
+        "ended_at": "2026-05-30T10:00:30",
+        "request": {"question": "q1", "session": "s-1", "request_id": "req-1"},
+        "response": {
+            "answer": "Delivered answer [1].",
+            "references": [{"index": 1, "resourceType": "obs", "resourceUuid": "u1"}],
+            "inDepth": {
+                "status": "needs_review",
+                "answer": "",
+                "reviewDraft": "- Withheld claim [99].",
+                "error": "In-Depth was withheld.",
+                "validation": {"status": "needs_review", "claims": ["Withheld claim [99]."]},
+            },
+        },
+        "metrics": {"http_status": 200, "latency_ms": 100, "answer_chars": 20, "citation_count": 1},
+    }
+    trace = {
+        "level_id": "b1",
+        "ts": "2026-05-30T10:00:15",
+        "question": "q1",
+        "correlation": {"session": "s-1", "request_id": "req-1"},
+        "in_depth_claims": {
+            "text": "- Withheld claim [99].",
+            "status": "needs_review",
+            "validation": {"status": "needs_review", "claims": ["Withheld claim [99]."]},
+        },
+    }
+    (run / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    (run / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
+
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        dash_turn = vd.detail("s1", "b1")["turns"][0]
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    html = build_report(run).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    report_cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
+
+    assert dash_turn["indepth_view"]["body_html"] == ""
+    assert dash_turn["indepth_view"]["draft"]["kind"] == "withheld"
+    assert dash_turn["indepth_view"] == report_cell["indepth_view"]

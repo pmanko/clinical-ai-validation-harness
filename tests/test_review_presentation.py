@@ -217,3 +217,115 @@ def test_claim_rows_are_empty_without_a_claim_record():
 def test_latency_reads_in_seconds():
     assert format_latency(56601) == "56.6 s"
     assert format_latency(None) == "n/a"
+
+
+def test_parenthetical_check_marks_are_ignored_in_draft_comparison_and_rendered_completely():
+    delivered = "- Weight fell to 41 kg [21]. *(Check: [21] does not state 52 kg (baseline); flagged on review.)*"
+    draft = "- Weight fell to 41 kg [21]."
+    assert draft_view({"answer": delivered, "reviewDraft": draft}) is None
+
+    rendered = markdown_html(delivered)
+    assert "<em class='claim-mark'>(Check: [21] does not state 52 kg (baseline); flagged on review.)</em>" in rendered
+    assert "; flagged on review.)*" not in rendered
+
+
+def test_answer_original_differs_when_uuid_changes_or_reference_is_removed_or_lacks_identity():
+    same_text = "Weight was 41 kg [21]."
+    # Reference swapped by `uuid` (legacy reference shape).
+    swapped_uuid = answer_section_view(
+        {
+            "status": "edited",
+            "originalAnswer": same_text,
+            "originalReferences": [{"index": 21, "uuid": "old-uuid"}],
+        },
+        None,
+        same_text,
+        None,
+        [{"index": 21, "uuid": "new-uuid"}],
+    )
+    assert swapped_uuid["show_original"] is True
+
+    # Cited reference removed after check.
+    removed_ref = answer_section_view(
+        {
+            "status": "edited",
+            "originalAnswer": same_text,
+            "originalReferences": [{"index": 21, "resourceUuid": "old-uuid"}],
+        },
+        None,
+        same_text,
+        None,
+        [],
+    )
+    assert removed_ref["show_original"] is True
+
+    # Display-only reference changed without UUIDs.
+    display_only = answer_section_view(
+        {
+            "status": "edited",
+            "originalAnswer": same_text,
+            "originalReferences": [{"index": 21, "display": "Old visit note"}],
+        },
+        None,
+        same_text,
+        None,
+        [{"index": 21, "display": "New visit note"}],
+    )
+    assert display_only["show_original"] is True
+
+
+def test_hub_check_ids_map_to_their_owning_check_names():
+    answer = answer_section_view(
+        {
+            "status": "needs_review",
+            "issues": [
+                {"id": "trend_direction", "status": "fail", "reason": "Weight rose, not fell."},
+                {"id": "series_endpoint", "status": "fail", "reason": "Latest value is 44 kg."},
+                {"id": "citation_unresolved", "status": "fail", "reason": "Record [99] is not in chart."},
+                {"id": "citation_grounding", "status": "fail", "reason": "Record [2] states 41 kg."},
+                {"id": "rule_single_regimen", "status": "fail", "reason": "Two active regimens listed."},
+                {"id": "agreement", "status": "fail", "reason": "Answer and In-Depth disagree."},
+                {"id": "review_doubt", "status": "warn", "reason": "Reviewer questioned trend."},
+            ],
+        },
+        None,
+        "Answer [2].",
+    )
+    assert answer["checks"] == [
+        "Date check",
+        "Record check",
+        "Citation support",
+        "Chart rule",
+        "Agreement",
+        "Model review",
+    ]
+
+    indepth = indepth_section_view(
+        {
+            "status": "needs_review",
+            "answer": "- Regimen point [1]. *(Check: chart rule.)*",
+            "validation": {
+                "status": "needs_review",
+                "claims": ["Regimen point [1]."],
+                "marked": [1],
+                "checks": [
+                    {
+                        "claim_index": 1,
+                        "gate": {
+                            "status": "fail",
+                            "checks": [
+                                {
+                                    "id": "rule_single_regimen",
+                                    "status": "fail",
+                                    "reason": "Two active regimens listed",
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        }
+    )
+    assert indepth["claims"][0]["checks"]["date"]["verdict"] == "chart rule"
+    assert indepth["checks"] == ["Chart rule"]
+    assert "chart rule (point 1)" in indepth["note"]

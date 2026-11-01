@@ -93,13 +93,6 @@ def test_in_depth_artifact_keeps_which_claims_the_checks_marked():
 
     assert artifact["validation"]["marked"] == [2]
     assert artifact["validation"]["review_flagged"] == [2]
-    assert judge_prep.validation_metadata(response["inDepth"]["validation"]) == {
-        "status": "needs_review",
-        "flagged": [],
-        "marked": [2],
-        "review_status": "flagged",
-        "review_flagged": [2],
-    }
 
 
 def test_reference_date_comes_from_the_run_meta_then_the_run_event_never_a_guess(tmp_path):

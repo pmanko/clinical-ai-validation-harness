@@ -7,7 +7,7 @@ and request/session/question keys within the cell's
 chip and review state per level:
 
 - red    -> show the validator note as a caveat + keep the flagged body visible
-- yellow -> show the body + collapse the note behind "show review note"
+- yellow -> show the validator note + keep the body visible
 - green  -> show the body plainly
 
 These assert the rendered ``answer_html`` (pulled from the inert JSON blob the

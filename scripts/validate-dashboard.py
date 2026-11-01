@@ -33,7 +33,7 @@ from harness.report_shell.assets import (  # noqa: E402
     theme_toggle_js,
 )
 from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart  # noqa: E402
-from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
+from harness.validate.hub_trace import match_trace, trace_model_for_result, trace_transport_for_result  # noqa: E402
 from harness.validate.judging import judge_summary  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary, scout_summary  # noqa: E402
 from harness.validate.review_presentation import (  # noqa: E402
@@ -515,6 +515,7 @@ def detail(scenario, backend):
             question=request.get("question"),
             session=request.get("session"),
             request_id=request.get("request_id"),
+            transport=trace_transport_for_result(r),
         )
         direct_answer, embedded_indepth = split_answer_sections(resp.get("answer"))
         review_artifact = prepare_indepth_review(
@@ -540,7 +541,11 @@ def detail(scenario, backend):
             tr, resp.get("confidence")
         )
         trace_claims = (tr or {}).get("in_depth_claims") or []
-        if trace_claims and not (review_artifact.get("answer") or "").strip():
+        if (
+            trace_claims
+            and review_artifact.get("source") != "response.inDepth"
+            and not (review_artifact.get("answer") or "").strip()
+        ):
             # Older team runs carried In-Depth only in the Hub trace.
             review_artifact = {
                 **review_artifact,
