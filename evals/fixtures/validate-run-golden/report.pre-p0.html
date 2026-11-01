@@ -767,9 +767,16 @@ function renderJudge(run){
   var nActors=(run.judge_actors||[]).length;
   var nPatients=(run.patients||[]).length;
   var patientScope=nPatients===1?'one patient':nPatients+' patients';
-  var judgeScope=nActors>1?nActors+' judges':'one judge';
   var judging=run.judging||{};
-  var judgedBy=judging.recorded?htmlEsc(judging.sentence):'Judge not recorded for this run.';
+  var judgeCards=judging.cards||[];
+  var judgeGroups={};
+  judgeCards.forEach(function(c){
+    var g=[c.agent||'',c.model||'',c.reasoning_effort||''].filter(Boolean).join('-').toLowerCase()||c.actor_id||'judge';
+    judgeGroups[g]=1;
+  });
+  var nJudges=Object.keys((((judging.consensus||{}).judges||{}).per_judge)||{}).length||Object.keys(judgeGroups).length||nActors;
+  var judgeScope=nActors<=1?'one judge':(nJudges<=1?'one judge across '+nActors+' passes':(nActors>nJudges?nJudges+' judges across '+nActors+' passes':nJudges+' judges'));
+  var judgedBy=htmlEsc(judging.sentence||'Judge not recorded for this run.');
   sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. An AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. <b>'+judgedBy+'</b> The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
    +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
    +'<dl class="legend-key">'
@@ -802,8 +809,14 @@ function renderJudge(run){
       +"<td>"+(gr['supported']||0)+" / "+(gr['partly']||0)+" / "+(gr['unsupported']||0)+"</td>"
       +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td>"
       +"<td>"+(t.date_wrong||0)+"</td><td>"+(t.window_over||0)+"</td><td>"+(t.trend_fab||0)+"</td></tr>"; }).join('');
+  var canonActors=judging.canonical||[];
+  var canonCaption=judging.aggregation==='median-majority'&&canonActors.length>1
+    ?'Canonical judgment (median/majority across '+canonActors.length+' passes)'
+    :(judging.aggregation==='not-recorded'&&nActors>0
+      ?'Canonical judge pass (judge not recorded)'
+      :'Canonical judge pass'+(nActors>1?(canonActors.length===1?' (currently promoted actor: '+htmlEsc(canonActors[0])+')':' (currently promoted actor)'):''));
   var tbl=el('table','summary');
-  tbl.innerHTML='<caption>Canonical judge pass'+(nActors>1?' (currently promoted actor)':'')+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
+  tbl.innerHTML='<caption>'+canonCaption+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
   makeSortable(tbl);
   // Run-level calibrated callout — only when at least one cell was adjudicated.

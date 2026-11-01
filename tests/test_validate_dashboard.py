@@ -439,3 +439,59 @@ def test_single_line_sql_is_formatted_for_reading_and_nothing_else_is():
     prose = "The data records no home address."
     assert f(prose) == prose
     assert f(None) is None
+
+
+def test_dashboard_judge_scores_display_canonical_median_and_label_combined_mean_separately(
+    tmp_path: Path,
+):
+    import sys
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "dashboard-median"
+    run.mkdir()
+    row = {
+        "scenario_id": "s1", "backend_id": "b1", "accuracy": 8, "completeness": 8,
+        "relevance": 8, "harm": False, "abstention_outcome": "n-a",
+        "citation_groundedness": "supported", "note": "fine",
+    }
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "backend_ids": ["b1"], "scenario_ids": ["s1"]}) + "\n",
+        encoding="utf-8",
+    )
+    for i, score in enumerate((10, 8, 2), 1):
+        d = run / "judges" / f"p{i}"
+        d.mkdir(parents=True)
+        (d / "judge.jsonl").write_text(
+            json.dumps({**row, "accuracy": score, "completeness": score, "relevance": score}) + "\n",
+            encoding="utf-8",
+        )
+        (d / "manifest.json").write_text(
+            json.dumps({"model": "model", "pass_index": i}), encoding="utf-8"
+        )
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "judge-aggregate.py"), str(run),
+         "--actor", "p1", "--actor", "p2", "--actor", "p3"],
+        check=True, capture_output=True, text=True, cwd=ROOT,
+    )
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    fn = vd.PAGE.split("function renderJudgeScores(d){", 1)[1].split("// The background poll", 1)[0]
+    js = (
+        "const esc=s=>String(s), fmt10=s=>Number(s).toFixed(1), armTitle=s=>s;\n"
+        "function renderJudgeScores(d){" + fn + "\n"
+        "process.stdout.write(renderJudgeScores(" + json.dumps(status) + "));\n"
+    )
+    rendered = subprocess.run(
+        ["node", "-e", js], check=True, capture_output=True, text=True
+    ).stdout
+
+    assert status["judge"][0]["benchmark_score"] == 80.0
+    assert status["judge_combined"][0]["benchmark_score"] == 66.7
+    assert "<span class=score>80.0</span>" in rendered
+    assert "<span class=score>66.7</span>" not in rendered
+    assert "<th>mean across actors</th>" in rendered
+    assert "<td>66.7</td>" in rendered

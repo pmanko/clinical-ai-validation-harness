@@ -20,6 +20,21 @@ MAP_FILE = "judge-blind-map.json"
 BUNDLES_DIR = "judge-bundles"
 
 
+def _blind_label(index: int) -> str:
+    """Base-26 uppercase label for 0-based ``index``: A..Z, AA..AZ, BA..ZZ, ..."""
+    if index < 0:
+        raise ValueError(f"negative arm index: {index}")
+    chars: list[str] = []
+    n = index
+    while True:
+        n, rem = divmod(n, len(string.ascii_uppercase))
+        chars.append(string.ascii_uppercase[rem])
+        if n == 0:
+            break
+        n -= 1
+    return "".join(reversed(chars))
+
+
 def blind_cells(cells: list[dict[str, Any]], run_id: str) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
     """Per-scenario bundles with lettered arms, and the map from letters back to arms.
 
@@ -33,15 +48,13 @@ def blind_cells(cells: list[dict[str, Any]], run_id: str) -> tuple[dict[str, lis
     scenarios: dict[str, dict[str, str]] = {}
     for scenario_id, rows in sorted(by_scenario.items()):
         arms = sorted({r["backend_id"] for r in rows})
-        if len(arms) > len(string.ascii_uppercase):
-            raise ValueError(f"{scenario_id}: more arms than letters")
         seed = int(hashlib.sha256(f"{run_id}:{scenario_id}".encode()).hexdigest()[:16], 16)
-        letters = list(string.ascii_uppercase[:len(arms)])
+        letters = [_blind_label(i) for i in range(len(arms))]
         random.Random(seed).shuffle(letters)
         letter_of = dict(zip(arms, letters))
         scenarios[scenario_id] = {letter: arm for arm, letter in letter_of.items()}
         bundle = []
-        for r in sorted(rows, key=lambda r: letter_of[r["backend_id"]]):
+        for r in sorted(rows, key=lambda r: (len(letter_of[r["backend_id"]]), letter_of[r["backend_id"]])):
             bundle.append({**r, "backend_id": letter_of[r["backend_id"]], "blinded": True})
         bundles[scenario_id] = bundle
     return bundles, {"schema_version": MAP_SCHEMA, "run_id": run_id, "scenarios": scenarios}

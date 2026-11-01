@@ -17,15 +17,50 @@ CARD_SCHEMA = "judge_actor.v2"
 # Fields a runner supplies about the session it ran; everything else the finalizer adds.
 RUNNER_FIELDS = (
     "agent", "agent_version", "model", "reasoning_effort", "sampling",
-    "brief_sha256", "brief_path", "pass_index", "passes", "started_at", "finished_at",
+    "brief_sha256", "brief_path", "rubric", "rubric_sha256", "pass_index", "passes",
+    "started_at", "finished_at",
 )
+
+# Publishable identity fields projected into standalone reports and dashboards (never local paths).
+PUBLISHABLE_CARD_FIELDS = (
+    "schema_version", "actor_id", "actor_type", "reviewer", "agent", "agent_version",
+    "model", "reasoning_effort", "sampling", "method", "brief_sha256",
+    "rubric", "rubric_sha256", "pass_index", "passes", "started_at", "finished_at",
+    "created_at", "promoted_to_canonical", "canonical", "blinded", "n_rows",
+    "judge_family", "arm_families", "self_preference_risk", "self_preference_arms",
+)
+
+
+def _validate_pass_counts(card: dict[str, Any]) -> tuple[int, int | None]:
+    raw_idx = card.get("pass_index")
+    if raw_idx in (None, ""):
+        idx = 1
+    else:
+        if isinstance(raw_idx, bool) or not isinstance(raw_idx, (int, str)):
+            raise ValueError(f"pass_index must be a positive integer, got {raw_idx!r}")
+        idx = int(raw_idx)
+        if idx < 1:
+            raise ValueError(f"pass_index must be >= 1, got {idx}")
+    raw_passes = card.get("passes")
+    if raw_passes in (None, ""):
+        passes = None
+    else:
+        if isinstance(raw_passes, bool) or not isinstance(raw_passes, (int, str)):
+            raise ValueError(f"passes must be a positive integer, got {raw_passes!r}")
+        passes = int(raw_passes)
+        if passes < 1:
+            raise ValueError(f"passes must be >= 1, got {passes}")
+        if idx > passes:
+            raise ValueError(f"pass_index ({idx}) cannot exceed passes ({passes})")
+    return idx, passes
 
 
 def actor_id(card: dict[str, Any]) -> str:
     """A directory name for a pass: ``<agent>-<model>-<effort>-p<n>``, lower case, dashed."""
+    idx, _passes = _validate_pass_counts(card)
     parts = [str(card.get(k) or "") for k in ("agent", "model", "reasoning_effort")]
     parts = [p for p in parts if p]
-    parts.append(f"p{int(card.get('pass_index') or 1)}")
+    parts.append(f"p{idx}")
     raw = "-".join(parts).lower()
     return "".join(ch if ch.isalnum() or ch in "-._" else "-" for ch in raw).strip("-")
 
@@ -43,10 +78,11 @@ def load_judge_cards(run_dir: Path | str) -> list[dict[str, Any]]:
             continue
         if not isinstance(card, dict):
             continue
-        card = dict(card)
-        card["actor_id"] = card.get("actor_id") or path.parent.name
-        card["canonical"] = card["actor_id"] in canonical
-        cards.append(card)
+        aid = card.get("actor_id") or path.parent.name
+        projected = {k: card[k] for k in PUBLISHABLE_CARD_FIELDS if k in card}
+        projected["actor_id"] = aid
+        projected["canonical"] = aid in canonical
+        cards.append(projected)
     cards.sort(key=lambda c: (not c["canonical"], c["actor_id"]))
     return cards
 
@@ -64,7 +100,7 @@ def canonical_record(run_dir: Path | str) -> dict[str, Any]:
 def canonical_actors(run_dir: Path | str) -> list[str]:
     """The actor ids the canonical ``judge.jsonl`` was built from; empty when not recorded."""
     built = canonical_record(run_dir).get("built_from")
-    return [str(a) for a in built] if isinstance(built, list) else []
+    return [str(a) for a in built if a] if isinstance(built, list) else []
 
 
 def judge_card_line(card: dict[str, Any]) -> str:
@@ -117,23 +153,42 @@ def model_family(name: Any) -> str | None:
     return None
 
 
-def arm_families(run_dir: Path | str) -> dict[str, str]:
-    """Each arm's model family, from the run's frozen run_meta.json (backends' modelName and
-    arm cards' model ids); arms whose model names say nothing are left out."""
+def arm_families(run_dir: Path | str) -> dict[str, list[str]]:
+    """Each arm's model families, from the run's frozen run_meta.json (backends' modelName and
+    arm cards' model ids and roles); arms whose model names say nothing are left out."""
     try:
         meta = json.loads((Path(run_dir) / "run_meta.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    out: dict[str, str] = {}
-    for arm, backend in (meta.get("backends") or {}).items():
-        family = model_family((backend or {}).get("modelName"))
+    out: dict[str, list[str]] = {}
+
+    def _add(arm: str, candidate: Any) -> None:
+        family = model_family(candidate)
         if family:
-            out[arm] = family
+            families = out.setdefault(arm, [])
+            if family not in families:
+                families.append(family)
+
+    for arm, backend in (meta.get("backends") or {}).items():
+        if isinstance(backend, dict):
+            _add(arm, backend.get("modelName"))
+            for key in ("answer_model", "review_model", "ground_model", "indepth_model", "orchestrator_model"):
+                _add(arm, backend.get(key))
     for arm, card in (meta.get("arm_cards") or {}).items():
-        for model in (card or {}).get("models") or []:
-            family = model_family((model or {}).get("id"))
-            if family and arm not in out:
-                out[arm] = family
+        if not isinstance(card, dict):
+            continue
+        for model in card.get("models") or []:
+            if isinstance(model, dict):
+                _add(arm, model.get("id"))
+                _add(arm, model.get("family"))
+        for role_model in (card.get("roles") or {}).values():
+            if isinstance(role_model, dict):
+                _add(arm, role_model.get("id"))
+                _add(arm, role_model.get("family"))
+            else:
+                _add(arm, role_model)
+        for key in ("answer_model", "review_model", "ground_model", "indepth_model", "orchestrator_model"):
+            _add(arm, card.get(key))
     return out
 
 
@@ -142,20 +197,26 @@ def self_preference(card: dict[str, Any], run_dir: Path | str) -> dict[str, Any]
     fields a card records so a reader can weigh that risk."""
     judge_family = model_family(card.get("model"))
     arms = arm_families(run_dir)
-    same = sorted(arm for arm, family in arms.items() if judge_family and family == judge_family)
+    same = sorted(
+        arm for arm, families in arms.items()
+        if judge_family and (judge_family in families if isinstance(families, list) else families == judge_family)
+    )
     return {"judge_family": judge_family, "arm_families": arms,
             "self_preference_risk": bool(same), "self_preference_arms": same}
 
 
 def judge_summary(run_dir: Path | str) -> dict[str, Any]:
     """What a page shows about the judging: the cards, which are canonical, and one
-    sentence. ``recorded`` is false when the run carries no card at all."""
+    sentence. ``recorded`` is false when the canonical judge is not recorded."""
     cards = load_judge_cards(run_dir)
-    canonical = [c for c in cards if c["canonical"]] or cards[:1]
+    canon_ids = canonical_actors(run_dir)
+    card_by_id = {c["actor_id"]: c for c in cards}
+    canonical = [card_by_id.get(a, {"actor_id": a, "canonical": True}) for a in canon_ids]
     aggregation = str(canonical_record(run_dir).get("aggregation") or "")
     lines = [judge_card_line(c) for c in canonical]
-    others = [judge_card_line(c) for c in cards if c not in canonical]
-    if not cards:
+    known_lines = [line for line in lines if line != "judge not recorded"]
+    others = [judge_card_line(c) for c in cards if not c["canonical"]]
+    if not canonical or not known_lines:
         sentence = "Judge not recorded for this run."
     elif aggregation == "median-majority" and len(canonical) > 1:
         sentence = (f"Judged in {len(canonical)} passes by " + "; ".join(lines)
@@ -163,17 +224,25 @@ def judge_summary(run_dir: Path | str) -> dict[str, Any]:
                     " across the passes, a harm tie counting as harmful.")
     else:
         sentence = "Judged by " + "; ".join(lines) + "."
-    if cards and others:
+    if others:
         sentence += " Also scored by " + "; ".join(others) + "."
-    return {"recorded": bool(cards), "cards": cards, "canonical": [c["actor_id"] for c in canonical],
+    return {"recorded": bool(known_lines), "cards": cards, "canonical": list(canon_ids),
             "aggregation": aggregation, "sentence": sentence, "consensus": consensus(run_dir)}
 
 
 def consensus(run_dir: Path | str) -> dict[str, Any]:
-    """``judges/consensus.json`` (alpha per axis, thresholds, widest cells); empty when absent."""
+    """``judges/consensus.json`` (alpha per axis, thresholds, widest cells); empty when absent or stale."""
+    rec = canonical_record(run_dir)
+    if rec and rec.get("aggregation") not in ("", "median-majority"):
+        return {}
     path = Path(run_dir) / "judges" / "consensus.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    if rec and isinstance(rec.get("built_from"), list):
+        if sorted(str(a) for a in rec["built_from"] if a) != sorted(str(a) for a in (data.get("actors") or []) if a):
+            return {}
+    return data
