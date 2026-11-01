@@ -18,7 +18,7 @@ CARD_SCHEMA = "judge_actor.v2"
 RUNNER_FIELDS = (
     "agent", "agent_version", "model", "reasoning_effort", "sampling",
     "brief_sha256", "brief_path", "rubric", "rubric_sha256", "pass_index", "passes",
-    "started_at", "finished_at",
+    "started_at", "finished_at", "blinded",
 )
 
 # Publishable identity fields projected into standalone reports and dashboards (never local paths).
@@ -80,6 +80,10 @@ def load_judge_cards(run_dir: Path | str) -> list[dict[str, Any]]:
             continue
         aid = card.get("actor_id") or path.parent.name
         projected = {k: card[k] for k in PUBLISHABLE_CARD_FIELDS if k in card}
+        if "rubric" in projected and projected["rubric"]:
+            r_path = Path(str(projected["rubric"]))
+            if r_path.is_absolute() or ".." in r_path.parts or str(projected["rubric"]).startswith("~"):
+                projected["rubric"] = r_path.name
         projected["actor_id"] = aid
         projected["canonical"] = aid in canonical
         cards.append(projected)

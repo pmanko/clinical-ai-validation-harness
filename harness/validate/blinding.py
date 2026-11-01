@@ -35,6 +35,21 @@ def _blind_label(index: int) -> str:
     return "".join(reversed(chars))
 
 
+def _validate_scenario_id(scenario_id: Any) -> str:
+    """Ensure ``scenario_id`` is a single safe path component."""
+    text = str(scenario_id or "")
+    if (
+        not text
+        or text in (".", "..")
+        or "/" in text
+        or "\\" in text
+        or "\x00" in text
+        or Path(text).name != text
+    ):
+        raise ValueError(f"invalid scenario_id for bundle filename: {scenario_id!r}")
+    return text
+
+
 def blind_cells(cells: list[dict[str, Any]], run_id: str) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
     """Per-scenario bundles with lettered arms, and the map from letters back to arms.
 
@@ -43,7 +58,8 @@ def blind_cells(cells: list[dict[str, Any]], run_id: str) -> tuple[dict[str, lis
     in the run's configuration."""
     by_scenario: dict[str, list[dict[str, Any]]] = {}
     for cell in cells:
-        by_scenario.setdefault(cell["scenario_id"], []).append(cell)
+        sid = _validate_scenario_id(cell.get("scenario_id"))
+        by_scenario.setdefault(sid, []).append(cell)
     bundles: dict[str, list[dict[str, Any]]] = {}
     scenarios: dict[str, dict[str, str]] = {}
     for scenario_id, rows in sorted(by_scenario.items()):
@@ -66,11 +82,15 @@ def write_bundles(run_dir: Path | str, cells: list[dict[str, Any]], run_id: str)
     bundles, blind_map = blind_cells(cells, run_id)
     out_dir = run_dir / BUNDLES_DIR
     out_dir.mkdir(exist_ok=True)
+    out_dir_resolved = out_dir.resolve()
     for stale in out_dir.glob("*.jsonl"):
         stale.unlink()
     paths = []
     for scenario_id, rows in bundles.items():
-        path = out_dir / f"{scenario_id}.jsonl"
+        safe_id = _validate_scenario_id(scenario_id)
+        path = out_dir / f"{safe_id}.jsonl"
+        if path.resolve().parent != out_dir_resolved:
+            raise ValueError(f"bundle path escapes {out_dir}: {scenario_id!r}")
         with open(path, "w", encoding="utf-8") as fh:
             for r in rows:
                 fh.write(json.dumps(r) + "\n")
@@ -79,15 +99,126 @@ def write_bundles(run_dir: Path | str, cells: list[dict[str, Any]], run_id: str)
     return paths
 
 
-def load_map(run_dir: Path | str) -> dict[str, dict[str, str]]:
-    """The letter-to-arm map per scenario, or empty when the run was not blinded."""
-    path = Path(run_dir) / MAP_FILE
+def _load_cells_file(cells_path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    try:
+        lines = cells_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(item, dict) and item.get("scenario_id") and item.get("backend_id"):
+            rows.append(item)
+    return rows
+
+
+def validate_blind_map(
+    data: Any,
+    *,
+    cells: list[dict[str, Any]] | None = None,
+    expected_run_id: str | None = None,
+    bundles_dir: Path | None = None,
+) -> dict[str, dict[str, str]]:
+    """Validate a parsed ``judge-blind-map.json`` payload against schema, run, and cells."""
+    if not isinstance(data, dict):
+        return {}
+    if data.get("schema_version") != MAP_SCHEMA:
+        return {}
+    map_run_id = data.get("run_id")
+    if not isinstance(map_run_id, str) or not map_run_id.strip():
+        return {}
+    if expected_run_id and map_run_id != expected_run_id:
+        return {}
+    scenarios = data.get("scenarios")
+    if not isinstance(scenarios, dict) or not scenarios:
+        return {}
+    cleaned: dict[str, dict[str, str]] = {}
+    for sid, mapping in scenarios.items():
+        try:
+            _validate_scenario_id(sid)
+        except ValueError:
+            return {}
+        if not isinstance(mapping, dict) or not mapping:
+            return {}
+        letters: list[str] = []
+        arms: list[str] = []
+        for letter, arm in mapping.items():
+            if not isinstance(letter, str) or not letter or not isinstance(arm, str) or not arm:
+                return {}
+            letters.append(letter)
+            arms.append(arm)
+        if len(set(letters)) != len(letters) or len(set(arms)) != len(arms):
+            return {}
+        cleaned[str(sid)] = {str(k): str(v) for k, v in mapping.items()}
+    if cells:
+        try:
+            expected_bundles, expected_map = blind_cells(cells, map_run_id)
+        except ValueError:
+            return {}
+        if cleaned != expected_map.get("scenarios"):
+            return {}
+        if bundles_dir is not None and bundles_dir.is_dir():
+            bundle_files = sorted(bundles_dir.glob("*.jsonl"))
+            if bundle_files:
+                if [p.stem for p in bundle_files] != sorted(expected_bundles):
+                    return {}
+                for bpath in bundle_files:
+                    sid = bpath.stem
+                    try:
+                        disk_rows = [
+                            json.loads(line)
+                            for line in bpath.read_text(encoding="utf-8").splitlines()
+                            if line.strip()
+                        ]
+                    except (OSError, json.JSONDecodeError):
+                        return {}
+                    exp_rows = expected_bundles.get(sid) or []
+                    if len(disk_rows) != len(exp_rows):
+                        return {}
+                    for d_row, e_row in zip(disk_rows, exp_rows):
+                        if not isinstance(d_row, dict):
+                            return {}
+                        if d_row.get("backend_id") != e_row.get("backend_id"):
+                            return {}
+                        if "answer_section" in e_row and d_row.get("answer_section") != e_row.get("answer_section"):
+                            return {}
+    return cleaned
+
+
+def load_map(
+    run_dir: Path | str,
+    *,
+    cells: list[dict[str, Any]] | None = None,
+    expected_run_id: str | None = None,
+) -> dict[str, dict[str, str]]:
+    """The letter-to-arm map per scenario, or empty when the run was not blinded or the map is invalid."""
+    target = Path(run_dir)
+    path = target if target.is_file() else target / MAP_FILE
+    base_dir = path.parent
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    scenarios = data.get("scenarios") if isinstance(data, dict) else None
-    return scenarios if isinstance(scenarios, dict) else {}
+    if expected_run_id is None and (base_dir / "run_meta.json").is_file():
+        try:
+            meta = json.loads((base_dir / "run_meta.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            meta = {}
+        if isinstance(meta, dict) and isinstance(meta.get("run_id"), str) and meta["run_id"].strip():
+            expected_run_id = meta["run_id"].strip()
+    if cells is None and (base_dir / "judge-cells.jsonl").is_file():
+        cells = _load_cells_file(base_dir / "judge-cells.jsonl")
+    return validate_blind_map(
+        data,
+        cells=cells,
+        expected_run_id=expected_run_id,
+        bundles_dir=base_dir / BUNDLES_DIR,
+    )
 
 
 def unblind_rows(rows: list[dict[str, Any]], blind_map: dict[str, dict[str, str]]) -> tuple[list[dict[str, Any]], int]:
