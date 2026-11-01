@@ -29,8 +29,63 @@ from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from harness.validate.blinding import load_map, unblind_rows  # noqa: E402
+from harness.validate.blinding import MAP_FILE, load_map, unblind_rows  # noqa: E402
 from harness.validate.judging import CARD_SCHEMA, RUNNER_FIELDS, actor_id, self_preference  # noqa: E402
+
+
+def _portable_path(raw: str | pathlib.Path, rd: pathlib.Path) -> str:
+    path = pathlib.Path(raw).resolve()
+    for base in (rd.resolve(), ROOT.resolve()):
+        try:
+            return path.relative_to(base).as_posix()
+        except ValueError:
+            continue
+    return pathlib.Path(raw).name
+
+
+def _resolve_rubric_digest(rubric_ref: str, rd: pathlib.Path, explicit_digest: str | None) -> str | None:
+    if explicit_digest:
+        return str(explicit_digest)
+    candidates = [
+        ROOT / ".claude" / "skills" / rubric_ref,
+        ROOT / rubric_ref,
+        rd / rubric_ref,
+    ]
+    for cand in candidates:
+        if cand.is_file():
+            return hashlib.sha256(cand.read_bytes()).hexdigest()
+    return None
+
+
+def _invalidate_stale_agreement(rd: pathlib.Path, actor: str | None, promoted: bool) -> None:
+    judges_dir = rd / "judges"
+    if not judges_dir.is_dir():
+        return
+    for name in ("consensus.json", "combined.json"):
+        path = judges_dir / name
+        if not path.is_file():
+            continue
+        remove = promoted
+        if not remove and actor:
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                remove = True
+            else:
+                remove = isinstance(payload, dict) and actor in (payload.get("actors") or [])
+        if remove:
+            path.unlink(missing_ok=True)
+    if promoted:
+        for mpath in judges_dir.glob("*/manifest.json"):
+            if actor and mpath.parent.name == actor:
+                continue
+            try:
+                manifest = json.loads(mpath.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(manifest, dict) and manifest.get("promoted_to_canonical"):
+                manifest["promoted_to_canonical"] = False
+                mpath.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def run_dir(arg: str) -> pathlib.Path:
@@ -84,6 +139,15 @@ def _parse_args() -> argparse.Namespace:
              "reasoning_effort, sampling, brief_sha256, pass_index, passes, started_at, finished_at).",
     )
     parser.add_argument(
+        "--blind",
+        action="store_true",
+        help="Unblind lettered backend_ids using judge-blind-map.json.",
+    )
+    parser.add_argument(
+        "--blind-dir",
+        help="Directory or file containing judge-blind-map.json; implies --blind.",
+    )
+    parser.add_argument(
         "--promote",
         action="store_true",
         help="When --actor is set, also copy this actor pass to root judge.jsonl for report rendering.",
@@ -96,6 +160,19 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _load_explicit_blind_map(rd: pathlib.Path, blind_dir: str | None) -> tuple[dict[str, dict[str, str]], pathlib.Path]:
+    if blind_dir:
+        cand = pathlib.Path(blind_dir)
+        map_path = cand if cand.is_file() else cand / MAP_FILE
+        try:
+            data = json.loads(map_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+        scenarios = data.get("scenarios") if isinstance(data, dict) else None
+        return (scenarios if isinstance(scenarios, dict) else {}), map_path
+    return load_map(rd), rd / MAP_FILE
+
+
 def main() -> None:
     args = _parse_args()
     rd = run_dir(args.run)
@@ -105,27 +182,58 @@ def main() -> None:
         if not isinstance(card, dict):
             sys.exit(f"{args.card}: a judge card is a JSON object")
         card = {k: card[k] for k in RUNNER_FIELDS if card.get(k) not in (None, "")}
+        if "brief_path" in card:
+            card["brief_path"] = _portable_path(str(card["brief_path"]), rd)
         if not args.model and card.get("model"):
             args.model = card["model"]
         if not args.actor:
-            args.actor = actor_id(card)
+            try:
+                args.actor = actor_id(card)
+            except ValueError as exc:
+                sys.exit(str(exc))
     if args.actor and not args.model:
         sys.exit("--model is required with --actor so independent judgments have provenance")
-    rows = json.load(open(args.rows))
+    with open(args.rows, encoding="utf-8") as rows_fh:
+        rows = json.load(rows_fh)
     if isinstance(rows, dict):  # tolerate {result:[...]} or similar wrappers
         rows = rows.get("result") or rows.get("rows") or rows.get("return") or list(rows.values())
-    # A blinded pass scored letters; the map written by judge-prep --blind names the arms.
-    rows, unblinded = unblind_rows(rows, load_map(rd))
-    if unblinded:
-        print(f"unblinded {unblinded} rows through {rd / 'judge-blind-map.json'}")
+    if not isinstance(rows, list):
+        sys.exit(f"{args.rows}: expected a JSON list of judge rows")
 
     # Deterministic side-data per cell: citation_resolution and whether a separate
     # Background/In-Depth block should be retained. Older judge-cells used the
     # overloaded name "is_team"; keep it as a fallback for old runs.
     cells = {}
-    for line in open(rd / "judge-cells.jsonl"):
-        c = json.loads(line)
-        cells[(c["scenario_id"], c["backend_id"])] = c
+    with open(rd / "judge-cells.jsonl", encoding="utf-8") as cells_fh:
+        for line in cells_fh:
+            if not line.strip():
+                continue
+            c = json.loads(line)
+            cells[(c["scenario_id"], c["backend_id"])] = c
+
+    # Require explicit blind mode (--blind, --blind-dir, card.blinded, or row.blinded)
+    # so a genuine backend named 'A' is never rewritten unless the input is actually blinded.
+    blind_requested = bool(
+        args.blind
+        or args.blind_dir
+        or card.get("blinded") is True
+        or any(isinstance(r, dict) and r.get("blinded") is True for r in rows)
+    )
+    unblinded = 0
+    if blind_requested:
+        blind_map, map_path = _load_explicit_blind_map(rd, args.blind_dir)
+        if not blind_map:
+            sys.exit(f"blinded input requires a valid blind map at {map_path}")
+        for r in rows:
+            if not isinstance(r, dict) or r.get("_error") or "accuracy" not in r:
+                continue
+            sid = str(r.get("scenario_id") or "")
+            bid = str(r.get("backend_id") or "")
+            if bid not in (blind_map.get(sid) or {}):
+                sys.exit(f"blinded row {sid}/{bid} is not present in {map_path}")
+        rows, unblinded = unblind_rows(rows, blind_map)
+        if unblinded:
+            print(f"unblinded {unblinded} rows through {map_path}")
 
     out, skipped = [], []
     for r in rows:
@@ -135,6 +243,8 @@ def main() -> None:
             skipped.append(r.get("scenario_id", "?") + "/" + r.get("backend_id", "?") if isinstance(r, dict) else "?")
             continue
         sid, bid = r["scenario_id"], r["backend_id"]
+        if cells and (sid, bid) not in cells:
+            sys.exit(f"unknown cell {sid}/{bid}: not present in {rd / 'judge-cells.jsonl'}")
         cell = cells.get((sid, bid), {})
         row = {
             "scenario_id": sid,
@@ -193,6 +303,12 @@ def main() -> None:
                 "written_at": datetime.now(timezone.utc).isoformat(),
             }, indent=2) + "\n", encoding="utf-8")
         if args.actor and not canonical:
+            rubric_ref = str(card.get("rubric") or "clinical-answer-scoring/rubric.md")
+            rubric_sha256 = _resolve_rubric_digest(
+                rubric_ref,
+                rd,
+                str(card["rubric_sha256"]) if card.get("rubric_sha256") else None,
+            )
             manifest = {
                 **card,
                 **self_preference({**card, "model": args.model}, rd),
@@ -203,13 +319,14 @@ def main() -> None:
                 "method": args.method,
                 "run_id": rd.name,
                 "source_cells": "judge-cells.jsonl",
-                "source_rows": str(pathlib.Path(args.rows)),
+                "source_rows": _portable_path(args.rows, rd),
                 "output": "judge.jsonl",
                 "promoted_to_canonical": promote,
                 "blinded": bool(unblinded),
                 "n_rows": len(out),
                 "created_at": datetime.now(timezone.utc).isoformat(),
-                "rubric": "clinical-answer-scoring/rubric.md",
+                "rubric": rubric_ref,
+                "rubric_sha256": rubric_sha256,
                 "source_cells_sha256": hashlib.sha256(
                     (rd / "judge-cells.jsonl").read_bytes()
                 ).hexdigest(),
@@ -222,6 +339,7 @@ def main() -> None:
                 json.dumps(manifest, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+    _invalidate_stale_agreement(rd, args.actor, promote)
     if skipped:
         print(f"  SKIPPED {len(skipped)} (judge error/missing): {', '.join(skipped)}", file=sys.stderr)
 
