@@ -211,6 +211,25 @@ def test_finalizing_an_actor_invalidates_stale_consensus_and_combined_files(tmp_
         "relevance": 10, "abstention_outcome": "n-a", "citation_groundedness": "supported",
         "harm": False, "note": "updated",
     }]))
+    # Rescoring a canonical actor without --promote must be rejected so canonical.json and judge.jsonl stay aligned
+    unpromoted_rescore = subprocess.run(
+        [sys.executable, str(FINALIZE), str(run), str(rescored), "--actor", "p1", "--model", "gpt-6-astra"],
+        capture_output=True, text=True, cwd=ROOT,
+    )
+    assert unpromoted_rescore.returncode != 0
+
+    # Adding a brand-new unpromoted actor pass invalidates stale consensus/combined files
+    p3_rows = tmp_path / "p3.json"
+    p3_rows.write_text(json.dumps([{
+        "scenario_id": "s1", "backend_id": "b1", "accuracy": 6, "completeness": 6,
+        "relevance": 6, "abstention_outcome": "n-a", "citation_groundedness": "supported",
+        "harm": False, "note": "p3",
+    }]))
+    _finalize(str(run), str(p3_rows), "--actor", "p3", "--model", "gpt-6-astra")
+    assert not (run / "judges" / "consensus.json").exists()
+    assert not (run / "judges" / "combined.json").exists()
+
+    # Promoting the rescored pass updates canonical.json cleanly
     _finalize(str(run), str(rescored), "--actor", "p1", "--model", "gpt-6-astra", "--promote")
 
     summary = judge_summary(run)
@@ -218,6 +237,23 @@ def test_finalizing_an_actor_invalidates_stale_consensus_and_combined_files(tmp_
     assert summary["consensus"] == {}
     assert not (run / "judges" / "consensus.json").exists()
     assert not (run / "judges" / "combined.json").exists()
+
+
+def test_finalize_normalizes_absolute_rubric_path_in_manifest(tmp_path):
+    run = _run_dir(tmp_path)
+    custom_rubric = tmp_path / "private-dir" / "custom-rubric.md"
+    custom_rubric.parent.mkdir(parents=True)
+    custom_rubric.write_text("# Custom rubric\n")
+    card = tmp_path / "card.json"
+    card.write_text(json.dumps({
+        "agent": "codex", "model": "gpt-6-astra", "reasoning_effort": "high",
+        "rubric": str(custom_rubric),
+    }))
+    _finalize(str(run), str(_rows(tmp_path)), "--card", str(card), "--promote")
+    manifest = json.loads((run / "judges" / "codex-gpt-6-astra-high-p1" / "manifest.json").read_text())
+    assert manifest["rubric"] == "custom-rubric.md"
+    assert str(tmp_path) not in json.dumps(manifest)
+    assert len(manifest["rubric_sha256"]) == 64
 
 
 def test_the_report_says_when_no_judge_was_recorded(tmp_path):

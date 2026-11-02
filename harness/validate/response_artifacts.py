@@ -93,6 +93,43 @@ def prepare_answer_review(
     return prepared
 
 
+def _trace_indepth_fallback(trace: Any) -> dict[str, Any]:
+    """Normalize a historical trace-only ``in_depth_claims`` payload when no response In-Depth exists."""
+    if not isinstance(trace, dict):
+        return {}
+    raw = trace.get("in_depth_claims")
+    if isinstance(raw, list):
+        claims = [str(c).strip() for c in raw if str(c or "").strip()]
+        if not claims:
+            return {}
+        return {
+            "answer": "\n".join(c if c.startswith(("-", "*", "•")) else f"- {c}" for c in claims),
+            "source": "trace.in_depth_claims",
+        }
+    if isinstance(raw, dict):
+        text = raw.get("text") if "text" in raw else raw.get("answer")
+        if text is None and isinstance(raw.get("claims"), list):
+            claims = [str(c).strip() for c in raw["claims"] if str(c or "").strip()]
+            text = "\n".join(c if c.startswith(("-", "*", "•")) else f"- {c}" for c in claims)
+        answer = str(text or "").strip()
+        status = raw.get("status")
+        validation = raw.get("validation") if isinstance(raw.get("validation"), dict) else None
+        error = raw.get("error")
+        if not (answer or status or validation or error):
+            return {}
+        out: dict[str, Any] = {"answer": answer, "source": "trace.in_depth_claims"}
+        if status is not None:
+            out["status"] = status
+        if validation is not None:
+            out["validation"] = validation
+        if error is not None:
+            out["error"] = error
+        return out
+    if isinstance(raw, str) and raw.strip():
+        return {"answer": raw.strip(), "source": "trace.in_depth_claims"}
+    return {}
+
+
 def prepare_indepth_review(
     indepth: Any,
     trace: Any,
@@ -102,6 +139,16 @@ def prepare_indepth_review(
     if not isinstance(indepth, dict):
         return indepth
     prepared = dict(indepth)
+    if (
+        not prepared.get("source")
+        and not (prepared.get("answer") or "").strip()
+        and not prepared.get("validation")
+        and not prepared.get("status")
+        and not prepared.get("error")
+    ):
+        fallback = _trace_indepth_fallback(trace)
+        if fallback:
+            prepared.update(fallback)
     if not prepared.get("reviewDraft"):
         historical_draft = review_draft_from_trace(trace)
         final_draft = str(prepared.get("answer") or "").strip()
