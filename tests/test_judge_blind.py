@@ -184,3 +184,57 @@ def test_load_map_rejects_tampered_permutation_and_card_blinded_flag_triggers_un
     )
     manifest2 = json.loads((run / "judges" / "codex-gpt-6-astra-high-p2" / "manifest.json").read_text())
     assert manifest2["blinded"] is True
+
+
+def test_validate_blind_map_and_load_map_reject_malformed_inputs_and_tampered_bundles(tmp_path):
+    from harness.validate.blinding import MAP_SCHEMA, validate_blind_map
+
+    cells = _cells()
+    _, valid = blind_cells(cells, "run-1")
+    for bad in (
+        "not-a-dict",
+        {"schema_version": 999},
+        {"schema_version": MAP_SCHEMA, "run_id": ""},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"../bad": {"A": "arm-x"}}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"s1": {}}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"s1": {"": "arm-x"}}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"s1": {"A": "arm-x", "B": "arm-x"}}},
+    ):
+        assert validate_blind_map(bad, cells=cells) == {}
+    assert validate_blind_map(valid, cells=cells, expected_run_id="other-run") == {}
+    assert validate_blind_map(valid, cells=[{"scenario_id": "../bad", "backend_id": "x"}]) == {}
+
+    run = tmp_path / "bundle-check"
+    run.mkdir()
+    (run / "judge-cells.jsonl").write_text("\n" + "".join(json.dumps(c) + "\n" for c in cells))
+    (run / "run_meta.json").write_text(json.dumps({"run_id": "run-1"}))
+    write_bundles(run, cells, "run-1")
+    assert load_map(run)
+
+    # Extra bundle file, bad JSON, wrong row count, non-dict row, wrong letter, wrong answer_section
+    bdir = run / "judge-bundles"
+    (bdir / "extra.jsonl").write_text("{}\n")
+    assert load_map(run) == {}
+    (bdir / "extra.jsonl").unlink()
+
+    s1_orig = (bdir / "s1.jsonl").read_text()
+    for bad_s1 in (
+        "{bad json\n",
+        json.dumps({"scenario_id": "s1", "backend_id": "A"}) + "\n",
+        "[]\n" * 3,
+        (json.dumps({"scenario_id": "s1", "backend_id": "Z", "answer_section": "x"}) + "\n") * 3,
+    ):
+        (bdir / "s1.jsonl").write_text(bad_s1)
+        assert load_map(run) == {}
+    tampered_rows = [json.loads(line) for line in s1_orig.splitlines() if line.strip()]
+    tampered_rows[0]["answer_section"] = "tampered"
+    (bdir / "s1.jsonl").write_text("".join(json.dumps(r) + "\n" for r in tampered_rows))
+    assert load_map(run) == {}
+
+    # Malformed run_meta.json and judge-cells.jsonl
+    (bdir / "s1.jsonl").write_text(s1_orig)
+    (run / "run_meta.json").write_text("{bad")
+    (run / "judge-cells.jsonl").write_text("{bad\n")
+    assert load_map(run)
+
