@@ -19,14 +19,20 @@ judge-finalize to map the letters back. judge-cells.jsonl is unchanged either wa
 Usage: scripts/judge-prep.py <run_dir-or-run_id> [--blind]
 """
 from __future__ import annotations
-import json, sys, pathlib
+import json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.blinding import write_bundles  # noqa: E402
 from harness.validate.reconcile import resolve_citations  # noqa: E402
 from harness.validate.bundle import frozen_arm_cards, review_results, run_chart  # noqa: E402
-from harness.validate.hub_trace import load_traces, match_trace, trace_model_for_result  # noqa: E402
+from harness.validate.hub_trace import (  # noqa: E402
+    load_traces,
+    match_trace,
+    trace_model_for_result,
+    trace_transport_for_result,
+)
+from harness.validate.review_presentation import CHECK_MARK_PATTERN  # noqa: E402
 from harness.validate.sources import build_sources, render_sources_for_judge, source_ref_labels  # noqa: E402
 from harness.validate.response_artifacts import (  # noqa: E402
     in_depth_artifact,
@@ -41,65 +47,66 @@ def split_sections(answer: str) -> tuple[str, str]:
     return direct, (f"**In Depth**\n{background}" if background else "")
 
 
-_SAFE_VALIDATION_KEYS = {
-    "schema_version",
-    "mode",
-    "status",
-    "applied",
-    "id",
-    "severity",
-    "source_indices",
-    "claim_index",
-    "removed",
-    "flagged",
-    "marked",
-    "review_status",
-    "review_flagged",
-    "review_removed",
-    "review_attempts",
-    "issues",
-    "checks",
-    "citation_checks",
-    "gate",
-}
+_CHECK_MARK_RE = re.compile(r"\s*" + CHECK_MARK_PATTERN, re.IGNORECASE)
+
+_JUDGE_REFERENCE_KEYS = (
+    "index",
+    "resourceType",
+    "resourceUuid",
+    "uuid",
+    "sourceId",
+    "date",
+    "display",
+    "title",
+)
+
+_JUDGE_SOURCE_KEYS = (
+    "source_id",
+    "citation_index",
+    "record_index",
+    "chart_record_index",
+    "resource_type",
+    "resource_uuid",
+    "date",
+    "title",
+    "source_text",
+    "facts_used",
+    "used_by",
+    "resolution_status",
+)
 
 
-def validation_metadata(value):
-    """Keep deterministic lifecycle facts without exposing rejected model text."""
-    if isinstance(value, list):
-        return [
-            sanitized
-            for item in value
-            if (sanitized := validation_metadata(item)) not in (None, {}, [])
-        ]
-    if not isinstance(value, dict):
-        return value if isinstance(value, (bool, int, float)) else None
-    sanitized = {}
-    for key, item in value.items():
-        if key not in _SAFE_VALIDATION_KEYS:
+def strip_check_marks(text):
+    """The In-Depth as written, without the notes the checks append to its points."""
+    return _CHECK_MARK_RE.sub("", text or "")
+
+
+def _judge_references(references: list) -> list[dict]:
+    """Strip check grounding verdicts from references handed to the judge."""
+    out = []
+    for ref in references or []:
+        if not isinstance(ref, dict):
             continue
-        if key in {"issues", "checks", "citation_checks"}:
-            nested = validation_metadata(item)
-            if nested:
-                sanitized[key] = nested
-        elif key == "gate":
-            nested = validation_metadata(item)
-            if nested:
-                sanitized[key] = nested
-        elif key in {"source_indices", "removed", "flagged", "marked", "review_flagged"}:
-            sanitized[key] = [
-                entry
-                for entry in (item if isinstance(item, list) else [])
-                if isinstance(entry, int) and not isinstance(entry, bool)
-            ]
-        elif isinstance(item, (str, bool, int, float)) or item is None:
-            sanitized[key] = item
-    return sanitized
+        cleaned = {k: ref[k] for k in _JUDGE_REFERENCE_KEYS if k in ref}
+        if "display" in cleaned and isinstance(cleaned["display"], str):
+            cleaned["display"] = strip_check_marks(cleaned["display"])
+        if "title" in cleaned and isinstance(cleaned["title"], str):
+            cleaned["title"] = strip_check_marks(cleaned["title"])
+        out.append(cleaned)
+    return out
 
 
-def answer_validation_metadata(validation):
-    """Compatibility name for the sanitized answer-validation metadata view."""
-    return validation_metadata(validation)
+def _judge_sources(sources: list) -> list[dict]:
+    """Keep chart identity, text and deterministic chart resolution; omit check support verdicts."""
+    out = []
+    for src in sources or []:
+        if not isinstance(src, dict):
+            continue
+        cleaned = {k: src[k] for k in _JUDGE_SOURCE_KEYS if k in src}
+        if "facts_used" in cleaned and isinstance(cleaned["facts_used"], list):
+            cleaned["facts_used"] = [strip_check_marks(str(f)) for f in cleaned["facts_used"]]
+        out.append(cleaned)
+    return out
 
 
 
@@ -233,10 +240,16 @@ def main() -> None:
             if isinstance(resp, str):
                 try: resp = json.loads(resp)
                 except Exception: resp = {"answer": resp}
-            ans, indepth = split_answer_sections(resp.get("answer"))
-            indepth_artifact = in_depth_artifact(r, resp, indepth)
+            ans, embedded_indepth = split_answer_sections(resp.get("answer"))
+            ans = strip_check_marks(ans)
+            embedded_indepth = strip_check_marks(embedded_indepth)
+            indepth_artifact = in_depth_artifact(r, resp, embedded_indepth)
+            # The judge is measured against the checks, so it never sees their verdicts: the
+            # In-Depth goes without the marks and tags the checks print after each point.
+            indepth = strip_check_marks(indepth_artifact["answer"])
+            cleaned_indepth_artifact = {**indepth_artifact, "answer": indepth}
             evidence_response = response_for_displayed_evidence(
-                resp, ans, indepth_artifact, indepth
+                resp, ans, cleaned_indepth_artifact, embedded_indepth
             )
             sources_v1 = build_sources(evidence_response, chart)
             # Fold the structured table blocks into the answer the judge scores — for list questions the
@@ -247,23 +260,16 @@ def main() -> None:
             evidence = render_sources_for_judge(sources_v1)
             if evidence:
                 ans = (ans + "\n\n" + evidence).strip() if ans else evidence
-            indepth = indepth_artifact["answer"]
             turns.append({
                 "n": r.get("turn", 1),
                 "question": next((t.get("question") for t in scen.get("turns", []) if t.get("n") == r.get("turn", 1)),
                                  (scen.get("turns") or [{}])[0].get("question")),
                 "answer_section": ans,
                 "in_depth_section": indepth,
-                "answer_validation": answer_validation_metadata(
-                    resp.get("answerValidation")
-                ),
                 "in_depth_status": indepth_artifact["status"],
-                "in_depth_validation": validation_metadata(
-                    indepth_artifact["validation"]
-                ),
                 "indepth_latency_ms": indepth_artifact["latency_ms"],
-                "references": evidence_response.get("references") or [],
-                "sources": sources_v1.get("sources") or [],
+                "references": _judge_references(evidence_response.get("references") or []),
+                "sources": _judge_sources(sources_v1.get("sources") or []),
                 "source_diagnostics": sources_v1.get("diagnostics") or {},
             })
         final = turns[-1]
@@ -276,6 +282,7 @@ def main() -> None:
             question=(final_row.get("request") or {}).get("question"),
             session=(final_row.get("request") or {}).get("session"),
             request_id=(final_row.get("request") or {}).get("request_id"),
+            transport=trace_transport_for_result(final_row),
         ) or {}
         cres = resolve_citations(final["references"], valid)
         has_in_depth = bool(final["in_depth_section"])
@@ -298,14 +305,11 @@ def main() -> None:
             "turns": turns,
             "answer_section": final["answer_section"],
             "in_depth_section": final["in_depth_section"],
-            "answer_validation": final.get("answer_validation"),
             "in_depth_status": final.get("in_depth_status"),
-            "in_depth_validation": final.get("in_depth_validation"),
             "references": final["references"],
             "citation_resolution": cres,
             "sources": final.get("sources") or [],
             "source_diagnostics": final.get("source_diagnostics") or {},
-            "temporal_gate": validation_metadata(trace.get("temporal_gate")),
             "temporal_facts_summary": trace.get("temporal_facts_summary"),
         })
 

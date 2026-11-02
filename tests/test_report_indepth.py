@@ -64,14 +64,12 @@ def test_report_renders_withheld_hub_native_indepth_status(monkeypatch):
         )
     )
 
-    assert "Needs review" in cell["answer_html"]
+    assert cell["indepth_view"]["status"] == "needs_review"
     assert "In-Depth was withheld because every claim failed checks." in cell["answer_html"]
-    assert "Removed In-Depth claims" in cell["answer_html"]
+    # A draft nothing delivered is kept for review, collapsed, and named as undelivered.
+    assert cell["indepth_view"]["draft"]["kind"] == "withheld"
+    assert "<details class='draftbox' data-kind='withheld'>" in cell["answer_html"]
     assert "Rejected model claim [2]." in cell["answer_html"]
-    assert "not part of the final clinical response" in cell["answer_html"]
-    assert "<details open class='reviewdraft'>" not in cell["answer_html"]
-    assert "<details class='reviewdraft'>" in cell["answer_html"]
-    assert "Draft sources for review (not final evidence)" in cell["answer_html"]
     assert all(
         source["citation_index"] != 2 for source in cell["sources"]["sources"]
     )
@@ -102,7 +100,8 @@ def test_report_uses_response_confidence_when_trace_is_unavailable(monkeypatch):
 
     cell = report._cell_blob(row)
 
-    assert "Self-check low" in cell["answer_html"]
+    assert cell["answer_view"]["confidence_level"] == "red"
+    assert "self-check" not in cell["answer_html"].lower()
     assert "The source check failed." in cell["answer_html"]
     assert "Short answer [1]." in cell["answer_html"]
     assert "show answer" not in cell["answer_html"]
@@ -153,21 +152,28 @@ def test_report_shows_changed_original_when_result_still_needs_review(monkeypatc
     assert "current answer above remains flagged for review" in cell["answer_html"]
 
 
-def test_report_shows_same_prose_when_supporting_citations_changed(monkeypatch):
+def test_report_shows_same_prose_only_when_a_citation_now_names_another_record(monkeypatch):
     monkeypatch.setattr(report, "_trace_for_row", lambda _row, _traces: {})
-    row = _row(None)
-    del row["response"]["inDepth"]
-    row["response"]["answer"] = "Short answer [1]."
-    row["response"]["answerValidation"] = {
-        "status": "edited",
-        "originalAnswer": "Short answer [1].",
-        "originalReferences": [{"index": 1, "resourceType": "obs"}],
-    }
 
-    cell = report._cell_blob(row)
+    def cell_for(original_source):
+        row = _row(None)
+        del row["response"]["inDepth"]
+        row["response"]["answer"] = "Short answer [1]."
+        row["response"]["references"] = [{"index": 1, "sourceId": "obs:current"}]
+        row["response"]["answerValidation"] = {
+            "status": "edited",
+            "originalAnswer": "Short answer [1].",
+            "originalReferences": [{"index": 1, "sourceId": original_source}],
+        }
+        return report._cell_blob(row)
 
-    assert "Original model answer" in cell["answer_html"]
-    assert "answer or its supporting citations was changed" in cell["answer_html"]
+    changed = cell_for("obs:earlier")
+    unchanged = cell_for("obs:current")
+
+    assert changed["answer_view"]["show_original"] is True
+    assert "Original model answer" in changed["answer_html"]
+    assert unchanged["answer_view"]["show_original"] is False
+    assert "Original model answer" not in unchanged["answer_html"]
 
 
 def test_report_recovers_rejected_draft_from_historical_trace(monkeypatch):
@@ -211,7 +217,7 @@ def test_report_recovers_rejected_draft_from_historical_trace(monkeypatch):
     assert "Initial rejected claim [1]." in cell["answer_html"]
     assert "Latest rejected model claim [2]." not in cell["answer_html"]
     assert "Observation: initial source" in cell["answer_html"]
-    assert "Draft sources for review (not final evidence)" in cell["answer_html"]
+    assert cell["indepth_view"]["draft"]["kind"] == "withheld"
 
 
 def test_report_retains_legacy_separate_indepth(monkeypatch):
