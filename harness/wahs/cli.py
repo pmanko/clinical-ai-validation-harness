@@ -1,0 +1,128 @@
+"""CLI subcommands for WAHS (Washington Health Summary) evaluation."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+from .evaluator import (
+    VALID_CONDENSE_MODES,
+    VALID_CONTEXT_ARMS,
+    VALID_EVALUATION_MODALITIES,
+    WahsHubClient,
+    run_wahs_suite,
+    score_wahs_run,
+)
+
+
+def _positive_token_budget(raw: str) -> int:
+    try:
+        val = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid token budget: {raw!r}") from exc
+    if val <= 0 or val > 65536:
+        raise argparse.ArgumentTypeError(
+            f"token budget must be between 1 and 65536 (got {val})"
+        )
+    return val
+
+
+def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
+    wahs = parent.add_parser(
+        "wahs",
+        help="Run and score WAHS (Washington Health Summary) FHIR R4 condensation & Q&A evaluations",
+    )
+    sub = wahs.add_subparsers(dest="wahs_action", required=True)
+
+    run_p = sub.add_parser("run", help="Run a WAHS evaluation suite against Med Agent Hub")
+    run_p.add_argument(
+        "--cases",
+        required=True,
+        help="Path to wahs_eval_cases.jsonl",
+    )
+    run_p.add_argument(
+        "--hub-url",
+        default=None,
+        help="Med Agent Hub base URL (default: $MED_AGENT_HUB_BASE_URL or http://127.0.0.1:8000)",
+    )
+    run_p.add_argument(
+        "--output-dir",
+        default="artifacts/wahs",
+        help="Directory to write the frozen WAHS run directory",
+    )
+    run_p.add_argument(
+        "--budget",
+        action="append",
+        type=_positive_token_budget,
+        dest="budgets",
+        help="Target token budget(s) to evaluate in [1, 65536] (repeatable; defaults to each case's target_token_budgets)",
+    )
+    run_p.add_argument(
+        "--context-arm",
+        action="append",
+        choices=VALID_CONTEXT_ARMS,
+        dest="context_arms",
+        help="Context representation arm(s) to evaluate (repeatable)",
+    )
+    run_p.add_argument(
+        "--condense-mode",
+        action="append",
+        choices=VALID_CONDENSE_MODES,
+        dest="condense_modes",
+        help="Condensation mode(s) to evaluate (repeatable)",
+    )
+    run_p.add_argument(
+        "--evaluation-modality",
+        choices=VALID_EVALUATION_MODALITIES,
+        default="deterministic_pipeline",
+        help="Evaluation modality controlling Hub condensation/lookup mode and run metadata",
+    )
+    run_p.add_argument(
+        "--resume",
+        default=None,
+        help="Prior partial WAHS run directory to resume from",
+    )
+    run_p.add_argument("--git-sha", help="Caller-supplied runner revision (optional)")
+    run_p.add_argument(
+        "--target-provenance",
+        help="JSON file of caller-supplied target provenance objects",
+    )
+
+    score_p = sub.add_parser(
+        "score",
+        help="Re-score a completed WAHS run directory offline from its frozen inputs",
+    )
+    score_p.add_argument("run_dir", help="Completed WAHS run directory")
+
+
+def dispatch(args: argparse.Namespace) -> int:
+    if args.wahs_action == "score":
+        summary = score_wahs_run(Path(args.run_dir))
+        print(json.dumps(summary, indent=2))
+        return 0 if (summary["passed_cells"] == summary["total_cells"] and not summary.get("incomplete")) else 1
+
+    if args.wahs_action == "run":
+        provenance = (
+            json.loads(Path(args.target_provenance).read_text(encoding="utf-8"))
+            if args.target_provenance
+            else None
+        )
+        client = WahsHubClient(base_url=args.hub_url)
+        result = run_wahs_suite(
+            args.cases,
+            client=client,
+            output_dir=args.output_dir,
+            budgets=args.budgets,
+            context_arms=getattr(args, "context_arms", None),
+            condense_modes=getattr(args, "condense_modes", None),
+            git_sha=args.git_sha,
+            target_provenance=provenance,
+            evaluation_modality=getattr(args, "evaluation_modality", "deterministic_pipeline"),
+            resume_from=getattr(args, "resume", None),
+        )
+        print(json.dumps(result.summary, indent=2))
+        return 0 if result.passed_cells == result.total_cells else 1
+
+    raise ValueError(f"Unknown wahs action: {args.wahs_action}")

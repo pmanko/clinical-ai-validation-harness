@@ -45,7 +45,8 @@ def trace_transport_for_result(
     ).strip()
     if transport:
         return transport
-    if request.get("provider"):
+    provider = str(request.get("provider") or "").strip().lower()
+    if provider == "chartsearchai":
         return "chartsearchai"
     return None
 
