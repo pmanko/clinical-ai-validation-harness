@@ -248,6 +248,14 @@ def indepth_point_marks(response: dict[str, Any]) -> dict[int, dict[str, bool]]:
 # ------------------------------------------------------------------ judge reference
 
 
+def _temporal_axes(row: dict[str, Any]) -> list[str]:
+    return [
+        key
+        for key in row
+        if isinstance(key, str) and key.startswith("temporal_")
+    ]
+
+
 def judged_answer_faults(row: dict[str, Any], accuracy_threshold: float) -> dict[str, bool]:
     """What the judge faulted in one cell, per reference axis plus their union."""
     accuracy_threshold = _validate_accuracy_threshold(accuracy_threshold)
@@ -255,7 +263,7 @@ def judged_answer_faults(row: dict[str, Any], accuracy_threshold: float) -> dict
     numeric = isinstance(accuracy, (int, float)) and not isinstance(accuracy, bool)
     temporal = any(
         row.get(axis) not in (None, "ok")
-        for axis in ("temporal_date_accuracy", "temporal_window", "temporal_trend")
+        for axis in _temporal_axes(row)
     )
     faults = {
         "citation": _status(row.get("citation_groundedness")) in _CITATION_FAULTS,
@@ -274,7 +282,7 @@ def _has_reference_axes(row: dict[str, Any]) -> bool:
     has_harm = isinstance(row.get("harm"), bool)
     has_temp = any(
         row.get(axis) is not None
-        for axis in ("temporal_date_accuracy", "temporal_window", "temporal_trend")
+        for axis in _temporal_axes(row)
     )
     return has_acc or has_cit or has_harm or has_temp
 

@@ -30,12 +30,18 @@ from datetime import datetime, timezone
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.blinding import MAP_FILE, load_map, unblind_rows  # noqa: E402
-from harness.validate.judging import CARD_SCHEMA, RUNNER_FIELDS, actor_id, self_preference  # noqa: E402
+from harness.validate.judging import (  # noqa: E402
+    CARD_SCHEMA,
+    RUNNER_FIELDS,
+    actor_id,
+    canonical_actors,
+    self_preference,
+)
 
 
 def _portable_path(raw: str | pathlib.Path, rd: pathlib.Path) -> str:
-    path = pathlib.Path(raw).resolve()
-    for base in (rd.resolve(), ROOT.resolve()):
+    path = pathlib.Path(raw).expanduser().resolve()
+    for base in (rd.resolve(), (ROOT / ".claude" / "skills").resolve(), ROOT.resolve()):
         try:
             return path.relative_to(base).as_posix()
         except ValueError:
@@ -43,10 +49,19 @@ def _portable_path(raw: str | pathlib.Path, rd: pathlib.Path) -> str:
     return pathlib.Path(raw).name
 
 
+def _portable_rubric_ref(raw: str, rd: pathlib.Path) -> str:
+    p = pathlib.Path(raw)
+    if p.is_absolute() or ".." in p.parts or raw.startswith("~"):
+        return _portable_path(raw, rd)
+    return p.as_posix()
+
+
 def _resolve_rubric_digest(rubric_ref: str, rd: pathlib.Path, explicit_digest: str | None) -> str | None:
     if explicit_digest:
         return str(explicit_digest)
+    raw_path = pathlib.Path(rubric_ref).expanduser()
     candidates = [
+        raw_path,
         ROOT / ".claude" / "skills" / rubric_ref,
         ROOT / rubric_ref,
         rd / rubric_ref,
@@ -65,15 +80,7 @@ def _invalidate_stale_agreement(rd: pathlib.Path, actor: str | None, promoted: b
         path = judges_dir / name
         if not path.is_file():
             continue
-        remove = promoted
-        if not remove and actor:
-            try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                remove = True
-            else:
-                remove = isinstance(payload, dict) and actor in (payload.get("actors") or [])
-        if remove:
+        if promoted or actor:
             path.unlink(missing_ok=True)
     if promoted:
         for mpath in judges_dir.glob("*/manifest.json"):
@@ -160,30 +167,36 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _load_explicit_blind_map(rd: pathlib.Path, blind_dir: str | None) -> tuple[dict[str, dict[str, str]], pathlib.Path]:
+def _load_explicit_blind_map(
+    rd: pathlib.Path,
+    blind_dir: str | None,
+    cells: list[dict] | None = None,
+) -> tuple[dict[str, dict[str, str]], pathlib.Path]:
     if blind_dir:
         cand = pathlib.Path(blind_dir)
         map_path = cand if cand.is_file() else cand / MAP_FILE
-        try:
-            data = json.loads(map_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            data = {}
-        scenarios = data.get("scenarios") if isinstance(data, dict) else None
-        return (scenarios if isinstance(scenarios, dict) else {}), map_path
-    return load_map(rd), rd / MAP_FILE
+        return load_map(map_path, cells=cells), map_path
+    return load_map(rd, cells=cells), rd / MAP_FILE
 
 
 def main() -> None:
     args = _parse_args()
     rd = run_dir(args.run)
     card = {}
+    raw_rubric_input: str | None = None
     if args.card:
-        card = json.loads(pathlib.Path(args.card).read_text(encoding="utf-8"))
-        if not isinstance(card, dict):
+        raw_card = json.loads(pathlib.Path(args.card).read_text(encoding="utf-8"))
+        if not isinstance(raw_card, dict):
             sys.exit(f"{args.card}: a judge card is a JSON object")
-        card = {k: card[k] for k in RUNNER_FIELDS if card.get(k) not in (None, "")}
+        if raw_card.get("rubric") not in (None, ""):
+            raw_rubric_input = str(raw_card["rubric"])
+        card = {k: raw_card[k] for k in RUNNER_FIELDS if raw_card.get(k) not in (None, "")}
+        if "blinded" in card:
+            card["blinded"] = bool(card["blinded"])
         if "brief_path" in card:
             card["brief_path"] = _portable_path(str(card["brief_path"]), rd)
+        if "rubric" in card:
+            card["rubric"] = _portable_rubric_ref(str(card["rubric"]), rd)
         if not args.model and card.get("model"):
             args.model = card["model"]
         if not args.actor:
@@ -204,12 +217,14 @@ def main() -> None:
     # Background/In-Depth block should be retained. Older judge-cells used the
     # overloaded name "is_team"; keep it as a fallback for old runs.
     cells = {}
+    cell_list = []
     with open(rd / "judge-cells.jsonl", encoding="utf-8") as cells_fh:
         for line in cells_fh:
             if not line.strip():
                 continue
             c = json.loads(line)
             cells[(c["scenario_id"], c["backend_id"])] = c
+            cell_list.append(c)
 
     # Require explicit blind mode (--blind, --blind-dir, card.blinded, or row.blinded)
     # so a genuine backend named 'A' is never rewritten unless the input is actually blinded.
@@ -221,7 +236,7 @@ def main() -> None:
     )
     unblinded = 0
     if blind_requested:
-        blind_map, map_path = _load_explicit_blind_map(rd, args.blind_dir)
+        blind_map, map_path = _load_explicit_blind_map(rd, args.blind_dir, cells=cell_list)
         if not blind_map:
             sys.exit(f"blinded input requires a valid blind map at {map_path}")
         for r in rows:
@@ -276,10 +291,15 @@ def main() -> None:
     out.sort(key=lambda x: (x["scenario_id"], x["backend_id"]))
     destinations: list[tuple[pathlib.Path, bool]] = []
     if args.actor:
+        promote = args.promote and not args.no_promote
+        if not promote and args.actor in canonical_actors(rd):
+            sys.exit(
+                f"actor {args.actor!r} is currently in canonical.json; "
+                "pass --promote to update the canonical judgment"
+            )
         actor_dir = rd / "judges" / args.actor
         actor_dir.mkdir(parents=True, exist_ok=True)
         destinations.append((actor_dir / "judge.jsonl", False))
-        promote = args.promote and not args.no_promote
     else:
         promote = not args.no_promote
     if promote:
@@ -303,9 +323,10 @@ def main() -> None:
                 "written_at": datetime.now(timezone.utc).isoformat(),
             }, indent=2) + "\n", encoding="utf-8")
         if args.actor and not canonical:
-            rubric_ref = str(card.get("rubric") or "clinical-answer-scoring/rubric.md")
+            raw_rubric_ref = raw_rubric_input or str(card.get("rubric") or "clinical-answer-scoring/rubric.md")
+            rubric_ref = _portable_rubric_ref(raw_rubric_ref, rd)
             rubric_sha256 = _resolve_rubric_digest(
-                rubric_ref,
+                raw_rubric_ref,
                 rd,
                 str(card["rubric_sha256"]) if card.get("rubric_sha256") else None,
             )
@@ -322,7 +343,7 @@ def main() -> None:
                 "source_rows": _portable_path(args.rows, rd),
                 "output": "judge.jsonl",
                 "promoted_to_canonical": promote,
-                "blinded": bool(unblinded),
+                "blinded": bool(blind_requested),
                 "n_rows": len(out),
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "rubric": rubric_ref,

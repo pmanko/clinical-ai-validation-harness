@@ -634,3 +634,90 @@ def test_withheld_response_indepth_is_not_repopulated_from_trace_in_depth_claims
     assert dash_turn["indepth_view"]["body_html"] == ""
     assert dash_turn["indepth_view"]["draft"]["kind"] == "withheld"
     assert dash_turn["indepth_view"] == report_cell["indepth_view"]
+
+
+def test_historical_trace_indepth_dict_is_normalized_across_dashboard_and_report_and_grid_counts_flagged(tmp_path: Path):
+    from harness.validate.report import build_report
+    from harness.validate.review_presentation import SECTION_STATUS, row_review_summary, status_legend
+    import re
+
+    assert {item["status"] for item in status_legend()} == set(SECTION_STATUS)
+    summary = row_review_summary({
+        "response": {
+            "answer": "Ans",
+            "inDepth": {
+                "answer": "- Claim 1\n- Claim 2",
+                "validation": {"status": "needs_review", "flagged": [2], "marked": [1]},
+            },
+        }
+    })
+    assert summary["marked"] == 2
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "historical-trace-indepth"
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    (run / "inputs" / "scenarios" / "s1.json").write_text(
+        json.dumps({"id": "s1", "turns": [{"n": 1, "question": "q1"}]}), encoding="utf-8"
+    )
+    (run / "run_manifest.json").write_text(
+        json.dumps({
+            "run_id": "r-hist",
+            "component": "validate",
+            "git_sha": "abc123",
+            "dataset_id": "demo",
+            "otel": {"gen_ai.provider.name": "lmstudio"},
+            "generated_at": "2026-05-30",
+        }),
+        encoding="utf-8",
+    )
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "scenario_ids": ["s1"], "backend_ids": ["b1"]}) + "\n"
+        + json.dumps({"event_type": "backend_selected", "backend_id": "b1", "modelName": "b1"}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps({"backends": {"b1": {"modelName": "b1"}}}), encoding="utf-8"
+    )
+    row = {
+        "run_id": "r-hist",
+        "scenario_id": "s1",
+        "backend_id": "b1",
+        "turn": 1,
+        "started_at": "2026-05-30T10:00:00",
+        "ended_at": "2026-05-30T10:00:30",
+        "request": {"question": "q1", "session": "s-1", "request_id": "req-1"},
+        "response": {
+            "answer": "Delivered answer [1].",
+            "references": [{"index": 1, "resourceType": "obs", "resourceUuid": "u1"}],
+        },
+        "metrics": {"http_status": 200, "latency_ms": 100, "answer_chars": 20, "citation_count": 1},
+    }
+    trace = {
+        "level_id": "b1",
+        "ts": "2026-05-30T10:00:15",
+        "question": "q1",
+        "correlation": {"session": "s-1", "request_id": "req-1"},
+        "in_depth_claims": {
+            "text": "- Historical trace claim [1].",
+            "status": "checked",
+            "validation": {"status": "checked", "claims": ["Historical trace claim [1]."]},
+        },
+    }
+    (run / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    (run / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
+
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        dash_turn = vd.detail("s1", "b1")["turns"][0]
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    html = build_report(run).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    report_cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
+
+    assert "Historical trace claim [1]." in dash_turn["indepth_view"]["body_html"]
+    assert "<li>text</li>" not in dash_turn["indepth_view"]["body_html"]
+    assert dash_turn["indepth_view"] == report_cell["indepth_view"]

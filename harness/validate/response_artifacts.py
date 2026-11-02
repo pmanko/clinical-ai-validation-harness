@@ -93,6 +93,43 @@ def prepare_answer_review(
     return prepared
 
 
+def _trace_indepth_fallback(trace: Any) -> dict[str, Any]:
+    """Normalize a historical trace-only ``in_depth_claims`` payload when no response In-Depth exists."""
+    if not isinstance(trace, dict):
+        return {}
+    raw = trace.get("in_depth_claims")
+    if isinstance(raw, list):
+        claims = [str(c).strip() for c in raw if str(c or "").strip()]
+        if not claims:
+            return {}
+        return {
+            "answer": "\n".join(c if c.startswith(("-", "*", "•")) else f"- {c}" for c in claims),
+            "source": "trace.in_depth_claims",
+        }
+    if isinstance(raw, dict):
+        text = raw.get("text") if "text" in raw else raw.get("answer")
+        if text is None and isinstance(raw.get("claims"), list):
+            claims = [str(c).strip() for c in raw["claims"] if str(c or "").strip()]
+            text = "\n".join(c if c.startswith(("-", "*", "•")) else f"- {c}" for c in claims)
+        answer = str(text or "").strip()
+        status = raw.get("status")
+        validation = raw.get("validation") if isinstance(raw.get("validation"), dict) else None
+        error = raw.get("error")
+        if not (answer or status or validation or error):
+            return {}
+        out: dict[str, Any] = {"answer": answer, "source": "trace.in_depth_claims"}
+        if status is not None:
+            out["status"] = status
+        if validation is not None:
+            out["validation"] = validation
+        if error is not None:
+            out["error"] = error
+        return out
+    if isinstance(raw, str) and raw.strip():
+        return {"answer": raw.strip(), "source": "trace.in_depth_claims"}
+    return {}
+
+
 def prepare_indepth_review(
     indepth: Any,
     trace: Any,
@@ -102,6 +139,16 @@ def prepare_indepth_review(
     if not isinstance(indepth, dict):
         return indepth
     prepared = dict(indepth)
+    if (
+        not prepared.get("source")
+        and not (prepared.get("answer") or "").strip()
+        and not prepared.get("validation")
+        and not prepared.get("status")
+        and not prepared.get("error")
+    ):
+        fallback = _trace_indepth_fallback(trace)
+        if fallback:
+            prepared.update(fallback)
     if not prepared.get("reviewDraft"):
         historical_draft = review_draft_from_trace(trace)
         final_draft = str(prepared.get("answer") or "").strip()
@@ -205,46 +252,57 @@ def in_depth_artifact(
             nested = json.loads(nested)
         except (TypeError, ValueError):
             nested = {"answer": nested}
-    nested_indepth = (
-        nested.get("inDepth")
-        if isinstance(nested, dict) and isinstance(nested.get("inDepth"), dict)
-        else {}
-    )
-    answer = (
-        (nested_indepth.get("answer") if nested_indepth else None)
-        or (nested.get("answer") if isinstance(nested, dict) else "")
-    )
+    outer_error = separate.get("error")
+    if isinstance(nested, dict) and isinstance(nested.get("inDepth"), dict):
+        nested_indepth = nested["inDepth"]
+        raw_ans = nested_indepth.get("answer")
+        normalized_answer = raw_ans.strip() if isinstance(raw_ans, str) else ""
+        nested_status = nested_indepth.get("status") or nested.get("status")
+        nested_error = nested_indepth.get("error") or nested.get("error") or outer_error
+        nested_validation = (
+            nested_indepth["validation"]
+            if "validation" in nested_indepth
+            else nested.get("validation")
+        )
+        nested_refs = (
+            nested_indepth["references"]
+            if "references" in nested_indepth
+            else nested.get("references")
+        ) or []
+        nested_cits = (
+            nested_indepth["citations"]
+            if "citations" in nested_indepth
+            else nested.get("citations")
+        ) or []
+        artifact = {
+            "answer": normalized_answer,
+            "status": nested_status or ("failed" if outer_error and not normalized_answer else None),
+            "validation": nested_validation,
+            "error": nested_error,
+            "latency_ms": nested_indepth.get("latency_ms") or separate.get("latency_ms"),
+            "references": nested_refs,
+            "citations": nested_cits,
+            "source": "row.indepth",
+        }
+        if nested_indepth.get("reviewDraft"):
+            artifact["reviewDraft"] = nested_indepth["reviewDraft"]
+            artifact["reviewReferences"] = nested_indepth.get("reviewReferences") or []
+        return artifact
+
+    answer = nested.get("answer") if isinstance(nested, dict) else ""
     normalized_answer = (
         answer.strip() if isinstance(answer, str) and answer else embedded_answer.strip()
     )
-    outer_error = separate.get("error")
-    nested_status = (
-        (nested_indepth.get("status") if nested_indepth else None)
-        or (nested.get("status") if isinstance(nested, dict) else None)
-    )
-    nested_error = (
-        (nested_indepth.get("error") if nested_indepth else None)
-        or (nested.get("error") if isinstance(nested, dict) else None)
-    )
-    nested_validation = (
-        (nested_indepth.get("validation") if nested_indepth else None)
-        or (nested.get("validation") if isinstance(nested, dict) else None)
-    )
+    nested_status = nested.get("status") if isinstance(nested, dict) else None
+    nested_error = nested.get("error") if isinstance(nested, dict) else None
+    nested_validation = nested.get("validation") if isinstance(nested, dict) else None
     return {
         "answer": normalized_answer,
         "status": nested_status or ("failed" if outer_error and not normalized_answer else None),
         "validation": nested_validation,
         "error": nested_error or outer_error,
         "latency_ms": separate.get("latency_ms"),
-        "references": (
-            (nested_indepth.get("references") or nested.get("references") or [])
-            if isinstance(nested, dict)
-            else []
-        ),
-        "citations": (
-            (nested_indepth.get("citations") or nested.get("citations") or [])
-            if isinstance(nested, dict)
-            else []
-        ),
+        "references": (nested.get("references") or []) if isinstance(nested, dict) else [],
+        "citations": (nested.get("citations") or []) if isinstance(nested, dict) else [],
         "source": "row.indepth" if separate else ("answer" if normalized_answer else None),
     }
