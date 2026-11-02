@@ -271,6 +271,36 @@ def test_legacy_separate_indepth_points_are_scored(tmp_path):
     assert points[("s1", "b1", 1, 2)]["marked"] is True
 
 
+def test_withheld_nested_indepth_keeps_empty_answer_and_any_temporal_axis_counts_as_fault():
+    from harness.validate.check_precision import judged_answer_faults
+    from harness.validate.response_artifacts import in_depth_artifact
+
+    row = {
+        "response": {"answer": "Direct answer\n**In Depth**\nEmbedded stale text"},
+        "indepth": {
+            "response": {
+                "answer": "Outer combined answer",
+                "inDepth": {
+                    "answer": "",
+                    "status": "needs_review",
+                    "reviewDraft": "- Withheld draft",
+                    "validation": {"status": "needs_review", "claims": ["Withheld draft"]},
+                },
+            }
+        },
+    }
+    artifact = in_depth_artifact(row, row["response"], "Embedded stale text")
+    assert artifact["answer"] == ""
+    assert artifact["reviewDraft"] == "- Withheld draft"
+
+    faults = judged_answer_faults(
+        {"accuracy": 9, "citation_groundedness": "supported", "harm": False, "temporal_last_visit": "wrong"},
+        7.0,
+    )
+    assert faults["temporal"] is True
+    assert faults["any"] is True
+
+
 def test_blank_run_arg_and_invalid_accuracy_threshold_are_rejected(tmp_path):
     import pytest
 
