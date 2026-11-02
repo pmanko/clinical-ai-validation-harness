@@ -30,17 +30,21 @@ test: setup
 smoke: setup
 	$(UV) run pytest evals/dataset_import evals/metadata
 
+BLIND ?=
 validate-judge-prep: setup
-	$(UV) run python scripts/judge-prep.py $(RUN)
+	$(UV) run python scripts/judge-prep.py $(RUN) $(if $(BLIND),--blind,)
 
 JUDGE_ACTOR_TYPE ?= llm-judge
 JUDGE_MODEL ?=
 JUDGE_METHOD ?= clinical-answer-scoring
+JUDGE_CARD ?=
 validate-judge-finalize: setup
 	$(UV) run python scripts/judge-finalize.py $(RUN) $(ROWS) \
 		$(if $(JUDGE_ACTOR),--actor $(JUDGE_ACTOR) --actor-type $(JUDGE_ACTOR_TYPE) --model "$(JUDGE_MODEL)" --method "$(JUDGE_METHOD)",) \
+		$(if $(JUDGE_CARD),--card $(JUDGE_CARD),) \
+		$(if $(BLIND),--blind,) \
 		$(if $(JUDGE_PROMOTE),--promote,)
-	@if [ -z "$(JUDGE_ACTOR)" ] || [ -n "$(JUDGE_PROMOTE)" ]; then \
+	@if { [ -z "$(JUDGE_ACTOR)" ] && [ -z "$(JUDGE_CARD)" ]; } || [ -n "$(JUDGE_PROMOTE)" ]; then \
 	  $(UV) run harness-cli validate report $(RUN); \
 	else \
 	  echo "judge actor stored; root judge.jsonl unchanged; skipping report render (set JUDGE_PROMOTE=1 to promote)"; \

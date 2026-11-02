@@ -28,7 +28,7 @@ dependencies = [
 dev = [
   "pytest>=8.0",
   "tdd-guard",      # pytest reporter feeding the in-session red-first hook
-  "pytest-cov",     # coverage.xml for the CI diff-coverage gate
+  "pytest-cov>=7",  # coverage.xml and coverage.py subprocess instrumentation
   "diff-cover",     # enforce coverage on changed lines in CI
 ]
 
@@ -47,6 +47,10 @@ markers = [
 # deps + test runners (e.g. `make med-agent-hub-test`); collecting them here fails
 # on missing deps (a2a-sdk, fastapi, ...).
 addopts = "-m 'not slow' --ignore=targets"
+
+[tool.coverage.run]
+# CLI behavior tests launch Python children; include their executed lines in CI.
+patch = ["subprocess"]
 
 [dependency-groups]
 dev = [

@@ -1,0 +1,240 @@
+"""Blind judging: lettered bundles per scenario, mapped back at finalize."""
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from harness.validate.blinding import blind_cells, load_map, unblind_rows, write_bundles
+
+ROOT = Path(__file__).resolve().parents[1]
+FINALIZE = ROOT / "scripts" / "judge-finalize.py"
+
+
+def _cells():
+    return [{"scenario_id": s, "backend_id": b, "answer_section": f"{s}/{b}",
+             "citation_resolution": {"n_refs": 0, "n_resolved": 0, "n_unresolved": 0, "unresolved": [], "rate": None}}
+            for s in ("s1", "s2") for b in ("arm-x", "arm-y", "arm-z")]
+
+
+def test_bundles_letter_the_arms_per_scenario_and_the_map_names_them():
+    bundles, blind_map = blind_cells(_cells(), "run-1")
+
+    assert sorted(bundles) == ["s1", "s2"]
+    for scenario, rows in bundles.items():
+        letters = [r["backend_id"] for r in rows]
+        assert letters == ["A", "B", "C"]
+        assert all(r["blinded"] for r in rows)
+        assert sorted(blind_map["scenarios"][scenario].values()) == ["arm-x", "arm-y", "arm-z"]
+        # The answer travels with its letter, so a letter's answer is the arm the map names.
+        for r in rows:
+            assert r["answer_section"] == f"{scenario}/{blind_map['scenarios'][scenario][r['backend_id']]}"
+
+
+def test_the_shuffle_is_fixed_by_the_run_and_differs_between_runs():
+    a = blind_cells(_cells(), "run-1")[1]["scenarios"]
+    b = blind_cells(_cells(), "run-1")[1]["scenarios"]
+    assert a == b
+    other = [blind_cells(_cells(), f"run-{i}")[1]["scenarios"] for i in range(2, 12)]
+    assert any(o != a for o in other)
+
+
+def test_unblind_maps_letters_back_and_leaves_real_arms_alone():
+    _, blind_map = blind_cells(_cells(), "run-1")
+    letter = next(iter(blind_map["scenarios"]["s1"]))
+    rows, mapped = unblind_rows([{"scenario_id": "s1", "backend_id": letter},
+                                 {"scenario_id": "s1", "backend_id": "arm-x"},
+                                 {"scenario_id": "unknown", "backend_id": "A"}],
+                                blind_map["scenarios"])
+    assert mapped == 1
+    assert rows[0]["backend_id"] == blind_map["scenarios"]["s1"][letter]
+    assert rows[1]["backend_id"] == "arm-x"
+    assert rows[2]["backend_id"] == "A"
+
+
+def test_finalize_maps_a_blinded_pass_back_to_its_arms(tmp_path):
+    run = tmp_path / "run"
+    run.mkdir()
+    cells = _cells()
+    (run / "judge-cells.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cells))
+    paths = write_bundles(run, cells, "run-1")
+    assert [p.name for p in paths] == ["s1.jsonl", "s2.jsonl"]
+    blind_map = load_map(run)
+    rows = tmp_path / "rows.json"
+    rows.write_text(json.dumps([
+        {"scenario_id": s, "backend_id": letter, "accuracy": 9, "completeness": 8, "relevance": 9,
+         "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False, "note": letter}
+        for s in ("s1", "s2") for letter in blind_map[s]]))
+    card = tmp_path / "card.json"
+    card.write_text(json.dumps({"agent": "codex", "model": "gpt-6-astra", "reasoning_effort": "high"}))
+
+    subprocess.run([sys.executable, str(FINALIZE), str(run), str(rows), "--card", str(card), "--blind", "--promote"],
+                   check=True, capture_output=True, text=True, cwd=ROOT)
+
+    canonical = [json.loads(l) for l in (run / "judge.jsonl").read_text().splitlines()]
+    assert sorted(r["backend_id"] for r in canonical if r["scenario_id"] == "s1") == ["arm-x", "arm-y", "arm-z"]
+    for r in canonical:
+        assert blind_map[r["scenario_id"]][r["note"]] == r["backend_id"]
+    manifest = json.loads((run / "judges" / "codex-gpt-6-astra-high-p1" / "manifest.json").read_text())
+    assert manifest["blinded"] is True
+
+
+def test_unblinded_finalization_does_not_remap_letter_named_backends_and_rejects_unknown_arms(tmp_path):
+    row_template = {
+        "scenario_id": "s1", "accuracy": 9, "completeness": 8, "relevance": 9,
+        "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False, "note": "ok",
+        "citation_resolution": {"n_refs": 0, "n_resolved": 0, "n_unresolved": 0, "unresolved": [], "rate": None},
+    }
+    cells = [{**row_template, "backend_id": b} for b in ("A", "Z")]
+    seed = next(str(i) for i in range(50) if blind_cells(cells, str(i))[1]["scenarios"]["s1"]["A"] != "A")
+    run = tmp_path / "letter-collision"
+    run.mkdir()
+    write_bundles(run, cells, seed)
+    (run / "judge-cells.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cells))
+    rows = run / "rows.json"
+    rows.write_text(json.dumps([cells[0]]))
+
+    subprocess.run([sys.executable, str(FINALIZE), str(run), str(rows)],
+                   check=True, capture_output=True, text=True, cwd=ROOT)
+    published = json.loads((run / "judge.jsonl").read_text())
+    assert published["backend_id"] == "A"
+
+    missing = tmp_path / "missing-map"
+    missing.mkdir()
+    (missing / "judge-cells.jsonl").write_text(json.dumps({**row_template, "backend_id": "b1"}) + "\n")
+    (missing / "rows.json").write_text(json.dumps([{**row_template, "backend_id": "A"}]))
+    proc = subprocess.run([sys.executable, str(FINALIZE), str(missing), str(missing / "rows.json")],
+                          capture_output=True, text=True, cwd=ROOT)
+    assert proc.returncode != 0
+    assert not (missing / "judge.jsonl").exists()
+
+    proc_blind = subprocess.run(
+        [sys.executable, str(FINALIZE), str(missing), str(missing / "rows.json"), "--blind"],
+        capture_output=True, text=True, cwd=ROOT,
+    )
+    assert proc_blind.returncode != 0
+
+
+def test_blinding_supports_more_than_26_arms():
+    cells = [{"scenario_id": "s1", "backend_id": f"arm-{i:02d}", "answer_section": f"ans-{i}"} for i in range(30)]
+    bundles, blind_map = blind_cells(cells, "run-30")
+    letters = [r["backend_id"] for r in bundles["s1"]]
+    assert len(set(letters)) == 30
+    assert "AA" in letters and "AD" in letters
+    unblinded, count = unblind_rows(bundles["s1"], blind_map["scenarios"])
+    assert count == 30
+    assert sorted(r["backend_id"] for r in unblinded) == [f"arm-{i:02d}" for i in range(30)]
+
+
+def test_write_bundles_rejects_traversal_scenario_ids(tmp_path):
+    import pytest
+
+    for bad_id in ("../published", "a/b", "..", "."):
+        with pytest.raises(ValueError, match="invalid scenario_id"):
+            write_bundles(tmp_path, [{"scenario_id": bad_id, "backend_id": "arm-x"}], "run-1")
+
+
+def test_load_map_rejects_tampered_permutation_and_card_blinded_flag_triggers_unblinding(tmp_path):
+    run = tmp_path / "run"
+    run.mkdir()
+    cells = _cells()
+    (run / "judge-cells.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cells))
+    write_bundles(run, cells, "run-1")
+    valid_map = load_map(run)
+    assert valid_map
+
+    # Swap A and B in s1 so the map is a wrong permutation of valid arms
+    map_file = run / "judge-blind-map.json"
+    tampered = json.loads(map_file.read_text())
+    tampered["scenarios"]["s1"]["A"], tampered["scenarios"]["s1"]["B"] = (
+        tampered["scenarios"]["s1"]["B"],
+        tampered["scenarios"]["s1"]["A"],
+    )
+    map_file.write_text(json.dumps(tampered))
+    assert load_map(run) == {}
+
+    # Restore valid map and verify card {"blinded": true} triggers unblinding without --blind
+    write_bundles(run, cells, "run-1")
+    rows = tmp_path / "rows.json"
+    rows.write_text(json.dumps([
+        {"scenario_id": s, "backend_id": letter, "accuracy": 9, "completeness": 8, "relevance": 9,
+         "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False, "note": letter}
+        for s in ("s1", "s2") for letter in valid_map[s]
+    ]))
+    card = tmp_path / "card.json"
+    card.write_text(json.dumps({
+        "agent": "codex", "model": "gpt-6-astra", "reasoning_effort": "high", "blinded": True,
+    }))
+    subprocess.run(
+        [sys.executable, str(FINALIZE), str(run), str(rows), "--card", str(card), "--promote"],
+        check=True, capture_output=True, text=True, cwd=ROOT,
+    )
+    canonical = [json.loads(line) for line in (run / "judge.jsonl").read_text().splitlines()]
+    assert sorted(r["backend_id"] for r in canonical if r["scenario_id"] == "s1") == ["arm-x", "arm-y", "arm-z"]
+
+    # Even when all rows are skipped/errors, manifest records blinded: True when blind mode was requested
+    err_rows = tmp_path / "err_rows.json"
+    err_rows.write_text(json.dumps([{"scenario_id": "s1", "backend_id": "A", "_error": "rate_limit"}]))
+    card2 = tmp_path / "card2.json"
+    card2.write_text(json.dumps({
+        "agent": "codex", "model": "gpt-6-astra", "reasoning_effort": "high", "pass_index": 2, "blinded": True,
+    }))
+    subprocess.run(
+        [sys.executable, str(FINALIZE), str(run), str(err_rows), "--card", str(card2)],
+        check=True, capture_output=True, text=True, cwd=ROOT,
+    )
+    manifest2 = json.loads((run / "judges" / "codex-gpt-6-astra-high-p2" / "manifest.json").read_text())
+    assert manifest2["blinded"] is True
+
+
+def test_validate_blind_map_and_load_map_reject_malformed_inputs_and_tampered_bundles(tmp_path):
+    from harness.validate.blinding import MAP_SCHEMA, validate_blind_map
+
+    cells = _cells()
+    _, valid = blind_cells(cells, "run-1")
+    for bad in (
+        "not-a-dict",
+        {"schema_version": 999},
+        {"schema_version": MAP_SCHEMA, "run_id": ""},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"../bad": {"A": "arm-x"}}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"s1": {}}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"s1": {"": "arm-x"}}},
+        {"schema_version": MAP_SCHEMA, "run_id": "run-1", "scenarios": {"s1": {"A": "arm-x", "B": "arm-x"}}},
+    ):
+        assert validate_blind_map(bad, cells=cells) == {}
+    assert validate_blind_map(valid, cells=cells, expected_run_id="other-run") == {}
+    assert validate_blind_map(valid, cells=[{"scenario_id": "../bad", "backend_id": "x"}]) == {}
+
+    run = tmp_path / "bundle-check"
+    run.mkdir()
+    (run / "judge-cells.jsonl").write_text("\n" + "".join(json.dumps(c) + "\n" for c in cells))
+    (run / "run_meta.json").write_text(json.dumps({"run_id": "run-1"}))
+    write_bundles(run, cells, "run-1")
+    assert load_map(run)
+
+    # Extra bundle file, bad JSON, wrong row count, non-dict row, wrong letter, wrong answer_section
+    bdir = run / "judge-bundles"
+    (bdir / "extra.jsonl").write_text("{}\n")
+    assert load_map(run) == {}
+    (bdir / "extra.jsonl").unlink()
+
+    s1_orig = (bdir / "s1.jsonl").read_text()
+    for bad_s1 in (
+        "{bad json\n",
+        json.dumps({"scenario_id": "s1", "backend_id": "A"}) + "\n",
+        "[]\n" * 3,
+        (json.dumps({"scenario_id": "s1", "backend_id": "Z", "answer_section": "x"}) + "\n") * 3,
+    ):
+        (bdir / "s1.jsonl").write_text(bad_s1)
+        assert load_map(run) == {}
+    tampered_rows = [json.loads(line) for line in s1_orig.splitlines() if line.strip()]
+    tampered_rows[0]["answer_section"] = "tampered"
+    (bdir / "s1.jsonl").write_text("".join(json.dumps(r) + "\n" for r in tampered_rows))
+    assert load_map(run) == {}
+
+    # Malformed run_meta.json and judge-cells.jsonl
+    (bdir / "s1.jsonl").write_text(s1_orig)
+    (run / "run_meta.json").write_text("{bad")
+    (run / "judge-cells.jsonl").write_text("{bad\n")
+    assert load_map(run)
+
