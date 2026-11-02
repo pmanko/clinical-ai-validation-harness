@@ -605,6 +605,7 @@ def indepth_section_view(
     ]
     marked = sorted(
         set(validation.get("marked") or [])
+        | set(validation.get("flagged") or [])
         | {row["index"] for row in rows if row["marked"]}
     )
     note = ""
@@ -720,10 +721,9 @@ def row_review_summary(row: Any) -> dict[str, Any]:
     _, embedded = split_answer_sections(response.get("answer"))
     artifact = in_depth_artifact(row, response, embedded)
     indepth = _indepth_status(artifact)
-    marks = (artifact.get("validation") or {}).get("marked") if isinstance(
-        artifact.get("validation"), dict
-    ) else None
-    return {"answer": answer, "indepth": indepth, "marked": len(marks or [])}
+    indepth_val = artifact.get("validation") if isinstance(artifact.get("validation"), dict) else {}
+    marks = set(indepth_val.get("marked") or []) | set(indepth_val.get("flagged") or [])
+    return {"answer": answer, "indepth": indepth, "marked": len(marks)}
 
 
 def cell_review_summary(rows: list[Any]) -> dict[str, Any]:
@@ -740,7 +740,18 @@ def cell_review_summary(rows: list[Any]) -> dict[str, Any]:
 
 def status_legend() -> list[dict[str, str]]:
     """Every status a grid cell can show, in the order a legend lists them."""
-    order = ["checked", "edited", "needs_review", "unavailable", "no_claims", "not_in_profile", "not_checked"]
+    order = [
+        "checked",
+        "edited",
+        "needs_review",
+        "failed",
+        "unavailable",
+        "checking",
+        "pending",
+        "no_claims",
+        "not_in_profile",
+        "not_checked",
+    ]
     return [status_display(status) for status in order]
 
 

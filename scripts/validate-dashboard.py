@@ -540,17 +540,6 @@ def detail(scenario, backend):
         answer_confidence_display, indepth_confidence_display = section_confidence_displays(
             tr, resp.get("confidence")
         )
-        trace_claims = (tr or {}).get("in_depth_claims") or []
-        if (
-            trace_claims
-            and review_artifact.get("source") != "response.inDepth"
-            and not (review_artifact.get("answer") or "").strip()
-        ):
-            # Older team runs carried In-Depth only in the Hub trace.
-            review_artifact = {
-                **review_artifact,
-                "answer": "\n".join(f"- {claim}" for claim in trace_claims),
-            }
         turns.append({"turn": r.get("turn"),
                       "question": (r.get("request") or {}).get("question", ""),
                       "answer": direct_answer,
