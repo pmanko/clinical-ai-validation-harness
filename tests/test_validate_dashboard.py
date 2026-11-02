@@ -18,66 +18,135 @@ def test_dashboard_shows_single_and_multi_actor_judgments_honestly():
     assert "no multi-judge score yet" not in DASHBOARD_SOURCE
 
 
-def test_dashboard_keeps_flagged_model_output_visible_for_manual_review():
-    assert "confidence inversion" not in DASHBOARD_SOURCE
-    assert "Removed In-Depth claims" in DASHBOARD_SOURCE
-    assert "not part of the final clinical response" in DASHBOARD_SOURCE
-    assert "<details open class=reviewdraft>" not in DASHBOARD_SOURCE
-    assert "function indepthReviewDraft" not in DASHBOARD_SOURCE
-    assert "const draft=(t.review_draft||'').trim()" in DASHBOARD_SOURCE
-    assert "renderOriginalAnswer(validation,currentAnswer)" in DASHBOARD_SOURCE
-    assert "current answer above remains flagged for review" in DASHBOARD_SOURCE
-    assert "Original-answer sources (not final evidence)" in DASHBOARD_SOURCE
-    assert '"answer_confidence_display": answer_confidence_display' in DASHBOARD_SOURCE
-    assert "const answerConf=t.answer_confidence_display" in DASHBOARD_SOURCE
-    assert "<details class=collapse><summary>show '+title.toLowerCase()" not in DASHBOARD_SOURCE
+FIXTURE_ROWS = json.loads(
+    (ROOT / "tests" / "fixtures" / "review_presentation_rows.json").read_text(encoding="utf-8")
+)
 
 
-def test_dashboard_renderer_shows_flagged_output_and_citation_only_original():
+def _run_js(body: str) -> dict:
+    """Run the dashboard's section renderers in node on the given views."""
     esc_line = "const esc=" + DASHBOARD_SOURCE.split("const esc=", 1)[1].split("\n", 1)[0]
-    confidence_js = DASHBOARD_SOURCE[
-        DASHBOARD_SOURCE.index("const CONF_COLORS=") : DASHBOARD_SOURCE.index(
-            "function renderReviewDraft"
-        )
+    tone_lines = DASHBOARD_SOURCE[
+        DASHBOARD_SOURCE.index("const TONE_CLS=") : DASHBOARD_SOURCE.index("let LAST_STATUS=")
     ]
-    original_js = DASHBOARD_SOURCE[
-        DASHBOARD_SOURCE.index("function renderOriginalAnswer") : DASHBOARD_SOURCE.index(
+    renderers = DASHBOARD_SOURCE[
+        DASHBOARD_SOURCE.index("function statusChip") : DASHBOARD_SOURCE.index(
             "function renderTrace"
         )
     ]
     script = f"""
 {esc_line}
-{confidence_js}
+{tone_lines}
 const renderBlocks=()=>'';
-{original_js}
-const flagged=confSection(
-  'Answer',
-  'Flagged model output [1].',
-  {{level:'red',label:'Self-check low',note:'Check the date.',note_treatment:'prominent'}},
-  {{status:'needs_review',label:'Needs review',tone:'danger'}}
-);
-const original=renderOriginalAnswer(
-  {{status:'edited',originalAnswer:'Flagged model output [1].',originalReferences:[{{index:1}}]}},
-  'Flagged model output [1].'
-);
-process.stdout.write(JSON.stringify({{flagged,original}}));
+{renderers}
+{body}
 """
-    rendered = json.loads(subprocess.run(
-        ["node", "-e", script],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout)
-
-    assert "Check the date." in rendered["flagged"]
-    assert "Flagged model output [1]." in rendered["flagged"]
-    assert "<details" not in rendered["flagged"]
-    assert "show answer" not in rendered["flagged"].lower()
-    assert rendered["flagged"].index("Check the date.") < rendered["flagged"].index(
-        "Flagged model output [1]."
+    return json.loads(
+        subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True).stdout
     )
-    assert "Original model answer" in rendered["original"]
-    assert "answer or its supporting citations was changed" in rendered["original"]
+
+
+def _cell_detail(tmp_path: Path, names: list[str]):
+    """A chart-answer run of captured rows, served through status() and detail()."""
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    rows = [FIXTURE_ROWS[name] for name in names]
+    scenarios = list(dict.fromkeys(r["scenario_id"] for r in rows))
+    backends = list(dict.fromkeys(r["backend_id"] for r in rows))
+    for sid in scenarios:
+        turns = max(r["turn"] for r in rows if r["scenario_id"] == sid)
+        (run / "inputs" / "scenarios" / f"{sid}.json").write_text(
+            json.dumps({"turns": [{}] * turns}), encoding="utf-8"
+        )
+    events = [{"event_type": "run", "scenario_ids": scenarios, "backend_ids": backends}]
+    events += [
+        {"event_type": "backend_selected", "backend_id": b, "label": f"Label for {b}"}
+        for b in backends
+    ]
+    (run / "events.jsonl").write_text(
+        "\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8"
+    )
+    (run / "results.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8"
+    )
+    vd._RUN_OVERRIDE = str(run)
+    return vd
+
+
+def test_section_renderers_show_one_status_the_note_and_every_claim_verdict(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["checked"])
+    try:
+        turn = vd.detail("am-weight-trend", "hub-profile-single-12b-checked")["turns"][0]
+    finally:
+        vd._RUN_OVERRIDE = None
+    views = json.dumps({"a": turn["answer_view"], "i": turn["indepth_view"]})
+    rendered = _run_js(f"""
+const v={views};
+const indepth=sectionHtml('In-Depth',v.i,v.i.body_html,renderClaims(v.i)+renderDraft(v.i,{{}})+renderRawCheck(v.i));
+const answer=sectionHtml('Answer',v.a,'Answer body [21].');
+process.stdout.write(JSON.stringify({{indepth,answer}}));
+""")
+
+    indepth = rendered["indepth"]
+    assert indepth.count("class=\"schip") == 1, "one status chip per section"
+    assert "self-check" not in (indepth + rendered["answer"]).lower()
+    # The note naming the checks precedes the visible In-Depth body.
+    assert indepth.index(turn["indepth_view"]["note"]) < indepth.index("<ul class='md-list'>")
+    assert indepth.count("<tr") == 1 + len(turn["indepth_view"]["claims"])
+    assert indepth.count("t-bad") >= 2
+    # The raw check record stays available, collapsed.
+    assert "<details class=rawrefs>" in indepth
+    assert "draftbox" not in indepth
+
+
+def test_a_draft_differing_only_in_citation_format_is_not_shown(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["citation_format_draft"])
+    try:
+        turns = vd.detail("convo-safety-escalation", "hub-profile-single-12b-checked")["turns"]
+    finally:
+        vd._RUN_OVERRIDE = None
+    view = json.dumps(turns[0]["indepth_view"])
+    rendered = _run_js(f"process.stdout.write(JSON.stringify({{d:renderDraft({view},{{}})}}));")
+
+    assert turns[0]["indepth_view"]["draft"] is None
+    assert rendered["d"] == ""
+
+
+def test_the_grid_carries_answer_and_in_depth_status_per_cell(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["checked", "answer_only", "bundled"])
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+    grid = {g["backend"]: g for g in status["grid"]}
+
+    checked = grid["hub-profile-single-12b-checked"]
+    assert checked["state"] == "done"
+    assert checked["answer"]["status"] == "edited"
+    assert checked["indepth"]["status"] == "needs_review"
+    assert checked["marked"] == 1
+    assert grid["engine-parity-hub-answer-12b"]["indepth"]["status"] == "not_in_profile"
+    assert grid["engine-parity-bundled-12b"]["answer"]["status"] == "not_checked"
+    assert {entry["status"] for entry in status["status_legend"]} >= {"checked", "needs_review"}
+    assert status["finished"] is True
+
+
+def test_a_hub_arm_carries_the_product_profile_title_from_captured_inputs(tmp_path: Path):
+    vd = _cell_detail(tmp_path, ["checked", "bundled"])
+    run = Path(vd._RUN_OVERRIDE)
+    (run / "inputs" / "backends.json").write_text(json.dumps({
+        "hub-profile-single-12b-checked": {"label": "Arm label", "provider": "hub", "modelName": "single-12b-checked"},
+        "engine-parity-bundled-12b": {"label": "Bundled", "provider": "bundled", "modelName": "single-12b-checked"},
+        "single-12b-checked": {"label": "Checked answer (12B profile)", "kind": "product_profile", "modelName": "single-12b-checked"},
+    }), encoding="utf-8")
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    assert status["profile_titles"] == {"hub-profile-single-12b-checked": "Checked answer (12B profile)"}
+    assert status["arm_cards"]["hub-profile-single-12b-checked"] is None
 
 
 def _load_dashboard_module():
@@ -370,3 +439,285 @@ def test_single_line_sql_is_formatted_for_reading_and_nothing_else_is():
     prose = "The data records no home address."
     assert f(prose) == prose
     assert f(None) is None
+
+
+def test_the_checks_against_the_judge_section_appears_once_the_run_is_scored(tmp_path: Path):
+    """The dashboard renders check_precision.table_html from judges/check-precision.json
+    and the page shows it only when the file exists."""
+    import shutil
+
+    from harness.validate.check_precision import score_run, write_scores
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    shutil.copytree(ROOT / "tests" / "fixtures" / "check_precision_run", run)
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        before = vd.status()
+        write_scores(run, score_run(run))
+        after = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    assert before["check_precision_html"] == ""
+    assert "<table" in after["check_precision_html"]
+    assert "Precision: of the items a check marked" in after["check_precision_html"]
+    rendered = _run_js(f"""
+const d={json.dumps({"check_precision_html": after["check_precision_html"]})};
+const nodes={{}};
+global.document={{getElementById:id=>nodes[id]||(nodes[id]={{style:{{}},innerHTML:''}})}};
+renderCheckPrecision({{}});
+const hidden=nodes.checksec.style.display;
+renderCheckPrecision(d);
+const firstHtml=nodes.checkprec.innerHTML;
+// Simulate browser quote normalization on innerHTML; re-polling same payload must not reset DOM.
+nodes.checkprec.innerHTML='normalized-dom-stays-intact';
+renderCheckPrecision(d);
+process.stdout.write(JSON.stringify({{hidden,shown:nodes.checksec.style.display,html:firstHtml,afterPoll:nodes.checkprec.innerHTML}}));
+""")
+    assert rendered["hidden"] == "none" and rendered["shown"] == ""
+    assert "Citation support" in rendered["html"]
+    assert rendered["afterPoll"] == "normalized-dom-stays-intact"
+
+
+def test_a_withdrawn_confidence_level_lists_findings_instead_of_a_chip():
+    view = {
+        "status": "needs_review", "label": "Needs review", "tone": "danger", "confidence": None,
+        "note": "Citation support: [311] states CD4 341, not 72.",
+        "findings": [
+            {"check": "citation", "name": "Citation support", "where": "answer", "says": "[311] states CD4 341, not 72", "tone": "neutral"},
+            {"check": "citation", "name": "Citation support", "where": "answer", "says": "[21] does not hold 52 kg", "tone": "neutral"},
+        ],
+    }
+    rendered = _run_js(f"""
+const v={json.dumps(view)};
+process.stdout.write(JSON.stringify({{h:sectionHtml('Answer',v,'body')}}));
+""")
+    html = rendered["h"]
+    assert html.count("class=\"schip") == 1 and "sconf" not in html
+    assert html.count("<li") == 2 and "does not hold 52 kg" in html
+    assert html.index("<ul class=findings>") < html.index("<div class=ans>")
+
+
+def test_dashboard_judge_scores_display_canonical_median_and_label_combined_mean_separately(
+    tmp_path: Path,
+):
+    import sys
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "dashboard-median"
+    run.mkdir()
+    row = {
+        "scenario_id": "s1", "backend_id": "b1", "accuracy": 8, "completeness": 8,
+        "relevance": 8, "harm": False, "abstention_outcome": "n-a",
+        "citation_groundedness": "supported", "note": "fine",
+    }
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "backend_ids": ["b1"], "scenario_ids": ["s1"]}) + "\n",
+        encoding="utf-8",
+    )
+    for i, score in enumerate((10, 8, 2), 1):
+        d = run / "judges" / f"p{i}"
+        d.mkdir(parents=True)
+        (d / "judge.jsonl").write_text(
+            json.dumps({**row, "accuracy": score, "completeness": score, "relevance": score}) + "\n",
+            encoding="utf-8",
+        )
+        (d / "manifest.json").write_text(
+            json.dumps({"model": "model", "pass_index": i}), encoding="utf-8"
+        )
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "judge-aggregate.py"), str(run),
+         "--actor", "p1", "--actor", "p2", "--actor", "p3"],
+        check=True, capture_output=True, text=True, cwd=ROOT,
+    )
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    fn = vd.PAGE.split("function renderJudgeScores(d){", 1)[1].split("// The background poll", 1)[0]
+    js = (
+        "const esc=s=>String(s), fmt10=s=>Number(s).toFixed(1), armTitle=s=>s;\n"
+        "function renderJudgeScores(d){" + fn + "\n"
+        "process.stdout.write(renderJudgeScores(" + json.dumps(status) + "));\n"
+    )
+    rendered = subprocess.run(
+        ["node", "-e", js], check=True, capture_output=True, text=True
+    ).stdout
+
+    assert status["judge"][0]["benchmark_score"] == 80.0
+    assert status["judge_combined"][0]["benchmark_score"] == 66.7
+    assert "<span class=score>80.0</span>" in rendered
+    assert "<span class=score>66.7</span>" not in rendered
+    assert "<th>mean across actors</th>" in rendered
+    assert "<td>66.7</td>" in rendered
+
+
+def test_withheld_response_indepth_is_not_repopulated_from_trace_in_depth_claims(tmp_path: Path):
+    from harness.validate.report import build_report
+    import re
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "withheld-indepth"
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    (run / "inputs" / "scenarios" / "s1.json").write_text(
+        json.dumps({"id": "s1", "turns": [{"n": 1, "question": "q1"}]}), encoding="utf-8"
+    )
+    (run / "run_manifest.json").write_text(
+        json.dumps({
+            "run_id": "r1",
+            "component": "validate",
+            "git_sha": "abc123",
+            "dataset_id": "demo",
+            "otel": {"gen_ai.provider.name": "lmstudio"},
+            "generated_at": "2026-05-30",
+        }),
+        encoding="utf-8",
+    )
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "scenario_ids": ["s1"], "backend_ids": ["b1"]}) + "\n"
+        + json.dumps({"event_type": "backend_selected", "backend_id": "b1", "modelName": "b1"}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps({"backends": {"b1": {"modelName": "b1"}}}), encoding="utf-8"
+    )
+    row = {
+        "run_id": "r1",
+        "scenario_id": "s1",
+        "backend_id": "b1",
+        "turn": 1,
+        "started_at": "2026-05-30T10:00:00",
+        "ended_at": "2026-05-30T10:00:30",
+        "request": {"question": "q1", "session": "s-1", "request_id": "req-1"},
+        "response": {
+            "answer": "Delivered answer [1].",
+            "references": [{"index": 1, "resourceType": "obs", "resourceUuid": "u1"}],
+            "inDepth": {
+                "status": "needs_review",
+                "answer": "",
+                "reviewDraft": "- Withheld claim [99].",
+                "error": "In-Depth was withheld.",
+                "validation": {"status": "needs_review", "claims": ["Withheld claim [99]."]},
+            },
+        },
+        "metrics": {"http_status": 200, "latency_ms": 100, "answer_chars": 20, "citation_count": 1},
+    }
+    trace = {
+        "level_id": "b1",
+        "ts": "2026-05-30T10:00:15",
+        "question": "q1",
+        "correlation": {"session": "s-1", "request_id": "req-1"},
+        "in_depth_claims": {
+            "text": "- Withheld claim [99].",
+            "status": "needs_review",
+            "validation": {"status": "needs_review", "claims": ["Withheld claim [99]."]},
+        },
+    }
+    (run / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    (run / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
+
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        dash_turn = vd.detail("s1", "b1")["turns"][0]
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    html = build_report(run).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    report_cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
+
+    assert dash_turn["indepth_view"]["body_html"] == ""
+    assert dash_turn["indepth_view"]["draft"]["kind"] == "withheld"
+    assert dash_turn["indepth_view"] == report_cell["indepth_view"]
+
+
+def test_historical_trace_indepth_dict_is_normalized_across_dashboard_and_report_and_grid_counts_flagged(tmp_path: Path):
+    from harness.validate.report import build_report
+    from harness.validate.review_presentation import SECTION_STATUS, row_review_summary, status_legend
+    import re
+
+    assert {item["status"] for item in status_legend()} == set(SECTION_STATUS)
+    summary = row_review_summary({
+        "response": {
+            "answer": "Ans",
+            "inDepth": {
+                "answer": "- Claim 1\n- Claim 2",
+                "validation": {"status": "needs_review", "flagged": [2], "marked": [1]},
+            },
+        }
+    })
+    assert summary["marked"] == 2
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "historical-trace-indepth"
+    (run / "inputs" / "scenarios").mkdir(parents=True)
+    (run / "inputs" / "scenarios" / "s1.json").write_text(
+        json.dumps({"id": "s1", "turns": [{"n": 1, "question": "q1"}]}), encoding="utf-8"
+    )
+    (run / "run_manifest.json").write_text(
+        json.dumps({
+            "run_id": "r-hist",
+            "component": "validate",
+            "git_sha": "abc123",
+            "dataset_id": "demo",
+            "otel": {"gen_ai.provider.name": "lmstudio"},
+            "generated_at": "2026-05-30",
+        }),
+        encoding="utf-8",
+    )
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "scenario_ids": ["s1"], "backend_ids": ["b1"]}) + "\n"
+        + json.dumps({"event_type": "backend_selected", "backend_id": "b1", "modelName": "b1"}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps({"backends": {"b1": {"modelName": "b1"}}}), encoding="utf-8"
+    )
+    row = {
+        "run_id": "r-hist",
+        "scenario_id": "s1",
+        "backend_id": "b1",
+        "turn": 1,
+        "started_at": "2026-05-30T10:00:00",
+        "ended_at": "2026-05-30T10:00:30",
+        "request": {"question": "q1", "session": "s-1", "request_id": "req-1"},
+        "response": {
+            "answer": "Delivered answer [1].",
+            "references": [{"index": 1, "resourceType": "obs", "resourceUuid": "u1"}],
+        },
+        "metrics": {"http_status": 200, "latency_ms": 100, "answer_chars": 20, "citation_count": 1},
+    }
+    trace = {
+        "level_id": "b1",
+        "ts": "2026-05-30T10:00:15",
+        "question": "q1",
+        "correlation": {"session": "s-1", "request_id": "req-1"},
+        "in_depth_claims": {
+            "text": "- Historical trace claim [1].",
+            "status": "checked",
+            "validation": {"status": "checked", "claims": ["Historical trace claim [1]."]},
+        },
+    }
+    (run / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    (run / "trace.jsonl").write_text(json.dumps(trace) + "\n", encoding="utf-8")
+
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        dash_turn = vd.detail("s1", "b1")["turns"][0]
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    html = build_report(run).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    report_cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
+
+    assert "Historical trace claim [1]." in dash_turn["indepth_view"]["body_html"]
+    assert "<li>text</li>" not in dash_turn["indepth_view"]["body_html"]
+    assert dash_turn["indepth_view"] == report_cell["indepth_view"]

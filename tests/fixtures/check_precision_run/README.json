@@ -1,0 +1,30 @@
+{
+ "source": "run 5ac27952-9796-4b9e-a705-054bf297795d, trimmed by work/labels/build-check-precision-fixture.py",
+ "cells": {
+  "miss": {
+   "scenario_id": "date-aloice-orders-table",
+   "backend_id": "engine-parity-bundled-12b"
+  },
+  "clean": {
+   "scenario_id": "date-zabella-weight-endpoints",
+   "backend_id": "hub-profile-single-12b-checked"
+  },
+  "date_hit": {
+   "scenario_id": "am-weight-trend",
+   "backend_id": "hub-profile-single-12b-checked"
+  },
+  "false_alarm": {
+   "scenario_id": "date-zabella-weight-table",
+   "backend_id": "hub-profile-single-12b-xcheck"
+  },
+  "hit": {
+   "scenario_id": "am-orders-6mo",
+   "backend_id": "hub-profile-single-12b-xcheck"
+  },
+  "review_earlier_turn": {
+   "scenario_id": "convo-diagnosis-evidence",
+   "backend_id": "hub-profile-single-12b-xcheck"
+  }
+ },
+ "note": "background.claims verdicts in judge.jsonl are hand-assigned test data; the run was judged before per-point verdicts existed."
+}

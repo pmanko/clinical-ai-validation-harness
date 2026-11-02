@@ -143,8 +143,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     from .catalyst.cli import configure_parser as configure_catalyst_parser
+    from .wahs.cli import configure_parser as configure_wahs_parser
 
     configure_catalyst_parser(sub)
+    configure_wahs_parser(sub)
 
     return parser
 
@@ -239,6 +241,11 @@ def main(
         from .catalyst.cli import dispatch as dispatch_catalyst
 
         return dispatch_catalyst(args, project_root=root)
+
+    if args.command == "wahs":
+        from .wahs.cli import dispatch as dispatch_wahs
+
+        return dispatch_wahs(args)
 
     if args.command == "validate":
         if args.validate_action in {"check", "run"}:

@@ -228,7 +228,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pymysql", specifier = ">=1.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.32" },
     { name = "rfc8785", specifier = ">=0.1.4,<0.2" },

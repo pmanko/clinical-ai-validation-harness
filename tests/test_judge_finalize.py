@@ -34,3 +34,21 @@ def test_make_actor_finalize_passes_required_provenance():
     assert "--actor-type $(JUDGE_ACTOR_TYPE)" in target
     assert "--model \"$(JUDGE_MODEL)\"" in target
     assert "--method \"$(JUDGE_METHOD)\"" in target
+    assert "[ -z \"$(JUDGE_CARD)\" ]" in target
+
+
+def test_make_judge_finalize_skips_report_when_judge_card_is_unpromoted():
+    import subprocess
+
+    unpromoted = subprocess.run(
+        ["make", "-n", "validate-judge-finalize", "RUN=example", "ROWS=rows.json", "JUDGE_CARD=card.json"],
+        cwd=ROOT, check=True, capture_output=True, text=True,
+    ).stdout
+    # Execute the shell snippet emitted by make -n after replacing commands with echo markers
+    assert '[ -z "" ] && [ -z "card.json" ]' in unpromoted
+
+    promoted = subprocess.run(
+        ["make", "-n", "validate-judge-finalize", "RUN=example", "ROWS=rows.json", "JUDGE_CARD=card.json", "JUDGE_PROMOTE=1"],
+        cwd=ROOT, check=True, capture_output=True, text=True,
+    ).stdout
+    assert '--card card.json' in promoted and '--promote' in promoted

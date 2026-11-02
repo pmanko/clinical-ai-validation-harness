@@ -1,0 +1,4 @@
+{"event_type": "run", "run_id": "check-precision-fixture", "scenario_ids": ["date-aloice-orders-table", "date-zabella-weight-endpoints", "am-weight-trend", "date-zabella-weight-table", "am-orders-6mo", "convo-diagnosis-evidence"], "backend_ids": ["engine-parity-bundled-12b", "hub-profile-single-12b-checked", "hub-profile-single-12b-xcheck"]}
+{"event_type": "backend_selected", "backend_id": "engine-parity-bundled-12b", "label": "Label for engine-parity-bundled-12b"}
+{"event_type": "backend_selected", "backend_id": "hub-profile-single-12b-checked", "label": "Label for hub-profile-single-12b-checked"}
+{"event_type": "backend_selected", "backend_id": "hub-profile-single-12b-xcheck", "label": "Label for hub-profile-single-12b-xcheck"}

@@ -63,6 +63,7 @@ class RunManifest:
     patients: dict[str, Any] = field(default_factory=dict)
     dataset_provenance: dict[str, Any] = field(default_factory=dict)
     report_family: str | None = None
+    evaluation_modality: str | None = None
     suite_id: str | None = None
     suite_sha256: str | None = None
     resumed_from: str | None = None
@@ -99,6 +100,8 @@ class RunManifest:
             payload["dataset_provenance"] = self.dataset_provenance
         if self.report_family is not None:
             payload["report_family"] = self.report_family
+        if self.evaluation_modality is not None:
+            payload["evaluation_modality"] = self.evaluation_modality
         if self.suite_id is not None:
             payload["suite_id"] = self.suite_id
         if self.suite_sha256 is not None:
