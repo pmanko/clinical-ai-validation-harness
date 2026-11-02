@@ -118,6 +118,7 @@ def test_score_wahs_case_verifies_abstention_with_both_abstained_and_abstains_ke
         use_case="use_case_b3_grounded_qa",
         prompt="What was the result of the patient's 2025 brain MRI?",
         must_abstain=True,
+        valid_uuids=["uuid-patient-header"],
     )
     good_abstain_v1 = {
         "answer": "A 2025 brain MRI is not documented in the provided FHIR patient bundle.",
@@ -723,5 +724,119 @@ def test_hub_client_transient_failure_recovery_and_modality_forwarding(tmp_path:
     assert modality_requests[1]["use_lookup_tools"] is False
     assert modality_requests[2]["condense_mode"] == "lossless_structural"
     assert modality_requests[2]["use_lookup_tools"] is True
+
+
+def test_response_envelope_retained_or_valid_uuids_not_trusted_when_absent_from_case():
+    case = WahsEvalCase(
+        case_id="c",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        expected_target_uuids=["real-uuid"],
+    )
+    score = score_wahs_case(
+        case,
+        {
+            "answer": "Grounded [1] and fabricated [2].",
+            "actual_tokens": 100,
+            "retained_uuids": ["real-uuid", "fabricated-uuid"],
+            "valid_uuids": ["fabricated-uuid"],
+            "references": [
+                {"index": 1, "resourceUuid": "real-uuid"},
+                {"index": 2, "resourceUuid": "fabricated-uuid"},
+            ],
+        },
+    )
+    assert score.passed is False
+    assert score.fabricated_citation_count == 1
+    assert score.citation_resolution_rate == 0.5
+
+
+def test_default_budgets_and_resume_manifest_validation(tmp_path: Path):
+    cases_path = tmp_path / "default_budgets.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c_all_budgets",
+                "patient_id": "p",
+                "use_case": "qa",
+                "prompt": "q",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    seen_calls: list[tuple[int, str | None, str | None]] = []
+
+    class RecordingClient:
+        def evaluate_case(
+            self,
+            case: WahsEvalCase,
+            *,
+            budget_tokens: int,
+            evaluation_modality: str = "deterministic_pipeline",
+            context_arm: str | None = None,
+            condense_mode: str | None = None,
+        ):
+            seen_calls.append((budget_tokens, context_arm, condense_mode))
+            return {"answer": "ok", "actual_tokens": min(100, budget_tokens)}
+
+    out_dir = tmp_path / "runs"
+    res = run_wahs_suite(cases_path, client=RecordingClient(), output_dir=out_dir)
+    assert res.total_cells == 5
+    assert [b for b, _, _ in seen_calls] == [8192, 4096, 2048, 1024, 512]
+
+    # Resume with different evaluation_modality or modified suite_sha256 is rejected
+    with pytest.raises(ValueError, match="evaluation_modality mismatch"):
+        run_wahs_suite(
+            cases_path,
+            client=RecordingClient(),
+            output_dir=out_dir,
+            evaluation_modality="live_model_and_team_eval",
+            resume_from=res.run_dir,
+        )
+
+    other_cases = tmp_path / "other.jsonl"
+    other_cases.write_text(
+        json.dumps({"case_id": "c_other", "patient_id": "p", "use_case": "qa", "prompt": "q2"}) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="suite_sha256 mismatch"):
+        run_wahs_suite(
+            other_cases,
+            client=RecordingClient(),
+            output_dir=out_dir,
+            resume_from=res.run_dir,
+        )
+
+    # Multi-axis context_arms and condense_modes sweep
+    seen_calls.clear()
+    multi = run_wahs_suite(
+        cases_path,
+        client=RecordingClient(),
+        output_dir=out_dir,
+        budgets=[4096, 1024],
+        context_arms=["tiered_condensed", "lossless_structural"],
+        condense_modes=["tiered", "hierarchical"],
+    )
+    assert multi.total_cells == 8
+    assert len(seen_calls) == 8
+
+
+def test_trace_transport_for_result_distinguishes_chartsearchai_from_hub_and_bundled():
+    from harness.validate.hub_trace import trace_transport_for_result
+
+    assert trace_transport_for_result({"request": {"provider": "chartsearchai"}}) == "chartsearchai"
+    assert trace_transport_for_result({"request": {"provider": "hub"}}) is None
+    assert trace_transport_for_result({"request": {"provider": "bundled"}}) is None
+    assert (
+        trace_transport_for_result(
+            {"request": {"provider": "hub"}},
+            fallback_transport="hub",
+        )
+        == "hub"
+    )
+
 
 

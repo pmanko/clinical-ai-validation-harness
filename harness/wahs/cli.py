@@ -7,7 +7,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .evaluator import VALID_EVALUATION_MODALITIES, WahsHubClient, run_wahs_suite, score_wahs_run
+from .evaluator import (
+    VALID_CONDENSE_MODES,
+    VALID_CONTEXT_ARMS,
+    VALID_EVALUATION_MODALITIES,
+    WahsHubClient,
+    run_wahs_suite,
+    score_wahs_run,
+)
 
 
 def _positive_token_budget(raw: str) -> int:
@@ -50,7 +57,21 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         action="append",
         type=_positive_token_budget,
         dest="budgets",
-        help="Target token budget(s) to evaluate in [1, 65536] (repeatable; defaults to each case's primary budget)",
+        help="Target token budget(s) to evaluate in [1, 65536] (repeatable; defaults to each case's target_token_budgets)",
+    )
+    run_p.add_argument(
+        "--context-arm",
+        action="append",
+        choices=VALID_CONTEXT_ARMS,
+        dest="context_arms",
+        help="Context representation arm(s) to evaluate (repeatable)",
+    )
+    run_p.add_argument(
+        "--condense-mode",
+        action="append",
+        choices=VALID_CONDENSE_MODES,
+        dest="condense_modes",
+        help="Condensation mode(s) to evaluate (repeatable)",
     )
     run_p.add_argument(
         "--evaluation-modality",
@@ -94,6 +115,8 @@ def dispatch(args: argparse.Namespace) -> int:
             client=client,
             output_dir=args.output_dir,
             budgets=args.budgets,
+            context_arms=getattr(args, "context_arms", None),
+            condense_modes=getattr(args, "condense_modes", None),
             git_sha=args.git_sha,
             target_provenance=provenance,
             evaluation_modality=getattr(args, "evaluation_modality", "deterministic_pipeline"),

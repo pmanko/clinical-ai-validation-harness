@@ -150,6 +150,21 @@ VALID_EVALUATION_MODALITIES = (
     "live_model_and_team_eval",
 )
 
+DEFAULT_TOKEN_BUDGETS = (8192, 4096, 2048, 1024, 512)
+
+VALID_CONTEXT_ARMS = (
+    "raw_fhir_json",
+    "lossless_structural",
+    "tiered_condensed",
+    "hybrid_lookup",
+)
+
+VALID_CONDENSE_MODES = (
+    "tiered",
+    "lossless_structural",
+    "hierarchical",
+)
+
 # Synchronized with Med Agent Hub `server/fhir/normalizers.py` (`_PRIVACY_SENSITIVE_PATTERNS`).
 DEFAULT_SENSITIVE_TERMS = (
     "intimate partner violence",
@@ -254,7 +269,7 @@ class WahsEvalCase:
     use_case: str
     prompt: str
     sharing_posture: str = "patient_self"
-    target_token_budgets: list[int] = field(default_factory=lambda: [8192, 4096, 2048])
+    target_token_budgets: list[int] = field(default_factory=lambda: list(DEFAULT_TOKEN_BUDGETS))
     expected_anomaly_ids: list[str] = field(default_factory=list)
     expected_target_uuids: list[str] = field(default_factory=list)
     valid_uuids: list[str] = field(default_factory=list)
@@ -281,7 +296,7 @@ class WahsEvalCase:
             raise ValueError(
                 "WAHS eval case requires case_id, patient_id/patient_bundle, use_case, and prompt/question"
             )
-        budgets = [int(b) for b in (data.get("target_token_budgets") or [8192, 4096, 2048])]
+        budgets = [int(b) for b in (data.get("target_token_budgets") or DEFAULT_TOKEN_BUDGETS)]
         exp_uuids = data.get("expected_target_uuids") or data.get("expected_resource_uuids") or []
         valid_uuids = data.get("valid_uuids") or data.get("chart_uuids") or []
         forb_uuids = data.get("forbidden_uuids") or data.get("forbidden_resource_uuids") or []
@@ -466,16 +481,15 @@ def _extract_trusted_uuids(
     envelope: dict[str, Any],
     valid_uuids: list[str] | set[str] | tuple[str, ...] | None = None,
 ) -> set[str]:
-    """Collect trusted record UUIDs from case expectations, chart fixtures, or condensation manifests.
-    Never trusts self-declared `references`, `citations`, or `citation_map` from the response alone.
+    """Collect trusted record UUIDs from caller/case/chart expectations or condensation mappings.
+    Never trusts self-declared `references`, `citations`, `citation_map`, `valid_uuids`, or `retained_uuids`
+    from the response alone.
     """
     trusted: set[str] = set()
     for source in (
         valid_uuids or (),
         case.valid_uuids,
         case.expected_target_uuids,
-        envelope.get("valid_uuids") or (),
-        envelope.get("retained_uuids") or (),
     ):
         for u in source:
             if isinstance(u, str) and u.strip():
@@ -1031,6 +1045,7 @@ class WahsHubClient:
         *,
         budget_tokens: int,
         evaluation_modality: str | None = None,
+        context_arm: str | None = None,
         condense_mode: str | None = None,
         use_lookup_tools: bool | None = None,
     ) -> dict[str, Any]:
@@ -1040,6 +1055,8 @@ class WahsHubClient:
             "sharing_posture": case.sharing_posture,
             "target_tokens": budget_tokens,
         }
+        if context_arm is not None:
+            req_body["context_arm"] = context_arm
         if evaluation_modality is not None:
             req_body["evaluation_modality"] = evaluation_modality
             req_body["condense_mode"] = condense_mode or (
@@ -1270,18 +1287,44 @@ def _invoke_client_evaluate_case(
     *,
     budget_tokens: int,
     evaluation_modality: str,
+    context_arm: str | None = None,
+    condense_mode: str | None = None,
 ) -> dict[str, Any]:
     fn = client.evaluate_case
     try:
         sig = inspect.signature(fn)
-        accepts_modality = "evaluation_modality" in sig.parameters or any(
+        has_var_kw = any(
             p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
         )
+        accepts_modality = "evaluation_modality" in sig.parameters or has_var_kw
+        accepts_context_arm = "context_arm" in sig.parameters or has_var_kw
+        accepts_condense_mode = "condense_mode" in sig.parameters or has_var_kw
     except (TypeError, ValueError):
         accepts_modality = False
+        accepts_context_arm = False
+        accepts_condense_mode = False
+    kwargs: dict[str, Any] = {"budget_tokens": budget_tokens}
     if accepts_modality:
-        return fn(case, budget_tokens=budget_tokens, evaluation_modality=evaluation_modality)
-    return fn(case, budget_tokens=budget_tokens)
+        kwargs["evaluation_modality"] = evaluation_modality
+    if context_arm is not None and accepts_context_arm:
+        kwargs["context_arm"] = context_arm
+    if condense_mode is not None and accepts_condense_mode:
+        kwargs["condense_mode"] = condense_mode
+    return fn(case, **kwargs)
+
+
+def _cell_dict(
+    case_id: str,
+    budget_tokens: int,
+    context_arm: str | None = None,
+    condense_mode: str | None = None,
+) -> dict[str, Any]:
+    cell: dict[str, Any] = {"case_id": case_id, "budget_tokens": int(budget_tokens)}
+    if context_arm is not None:
+        cell["context_arm"] = context_arm
+    if condense_mode is not None:
+        cell["condense_mode"] = condense_mode
+    return cell
 
 
 def run_wahs_suite(
@@ -1290,6 +1333,8 @@ def run_wahs_suite(
     client: Any,
     output_dir: Path | str = "artifacts/wahs",
     budgets: tuple[int, ...] | list[int] | None = None,
+    context_arms: tuple[str, ...] | list[str] | None = None,
+    condense_modes: tuple[str, ...] | list[str] | None = None,
     git_sha: str | None = None,
     target_provenance: list[dict[str, Any]] | None = None,
     dataset_id: str = "wahs-synthetic-r4",
@@ -1306,34 +1351,76 @@ def run_wahs_suite(
         for b in budgets:
             if isinstance(b, bool) or not isinstance(b, int) or b <= 0 or b > 65536:
                 raise ValueError(f"Invalid token budget {b!r}: expected int in [1, 65536]")
+    if context_arms is not None:
+        for arm in context_arms:
+            if arm not in VALID_CONTEXT_ARMS:
+                raise ValueError(
+                    f"Invalid context_arm {arm!r}. Expected one of {VALID_CONTEXT_ARMS}"
+                )
+    if condense_modes is not None:
+        for mode in condense_modes:
+            if mode not in VALID_CONDENSE_MODES:
+                raise ValueError(
+                    f"Invalid condense_mode {mode!r}. Expected one of {VALID_CONDENSE_MODES}"
+                )
 
     cases_file = Path(cases_path)
     cases_bytes = cases_file.read_bytes()
     suite_sha256 = hashlib.sha256(cases_bytes).hexdigest()
     cases = load_wahs_cases(cases_file)
 
+    active_context_arms: list[str | None] = (
+        [str(a) for a in context_arms] if context_arms else [None]
+    )
+    active_condense_modes: list[str | None] = (
+        [str(m) for m in condense_modes] if condense_modes else [None]
+    )
+
     expected_cells: list[dict[str, Any]] = []
     for case in cases:
         active_budgets = (
             [int(b) for b in budgets]
             if budgets
-            else [int(b) for b in (case.target_token_budgets[:1] or [8192])]
+            else [int(b) for b in (case.target_token_budgets or DEFAULT_TOKEN_BUDGETS)]
         )
         for b_tokens in active_budgets:
-            expected_cells.append({"case_id": case.case_id, "budget_tokens": int(b_tokens)})
+            for c_arm in active_context_arms:
+                for c_mode in active_condense_modes:
+                    expected_cells.append(
+                        _cell_dict(case.case_id, int(b_tokens), c_arm, c_mode)
+                    )
 
-    prior_rows: dict[tuple[str, int], dict[str, Any]] = {}
+    prior_rows: dict[tuple[str, int, str | None, str | None], dict[str, Any]] = {}
     resumed_run_id: str | None = None
     resume_ancestry: list[str] = []
     if resume_from is not None:
         r_dir = Path(resume_from)
         r_manifest_path = r_dir / "run_manifest.json"
-        if r_manifest_path.is_file():
-            r_manifest = json.loads(r_manifest_path.read_text(encoding="utf-8"))
-            resumed_run_id = str(r_manifest.get("run_id") or r_dir.name)
-            resume_ancestry = list(r_manifest.get("resumeAncestry") or [])
-            if resumed_run_id and resumed_run_id not in resume_ancestry:
-                resume_ancestry.append(resumed_run_id)
+        if not r_manifest_path.is_file():
+            raise ValueError(f"Cannot resume from {r_dir}: missing run_manifest.json")
+        r_manifest = json.loads(r_manifest_path.read_text(encoding="utf-8"))
+        prior_suite_sha = r_manifest.get("suite_sha256")
+        if prior_suite_sha != suite_sha256:
+            raise ValueError(
+                f"Cannot resume from {r_dir}: suite_sha256 mismatch "
+                f"(prior={prior_suite_sha!r}, current={suite_sha256!r})"
+            )
+        prior_modality = str(r_manifest.get("evaluation_modality") or "deterministic_pipeline")
+        if prior_modality != evaluation_modality:
+            raise ValueError(
+                f"Cannot resume from {r_dir}: evaluation_modality mismatch "
+                f"(prior={prior_modality!r}, current={evaluation_modality!r})"
+            )
+        prior_expected_cells = r_manifest.get("expected_cells")
+        if isinstance(prior_expected_cells, list) and prior_expected_cells != expected_cells:
+            raise ValueError(
+                f"Cannot resume from {r_dir}: expected_cells mismatch "
+                f"(prior has {len(prior_expected_cells)} cells, current has {len(expected_cells)} cells)"
+            )
+        resumed_run_id = str(r_manifest.get("run_id") or r_dir.name)
+        resume_ancestry = list(r_manifest.get("resumeAncestry") or [])
+        if resumed_run_id and resumed_run_id not in resume_ancestry:
+            resume_ancestry.append(resumed_run_id)
         r_results_path = r_dir / "results.jsonl"
         if r_results_path.is_file():
             for line in r_results_path.read_text(encoding="utf-8").splitlines():
@@ -1342,8 +1429,10 @@ def run_wahs_suite(
                 row = json.loads(line)
                 cid = str(row.get("case_id") or "")
                 btok = int(row.get("budget_tokens") or 8192)
+                c_arm = row.get("context_arm")
+                c_mode = row.get("condense_mode")
                 if cid and isinstance(row.get("response"), dict) and not row.get("error"):
-                    prior_rows[(cid, btok)] = row
+                    prior_rows[(cid, btok, c_arm, c_mode)] = row
 
     run_id = str(uuid4())
     run_dir = Path(output_dir) / run_id
@@ -1378,6 +1467,10 @@ def run_wahs_suite(
     manifest_payload["expected_cells"] = expected_cells
     if budgets is not None:
         manifest_payload["budgets"] = [int(b) for b in budgets]
+    if context_arms is not None:
+        manifest_payload["context_arms"] = [str(a) for a in context_arms]
+    if condense_modes is not None:
+        manifest_payload["condense_modes"] = [str(m) for m in condense_modes]
     manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8")
     append_event(
         events_path,
@@ -1398,38 +1491,51 @@ def run_wahs_suite(
             active_budgets = (
                 [int(b) for b in budgets]
                 if budgets
-                else [int(b) for b in (case.target_token_budgets[:1] or [8192])]
+                else [int(b) for b in (case.target_token_budgets or DEFAULT_TOKEN_BUDGETS)]
             )
             for b_tokens in active_budgets:
-                prior = prior_rows.get((case.case_id, b_tokens))
-                if prior is not None:
-                    envelope = dict(prior["response"])
-                else:
-                    envelope = _invoke_client_evaluate_case(
-                        client,
-                        case,
-                        budget_tokens=b_tokens,
-                        evaluation_modality=evaluation_modality,
-                    )
-                score = score_wahs_case(case, envelope, budget_tokens=b_tokens)
-                scores.append(score)
-                row = {
-                    "case_id": case.case_id,
-                    "patient_id": case.patient_id,
-                    "use_case": case.use_case,
-                    "sharing_posture": case.sharing_posture,
-                    "budget_tokens": b_tokens,
-                    "request": {
-                        "prompt": case.prompt,
-                        "sharing_posture": case.sharing_posture,
-                        "budget_tokens": b_tokens,
-                        "evaluation_modality": evaluation_modality,
-                    },
-                    "response": envelope,
-                    "score": score.to_dict(),
-                }
-                fh.write(json.dumps(row) + "\n")
-                fh.flush()
+                for c_arm in active_context_arms:
+                    for c_mode in active_condense_modes:
+                        prior = prior_rows.get((case.case_id, b_tokens, c_arm, c_mode))
+                        if prior is not None:
+                            envelope = dict(prior["response"])
+                        else:
+                            envelope = _invoke_client_evaluate_case(
+                                client,
+                                case,
+                                budget_tokens=b_tokens,
+                                evaluation_modality=evaluation_modality,
+                                context_arm=c_arm,
+                                condense_mode=c_mode,
+                            )
+                        score = score_wahs_case(case, envelope, budget_tokens=b_tokens)
+                        scores.append(score)
+                        req_meta: dict[str, Any] = {
+                            "prompt": case.prompt,
+                            "sharing_posture": case.sharing_posture,
+                            "budget_tokens": b_tokens,
+                            "evaluation_modality": evaluation_modality,
+                        }
+                        if c_arm is not None:
+                            req_meta["context_arm"] = c_arm
+                        if c_mode is not None:
+                            req_meta["condense_mode"] = c_mode
+                        row: dict[str, Any] = {
+                            "case_id": case.case_id,
+                            "patient_id": case.patient_id,
+                            "use_case": case.use_case,
+                            "sharing_posture": case.sharing_posture,
+                            "budget_tokens": b_tokens,
+                            "request": req_meta,
+                            "response": envelope,
+                            "score": score.to_dict(),
+                        }
+                        if c_arm is not None:
+                            row["context_arm"] = c_arm
+                        if c_mode is not None:
+                            row["condense_mode"] = c_mode
+                        fh.write(json.dumps(row) + "\n")
+                        fh.flush()
 
     summary = _summarize_scores(scores, evaluation_modality=evaluation_modality)
     summary_path = run_dir / "summary.json"
@@ -1462,8 +1568,8 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
     """Re-score a frozen WAHS run directory offline without network or target access.
 
     Compares recorded `results.jsonl` rows against the frozen suite's expected
-    `(case_id, budget_tokens)` matrix so interrupted or partial runs are flagged
-    as incomplete and missing/error cells count as failed.
+    `(case_id, budget_tokens[, context_arm, condense_mode])` matrix so interrupted
+    or partial runs are flagged as incomplete and missing/error cells count as failed.
     """
     rdir = Path(run_dir)
     cases_path = rdir / "inputs" / "wahs_eval_cases.jsonl"
@@ -1481,8 +1587,8 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
     cases = load_wahs_cases(cases_path)
     cases_by_id = {c.case_id: c for c in cases}
 
-    recorded_rows: dict[tuple[str, int], dict[str, Any]] = {}
-    observed_order: list[tuple[str, int]] = []
+    recorded_rows: dict[tuple[str, int, str | None, str | None], dict[str, Any]] = {}
+    observed_order: list[tuple[str, int, str | None, str | None]] = []
     if results_path.is_file():
         for line in results_path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
@@ -1490,42 +1596,63 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
             row = json.loads(line)
             cid = str(row["case_id"])
             b_tokens = int(row.get("budget_tokens") or 8192)
-            key = (cid, b_tokens)
+            c_arm = row.get("context_arm")
+            c_mode = row.get("condense_mode")
+            key = (cid, b_tokens, c_arm, c_mode)
             recorded_rows[key] = row
             if key not in observed_order:
                 observed_order.append(key)
 
-    expected_pairs: list[tuple[str, int]] = []
+    expected_keys: list[tuple[str, int, str | None, str | None]] = []
     raw_expected = manifest_data.get("expected_cells")
     if isinstance(raw_expected, list) and raw_expected:
         for item in raw_expected:
             if isinstance(item, dict) and "case_id" in item:
-                pair = (str(item["case_id"]), int(item.get("budget_tokens") or 8192))
-                if pair not in expected_pairs:
-                    expected_pairs.append(pair)
+                key = (
+                    str(item["case_id"]),
+                    int(item.get("budget_tokens") or 8192),
+                    item.get("context_arm"),
+                    item.get("condense_mode"),
+                )
+                if key not in expected_keys:
+                    expected_keys.append(key)
     else:
         manifest_budgets = manifest_data.get("budgets")
+        manifest_arms = manifest_data.get("context_arms")
+        manifest_modes = manifest_data.get("condense_modes")
+        active_arms: list[str | None] = (
+            [str(a) for a in manifest_arms]
+            if isinstance(manifest_arms, list) and manifest_arms
+            else [None]
+        )
+        active_modes: list[str | None] = (
+            [str(m) for m in manifest_modes]
+            if isinstance(manifest_modes, list) and manifest_modes
+            else [None]
+        )
         for case in cases:
             active_budgets = (
                 [int(b) for b in manifest_budgets]
                 if isinstance(manifest_budgets, list) and manifest_budgets
-                else [int(b) for b in (case.target_token_budgets[:1] or [8192])]
+                else [int(b) for b in (case.target_token_budgets or DEFAULT_TOKEN_BUDGETS)]
             )
             for b_tokens in active_budgets:
-                pair = (case.case_id, b_tokens)
-                if pair not in expected_pairs:
-                    expected_pairs.append(pair)
-        for pair in observed_order:
-            if pair not in expected_pairs:
-                expected_pairs.append(pair)
+                for c_arm in active_arms:
+                    for c_mode in active_modes:
+                        key = (case.case_id, b_tokens, c_arm, c_mode)
+                        if key not in expected_keys:
+                            expected_keys.append(key)
+        for key in observed_order:
+            if key not in expected_keys:
+                expected_keys.append(key)
 
     scores: list[WahsCaseScore] = []
     missing_cells: list[dict[str, Any]] = []
     expectations_path = rdir / "expectations.jsonl"
     with expectations_path.open("w", encoding="utf-8") as exp_fh:
-        for cid, b_tokens in expected_pairs:
+        for cid, b_tokens, c_arm, c_mode in expected_keys:
             case = cases_by_id[cid]
-            row = recorded_rows.get((cid, b_tokens))
+            row = recorded_rows.get((cid, b_tokens, c_arm, c_mode))
             if row is None or row.get("error") or not isinstance(row.get("response"), dict):
                 err_msg = (
                     f"evaluation error for cell ({cid}, {b_tokens}): {row.get('error')}"
@@ -1533,7 +1660,7 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
                     else f"missing or incomplete evaluation result for cell ({cid}, {b_tokens})"
                 )
                 score = _missing_cell_score(case, b_tokens, reason=err_msg)
-                missing_cells.append({"case_id": cid, "budget_tokens": b_tokens})
+                missing_cells.append(_cell_dict(cid, b_tokens, c_arm, c_mode))
             else:
                 score = score_wahs_case(case, row.get("response") or {}, budget_tokens=b_tokens)
             scores.append(score)

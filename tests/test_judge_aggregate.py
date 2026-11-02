@@ -135,6 +135,14 @@ def test_duplicate_actors_empty_matrices_and_unscorable_rows_do_not_clobber_cano
     assert late.returncode != 0
     assert canonical_path.read_text() == before
 
+    bad_harm = row(8, 8, 8, harm=None)
+    try:
+        agg.aggregate_cell([bad_harm, row(8, 8, 8, harm=False)])
+    except ValueError as e:
+        assert "cannot be scored" in str(e)
+    else:
+        raise AssertionError("missing/non-boolean harm must be refused")
+
 
 def test_conflicting_citation_resolution_and_mismatched_cell_hashes_are_refused(tmp_path):
     import pytest
