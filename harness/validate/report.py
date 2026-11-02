@@ -42,11 +42,13 @@ from harness.report_shell.document import render_document
 from harness.report_shell.stats import avg, box_stats, ordered_unique, percentile, robust_axis_max
 
 from .bundle import frozen_arm_cards, review_results, run_chart
+from .check_precision import load_scores as load_check_precision, table_html as check_precision_html
 from .hub_trace import load_traces, match_trace, trace_model_for_result, trace_transport_for_result
 
 from .judging import judge_summary
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .review_presentation import (
+    CLAIM_CHECKS,
     annotate_sources,
     answer_section_view,
     format_latency,
@@ -109,12 +111,29 @@ def _status_chip(view: Any) -> str:
     return chip
 
 
+def _render_findings(view: Any) -> str:
+    """The findings listed under a section's status when its confidence label is withdrawn."""
+    findings = (view or {}).get("findings") if isinstance(view, dict) else None
+    if not findings:
+        return ""
+    items = "".join(
+        f"<li class='{_tone(f.get('tone'))}'><b>{_esc(f.get('name'))}</b>"
+        + (f" <span class='fwhere'>({_esc(f.get('where'))})</span>" if f.get("where") else "")
+        + (f": {_esc(f.get('says'))}" if f.get("says") else "")
+        + "</li>"
+        for f in findings
+        if isinstance(f, dict)
+    )
+    return f"<ul class='findings'>{items}</ul>"
+
+
 def _render_section(label: str, body_html: str, view: Any = None, extra: str = "") -> str:
     """Render one section with its status, note and body; output is never hidden."""
     title = f"{_esc(label)} {_status_chip(view)}".rstrip()
     h = f"<div class='csec'><div class='ctitle'>{title}</div>"
     if isinstance(view, dict) and view.get("note"):
         h += f"<div class='snote {_tone(view.get('tone'))}'>{_esc(view.get('note'))}</div>"
+    h += _render_findings(view)
     if body_html.strip():
         h += f"<div class='secbody'>{body_html}</div>"
     return h + extra + "</div>"
@@ -134,14 +153,15 @@ def _render_claims(view: Any) -> str:
         )
         return f"<td class='{_tone(verdict.get('tone'))}'>{_esc(verdict.get('verdict'))}{reason}</td>"
 
-    head = "".join(f"<th>{_esc(names.get(k, k))}</th>" for k in ("date", "review", "citation"))
+    head = "".join(f"<th>{_esc(names.get(k, k))}</th>" for k in CLAIM_CHECKS)
     def row_html(row: dict[str, Any]) -> str:
         marked = " class='marked'" if row.get("marked") else ""
         cited = " ".join(f"[{i}]" for i in row.get("cited") or []) or "<span class='mut'>none</span>"
         checks = row["checks"]
+        cells = "".join(cell(checks[k]) for k in CLAIM_CHECKS)
         return (
             f"<tr{marked}><td>{row['index']}</td><td>{_esc(row.get('text'))}</td><td>{cited}</td>"
-            f"{cell(checks['date'])}{cell(checks['review'])}{cell(checks['citation'])}</tr>"
+            f"{cells}</tr>"
         )
 
     body = "".join(row_html(row) for row in rows)
@@ -769,6 +789,9 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     judge_actors = _load_judge_actors(run_dir)
     arm_cards = _arm_cards_for(run_dir, backends)
     context = _comparison_context(run_dir, events)
+    # The product's checks scored against the judge (judges/check-precision.json, written
+    # by scripts/check-precision.py after judging); absent until a run is judged.
+    check_precision = load_check_precision(run_dir)
 
     return {
         "run_id": run_id,
@@ -800,6 +823,12 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         # gains a PPI point ± 95% CI + agreement κ + the reviewer-tier badge.
         "calibrated": calibrated_summary(
             judge_rows, _load_adjudication(run_dir), backends),
+        "check_precision": check_precision,
+        "check_precision_html": (
+            check_precision_html(check_precision, {b: labels.get(b) or b for b in backends})
+            if check_precision
+            else ""
+        ),
         "patients": patients,
         "context": context,
         # WS2: structured arm makeup (single and team med-agent-hub profiles +
@@ -1098,6 +1127,11 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .snote { font-size: 12px; margin: 3px 0 5px; padding-left: 8px; border-left: 3px solid var(--line); }
 .snote.t-bad { border-left-color: #da1e28; }
 .snote.t-warn { border-left-color: #f1c21b; }
+ul.findings { margin: 2px 0 6px; padding-left: 18px; font-size: 12px; }
+ul.findings li { margin: 1px 0; }
+.fwhere { color: var(--mut); }
+.checkprec table.summary caption { text-align: left; color: var(--mut); font-size: 12px; padding: 4px 0; }
+.checkprec-arms { margin: 8px 0; }
 .secbody .md-list { margin: 0; padding-left: 20px; white-space: normal; }
 .secbody .md-list li { margin: 3px 0; }
 .secbody .md-p { margin: 0 0 4px; white-space: normal; }
@@ -1565,6 +1599,18 @@ function renderJudge(run){
   return sec;
 }
 
+function renderCheckPrecision(run){
+  // The table is rendered in Python (check_precision.table_html) so the report and the
+  // live dashboard show the same numbers with the same words; the JS only places it.
+  if(!run.check_precision_html) return null;
+  var sec=el('section','checks-section');
+  var intro=el('p','intro');
+  intro.textContent='How often each product check (date check, record check, citation support, model review, and the section status the clinician sees) agreed with the judge. Under the confidence-labels target policy, a check earns a place in the clinician view only after its precision clears the calibration bar; this table measures each check against that bar.';
+  sec.appendChild(intro);
+  var wrap=el('div'); wrap.innerHTML=run.check_precision_html; sec.appendChild(wrap);
+  wrap.querySelectorAll('table').forEach(function(t){ makeSortable(t); });
+  return sec;
+}
 // In-Depth — its own parity Benchmark, scored separately from the Answer. Split into
 // its own navigable section so the In-Depth axis is co-equal with the Answer headline,
 // not buried inside the Quality table. Returns null when no arm shipped an In-Depth.
@@ -1938,6 +1984,9 @@ function renderRun(runId){
   // 3) In-Depth — its own co-equal Benchmark
   const indepth = wrapSection(renderInDepth(run), 'sec-indepth', 'In-Depth', 'In-Depth — its own parity Benchmark');
   if (indepth) main.appendChild(indepth);
+  // 3b) The product's checks against the judge (present once the run is judged and scored).
+  const checks = wrapSection(renderCheckPrecision(run), 'sec-checks', 'Checks', 'Checks against the judge');
+  if (checks) main.appendChild(checks);
 
   // 4) Per-scenario heatmap — the scenario × setup colour grid, now its OWN navigable
   // section (split from the answer tiles so each is independently reachable in the nav).
