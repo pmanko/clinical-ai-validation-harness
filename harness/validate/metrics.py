@@ -64,6 +64,12 @@ def compute_metrics(
         usage.get("cache_n"),
     )
 
+    cache_hit_ratio = (
+        round(cached_tokens / tokens_in, 4)
+        if tokens_in is not None and tokens_in > 0 and cached_tokens is not None
+        else None
+    )
+
     metrics: dict[str, Any] = {
         "latency_ms": latency_ms,
         "http_status": http_status,
@@ -87,6 +93,7 @@ def compute_metrics(
         "tokens_in": tokens_in,
         "tokens_out": tokens_out,
         "cached_tokens": cached_tokens,
+        "cache_hit_ratio": cache_hit_ratio,
         "finish_reasons": env.get("finish_reasons"),
     }
 

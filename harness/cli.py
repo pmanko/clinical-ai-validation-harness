@@ -159,6 +159,9 @@ def _build_parser() -> argparse.ArgumentParser:
     val_conc.add_argument("--output-dir", default="artifacts/concurrency")
     val_conc.add_argument("--reference-date", metavar="YYYY-MM-DD", help="Optional reference date")
     val_conc.add_argument("--hardware-metadata", help="Optional JSON file of hardware tier/GPU/slot metadata")
+    val_conc.add_argument("--ttft-slo-ms", type=float, default=3000.0, help="TTFT SLO threshold in ms for goodput (default: 3000)")
+    val_conc.add_argument("--answer-done-slo-ms", type=float, default=10000.0, help="Answer-done SLO threshold in ms for goodput (default: 10000)")
+    val_conc.add_argument("--tpot-slo-ms", type=float, default=50.0, help="TPOT SLO threshold in ms/token for goodput (default: 50)")
 
     from .catalyst.cli import configure_parser as configure_catalyst_parser
     from .wahs.cli import configure_parser as configure_wahs_parser
@@ -388,6 +391,9 @@ def main(
                 output_dir=args.output_dir,
                 reference_date=args.reference_date,
                 hardware_metadata=hw_meta,
+                ttft_slo_ms=args.ttft_slo_ms,
+                answer_done_slo_ms=args.answer_done_slo_ms,
+                tpot_slo_ms=args.tpot_slo_ms,
             )
             print(json.dumps(out.summary, indent=2))
             return 0 if out.summary["error_turns"] == 0 else 1

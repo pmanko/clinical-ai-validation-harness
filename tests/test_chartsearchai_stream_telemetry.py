@@ -513,10 +513,15 @@ def test_concurrency_benchmark_isolates_clinician_sessions_and_aggregates_percen
     assert res.summary["error_turns"] == 0
     assert res.summary["error_rate"] == 0.0
     assert res.summary["ttft_p50_ms"] == 300.0
+    assert res.summary["turn_1_ttft_p50_ms"] == 300.0
+    assert res.summary["turn_2plus_ttft_p50_ms"] == 300.0
     assert res.summary["answer_done_p50_ms"] == 900.0
     assert res.summary["turn_done_p50_ms"] == 1500.0
     assert res.summary["tpot_p50_ms"] == 15.0
     assert res.summary["cached_tokens_avg"] == 3800.0
+    assert res.summary["cache_hit_ratio_avg"] == 0.9277
+    assert res.summary["goodput_turns"] == 8
+    assert res.summary["goodput_rate"] == 1.0
     assert res.summary["hardware"]["gpu"] == "H200"
     assert res.summary_path.exists()
     assert res.results_path.exists()
