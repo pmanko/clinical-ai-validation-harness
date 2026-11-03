@@ -7,16 +7,23 @@ from __future__ import annotations
 
 from typing import Any
 
-# chartsearchai's /chat response returns only answer/disclaimer/references/blocks/
-# session/messageId — it does NOT surface token counts, finish reasons, or the
-# resolved model. Those are emitted null in v1 and back-filled from the OTel
-# GenAI span when that correlation is wired (spec 006 SC-006.3, OTel-deferred).
-_DEFERRED: dict[str, Any] = {
-    "gen_ai.response.model": None,
-    "tokens_in": None,
-    "tokens_out": None,
-    "finish_reasons": None,
-}
+
+def _int_or_none(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return None
+
+
+def _first_int(*candidates: Any) -> int | None:
+    for candidate in candidates:
+        parsed = _int_or_none(candidate)
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def compute_metrics(
@@ -33,6 +40,29 @@ def compute_metrics(
     references = env.get("references")
     references = references if isinstance(references, list) else []
     citation_count = len(references)
+    usage = env.get("usage") if isinstance(env.get("usage"), dict) else {}
+    context = env.get("context") if isinstance(env.get("context"), dict) else {}
+    model = env.get("model") if isinstance(env.get("model"), str) and env.get("model") else None
+
+    tokens_in = _first_int(
+        env.get("inputTokens"),
+        env.get("tokens_in"),
+        usage.get("prompt_tokens"),
+        usage.get("input_tokens"),
+        context.get("input_tokens"),
+    )
+    tokens_out = _first_int(
+        env.get("outputTokens"),
+        env.get("tokens_out"),
+        usage.get("completion_tokens"),
+        usage.get("output_tokens"),
+    )
+    cached_tokens = _first_int(
+        env.get("cachedTokens"),
+        env.get("cached_tokens"),
+        usage.get("cached_tokens"),
+        usage.get("cache_n"),
+    )
 
     metrics: dict[str, Any] = {
         "latency_ms": latency_ms,
@@ -53,6 +83,31 @@ def compute_metrics(
         # The first turn per (scenario, backend) carries model warmup / cold-start
         # latency; flag it so latency_ms isn't misread (spec 006 risk note).
         "first_turn": first_turn,
+        "gen_ai.response.model": model,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "cached_tokens": cached_tokens,
+        "finish_reasons": env.get("finish_reasons"),
     }
-    metrics.update(_DEFERRED)
+
+    stream_timings = env.get("stream_timings")
+    if isinstance(stream_timings, dict):
+        for key in (
+            "ttft_ms",
+            "preliminary_start_ms",
+            "reasoning_start_ms",
+            "answer_delta_start_ms",
+            "answer_done_ms",
+            "answer_validation_ms",
+            "evidence_updated_ms",
+            "indepth_done_ms",
+            "turn_done_ms",
+            "delta_count",
+            "answer_delta_count",
+            "itl_p50_ms",
+            "itl_p95_ms",
+            "tpot_ms",
+        ):
+            if key in stream_timings:
+                metrics[key] = stream_timings[key]
     return metrics

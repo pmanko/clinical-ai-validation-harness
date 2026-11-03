@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
@@ -20,6 +21,7 @@ from uuid import uuid4
 import requests
 
 _REST = "/ws/rest/v1/chartsearchai"
+_DELTA_EVENTS = frozenset({"preliminary_delta", "reasoning_delta", "answer_delta"})
 
 # Transient HTTP statuses worth a limited retry: 429 (rate limit), the 5xx the proxy emits
 # while the backend is restarting / an upstream momentarily times out, and 401 — an
@@ -41,7 +43,116 @@ class ChatResult:
     raw_text: str = ""
 
 
-def collapse_turn_stream(raw: str) -> dict[str, Any]:
+def _percentile(sorted_values: list[float], pct: float) -> float | None:
+    if not sorted_values:
+        return None
+    if len(sorted_values) == 1:
+        return round(sorted_values[0], 2)
+    rank = (pct / 100.0) * (len(sorted_values) - 1)
+    low = int(rank)
+    high = min(low + 1, len(sorted_values) - 1)
+    weight = rank - low
+    return round(sorted_values[low] * (1.0 - weight) + sorted_values[high] * weight, 2)
+
+
+def _compute_stream_timings(
+    event_timings: Sequence[tuple[str, float]],
+    *,
+    total_latency_ms: int | None = None,
+    raw_delta_count: int = 0,
+    raw_answer_delta_count: int = 0,
+) -> dict[str, Any]:
+    first_by_event: dict[str, float] = {}
+    last_by_event: dict[str, float] = {}
+    delta_times: list[float] = []
+    answer_delta_times: list[float] = []
+    for event_name, elapsed_ms in event_timings:
+        first_by_event.setdefault(event_name, elapsed_ms)
+        last_by_event[event_name] = elapsed_ms
+        if event_name in _DELTA_EVENTS:
+            delta_times.append(elapsed_ms)
+        if event_name == "answer_delta":
+            answer_delta_times.append(elapsed_ms)
+
+    def _ms(val: float | None) -> int | None:
+        return round(val) if val is not None else None
+
+    preliminary_start = _ms(first_by_event.get("preliminary_delta"))
+    reasoning_start = _ms(first_by_event.get("reasoning_delta"))
+    answer_delta_start = _ms(first_by_event.get("answer_delta"))
+    answer_done = _ms(first_by_event.get("answer_done"))
+    answer_validation = _ms(last_by_event.get("answer_validation"))
+    evidence_updated = _ms(last_by_event.get("evidence_updated"))
+    indepth_done = _ms(
+        last_by_event.get("indepth_done")
+        if "indepth_done" in last_by_event
+        else last_by_event.get("indepth_error")
+    )
+    turn_done = _ms(
+        last_by_event.get("turn_done")
+        if "turn_done" in last_by_event
+        else last_by_event.get("turn_error")
+    )
+    if turn_done is None and total_latency_ms is not None:
+        turn_done = total_latency_ms
+
+    first_delta_candidates = [
+        ts
+        for ts in (
+            first_by_event.get("preliminary_delta"),
+            first_by_event.get("reasoning_delta"),
+            first_by_event.get("answer_delta"),
+        )
+        if ts is not None
+    ]
+    ttft_ms = (
+        round(min(first_delta_candidates))
+        if first_delta_candidates
+        else answer_done
+    )
+
+    token_times = answer_delta_times if len(answer_delta_times) >= 2 else delta_times
+    if len(token_times) >= 2:
+        intervals = sorted(
+            max(0.0, token_times[i] - token_times[i - 1])
+            for i in range(1, len(token_times))
+        )
+        itl_p50_ms = _percentile(intervals, 50.0)
+        itl_p95_ms = _percentile(intervals, 95.0)
+        tpot_ms = round(
+            (token_times[-1] - token_times[0]) / (len(token_times) - 1), 2
+        )
+    else:
+        itl_p50_ms = None
+        itl_p95_ms = None
+        tpot_ms = None
+
+    return {
+        "ttft_ms": ttft_ms,
+        "preliminary_start_ms": preliminary_start,
+        "reasoning_start_ms": reasoning_start,
+        "answer_delta_start_ms": answer_delta_start,
+        "answer_done_ms": answer_done,
+        "answer_validation_ms": answer_validation,
+        "evidence_updated_ms": evidence_updated,
+        "indepth_done_ms": indepth_done,
+        "turn_done_ms": turn_done,
+        "delta_count": len(delta_times) if event_timings else raw_delta_count,
+        "answer_delta_count": (
+            len(answer_delta_times) if event_timings else raw_answer_delta_count
+        ),
+        "itl_p50_ms": itl_p50_ms,
+        "itl_p95_ms": itl_p95_ms,
+        "tpot_ms": tpot_ms,
+    }
+
+
+def collapse_turn_stream(
+    raw: str,
+    *,
+    event_timings: Sequence[tuple[str, float]] | None = None,
+    total_latency_ms: int | None = None,
+) -> dict[str, Any]:
     """Collapse a canonical /chat/stream SSE body into the classic /chat envelope.
 
     The answer_done payload IS the envelope (the module hydrates the full answer —
@@ -51,11 +162,16 @@ def collapse_turn_stream(raw: str) -> dict[str, Any]:
     indepth_done/indepth_error and turn_done, so each one replaces what came before. An
     In-Depth event without an ``answer`` is a bare In-Depth object and nests under
     ``inDepth`` as it is. The lifecycle (minus per-token ``*_delta`` noise) is recorded
-    under ``events``. A turn_error before any answer yields its payload verbatim, with no
+    under ``events``. When ``event_timings`` (monotonic ``(event_name, elapsed_ms)`` pairs
+    captured while consuming the live SSE stream) are supplied, ``stream_timings`` is
+    attached with TTFT, stage milestone latencies, and inter-token latency percentiles.
+    A turn_error before any answer yields its payload verbatim, with no
     ``answer`` key — downstream completeness checks treat that as not-done."""
     envelope: dict[str, Any] = {}
     indepth: dict[str, Any] | None = None
     events: list[str] = []
+    raw_delta_count = 0
+    raw_answer_delta_count = 0
     event = ""
     for line in raw.splitlines():
         if line.startswith("event:"):
@@ -66,22 +182,44 @@ def collapse_turn_stream(raw: str) -> dict[str, Any]:
                 payload = json.loads(data) if data else {}
             except ValueError:
                 payload = {}
-            if not event.endswith("_delta"):
+            if event in _DELTA_EVENTS:
+                raw_delta_count += 1
+                if event == "answer_delta":
+                    raw_answer_delta_count += 1
+            elif not event.endswith("_delta"):
                 events.append(event)
-            if event == "answer_done" or ("answer" in envelope and "answer" in payload
-                                          and event not in ("turn_error", "error")):
-                envelope.update(payload)
-            elif event == "indepth_done":
-                indepth = payload
-            elif event == "indepth_error":
-                indepth = payload if "error" in payload else {"error": payload.get("message") or "in-depth failed", **payload}
-            elif event in ("turn_error", "error") and "answer" not in envelope:
-                envelope.update(payload)
+            if isinstance(payload, dict):
+                if event == "answer_done" or (
+                    "answer" in envelope
+                    and "answer" in payload
+                    and event not in ("turn_error", "error")
+                ):
+                    envelope.update(payload)
+                elif event == "indepth_done":
+                    indepth = payload
+                elif event == "indepth_error":
+                    indepth = (
+                        payload
+                        if "error" in payload
+                        else {
+                            "error": payload.get("message") or "in-depth failed",
+                            **payload,
+                        }
+                    )
+                elif event in ("turn_error", "error") and "answer" not in envelope:
+                    envelope.update(payload)
             event = ""
     out = dict(envelope)
     if indepth is not None and "inDepth" not in out:
         out["inDepth"] = indepth
     out["events"] = events
+    if event_timings is not None or total_latency_ms is not None:
+        out["stream_timings"] = _compute_stream_timings(
+            event_timings or (),
+            total_latency_ms=total_latency_ms,
+            raw_delta_count=raw_delta_count,
+            raw_answer_delta_count=raw_answer_delta_count,
+        )
     return out
 
 
@@ -91,10 +229,12 @@ class ChartSearchAiClient:
         base_url: str | None = None,
         user: str | None = None,
         password: str | None = None,
+        location_uuid: str | None = None,
         timeout: float = 2400.0,  # HIGH tier serial-loads 3-4 big GGUFs/turn (~17 min) at router models-max=1
         min_interval_s: float | None = None,
         max_retries: int | None = None,
         retry_wait_s: float | None = None,
+        session: requests.Session | None = None,
     ) -> None:
         self.base_url = (base_url or _default_base_url()).rstrip("/")
         self.timeout = timeout
@@ -114,22 +254,46 @@ class ChartSearchAiClient:
             retry_wait_s if retry_wait_s is not None
             else float(os.environ.get("VALIDATE_RETRY_WAIT_S", "7.0"))
         )
+        self.location_uuid = (
+            location_uuid
+            if location_uuid is not None
+            else os.environ.get("CHARTSEARCH_LOCATION_UUID")
+        )
+        self._location_applied = False
         self._last_call = 0.0
-        self._session = requests.Session()
+        self._session = session or requests.Session()
         self._session.auth = (
-            user or os.environ.get("CHARTSEARCH_ADMIN_USER", "admin"),
-            password or os.environ.get("CHARTSEARCH_ADMIN_PASSWORD", "Admin123"),
+            user
+            or os.environ.get("CHARTSEARCH_USER")
+            or os.environ.get("CHARTSEARCH_ADMIN_USER", "admin"),
+            password
+            or os.environ.get("CHARTSEARCH_PASSWORD")
+            or os.environ.get("CHARTSEARCH_ADMIN_PASSWORD", "Admin123"),
         )
         self._session.headers.update({"Content-Type": "application/json"})
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}{_REST}{path}"
 
+    def _ensure_session_location(self) -> None:
+        if not self.location_uuid or self._location_applied:
+            return
+        self._location_applied = True
+        try:
+            self._session.post(
+                f"{self.base_url}/ws/rest/v1/session",
+                json={"location": self.location_uuid},
+                timeout=self.timeout,
+            )
+        except Exception:
+            pass
+
     def new_session(self, patient: str, provider: str | None = None) -> str:
         """Close the active session for this patient and open a fresh one — bound to
         `provider` when pinned (engine-parity arms). Retries a transient
         gateway/rate-limit status (the backend may be restarting) up to
         max_retries before raising, so a single blip doesn't abort the whole run."""
+        self._ensure_session_location()
         body: dict[str, str] = {"patient": patient}
         if provider:
             body["provider"] = provider
@@ -152,6 +316,50 @@ class ChartSearchAiClient:
             if wait > 0:
                 time.sleep(wait)
 
+    @staticmethod
+    def _consume_sse_response(
+        resp: Any, start_ns: int
+    ) -> tuple[str, list[tuple[str, float]]]:
+        """Incrementally read SSE lines as they arrive and stamp monotonic event timings."""
+        event_timings: list[tuple[str, float]] = []
+        if hasattr(resp, "iter_lines"):
+            lines: list[str] = []
+            current_event = ""
+            event_stamped = False
+            for raw_line in resp.iter_lines(decode_unicode=False):
+                line = (
+                    raw_line.decode("utf-8", errors="replace")
+                    if isinstance(raw_line, (bytes, bytearray))
+                    else str(raw_line)
+                )
+                lines.append(line)
+                if not line:
+                    current_event = ""
+                    event_stamped = False
+                elif line.startswith("event:"):
+                    current_event = line.split(":", 1)[1].strip()
+                    event_stamped = False
+                elif line.startswith("data:") and current_event and not event_stamped:
+                    elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
+                    event_timings.append((current_event, elapsed_ms))
+                    event_stamped = True
+            return "\n".join(lines), event_timings
+        raw_bytes = getattr(resp, "content", b"")
+        raw_text = (
+            raw_bytes.decode("utf-8", errors="replace")
+            if isinstance(raw_bytes, (bytes, bytearray))
+            else str(raw_bytes or getattr(resp, "text", ""))
+        )
+        elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
+        current_event = ""
+        for line in raw_text.splitlines():
+            if line.startswith("event:"):
+                current_event = line.split(":", 1)[1].strip()
+            elif line.startswith("data:") and current_event:
+                event_timings.append((current_event, elapsed_ms))
+                current_event = ""
+        return raw_text, event_timings
+
     def chat(
         self,
         patient: str,
@@ -164,14 +372,16 @@ class ChartSearchAiClient:
     ) -> ChatResult:
         """One chat turn over the canonical SSE boundary (the rebuilt module is
         stream-only: POST /chat/stream; there is no buffered /chat). The stream is
-        collapsed into the classic envelope via :func:`collapse_turn_stream`. Never
-        raises on a non-200 — the turn is recorded with its status so a failed turn
-        still produces a result line. Paces to stay under the rate limit and retries
-        on 429 (the recorded latency_ms is the final attempt's, not the wait).
+        consumed incrementally as events arrive and collapsed into the classic
+        envelope via :func:`collapse_turn_stream` with ``stream_timings`` attached.
+        Never raises on a non-200 — the turn is recorded with its status so a failed
+        turn still produces a result line. Paces to stay under the rate limit and
+        retries on 429 (the recorded latency_ms is the final attempt's, not the wait).
 
         ``profile`` selects a hub-advertised product profile; ``provider`` pins the
         ChartSearchAI provider (bundled|hub) for engine-parity arms. Without either,
         ChartSearchAI uses its configured defaults."""
+        self._ensure_session_location()
         request_id = request_id or str(uuid4())
         body: dict[str, str] = {
             "patient": patient,
@@ -188,6 +398,7 @@ class ChartSearchAiClient:
         while True:
             self._throttle()
             start = time.monotonic()
+            start_ns = time.perf_counter_ns()
             try:
                 resp = self._session.post(
                     self._url("/chat/stream"),
@@ -196,6 +407,11 @@ class ChartSearchAiClient:
                     headers={"Accept": "text/event-stream"},
                     stream=True,
                 )
+                if resp.status_code == 200:
+                    raw_text, event_timings = self._consume_sse_response(resp, start_ns)
+                else:
+                    raw_text = getattr(resp, "text", "") or ""
+                    event_timings = []
             except requests.RequestException:
                 # Dropped connection / read timeout: retry the transient, then let it
                 # propagate (the runner records it and moves on).
@@ -205,9 +421,6 @@ class ChartSearchAiClient:
                     time.sleep(self.retry_wait_s)
                     continue
                 raise
-            # Drain the stream fully (the turn runs to turn_done server-side) before
-            # stamping latency — the answer isn't done until the stream is.
-            raw = resp.content
             latency_ms = int((time.monotonic() - start) * 1000)
             self._last_call = time.monotonic()
             if resp.status_code in _RETRYABLE and attempt < self.max_retries:
@@ -219,11 +432,15 @@ class ChartSearchAiClient:
                     status=resp.status_code,
                     envelope=None,
                     latency_ms=latency_ms,
-                    raw_text=resp.text,
+                    raw_text=raw_text,
                 )
             return ChatResult(
                 status=200,
-                envelope=collapse_turn_stream(raw.decode("utf-8", errors="replace")),
+                envelope=collapse_turn_stream(
+                    raw_text,
+                    event_timings=event_timings,
+                    total_latency_ms=latency_ms,
+                ),
                 latency_ms=latency_ms,
                 raw_text="",
             )
