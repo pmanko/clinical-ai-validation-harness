@@ -1,13 +1,19 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
+import threading
 
 from harness.validate.client import (
     ChartSearchAiClient,
+    ChatResult,
     _compute_stream_timings,
     collapse_turn_stream,
 )
+from harness.validate.concurrency import run_concurrency_benchmark
 from harness.validate.metrics import compute_metrics
+from harness.validate.report import build_report
+from harness.validate.runner import write_run_meta
 
 ROOT = Path(__file__).parents[1]
 TAP_SCRIPT = ROOT / "scripts" / "engine-tap.py"
@@ -292,3 +298,226 @@ def test_engine_tap_extracts_upstream_llama_server_telemetry():
     assert telemetry["timings"]["prompt_n"] == 2100
     assert telemetry["timings"]["cache_n"] == 10000
     assert telemetry["timings"]["predicted_n"] == 55
+
+
+def test_write_run_meta_and_report_surface_hardware_and_streaming_latency(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("VALIDATE_HARDWARE_TIER", "gpu_server")
+    monkeypatch.setenv("VALIDATE_HARDWARE_GPU", "NVIDIA H200")
+    monkeypatch.setenv("VALIDATE_HARDWARE_VRAM_GB", "141")
+    monkeypatch.setenv("VALIDATE_SERVING_ENGINE", "vllm")
+    monkeypatch.setenv("VALIDATE_PARALLEL_SLOTS", "4")
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    write_run_meta(
+        run_dir,
+        run_id="r1",
+        backend_ids=["hub-profile-single-12b-bare"],
+        reference_date="2026-06-20",
+    )
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": "r1",
+                "component": "validate",
+                "git_sha": "abc123",
+                "dataset_id": "demo",
+                "otel": {"gen_ai.provider.name": "med-agent-hub"},
+                "generated_at": "2026-11-03",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "backend_selected",
+                "backend_id": "hub-profile-single-12b-bare",
+                "modelName": "single-12b-bare",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    row = {
+        "run_id": "r1",
+        "scenario_id": "s1",
+        "backend_id": "hub-profile-single-12b-bare",
+        "turn": 1,
+        "request": {"question": "What is the weight?"},
+        "response": {
+            "answer": "Weight is 71 kg [1].",
+            "references": [{"index": 1, "resourceType": "Observation"}],
+        },
+        "metrics": {
+            "latency_ms": 4100,
+            "http_status": 200,
+            "json_valid": True,
+            "citation_count": 1,
+            "references_empty": False,
+            "first_turn": True,
+            "ttft_ms": 480,
+            "answer_done_ms": 1920,
+            "turn_done_ms": 4100,
+            "tpot_ms": 18.5,
+            "cached_tokens": 10240,
+        },
+    }
+    (run_dir / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>",
+        html,
+        re.DOTALL,
+    ).group(1)
+    run_blob = json.loads(body)["runs"][0]
+
+    assert run_blob["hardware"] == {
+        "tier": "gpu_server",
+        "gpu": "NVIDIA H200",
+        "vram_gb": 141,
+        "serving_engine": "vllm",
+        "parallel_slots": 4,
+    }
+    streaming = run_blob["summary"][0]["streaming_latency"]
+    assert streaming["avg_ttft_ms"] == 480.0
+    assert streaming["p95_ttft_ms"] == 480.0
+    assert streaming["avg_answer_done_ms"] == 1920.0
+    assert streaming["avg_turn_done_ms"] == 4100.0
+    assert streaming["avg_tpot_ms"] == 18.5
+    assert streaming["avg_cached_tokens"] == 10240.0
+
+    cell = run_blob["scenarios"][0]["turns"][0]["cells"]["hub-profile-single-12b-bare"]
+    assert "TTFT 0.5 s" in cell["chips_html"]
+    assert "answer 1.9 s" in cell["chips_html"]
+    assert "TPOT 18.5ms/tok" in cell["chips_html"]
+    assert cell["metrics"]["ttft_ms"] == 480
+    assert cell["metrics"]["answer_done_ms"] == 1920
+    assert cell["metrics"]["tpot_ms"] == 18.5
+
+
+def test_concurrency_benchmark_isolates_clinician_sessions_and_aggregates_percentiles(
+    tmp_path,
+):
+    data_root = tmp_path / "datasets" / "validation"
+    (data_root / "comparison_sets").mkdir(parents=True)
+    (data_root / "scenarios").mkdir(parents=True)
+    (data_root / "backends.json").write_text(
+        json.dumps(
+            {
+                "hub-profile-single-12b-bare": {
+                    "label": "Single 12B bare",
+                    "kind": "openmrs-provider-profile",
+                    "provider": "med-agent-hub",
+                    "endpointUrl": "http://localhost:8080/openmrs/ws/rest/v1/chartsearchai/chat",
+                    "modelName": "single-12b-bare",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (data_root / "comparison_sets" / "conc-demo.json").write_text(
+        json.dumps(
+            {
+                "id": "conc-demo",
+                "transport": "chartsearchai",
+                "scenario_ids": ["scen-a", "scen-b"],
+                "backend_ids": ["hub-profile-single-12b-bare"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    for sid, pt in (("scen-a", "patient-a"), ("scen-b", "patient-b")):
+        (data_root / "scenarios" / f"{sid}.json").write_text(
+            json.dumps(
+                {
+                    "id": sid,
+                    "patient_ref": pt,
+                    "turns": [
+                        {"n": 1, "question": "Current medications?"},
+                        {"n": 2, "question": "Any recent viral load?"},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    lock = threading.Lock()
+    observed_users: list[str] = []
+
+    class _WorkerClient:
+        def __init__(self, user: str, password: str):
+            self.user = user
+            self.password = password
+
+        def new_session(self, patient: str, *, provider: str | None = None) -> str:
+            with lock:
+                observed_users.append(self.user)
+            return f"sess-{self.user}-{patient}-{provider}"
+
+        def chat(
+            self,
+            patient: str,
+            session: str | None,
+            question: str,
+            *,
+            profile: str | None = None,
+            provider: str | None = None,
+            request_id: str | None = None,
+            reference_date: str | None = None,
+        ) -> ChatResult:
+            envelope = {
+                "session": session,
+                "answer": f"Answered for {patient} by {self.user} [1].",
+                "references": [{"index": 1, "resourceType": "MedicationRequest"}],
+                "inputTokens": 4096,
+                "outputTokens": 40,
+                "cachedTokens": 3800,
+                "stream_timings": {
+                    "ttft_ms": 300,
+                    "answer_done_ms": 900,
+                    "turn_done_ms": 1500,
+                    "tpot_ms": 15.0,
+                },
+            }
+            return ChatResult(
+                status=200,
+                envelope=envelope,
+                latency_ms=1500,
+                raw_text="",
+            )
+
+    res = run_concurrency_benchmark(
+        comparison_set_id="conc-demo",
+        n_users=4,
+        turns_per_user=2,
+        data_root=data_root,
+        output_dir=tmp_path / "out",
+        client_factory=lambda u, p: _WorkerClient(u, p),
+        hardware_metadata={"tier": "gpu_server", "gpu": "H200", "parallel_slots": 4},
+    )
+
+    assert set(observed_users) == {
+        "eval-doctor",
+        "eval-nurse",
+        "eval-pharmacy",
+        "eval-clerk",
+    }
+    assert res.summary["n_users"] == 4
+    assert res.summary["turns_per_user"] == 2
+    assert res.summary["total_turns"] == 8
+    assert res.summary["ok_turns"] == 8
+    assert res.summary["error_turns"] == 0
+    assert res.summary["error_rate"] == 0.0
+    assert res.summary["ttft_p50_ms"] == 300.0
+    assert res.summary["answer_done_p50_ms"] == 900.0
+    assert res.summary["turn_done_p50_ms"] == 1500.0
+    assert res.summary["tpot_p50_ms"] == 15.0
+    assert res.summary["cached_tokens_avg"] == 3800.0
+    assert res.summary["hardware"]["gpu"] == "H200"
+    assert res.summary_path.exists()
+    assert res.results_path.exists()
+

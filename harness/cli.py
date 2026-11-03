@@ -142,6 +142,24 @@ def _build_parser() -> argparse.ArgumentParser:
         "relevance,harm,note}} map without prompting (scripted/test use).",
     )
 
+    val_conc = val_sub.add_parser(
+        "concurrency",
+        help="Run N concurrent OpenMRS clinical user sessions and emit concurrency_summary.json",
+    )
+    val_conc.add_argument(
+        "comparison_set",
+        nargs="?",
+        default="demo",
+        help="Comparison-set id under <data-root>/comparison_sets/ (default: demo)",
+    )
+    val_conc.add_argument("--users", type=int, default=1, help="Concurrent clinical user sessions (e.g. 1, 2, 4)")
+    val_conc.add_argument("--turns-per-user", type=int, default=1, help="Turns per concurrent session")
+    val_conc.add_argument("--backend-id", help="Backend id from the comparison set (defaults to first)")
+    val_conc.add_argument("--data-root", default="datasets/validation")
+    val_conc.add_argument("--output-dir", default="artifacts/concurrency")
+    val_conc.add_argument("--reference-date", metavar="YYYY-MM-DD", help="Optional reference date")
+    val_conc.add_argument("--hardware-metadata", help="Optional JSON file of hardware tier/GPU/slot metadata")
+
     from .catalyst.cli import configure_parser as configure_catalyst_parser
     from .wahs.cli import configure_parser as configure_wahs_parser
 
@@ -353,6 +371,26 @@ def main(
                 f"{run_dir / 'adjudication.jsonl'}"
             )
             return 0
+        if args.validate_action == "concurrency":
+            from .validate.concurrency import run_concurrency_benchmark
+
+            hw_meta = (
+                json.loads(Path(args.hardware_metadata).read_text(encoding="utf-8"))
+                if args.hardware_metadata
+                else None
+            )
+            out = run_concurrency_benchmark(
+                comparison_set_id=args.comparison_set,
+                n_users=args.users,
+                turns_per_user=args.turns_per_user,
+                backend_id=args.backend_id,
+                data_root=args.data_root,
+                output_dir=args.output_dir,
+                reference_date=args.reference_date,
+                hardware_metadata=hw_meta,
+            )
+            print(json.dumps(out.summary, indent=2))
+            return 0 if out.summary["error_turns"] == 0 else 1
         return _not_yet_implemented(f"validate {args.validate_action}")
 
     print(f"unknown command: {args.command}", file=sys.stderr)

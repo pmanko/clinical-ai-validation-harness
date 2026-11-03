@@ -391,13 +391,28 @@ def _render_sources(sources_v1: Any) -> str:
 
 def _render_chips(r: dict[str, Any]) -> str:
     """The deterministic metric chips: latency (warm on first turn), chart-refs
-    COUNT (never a grounding signal), invalid-json, and the degraded-fallback
-    flag (keyed on _is_degraded so the marker contract lives in one place)."""
+    COUNT (never a grounding signal), optional streaming/stage chips (TTFT,
+    answer_done, TPOT), invalid-json, and the degraded-fallback flag."""
     m = r.get("metrics") or {}
     chips = [
         f"<span class='chip{' warm' if m.get('first_turn') else ''}'>⏱ {_esc(format_latency(m.get('latency_ms')))}</span>",
         f"<span class='chip'>{_esc(m.get('citation_count'))} chart refs</span>",
     ]
+    if m.get("ttft_ms") is not None:
+        chips.append(
+            f"<span class='chip'>TTFT {_esc(format_latency(m.get('ttft_ms')))}</span>"
+        )
+    if (
+        m.get("answer_done_ms") is not None
+        and m.get("answer_done_ms") != m.get("latency_ms")
+    ):
+        chips.append(
+            f"<span class='chip'>answer {_esc(format_latency(m.get('answer_done_ms')))}</span>"
+        )
+    if m.get("tpot_ms") is not None:
+        chips.append(
+            f"<span class='chip'>TPOT {_esc(m.get('tpot_ms'))}ms/tok</span>"
+        )
     if not m.get("json_valid", True):
         chips.append("<span class='chip bad'>invalid</span>")
     if _is_degraded(r):
@@ -569,46 +584,90 @@ def _summary_rows(
                     stats["cancelled_values"].append(timing["duration_ms"])
                 else:
                     stats["failed_values"].append(timing["duration_ms"])
-        rows.append(
-            {
-                "backend_id": b,
-                "label": labels.get(b, ""),
-                "turns": len(rs),
-                "avg_latency_ms": _avg(lat),
-                "max_latency_ms": max(lat) if lat else 0,
-                "total_chart_refs": cites,
-                "degraded": sum(1 for r in rs if _is_degraded(r)),
-                "errors": sum(1 for r in rs if r.get("error")),
-                "temporal_gate_warn": sum(1 for g in gates if g.get("status") == "warn"),
-                "temporal_gate_fail": sum(1 for g in gates if g.get("status") == "fail"),
-                "temporal_gate_applied": sum(1 for g in gates if g.get("applied") in {"patch", "fallback"}),
-                "stage_latency_ms": {
-                    stage: {
-                        "avg_ms": (
-                            _avg(stats["completed_values"])
-                            if stats["completed_values"]
-                            else None
-                        ),
-                        "completed": len(stats["completed_values"]),
-                        "failed": len(stats["failed_values"]),
-                        "avg_failed_ms": (
-                            _avg(stats["failed_values"])
-                            if stats["failed_values"]
-                            else None
-                        ),
-                        "cancelled": len(stats["cancelled_values"]),
-                        "avg_cancelled_ms": (
-                            _avg(stats["cancelled_values"])
-                            if stats["cancelled_values"]
-                            else None
-                        ),
-                        "observed": stats["observed"],
-                        "expected": len(rs),
-                    }
-                    for stage, stats in stage_stats.items()
-                },
+        ttft_vals = [
+            r["metrics"]["ttft_ms"]
+            for r in rs
+            if isinstance((r.get("metrics") or {}).get("ttft_ms"), (int, float))
+        ]
+        ans_vals = [
+            r["metrics"]["answer_done_ms"]
+            for r in rs
+            if isinstance((r.get("metrics") or {}).get("answer_done_ms"), (int, float))
+        ]
+        turn_vals = [
+            r["metrics"]["turn_done_ms"]
+            for r in rs
+            if isinstance((r.get("metrics") or {}).get("turn_done_ms"), (int, float))
+        ]
+        tpot_vals = [
+            r["metrics"]["tpot_ms"]
+            for r in rs
+            if isinstance((r.get("metrics") or {}).get("tpot_ms"), (int, float))
+        ]
+        cached_vals = [
+            r["metrics"]["cached_tokens"]
+            for r in rs
+            if isinstance((r.get("metrics") or {}).get("cached_tokens"), (int, float))
+        ]
+        row_summary: dict[str, Any] = {
+            "backend_id": b,
+            "label": labels.get(b, ""),
+            "turns": len(rs),
+            "avg_latency_ms": _avg(lat),
+            "max_latency_ms": max(lat) if lat else 0,
+            "total_chart_refs": cites,
+            "degraded": sum(1 for r in rs if _is_degraded(r)),
+            "errors": sum(1 for r in rs if r.get("error")),
+            "temporal_gate_warn": sum(1 for g in gates if g.get("status") == "warn"),
+            "temporal_gate_fail": sum(1 for g in gates if g.get("status") == "fail"),
+            "temporal_gate_applied": sum(1 for g in gates if g.get("applied") in {"patch", "fallback"}),
+            "stage_latency_ms": {
+                stage: {
+                    "avg_ms": (
+                        _avg(stats["completed_values"])
+                        if stats["completed_values"]
+                        else None
+                    ),
+                    "completed": len(stats["completed_values"]),
+                    "failed": len(stats["failed_values"]),
+                    "avg_failed_ms": (
+                        _avg(stats["failed_values"])
+                        if stats["failed_values"]
+                        else None
+                    ),
+                    "cancelled": len(stats["cancelled_values"]),
+                    "avg_cancelled_ms": (
+                        _avg(stats["cancelled_values"])
+                        if stats["cancelled_values"]
+                        else None
+                    ),
+                    "observed": stats["observed"],
+                    "expected": len(rs),
+                }
+                for stage, stats in stage_stats.items()
+            },
+        }
+        if ttft_vals or ans_vals or turn_vals or tpot_vals or cached_vals:
+            row_summary["streaming_latency"] = {
+                "avg_ttft_ms": _avg(ttft_vals) if ttft_vals else None,
+                "p95_ttft_ms": (
+                    round(_percentile(sorted(ttft_vals), 0.95), 1)
+                    if ttft_vals
+                    else None
+                ),
+                "avg_answer_done_ms": _avg(ans_vals) if ans_vals else None,
+                "p95_answer_done_ms": (
+                    round(_percentile(sorted(ans_vals), 0.95), 1)
+                    if ans_vals
+                    else None
+                ),
+                "avg_turn_done_ms": _avg(turn_vals) if turn_vals else None,
+                "avg_tpot_ms": (
+                    round(sum(tpot_vals) / len(tpot_vals), 2) if tpot_vals else None
+                ),
+                "avg_cached_tokens": _avg(cached_vals) if cached_vals else None,
             }
-        )
+        rows.append(row_summary)
     return rows
 
 
@@ -688,6 +747,17 @@ def _cell_blob(
             "citation_count": m.get("citation_count"),
             "first_turn": m.get("first_turn"),
             "json_valid": m.get("json_valid", True),
+            **{
+                k: m[k]
+                for k in (
+                    "ttft_ms",
+                    "answer_done_ms",
+                    "turn_done_ms",
+                    "tpot_ms",
+                    "cached_tokens",
+                )
+                if m.get(k) is not None
+            },
         },
     }
 
@@ -837,7 +907,23 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         # WS1: prefer the run's FROZEN cards (run_meta.json) over re-resolving the current static
         # files, so an old run renders the config it ACTUALLY used (see _arm_cards_for).
         "arm_cards": arm_cards,
+        **(
+            {"hardware": _load_hardware_meta(run_dir)}
+            if _load_hardware_meta(run_dir)
+            else {}
+        ),
     }
+
+
+def _load_hardware_meta(run_dir: Path) -> dict[str, Any] | None:
+    meta_path = run_dir / "run_meta.json"
+    if not meta_path.exists():
+        return None
+    try:
+        hw = json.loads(meta_path.read_text(encoding="utf-8")).get("hardware")
+    except (OSError, ValueError):
+        return None
+    return hw if isinstance(hw, dict) and hw else None
 
 
 # The reviewer rubric (Scout): accuracy/completeness/relevance 0-10,

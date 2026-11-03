@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -35,6 +36,35 @@ from .repository import JsonlRepository
 from .resolver import resolve_backends
 
 
+def resolve_hardware_metadata(
+    hardware_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Resolve optional serving hardware and concurrency metadata for run_meta.json."""
+    if hardware_metadata:
+        return dict(hardware_metadata)
+    env_map = {
+        "tier": os.getenv("VALIDATE_HARDWARE_TIER"),
+        "gpu": os.getenv("VALIDATE_HARDWARE_GPU"),
+        "vram_gb": os.getenv("VALIDATE_HARDWARE_VRAM_GB"),
+        "serving_engine": os.getenv("VALIDATE_SERVING_ENGINE"),
+        "parallel_slots": os.getenv("VALIDATE_PARALLEL_SLOTS"),
+        "inference_endpoint": os.getenv("VALIDATE_INFERENCE_ENDPOINT"),
+    }
+    resolved: dict[str, Any] = {}
+    for key, val in env_map.items():
+        if val is None or not str(val).strip():
+            continue
+        text = str(val).strip()
+        if key in {"vram_gb", "parallel_slots"}:
+            try:
+                resolved[key] = int(text)
+                continue
+            except ValueError:
+                pass
+        resolved[key] = text
+    return resolved or None
+
+
 def write_run_meta(
     run_dir: Path | str,
     *,
@@ -43,6 +73,7 @@ def write_run_meta(
     reference_date: str | None,
     backends: list[Any] | None = None,
     arm_metadata: dict[str, dict[str, Any]] | None = None,
+    hardware_metadata: dict[str, Any] | None = None,
 ) -> Path:
     """Freeze configured labels/models and optional supplied arm metadata for reports.
 
@@ -62,13 +93,16 @@ def write_run_meta(
             "provider": backend.provider,
             "kind": backend.kind,
         }
-    meta = {
+    meta: dict[str, Any] = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "reference_date": reference_date,
         "backends": frozen_backends,
         "arm_cards": cards,
     }
+    hw = resolve_hardware_metadata(hardware_metadata)
+    if hw:
+        meta["hardware"] = hw
     path = Path(run_dir) / "run_meta.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
