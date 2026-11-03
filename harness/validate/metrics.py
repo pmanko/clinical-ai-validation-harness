@@ -41,6 +41,12 @@ def compute_metrics(
     references = references if isinstance(references, list) else []
     citation_count = len(references)
     usage = env.get("usage") if isinstance(env.get("usage"), dict) else {}
+    prompt_details = (
+        usage.get("prompt_tokens_details")
+        if isinstance(usage.get("prompt_tokens_details"), dict)
+        else {}
+    )
+    timings = env.get("timings") if isinstance(env.get("timings"), dict) else {}
     context = env.get("context") if isinstance(env.get("context"), dict) else {}
     model = env.get("model") if isinstance(env.get("model"), str) and env.get("model") else None
 
@@ -61,7 +67,9 @@ def compute_metrics(
         env.get("cachedTokens"),
         env.get("cached_tokens"),
         usage.get("cached_tokens"),
+        prompt_details.get("cached_tokens"),
         usage.get("cache_n"),
+        timings.get("cache_n"),
     )
 
     cache_hit_ratio = (

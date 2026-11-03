@@ -215,12 +215,14 @@ def run_comparison(
         client_takes_ref_date = "reference_date" in client_chat_parameters
         client_takes_request_id = "request_id" in client_chat_parameters
         client_takes_provider = "provider" in client_chat_parameters
+        client_takes_endpoint_url = "endpoint_url" in client_chat_parameters
     except (ValueError, TypeError):
         # Best-effort capability probe — a non-introspectable client.chat (C-extension,
         # odd __call__) must NOT abort the run; degrade to record-only.
         client_takes_ref_date = False
         client_takes_request_id = False
         client_takes_provider = False
+        client_takes_endpoint_url = False
     try:
         session_takes_provider = "provider" in inspect.signature(client.new_session).parameters
     except (ValueError, TypeError):
@@ -382,6 +384,8 @@ def run_comparison(
                     chat_kwargs["reference_date"] = reference_date
                 if client_takes_request_id:
                     chat_kwargs["request_id"] = request_id
+                if client_takes_endpoint_url and backend.endpoint_url:
+                    chat_kwargs["endpoint_url"] = backend.endpoint_url
                 try:
                     res = client.chat(
                         scenario.patient_ref, session_sent, turn.question, **chat_kwargs,
@@ -410,12 +414,14 @@ def run_comparison(
                 is_first_turn = turn is scenario.turns[0]
                 if (is_first_turn and backend.indepth_model and backend.indepth_endpoint
                         and res.status == 200 and res.envelope):
-                    id_kwargs = {"profile": backend.indepth_model}
+                    id_kwargs: dict[str, Any] = {"profile": backend.indepth_model}
                     indepth_request_id = (
                         str(uuid4()) if client_takes_request_id else None
                     )
                     if client_takes_request_id:
                         id_kwargs["request_id"] = indepth_request_id
+                    if client_takes_endpoint_url and backend.indepth_endpoint:
+                        id_kwargs["endpoint_url"] = backend.indepth_endpoint
                     indepth_session = session
                     indepth_started = utc_now_iso()
                     try:

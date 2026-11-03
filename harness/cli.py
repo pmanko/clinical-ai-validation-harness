@@ -289,14 +289,19 @@ def main(
                 )
                 return 0
         if args.validate_action == "run":
-            from .validate.client import ChartSearchAiClient, MedAgentHubClient
+            from .validate.client import (
+                ChartSearchAiClient,
+                MedAgentHubClient,
+                OpenAICompatibleClient,
+            )
             from .validate.runner import run_comparison
 
-            client = (
-                MedAgentHubClient()
-                if comparison.transport == "med-agent-hub"
-                else ChartSearchAiClient()
-            )
+            if comparison.transport == "med-agent-hub":
+                client = MedAgentHubClient()
+            elif comparison.transport == "openai-compatible":
+                client = OpenAICompatibleClient()
+            else:
+                client = ChartSearchAiClient()
             result = run_comparison(
                 comparison_set_id=args.comparison_set,
                 client=client,

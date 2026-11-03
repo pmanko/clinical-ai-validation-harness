@@ -64,7 +64,7 @@ class ComparisonSet:
             if not isinstance(data[key], list) or not data[key]:
                 raise ValueError(f"comparison_set {data.get('id')!r}: '{key}' must be a non-empty list")
         transport = str(data.get("transport") or "chartsearchai")
-        if transport not in {"chartsearchai", "med-agent-hub"}:
+        if transport not in {"chartsearchai", "med-agent-hub", "openai-compatible"}:
             raise ValueError(
                 f"comparison_set {data.get('id')!r}: unsupported transport {transport!r}"
             )

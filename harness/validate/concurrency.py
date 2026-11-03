@@ -23,7 +23,12 @@ from uuid import uuid4
 
 from ..metadata import utc_now_iso
 from ..report_shell.stats import avg, percentile
-from .client import ChartSearchAiClient, ChatResult
+from .client import (
+    ChartSearchAiClient,
+    ChatResult,
+    MedAgentHubClient,
+    OpenAICompatibleClient,
+)
 from .metrics import compute_metrics
 from .models import load_comparison_set, load_scenario
 from .resolver import resolve_backends
@@ -63,6 +68,20 @@ def _p95(vals: list[float]) -> float | None:
 
 def _default_client_factory(user: str, password: str) -> ChartSearchAiClient:
     return ChartSearchAiClient(user=user, password=password, min_interval_s=0.0)
+
+
+def _make_transport_client_factory(
+    transport: str, endpoint_url: str | None = None
+) -> Callable[[str, str], Any]:
+    if transport == "med-agent-hub":
+        return lambda _user, _password: MedAgentHubClient(
+            base_url=endpoint_url, min_interval_s=0.0
+        )
+    if transport == "openai-compatible":
+        return lambda _user, _password: OpenAICompatibleClient(
+            base_url=endpoint_url, min_interval_s=0.0
+        )
+    return _default_client_factory
 
 
 DEFAULT_TTFT_SLO_MS = 3000.0
@@ -248,7 +267,9 @@ def run_concurrency_benchmark(
     else:
         backend = backends[0]
 
-    factory = client_factory or _default_client_factory
+    factory = client_factory or _make_transport_client_factory(
+        cset.transport, backend.endpoint_url
+    )
     run_id = str(uuid4())
     run_dir = Path(output_dir) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -264,10 +285,12 @@ def run_concurrency_benchmark(
             takes_provider = "provider" in chat_params
             takes_request_id = "request_id" in chat_params
             takes_ref_date = "reference_date" in chat_params
+            takes_endpoint_url = "endpoint_url" in chat_params
         except (ValueError, TypeError):
             takes_provider = False
             takes_request_id = False
             takes_ref_date = False
+            takes_endpoint_url = False
         try:
             session_takes_provider = "provider" in inspect.signature(client.new_session).parameters
         except (ValueError, TypeError):
@@ -332,6 +355,8 @@ def run_concurrency_benchmark(
                 chat_kwargs["reference_date"] = reference_date
             if takes_request_id:
                 chat_kwargs["request_id"] = request_id
+            if takes_endpoint_url and backend.endpoint_url:
+                chat_kwargs["endpoint_url"] = backend.endpoint_url
 
             try:
                 res = client.chat(

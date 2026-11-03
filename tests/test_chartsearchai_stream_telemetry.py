@@ -526,3 +526,123 @@ def test_concurrency_benchmark_isolates_clinician_sessions_and_aggregates_percen
     assert res.summary_path.exists()
     assert res.results_path.exists()
 
+
+def test_openai_compatible_client_supports_plain_text_and_sse_streaming(monkeypatch):
+    from harness.adapters import TARGET_ADAPTERS
+    from harness.validate.client import OpenAICompatibleClient
+
+    assert set(TARGET_ADAPTERS) >= {
+        "chartsearchai",
+        "med-agent-hub",
+        "openai-compatible",
+        "catalyst",
+        "wahs",
+    }
+
+    # 1. Non-streaming plain-text completion with usage + endpoint_url override
+    class _PlainResponse:
+        status_code = 200
+        text = '{"choices":[{"message":{"content":"Plain markdown answer."}}]}'
+
+        def json(self):
+            return {
+                "model": "qwen2.5-14b-instruct",
+                "choices": [{"message": {"content": "Plain markdown answer."}}],
+                "usage": {
+                    "prompt_tokens": 1200,
+                    "completion_tokens": 25,
+                    "prompt_tokens_details": {"cached_tokens": 900},
+                },
+            }
+
+    class _PlainSession:
+        def __init__(self):
+            self.headers = {}
+            self.calls = []
+
+        def post(self, url, *, json, timeout, **kwargs):
+            self.calls.append((url, json, timeout, kwargs))
+            return _PlainResponse()
+
+    plain_sess = _PlainSession()
+    plain_client = OpenAICompatibleClient(
+        base_url="http://default-llm:8000/v1/chat/completions",
+        session=plain_sess,
+        stream=False,
+    )
+    sid = plain_client.new_session("case-1")
+    plain_res = plain_client.chat(
+        "case-1",
+        sid,
+        "Summarize the lab trend.",
+        profile="qwen2.5-14b-instruct",
+        endpoint_url="http://vllm-a10g:8000/v1/chat/completions",
+    )
+    assert plain_res.status == 200
+    assert plain_res.envelope is not None
+    assert plain_res.envelope["answer"] == "Plain markdown answer."
+    assert plain_res.envelope["references"] == []
+    assert plain_sess.calls[0][0] == "http://vllm-a10g:8000/v1/chat/completions"
+    plain_metrics = compute_metrics(
+        envelope=plain_res.envelope,
+        latency_ms=plain_res.latency_ms,
+        http_status=plain_res.status,
+        first_turn=True,
+    )
+    assert plain_metrics["tokens_in"] == 1200
+    assert plain_metrics["tokens_out"] == 25
+    assert plain_metrics["cached_tokens"] == 900
+
+    # 2. Streaming SSE completion with TTFT / ITL / TPOT telemetry
+    ticks = iter([10.000, 10.010, 10.040, 10.080, 10.120, 10.140])
+    monkeypatch.setattr("harness.validate.client.time.monotonic", lambda: next(ticks))
+
+    class _StreamResponse:
+        status_code = 200
+        text = ""
+
+        def iter_lines(self, decode_unicode=True):
+            yield 'data: {"model":"gemma-4-12b","choices":[{"delta":{"content":"First "}}]}'
+            yield 'data: {"model":"gemma-4-12b","choices":[{"delta":{"content":"second "}}]}'
+            yield 'data: {"model":"gemma-4-12b","choices":[{"delta":{"content":"third."}}],"usage":{"prompt_tokens":2048,"completion_tokens":12}}'
+            yield "data: [DONE]"
+
+    class _StreamSession:
+        def __init__(self):
+            self.headers = {}
+
+        def post(self, url, *, json, timeout, stream=False):
+            return _StreamResponse()
+
+    stream_client = OpenAICompatibleClient(
+        base_url="http://vllm:8000/v1/chat/completions",
+        session=_StreamSession(),
+        stream=True,
+    )
+    s_res = stream_client.chat(
+        "case-2",
+        stream_client.new_session("case-2"),
+        "Question?",
+        profile="gemma-4-12b",
+    )
+    assert s_res.status == 200
+    assert s_res.envelope is not None
+    assert s_res.envelope["answer"] == "First second third."
+    st = s_res.envelope["stream_timings"]
+    assert st["ttft_ms"] == 40
+    assert st["answer_done_ms"] == 120
+    assert st["turn_done_ms"] == 140
+    assert st["answer_delta_count"] == 3
+    assert st["tpot_ms"] == 40.0
+    s_metrics = compute_metrics(
+        envelope=s_res.envelope,
+        latency_ms=s_res.latency_ms,
+        http_status=s_res.status,
+        first_turn=True,
+    )
+    assert s_metrics["ttft_ms"] == 40
+    assert s_metrics["tpot_ms"] == 40.0
+    assert s_metrics["tokens_in"] == 2048
+    assert s_metrics["tokens_out"] == 12
+
+
