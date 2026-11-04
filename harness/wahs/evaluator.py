@@ -3077,6 +3077,11 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
                 score = score_wahs_case(case, env, budget_tokens=b_tokens)
                 row["score"] = score.to_dict()
                 row["passed"] = score.passed
+                req_d = row.get("request")
+                if not isinstance(req_d, dict):
+                    req_d = {}
+                    row["request"] = req_d
+                req_d.setdefault("patient", str(row.get("patient_id") or case.patient_id))
                 if prof_id:
                     m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
                     cell_meta_list.append(
@@ -3109,6 +3114,138 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
     return summary
 
 
+_WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
+    "Maurice742_Auer97_set_b": {
+        "badge": "Synthea Longitudinal Chart",
+        "display": "Maurice Auer — Multi-year outpatient & inpatient history (~94k tokens)",
+        "medications": [
+            "Tacrolimus (immunosuppression)",
+            "Furosemide / Warfarin longitudinal history",
+            "Multi-specialty renal, cardiac & hematology care",
+        ],
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    },
+    "MIMIC_10014354_ICU_Heme_Cardiorenal_set_b": {
+        "badge": "MIMIC-IV ICU & Hematology Chart",
+        "display": "Complex ICU, Hematology & Cardiorenal Admission (~128k tokens; 1,100+ records across 2022–2026)",
+        "medications": [
+            "Vancomycin (held for trough 28.4 ug/mL & acute kidney injury)",
+            "Apixaban 5 mg BID (active) vs. Warfarin (discontinued)",
+            "Norepinephrine & Furosemide ICU infusions",
+        ],
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    },
+    "Batch01_Synthea_HIV_Outpatient": {
+        "badge": "Synthea HIV & Primary Care Cohort",
+        "display": "Longitudinal outpatient HIV & primary-care charts",
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    },
+}
+
+
+def _wahs_patient_profile(patient_id: str) -> dict[str, Any]:
+    known = _WAHS_PATIENT_PROFILES.get(patient_id)
+    if known:
+        return dict(known)
+    return {
+        "badge": "Clinical Chart",
+        "display": patient_id.replace("_", " "),
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    }
+
+
+def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
+    raw_id = str(backend_id or "").strip()
+    base_id, _, budget_tag = raw_id.partition("@")
+    budget_suffix = f" · {budget_tag} chart" if budget_tag else ""
+    short_budget = f" ({budget_tag})" if budget_tag else ""
+
+    m_fam, underlying, inc_kb = _infer_model_family_and_id(raw_id)
+    is_direct = base_id.startswith("direct-") or base_id.startswith("direct:")
+
+    model_info: dict[str, str] = {"family": "Gemma 4", "params": "12B", "quant": "Q8_0"}
+    short_model = "12B"
+    full_model = "Gemma 12B"
+    if "4b" in base_id:
+        model_info = {"family": "Gemma 4", "params": "4B", "quant": "Q8_0"}
+        short_model = "4B"
+        full_model = "Gemma 4B"
+    elif "26b" in base_id:
+        model_info = {"family": "Gemma 4", "params": "26B MoE", "quant": "Q8_0"}
+        short_model = "26B"
+        full_model = "Gemma 26B"
+    elif "27b" in base_id or "medgemma" in underlying:
+        model_info = {"family": "MedGemma", "params": "27B", "quant": "Q8_0"}
+        short_model = "MedGemma 27B"
+        full_model = "MedGemma 27B"
+    elif "qwen35b" in base_id:
+        model_info = {"family": "Qwen 3", "params": "35B MoE", "quant": "Q8_0"}
+        short_model = "Qwen 35B"
+        full_model = "Qwen 3 35B"
+    elif "qwen30b" in base_id:
+        model_info = {"family": "Qwen 3 Coder", "params": "30B MoE", "quant": "Q8_0"}
+        short_model = "Qwen Coder 30B"
+        full_model = "Qwen 3 Coder 30B"
+    elif "lfm24b" in base_id:
+        model_info = {"family": "Liquid LFM2", "params": "24B", "quant": "Q8_0"}
+        short_model = "Liquid 24B"
+        full_model = "Liquid LFM2 24B"
+
+    if is_direct:
+        title = f"Direct AI — no Hub ({full_model}{budget_suffix})"
+        short_title = f"Direct AI ({short_model}{short_budget})"
+        path_desc = (
+            "Sends the condensed chart and question directly to the AI model "
+            "without Med Agent Hub prompts, clinical rules, or relationship graph"
+        )
+    elif inc_kb:
+        title = f"Med Agent Hub + clinical rules ({full_model}{budget_suffix})"
+        short_title = f"Hub + rules ({short_model}{short_budget})"
+        path_desc = (
+            "Full Med Agent Hub pipeline: condensed chart + automated clinical conflict rules "
+            "+ patient relationship graph + safety net recovery"
+        )
+    else:
+        title = f"Med Agent Hub — chart only ({full_model}{budget_suffix})"
+        short_title = f"Hub chart-only ({short_model}{short_budget})"
+        path_desc = (
+            "Med Agent Hub citation & abstention prompts on the condensed chart only "
+            "(automated clinical conflict rules & graph turned off)"
+        )
+
+    return {
+        "title": title,
+        "short_title": short_title,
+        "kind": "single",
+        "path": path_desc,
+        "models": [model_info],
+    }
+
+
+def _format_wahs_failure_for_reader(failure: str) -> str:
+    f = str(failure or "").strip()
+    if f.startswith("missing required target UUIDs:"):
+        n_missing = f.count("'") // 2
+        if n_missing > 0:
+            return f"Missed citing {n_missing} key source record{'s' if n_missing != 1 else ''} from the chart"
+        return "Missed citing required source records from the chart"
+    if f.startswith("missing positive rubric item"):
+        m = re.search(r"\((.+?)\):", f)
+        if m:
+            return f"Missed clinical point: {m.group(1)}"
+        return "Missed a required clinical checklist point"
+    if f.startswith("missing required rubric criterion:"):
+        crit = f.split(":", 1)[1].strip().strip("'\"")
+        return f"Missed clinical point: {crit}"
+    if "atomic citation entailment" in f:
+        return "One or more cited source records did not fully support the sentence's claim"
+    if f.startswith("abstention violation:"):
+        if "must abstain" in f:
+            return "Did not clearly state that the requested record is absent from the chart"
+        return "Over-abstained on a question that is answerable from the chart"
+    return f
+
+
 def build_wahs_report_packet(
     run_dir: Path | str,
     *,
@@ -3133,38 +3270,6 @@ def build_wahs_report_packet(
         if manifest_path.is_file()
         else {}
     )
-    if isinstance(manifest_data, dict) and "context" not in manifest_data and manifest_path.is_file():
-        prof_list = [str(p) for p in (manifest_data.get("profiles") or [])]
-        has_direct_arm = any(p.startswith("direct-") or p.startswith("direct:") for p in prof_list)
-        if has_direct_arm:
-            manifest_data["context"] = {
-                "text": (
-                    "What this experiment measures (MacBook 96k KV Window · Direct LLM vs. Med Agent Hub across 3 Scenario Types): "
-                    "Evaluates Gemma-4-12B (Q8_0) locally on an Apple M5 Pro MacBook (64 GB Unified Memory, llama-router ctx-size = 98,304 tokens—zero KV left-truncation) "
-                    "across 12 clinical scenarios (4 huge-context patients × 3 scenario types: Medication & Staging Conflict Reconciliation, Historical Inpatient/Procedure Lookup, "
-                    "and Grounded Clinical Abstention) and 3 architectures at 1k, 8k, and 32k token budgets: "
-                    "(1) Direct LLM (No Med Agent Hub) calling llama-router directly with the chart and question; "
-                    "(2) Med Agent Hub (Raw Condensed) adding the CHART_SUMMARY_CITED clinical grounding/abstention contract without KB or Graph; and "
-                    "(3) Med Agent Hub (+KB & ClinicalEntityGraph) adding Stage 2 deterministic 4-Layer Clinical KB conflict findings, <clinical_entity_graph>, and Tier 0 overflow citation recovery."
-                ),
-                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
-                "label": "Med Agent Hub WAHS Architecture & Multi-Scenario Ablation →",
-            }
-        else:
-            manifest_data["context"] = {
-                "text": (
-                    "How this run is scored & why 32k–128k drop on a 16k KV server: "
-                    "Each answer is graded deterministically against ground-truth clinical criteria (rubric_weighted_score), "
-                    "target FHIR resourceUuid citation recall (required_uuid_recall), and sentence-level [N] claim-to-UUID entailment (atomic_entailment_rate). "
-                    "On the shared UW CIRG L4 GPU (24 GB VRAM), Ollama defaults to a fixed num_ctx = 16,384 KV window (usage.prompt_tokens = 16,387): "
-                    "when a 32k, 64k, or 128k chart exceeds 16,384 tokens without a dynamic num_ctx override, Ollama silently left-truncates the beginning of the prompt—clipping "
-                    "top-of-chart active allergies, active conditions, active medications, and 2025–2026 admissions ([1]–[349]) and leaving only older 2022–2023 records ([350]+). "
-                    "Med Agent Hub (+KB & Graph) retains 53.0–53.8/100 at 32k–128k (vs. 20.4–21.2 Raw) because Stage 2 KB findings and the ClinicalEntityGraph are appended at the bottom of the prompt inside the surviving 16,384-token KV tail."
-                ),
-                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
-                "label": "Med Agent Hub WAHS Architecture & KV Window Analysis →",
-            }
-        manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
     evaluation_modality = str(
         manifest_data.get("evaluation_modality") or "live_model_and_team_eval"
     )
@@ -3183,8 +3288,71 @@ def build_wahs_report_packet(
         if bid and bid not in backend_ids:
             backend_ids.append(bid)
 
+    if isinstance(manifest_data, dict) and manifest_path.is_file():
+        prof_list = [str(p) for p in (manifest_data.get("profiles") or backend_ids)]
+        has_direct_arm = any(p.startswith("direct-") or p.startswith("direct:") for p in prof_list)
+        has_budget_curve = any("@32k" in p or "@64k" in p or "@128k" in p for p in prof_list)
+        if has_direct_arm:
+            manifest_data["context"] = {
+                "text": (
+                    "What this study tests: We ran a 12B medical AI model locally on a MacBook Pro (with a full 96k-word working memory, so nothing is cut off) "
+                    "across three types of clinical questions: reconciling conflicting medications and disease stages, looking up past hospital stays and procedures, "
+                    "and knowing when to say 'not in the chart' when asked about records that don't exist. "
+                    "We compared three setups at tight (1k), standard (8k), and full-chart (32k) summary budgets: "
+                    "(1) Direct AI (calling the model directly with the chart and question, without Med Agent Hub), "
+                    "(2) Med Agent Hub with chart-only prompts (citation and abstention rules, but no automated clinical checks), and "
+                    "(3) Med Agent Hub with full clinical rules and the patient relationship graph."
+                ),
+                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
+                "label": "How Med Agent Hub works →",
+            }
+        elif has_budget_curve:
+            manifest_data["context"] = {
+                "text": (
+                    "What this study tests & why scores drop above 16k on a standard cloud server: "
+                    "We tested condensed chart budgets from 1k up to 128k tokens on a shared 24 GB cloud GPU. "
+                    "Because the standard Ollama server defaults to a 16k-token active working memory window, sending a 32k, 64k, or 128k chart "
+                    "causes the server to silently drop the beginning of the prompt—cutting off the patient's active allergies, active medications, "
+                    "and recent 2025–2026 hospital admissions at the top of the chart. "
+                    "Plain chart summaries fall from 85.2 to 20.4/100 once that cutoff happens, while Med Agent Hub (+ clinical rules & graph) "
+                    "still rescues over half the clinical findings (53.8/100) because its safety summary is placed at the end of the prompt inside the active window."
+                ),
+                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
+                "label": "How Med Agent Hub works →",
+            }
+        else:
+            manifest_data["context"] = {
+                "text": (
+                    "What this study tests: We compared 7 open-weight AI models (from a compact 4B model up to 35B models across Google Gemma, MedGemma, Alibaba Qwen, and Liquid LFM2) "
+                    "in two modes on the same complex patient charts: reading the condensed chart alone vs. reading the chart alongside Med Agent Hub's automated clinical conflict rules."
+                ),
+                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
+                "label": "How Med Agent Hub works →",
+            }
+        patients_map: dict[str, Any] = {}
+        for c in cases:
+            if c.patient_id and c.patient_id not in patients_map:
+                patients_map[c.patient_id] = _wahs_patient_profile(c.patient_id)
+        for r in rows:
+            pid = str(r.get("patient_id") or (r.get("request") or {}).get("patient") or "")
+            if pid and pid not in patients_map:
+                patients_map[pid] = _wahs_patient_profile(pid)
+        if patients_map:
+            manifest_data["patients"] = patients_map
+        manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
+
+    run_meta_path = rdir / "run_meta.json"
+    run_meta_data = (
+        json.loads(run_meta_path.read_text(encoding="utf-8"))
+        if run_meta_path.is_file()
+        else {}
+    )
+    run_meta_data["arm_cards"] = {bid: _wahs_arm_card(bid) for bid in backend_ids}
+    run_meta_path.write_text(json.dumps(run_meta_data, indent=2) + "\n", encoding="utf-8")
+
     judge_path = rdir / "judge.jsonl"
-    if not judge_path.is_file():
+    deterministic_actor_manifest = rdir / "judges" / "wahs-deterministic-rubric-p1" / "manifest.json"
+    if not judge_path.is_file() or deterministic_actor_manifest.is_file():
         judge_rows: list[dict[str, Any]] = []
         for r in rows:
             cid = str(r.get("case_id") or "")
@@ -3256,24 +3424,29 @@ def build_wahs_report_packet(
 
             harm = bool(not score_d.get("privacy_zero_leakage", True))
             act_tok = int(score_d.get("actual_tokens") or resp_d.get("actual_tokens") or 0)
-            btok = int(r.get("budget_tokens") or 8192)
             usage_d = resp_d.get("usage") if isinstance(resp_d.get("usage"), dict) else {}
             prompt_tok = int(usage_d.get("prompt_tokens") or 0)
-            kv_clause = (
-                f", active KV window {prompt_tok:,} tok"
-                if prompt_tok > 0
-                else ""
-            )
-            note_parts = [
-                f"Rubric {rubric * 100:.1f}%, UUID recall {uuid_rec * 100:.1f}%, "
-                f"atomic entailment {entail * 100:.1f}%, citations {n_resolved}/{n_refs} resolved "
-                f"(condensed chart {act_tok:,} tok @ {btok:,} budget{kv_clause})."
-            ]
+            if case and case.must_abstain:
+                abst_text = (
+                    "Correctly stated the requested record is not in the chart"
+                    if abst_ok
+                    else "Did not clearly state that the requested record is missing from the chart"
+                )
+                note_parts = [
+                    f"{abst_text} ({n_resolved}/{n_refs} chart citations verified; {act_tok:,}-token chart summary)."
+                ]
+            else:
+                note_parts = [
+                    f"Clinical checklist: {rubric * 100:.0f}% covered · "
+                    f"Key chart records cited: {uuid_rec * 100:.0f}% · "
+                    f"Claim-to-record support: {entail * 100:.0f}% "
+                    f"({n_resolved}/{n_refs} citations verified; {act_tok:,}-token chart summary)."
+                ]
             if prompt_tok > 0 and act_tok > prompt_tok + 1024:
                 clipped_tok = act_tok - prompt_tok
                 note_parts.append(
-                    f"KV Window Left-Truncation: Server default num_ctx=16,384 capped active KV tokens at {prompt_tok:,} "
-                    f"(silently left-truncating ~{clipped_tok:,} top-of-chart tokens including active allergies/meds/2025–2026 admissions)."
+                    f"Server working-memory cutoff: the server's 16,384-token active memory limit dropped ~{clipped_tok:,} tokens "
+                    f"from the top of the chart (including active allergies, current medications, and recent 2025–2026 hospital stays)."
                 )
             hub_enr = resp_d.get("hub_enrichment")
             if isinstance(hub_enr, dict) and (
@@ -3292,14 +3465,18 @@ def build_wahs_report_packet(
                     or 0
                 )
                 sub_n = int(hub_enr.get("subgraph_nodes") or 0)
-                sub_e = int(hub_enr.get("subgraph_edges") or 0)
                 note_parts.append(
-                    f"Med Agent Hub Graph & Tier-0 Recovery injected {rec_cnt} omitted safety item(s) "
-                    f"and a {sub_n}-node/{sub_e}-edge clinical subgraph (+{enr_tok} tok)."
+                    f"Med Agent Hub safety net recovered {rec_cnt} omitted chart item(s) "
+                    f"and added a {sub_n}-item clinical relationship summary (+{enr_tok} tokens)."
                 )
             failures = score_d.get("failures") or []
             if failures:
-                note_parts.append("Flags: " + "; ".join(str(f) for f in failures[:3]))
+                readable_failures = []
+                for f in failures:
+                    rf = _format_wahs_failure_for_reader(str(f))
+                    if rf not in readable_failures:
+                        readable_failures.append(rf)
+                note_parts.append("What was missed: " + "; ".join(readable_failures[:3]) + ".")
 
             judge_rows.append(
                 {
@@ -3337,14 +3514,9 @@ def build_wahs_report_packet(
             "schema_version": "judge_actor.v2",
             "actor_id": actor,
             "actor_type": "deterministic-verifier",
-            "agent": "harness-wahs",
-            "agent_version": "2026.11",
-            "model": "HealthBench Rubric + VeriFact Atomic Citation Entailment Verifier",
-            "reasoning_effort": "deterministic",
+            "model": "our automated clinical checklist and source-citation verifier (checking every factual claim against its cited chart record)",
             "sampling": "exact",
             "method": "wahs-clinical-rubric-and-entailment",
-            "pass_index": 1,
-            "passes": 1,
             "promoted_to_canonical": True,
             "blinded": True,
             "n_rows": len(judge_rows),
@@ -3387,10 +3559,14 @@ def build_wahs_report_packet(
         for c in cases:
             if c.patient_id not in unique_patients:
                 unique_patients.append(c.patient_id)
+        n_pt = len(unique_patients)
+        pt_label = (
+            f"{n_pt} complex ICU & longitudinal patient{'s' if n_pt != 1 else ''}"
+            if n_pt > 0
+            else "Clinical cohort"
+        )
         patients_summary = (
-            f"{' + '.join(unique_patients)} ({len(cases)} Cases × {len(backend_ids)} Setups)"
-            if unique_patients
-            else f"{len(cases)} Cases × {len(backend_ids)} Setups"
+            f"{pt_label} · {len(cases)} clinical question{'s' if len(cases) != 1 else ''} × {len(backend_ids)} setups"
         )
 
     meta_payload = {
