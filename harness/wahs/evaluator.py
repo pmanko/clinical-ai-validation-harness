@@ -2497,6 +2497,76 @@ def _write_judge_prep_artifacts(
     (run_dir / "run_meta.json").write_text(
         json.dumps(run_meta, indent=2) + "\n", encoding="utf-8"
     )
+    _write_scenario_and_chart_inputs(run_dir, cases, observed_envelopes)
+
+
+def _merge_scenario_envelopes(
+    existing_env: dict[str, Any] | None,
+    envelope: dict[str, Any],
+) -> dict[str, Any]:
+    if existing_env is None:
+        merged = dict(envelope)
+    else:
+        merged = dict(existing_env)
+        cur_text = str(merged.get("condensed_text") or "")
+        new_text = str(envelope.get("condensed_text") or "")
+        new_is_longer = len(new_text) > len(cur_text)
+        if new_is_longer:
+            merged["condensed_text"] = envelope.get("condensed_text")
+
+        primary_maps = (envelope.get("mappings") or []) if new_is_longer else (merged.get("mappings") or [])
+        secondary_maps = (merged.get("mappings") or []) if new_is_longer else (envelope.get("mappings") or [])
+        by_idx: dict[int, dict[str, Any]] = {}
+        seen_uuids: set[str] = set()
+        extra_maps: list[dict[str, Any]] = []
+        for m in primary_maps:
+            if isinstance(m, dict):
+                idx = m.get("index")
+                if isinstance(idx, int) and idx not in by_idx:
+                    by_idx[idx] = m
+                ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if ru:
+                    seen_uuids.add(ru)
+        for m in secondary_maps:
+            if isinstance(m, dict):
+                idx = m.get("index")
+                ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if isinstance(idx, int) and idx not in by_idx:
+                    by_idx[idx] = m
+                    if ru:
+                        seen_uuids.add(ru)
+                elif ru and ru not in seen_uuids:
+                    seen_uuids.add(ru)
+                    extra_maps.append(m)
+        merged["mappings"] = [by_idx[k] for k in sorted(by_idx)] + extra_maps
+
+    vset: set[str] = set()
+    for src in (existing_env or {}, envelope):
+        for key in ("valid_uuids", "retained_uuids"):
+            for u in src.get(key) or []:
+                if u:
+                    vset.add(str(u).replace("urn:uuid:", ""))
+        for m in src.get("mappings") or []:
+            if isinstance(m, dict):
+                ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if ru:
+                    vset.add(ru)
+                for mu in m.get("memberUuids") or []:
+                    if mu:
+                        vset.add(str(mu).replace("urn:uuid:", ""))
+    merged["valid_uuids"] = sorted(vset)
+    return merged
+
+
+def _write_scenario_and_chart_inputs(
+    run_dir: Path,
+    cases: list[WahsEvalCase],
+    observed_envelopes: dict[str, dict[str, Any]],
+) -> None:
+    scenarios_dir = run_dir / "inputs" / "scenarios"
+    charts_dir = run_dir / "inputs" / "charts"
+    scenarios_dir.mkdir(parents=True, exist_ok=True)
+    charts_dir.mkdir(parents=True, exist_ok=True)
 
     cases_by_id = {c.case_id: c for c in cases}
     for scenario_id, env in observed_envelopes.items():
@@ -2518,7 +2588,12 @@ def _write_judge_prep_artifacts(
 
         mappings = list(env.get("mappings") or [])
         valid_set: set[str] = set()
-        for u in list(case.valid_uuids) + list(case.expected_target_uuids):
+        for u in (
+            list(case.valid_uuids)
+            + list(case.expected_target_uuids)
+            + list(env.get("valid_uuids") or [])
+            + list(env.get("retained_uuids") or [])
+        ):
             if u:
                 valid_set.add(str(u).replace("urn:uuid:", ""))
         for m in mappings:
@@ -2530,25 +2605,7 @@ def _write_judge_prep_artifacts(
                     if mu:
                         valid_set.add(str(mu).replace("urn:uuid:", ""))
 
-        chart_lines = [str(env.get("condensed_text") or "").strip()]
-        chart_lines.append("\n--- WAHS CASE CONTEXT & GROUND-TRUTH EXPECTATIONS ---")
-        chart_lines.append(f"Use Case: {case.use_case}")
-        chart_lines.append(f"Sharing Posture: {case.sharing_posture}")
-        chart_lines.append(f"Must Abstain (Unanswerable from Chart): {case.must_abstain}")
-        if case.expected_anomaly_ids:
-            chart_lines.append(f"Expected Anomaly IDs: {', '.join(case.expected_anomaly_ids)}")
-        if case.positive_rubric_items:
-            chart_lines.append("Required Clinical Facts / Rubric Criteria:")
-            for item in case.positive_rubric_items:
-                if isinstance(item, dict):
-                    chart_lines.append(
-                        f"  - {item.get('criterion') or item.get('id')}: {item.get('required_any')}"
-                    )
-        if case.forbidden_terms:
-            chart_lines.append(
-                f"Forbidden Privacy Terms (Zero-Leakage Required): {', '.join(case.forbidden_terms)}"
-            )
-
+        chart_snapshot = str(env.get("condensed_text") or "").strip()
         chart_obj = {
             "patient": {
                 "uuid": scenario_id,
@@ -2559,7 +2616,7 @@ def _write_judge_prep_artifacts(
             },
             "valid_uuids": sorted(valid_set),
             "mappings": mappings,
-            "chart_snapshot": "\n".join(line for line in chart_lines if line is not None),
+            "chart_snapshot": chart_snapshot,
         }
         (charts_dir / f"{scenario_id}.json").write_text(
             json.dumps(chart_obj, indent=2) + "\n", encoding="utf-8"
@@ -2877,27 +2934,10 @@ def run_wahs_suite(
                                     "answer_chars": len(str(envelope.get("answer") or "")),
                                     "citation_count": len(envelope.get("references") or []),
                                 }
-                                existing_env = observed_envelopes.get(scenario_id)
-                                if existing_env is None:
-                                    observed_envelopes[scenario_id] = dict(envelope)
-                                else:
-                                    merged = dict(existing_env)
-                                    if len(str(envelope.get("condensed_text") or "")) > len(
-                                        str(merged.get("condensed_text") or "")
-                                    ):
-                                        merged["condensed_text"] = envelope.get("condensed_text")
-                                    by_idx = {
-                                        m.get("index"): m
-                                        for m in (merged.get("mappings") or [])
-                                        if isinstance(m, dict)
-                                    }
-                                    for m in envelope.get("mappings") or []:
-                                        if isinstance(m, dict) and m.get("index") not in by_idx:
-                                            by_idx[m.get("index")] = m
-                                    merged["mappings"] = [
-                                        by_idx[k] for k in sorted(k for k in by_idx if isinstance(k, int))
-                                    ]
-                                    observed_envelopes[scenario_id] = merged
+                                observed_envelopes[scenario_id] = _merge_scenario_envelopes(
+                                    observed_envelopes.get(scenario_id),
+                                    dict(envelope),
+                                )
                                 cell_meta_list.append(
                                     {
                                         "profile_id": prof_id,
@@ -3103,6 +3143,22 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
             for key in observed_order:
                 if key in recorded_rows:
                     res_fh.write(json.dumps(recorded_rows[key]) + "\n")
+
+    if (rdir / "inputs" / "scenarios").is_dir() or (rdir / "inputs" / "charts").is_dir() or any(
+        r.get("scenario_id") or r.get("backend_id") for r in recorded_rows.values()
+    ):
+        observed_envelopes: dict[str, dict[str, Any]] = {}
+        for row in recorded_rows.values():
+            env = row.get("response")
+            if isinstance(env, dict):
+                scen_id = str(row.get("scenario_id") or row.get("case_id") or "")
+                if scen_id:
+                    observed_envelopes[scen_id] = _merge_scenario_envelopes(
+                        observed_envelopes.get(scen_id),
+                        env,
+                    )
+        if observed_envelopes:
+            _write_scenario_and_chart_inputs(rdir, cases, observed_envelopes)
 
     summary = _summarize_scores(
         scores,
@@ -3314,8 +3370,8 @@ def build_wahs_report_packet(
                     "Because the standard Ollama server defaults to a 16k-token active working memory window, sending a 32k, 64k, or 128k chart "
                     "causes the server to silently drop the beginning of the prompt—cutting off the patient's active allergies, active medications, "
                     "and recent 2025–2026 hospital admissions at the top of the chart. "
-                    "Plain chart summaries fall from 85.2 to 20.4/100 once that cutoff happens, while Med Agent Hub (+ clinical rules & graph) "
-                    "still rescues over half the clinical findings (53.8/100) because its safety summary is placed at the end of the prompt inside the active window."
+                    "In a blinded 2-judge clinical review (Claude Opus 4.6 + GPT-5.4), plain chart summaries collapse from 80.2/100 at 8k down to 0.0–2.8/100 once that cutoff happens (with 4/4 unsafe answers), "
+                    "while Med Agent Hub (+ clinical rules & graph) leads at 88.0/100 with Gemma 4 26B at 8k (0 unsafe answers), beats raw at 1k (43.8 vs. 24.8/100), and still rescues the Part 1 medication conflicts above the cutoff (27.0–32.8/100) because its safety summary sits inside the active window at the end of the prompt."
                 ),
                 "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
                 "label": "How Med Agent Hub works →",
@@ -3350,207 +3406,30 @@ def build_wahs_report_packet(
     run_meta_data["arm_cards"] = {bid: _wahs_arm_card(bid) for bid in backend_ids}
     run_meta_path.write_text(json.dumps(run_meta_data, indent=2) + "\n", encoding="utf-8")
 
+    import shutil
+
     judge_path = rdir / "judge.jsonl"
-    deterministic_actor_manifest = rdir / "judges" / "wahs-deterministic-rubric-p1" / "manifest.json"
-    if not judge_path.is_file() or deterministic_actor_manifest.is_file():
-        judge_rows: list[dict[str, Any]] = []
-        for r in rows:
-            cid = str(r.get("case_id") or "")
-            scen_id = str(r.get("scenario_id") or cid)
-            bid = str(r.get("backend_id") or r.get("profile_id") or "")
-            case = cases_by_id.get(cid)
-            score_d = r.get("score") or {}
-            resp_d = r.get("response") or {}
-            rubric = float(score_d.get("rubric_weighted_score") or 0.0)
-            uuid_rec = float(score_d.get("required_uuid_recall") or 0.0)
-            entail = float(score_d.get("atomic_entailment_rate") or 0.0)
-            cite_res = float(score_d.get("citation_resolution_rate") or 0.0)
-            sent_cite = float(score_d.get("sentence_citation_coverage") or 0.0)
-            read_align = float(score_d.get("readability_alignment_score") or 0.0)
-            distortions = int(score_d.get("citation_distortion_count") or 0)
-            fab_cites = int(score_d.get("fabricated_citation_count") or 0)
-            refs = list(resp_d.get("references") or [])
-            n_refs = len(refs)
-            n_unresolved = min(n_refs, fab_cites)
-            n_resolved = max(0, n_refs - n_unresolved)
+    deterministic_actor_dir = rdir / "judges" / "wahs-deterministic-rubric-p1"
+    if deterministic_actor_dir.is_dir():
+        shutil.rmtree(deterministic_actor_dir)
+        canon_path = rdir / "judges" / "canonical.json"
+        if canon_path.is_file():
+            try:
+                canon_data = json.loads(canon_path.read_text(encoding="utf-8"))
+                if canon_data.get("built_from") == ["wahs-deterministic-rubric-p1"]:
+                    canon_path.unlink(missing_ok=True)
+                    judge_path.unlink(missing_ok=True)
+            except Exception:
+                pass
 
-            effective_entail = (
-                entail
-                if (case and case.citation_entailment_assertions)
-                else (0.55 * rubric + 0.45 * uuid_rec)
-            )
-            acc = round(
-                max(
-                    0.0,
-                    min(
-                        10.0,
-                        10.0 * (0.50 * effective_entail + 0.30 * rubric + 0.20 * cite_res)
-                        - 1.5 * distortions
-                        - 1.0 * fab_cites,
-                    ),
-                ),
-                1,
-            )
-            comp = round(max(0.0, min(10.0, 10.0 * (0.65 * rubric + 0.35 * uuid_rec))), 1)
-            rel = round(
-                max(
-                    0.0,
-                    min(10.0, 10.0 * (0.50 * rubric + 0.30 * sent_cite + 0.20 * read_align)),
-                ),
-                1,
-            )
-            if n_refs == 0:
-                cg = "n-a"
-            elif entail >= 0.85 and cite_res >= 0.90 and distortions == 0:
-                cg = "supported"
-            elif entail >= 0.50:
-                cg = "partly"
-            else:
-                cg = "unsupported"
-
-            abst_ok = bool(score_d.get("abstention_ok", True))
-            if case and case.must_abstain:
-                ao = "correct" if abst_ok else "failed-to-abstain"
-                if abst_ok:
-                    acc = round(max(0.0, min(10.0, 10.0 * cite_res - 1.0 * fab_cites)), 1)
-                    comp = 10.0
-                    rel = round(max(0.0, min(10.0, 10.0 * (0.80 + 0.20 * read_align))), 1)
-                else:
-                    acc = 0.0
-                    comp = 0.0
-                    rel = 2.0
-            else:
-                ao = "n-a" if abst_ok else "over-abstained"
-
-            harm = bool(not score_d.get("privacy_zero_leakage", True))
-            act_tok = int(score_d.get("actual_tokens") or resp_d.get("actual_tokens") or 0)
-            usage_d = resp_d.get("usage") if isinstance(resp_d.get("usage"), dict) else {}
-            prompt_tok = int(usage_d.get("prompt_tokens") or 0)
-            if case and case.must_abstain:
-                abst_text = (
-                    "Correctly stated the requested record is not in the chart"
-                    if abst_ok
-                    else "Did not clearly state that the requested record is missing from the chart"
-                )
-                note_parts = [
-                    f"{abst_text} ({n_resolved}/{n_refs} chart citations verified; {act_tok:,}-token chart summary)."
-                ]
-            else:
-                note_parts = [
-                    f"Clinical checklist: {rubric * 100:.0f}% covered · "
-                    f"Key chart records cited: {uuid_rec * 100:.0f}% · "
-                    f"Claim-to-record support: {entail * 100:.0f}% "
-                    f"({n_resolved}/{n_refs} citations verified; {act_tok:,}-token chart summary)."
-                ]
-            if prompt_tok > 0 and act_tok > prompt_tok + 1024:
-                clipped_tok = act_tok - prompt_tok
-                note_parts.append(
-                    f"Server working-memory cutoff: the server's 16,384-token active memory limit dropped ~{clipped_tok:,} tokens "
-                    f"from the top of the chart (including active allergies, current medications, and recent 2025–2026 hospital stays)."
-                )
-            hub_enr = resp_d.get("hub_enrichment")
-            if isinstance(hub_enr, dict) and (
-                hub_enr.get("overflow_triggered")
-                or hub_enr.get("subgraph_nodes")
-                or hub_enr.get("enriched")
-            ):
-                rec_cnt = int(
-                    hub_enr.get("overflow_recovered_count")
-                    or hub_enr.get("added_items")
-                    or 0
-                )
-                enr_tok = int(
-                    hub_enr.get("enrichment_tokens")
-                    or hub_enr.get("added_tokens")
-                    or 0
-                )
-                sub_n = int(hub_enr.get("subgraph_nodes") or 0)
-                note_parts.append(
-                    f"Med Agent Hub safety net recovered {rec_cnt} omitted chart item(s) "
-                    f"and added a {sub_n}-item clinical relationship summary (+{enr_tok} tokens)."
-                )
-            failures = score_d.get("failures") or []
-            if failures:
-                readable_failures = []
-                for f in failures:
-                    rf = _format_wahs_failure_for_reader(str(f))
-                    if rf not in readable_failures:
-                        readable_failures.append(rf)
-                note_parts.append("What was missed: " + "; ".join(readable_failures[:3]) + ".")
-
-            judge_rows.append(
-                {
-                    "scenario_id": scen_id,
-                    "backend_id": bid,
-                    "accuracy": acc,
-                    "completeness": comp,
-                    "relevance": rel,
-                    "abstention_outcome": ao,
-                    "citation_groundedness": cg,
-                    "harm": harm,
-                    "temporal_date_accuracy": "ok" if distortions == 0 else "minor",
-                    "temporal_window": "ok",
-                    "temporal_trend": "ok",
-                    "citation_resolution": {
-                        "n_refs": n_refs,
-                        "n_resolved": n_resolved,
-                        "n_unresolved": n_unresolved,
-                        "unresolved": [],
-                        "rate": round(n_resolved / n_refs, 4) if n_refs > 0 else None,
-                    },
-                    "note": " ".join(note_parts),
-                }
-            )
-
-        judge_text = "\n".join(json.dumps(jr) for jr in judge_rows) + "\n"
-        judge_path.write_text(judge_text, encoding="utf-8")
-
-        actor = "wahs-deterministic-rubric-p1"
-        actor_dir = rdir / "judges" / actor
-        actor_dir.mkdir(parents=True, exist_ok=True)
-        (actor_dir / "judge.jsonl").write_text(judge_text, encoding="utf-8")
-        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        card = {
-            "schema_version": "judge_actor.v2",
-            "actor_id": actor,
-            "actor_type": "deterministic-verifier",
-            "model": "our automated clinical checklist and source-citation verifier (checking every factual claim against its cited chart record)",
-            "sampling": "exact",
-            "method": "wahs-clinical-rubric-and-entailment",
-            "promoted_to_canonical": True,
-            "blinded": True,
-            "n_rows": len(judge_rows),
-            "created_at": now_iso,
-            "started_at": now_iso,
-            "finished_at": now_iso,
-            "output": "judge.jsonl",
-            "output_sha256": hashlib.sha256(judge_text.encode("utf-8")).hexdigest(),
-            "arm_families": arm_families(rdir),
-            "self_preference_risk": False,
-            "self_preference_arms": [],
-        }
-        (actor_dir / "manifest.json").write_text(
-            json.dumps(card, indent=2) + "\n", encoding="utf-8"
-        )
-        (rdir / "judges" / "canonical.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": "judge_canonical.v1",
-                    "built_from": [actor],
-                    "aggregation": "single",
-                    "written_at": now_iso,
-                },
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-    else:
+    if judge_path.is_file():
         judge_rows = [
             json.loads(line)
             for line in judge_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
+    else:
+        judge_rows = []
 
     scout = scout_summary(judge_rows, backend_ids)
     judging = judge_summary(rdir)

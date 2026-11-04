@@ -1021,7 +1021,12 @@ def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
     }
     assert set(res.summary["by_model_family"].keys()) == {"gemma-4", "qwen"}
 
-    # Verify judge-prep.py runs cleanly on the WAHS run directory
+    # Verify judge-prep.py runs cleanly on the WAHS run directory and chart_snapshot is pure chart text
+    chart_files = list((res.run_dir / "inputs" / "charts").glob("*.json"))
+    assert len(chart_files) == 1
+    chart_payload = json.loads(chart_files[0].read_text(encoding="utf-8"))
+    assert "Required Clinical Facts" not in chart_payload["chart_snapshot"]
+
     script = Path(__file__).resolve().parent.parent / "scripts" / "judge-prep.py"
     proc = subprocess.run(
         [sys.executable, str(script), str(res.run_dir), "--blind"],
@@ -1046,16 +1051,115 @@ def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
     assert len(bundle_rows) == 3
     assert {r["backend_id"] for r in bundle_rows} == {"A", "B", "C"}
 
-    # Verify build_wahs_report_packet and CLI `wahs report` produce report.html, dashboard.html, meta.json, judge.jsonl
+    # Verify build_wahs_report_packet does NOT fabricate a synthetic judge.jsonl before LLM judging
     assert main(["wahs", "report", str(res.run_dir)]) == 0
     assert (res.run_dir / "report.html").is_file()
     assert (res.run_dir / "dashboard.html").is_file()
     assert (res.run_dir / "meta.json").is_file()
+    assert not (res.run_dir / "judge.jsonl").is_file()
+
+    # Finalize blinded LLM judge rows via judge-finalize.py and verify report packet
+    blind_rows_path = tmp_path / "blind_judge_rows.json"
+    blind_rows = [
+        {
+            "scenario_id": r["scenario_id"],
+            "backend_id": r["backend_id"],
+            "accuracy": 9.0,
+            "completeness": 8.0,
+            "relevance": 9.0,
+            "abstention_outcome": "n-a",
+            "citation_groundedness": "supported",
+            "harm": False,
+            "temporal_date_accuracy": "ok",
+            "temporal_window": "ok",
+            "temporal_trend": "ok",
+            "note": "Blinded LLM judge evaluation note.",
+        }
+        for r in bundle_rows
+    ]
+    blind_rows_path.write_text(json.dumps(blind_rows), encoding="utf-8")
+    finalize_script = Path(__file__).resolve().parent.parent / "scripts" / "judge-finalize.py"
+    subprocess.run(
+        [
+            sys.executable,
+            str(finalize_script),
+            str(res.run_dir),
+            str(blind_rows_path),
+            "--actor",
+            "claude-opus-5-5-high-p1",
+            "--model",
+            "claude-opus-5-5",
+            "--blind",
+            "--promote",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert main(["wahs", "report", str(res.run_dir)]) == 0
     assert (res.run_dir / "judge.jsonl").is_file()
     meta_json = json.loads((res.run_dir / "meta.json").read_text(encoding="utf-8"))
     assert meta_json["cells"] == 3
     assert len(meta_json["scout"]) == 3
     assert meta_json["judging"]["recorded"] is True
+
+
+def test_multi_budget_valid_uuids_union_and_cell_source_resolution():
+    from harness.validate.sources import build_sources
+    from harness.wahs.evaluator import _merge_scenario_envelopes
+
+    env_1k = {
+        "condensed_text": "[1] (2026-01-25) Medication: Vancomycin\n[18] (2022-05-03) Procedure: Extraction of Stomach",
+        "mappings": [
+            {"index": 1, "resourceUuid": "uuid-vanco", "resourceType": "MedicationRequest"},
+            {"index": 18, "resourceUuid": "uuid-stomach-1k", "resourceType": "Procedure"},
+        ],
+        "retained_uuids": ["uuid-vanco", "uuid-stomach-1k"],
+    }
+    env_32k = {
+        "condensed_text": (
+            "[1] (2026-01-25) Medication: Vancomycin\n"
+            "[18] (2024-06-08) Device: Dual-chamber pacemaker\n"
+            "[45] (2022-05-03) Procedure: Extraction of Stomach"
+        ),
+        "mappings": [
+            {"index": 1, "resourceUuid": "uuid-vanco", "resourceType": "MedicationRequest"},
+            {"index": 18, "resourceUuid": "uuid-pacemaker-32k", "resourceType": "Device"},
+            {"index": 45, "resourceUuid": "uuid-stomach-1k", "resourceType": "Procedure"},
+        ],
+        "retained_uuids": ["uuid-vanco", "uuid-pacemaker-32k", "uuid-stomach-1k"],
+    }
+    merged = _merge_scenario_envelopes(env_1k, env_32k)
+    assert set(merged["valid_uuids"]) == {"uuid-vanco", "uuid-stomach-1k", "uuid-pacemaker-32k"}
+    chart_fixture = {
+        "valid_uuids": merged["valid_uuids"],
+        "mappings": merged["mappings"],
+        "chart_snapshot": merged["condensed_text"],
+    }
+
+    resp_1k = {
+        **env_1k,
+        "answer": "Patient had stomach extraction [18].",
+        "references": [{"index": 18, "resourceUuid": "uuid-stomach-1k", "resourceType": "Procedure"}],
+    }
+    sources_1k = build_sources(resp_1k, chart_fixture)
+    assert sources_1k["diagnostics"]["unresolved_refs"] == []
+    s18_1k = sources_1k["sources"][0]
+    assert s18_1k["resolution_status"] == "resolved"
+    assert s18_1k["resource_uuid"] == "uuid-stomach-1k"
+    assert "Extraction of Stomach" in s18_1k["source_text"]
+
+    resp_32k = {
+        **env_32k,
+        "answer": "Patient has a dual-chamber pacemaker [18].",
+        "references": [{"index": 18, "resourceUuid": "uuid-pacemaker-32k", "resourceType": "Device"}],
+    }
+    sources_32k = build_sources(resp_32k, chart_fixture)
+    assert sources_32k["diagnostics"]["unresolved_refs"] == []
+    s18_32k = sources_32k["sources"][0]
+    assert s18_32k["resolution_status"] == "resolved"
+    assert s18_32k["resource_uuid"] == "uuid-pacemaker-32k"
+    assert "Dual-chamber pacemaker" in s18_32k["source_text"]
 
 
 def test_demo_data_text_matching_and_recovered_mappings_resolution(tmp_path: Path, monkeypatch):
