@@ -839,4 +839,212 @@ def test_trace_transport_for_result_distinguishes_chartsearchai_from_hub_and_bun
     )
 
 
+def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
+    import subprocess
+    import sys
+
+    chat_requests: list[dict] = []
+
+    class ProfileSession:
+        headers = {}
+
+        def get(self, url, **kwargs):
+            assert "/v1/models?workflow=wahs" in url
+
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    return {
+                        "data": [
+                            {
+                                "id": "wahs-12b-kb",
+                                "label": "Gemma 4 12B — KB-Guided",
+                                "model": "gemma-4-12b",
+                                "model_family": "Gemma 4",
+                                "kb_guided": True,
+                            },
+                            {
+                                "id": "wahs-12b-raw",
+                                "label": "Gemma 4 12B — Raw Condensed",
+                                "model": "gemma-4-12b",
+                                "model_family": "Gemma 4",
+                                "kb_guided": False,
+                            },
+                            {
+                                "id": "wahs-qwen3-14b-kb",
+                                "label": "Qwen 3 14B — KB-Guided",
+                                "model": "qwen3-14b",
+                                "model_family": "Qwen",
+                                "kb_guided": True,
+                            },
+                        ]
+                    }
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            payload = kwargs["json"]
+            if url.endswith("/wahs/api/analyze"):
+                class AnalyzeResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {
+                            "condensation": {
+                                "condensed_text": "[1] Simvastatin 40 MG\n[2] Atorvastatin 80 MG",
+                                "tier_info": {
+                                    "tier_used": 1,
+                                    "actual_tokens": 640,
+                                    "budget_tokens": payload["target_tokens"],
+                                },
+                                "retained_uuids": ["uuid-simva-40", "uuid-atorva-80"],
+                                "redaction_notice": "",
+                                "mappings": {
+                                    "[1]": {
+                                        "primary_uuid": "uuid-simva-40",
+                                        "resource_type": "MedicationRequest",
+                                        "summary": "Simvastatin 40 MG Oral Tablet",
+                                        "member_uuids": [],
+                                    },
+                                    "[2]": {
+                                        "primary_uuid": "uuid-atorva-80",
+                                        "resource_type": "MedicationRequest",
+                                        "summary": "Atorvastatin 80 MG Oral Tablet",
+                                        "member_uuids": [],
+                                    },
+                                },
+                            },
+                            "reconciliation": {
+                                "anomalies": [
+                                    {
+                                        "category": "duplicate_therapy",
+                                        "severity": "high",
+                                        "title": "Duplicate Statin Therapy",
+                                        "summary": "Simvastatin 40 MG [1] and Atorvastatin 80 MG [2] are both active.",
+                                        "patient_question": "Ask your doctor which cholesterol medicine to keep taking.",
+                                        "citation_indices": [1, 2],
+                                    }
+                                ]
+                            },
+                            "kb_evaluation": {
+                                "contraindications": [],
+                                "monitoring_gaps": [],
+                                "care_gaps": [],
+                            },
+                        }
+
+                return AnalyzeResp()
+
+            if url.endswith("/v1/chat/completions"):
+                chat_requests.append(payload)
+
+                class ChatResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "content": (
+                                            "<think>Checking statin duplication...</think>\n"
+                                            "Your chart lists two cholesterol medications at the same time: "
+                                            "Simvastatin 40 MG [1] and Atorvastatin 80 MG [2]. "
+                                            "Ask your doctor which one to stop."
+                                        )
+                                    }
+                                }
+                            ]
+                        }
+
+                return ChatResp()
+
+            raise AssertionError(f"Unexpected URL: {url}")
+
+    cases_path = tmp_path / "profile_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "wahs_a_statin_dup",
+                "patient_id": "Maurice742_Auer97_set_b",
+                "use_case": "A_reconciliation",
+                "prompt": "Check my medications for duplicates.",
+                "sharing_posture": "patient_self",
+                "target_token_budgets": [4096],
+                "expected_anomaly_ids": ["anom_statin_dup"],
+                "expected_target_uuids": ["uuid-simva-40", "uuid-atorva-80"],
+                "valid_uuids": ["uuid-simva-40", "uuid-atorva-80"],
+                "positive_rubric_items": [
+                    {
+                        "id": "r1",
+                        "criterion": "Names both statins",
+                        "required_any": ["Simvastatin", "Atorvastatin"],
+                        "weight": 1.0,
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    client = WahsHubClient(base_url="http://127.0.0.1:18081", session=ProfileSession())
+    out_dir = tmp_path / "profile_runs"
+    res = run_wahs_suite(
+        cases_path,
+        client=client,
+        output_dir=out_dir,
+        budgets=[4096],
+        profiles=["wahs-12b-kb", "wahs-12b-raw", "wahs-qwen3-14b-kb"],
+        evaluation_modality="live_model_and_team_eval",
+    )
+    assert res.total_cells == 3
+    assert res.passed_cells == 3
+    assert len(chat_requests) == 3
+
+    # Verify -kb profile includes Stage 2 KB findings while -raw profile omits them
+    kb_prompt = chat_requests[0]["messages"][0]["content"]
+    raw_prompt = chat_requests[1]["messages"][0]["content"]
+    assert "deterministic 4-Layer Clinical Knowledge Base findings" in kb_prompt
+    assert "Duplicate Statin Therapy" in kb_prompt
+    assert "Stage 2 KB findings are intentionally withheld" in raw_prompt
+    assert "Duplicate Statin Therapy" not in raw_prompt
+
+    # Verify summary includes by_profile and by_model_family breakdowns
+    assert set(res.summary["by_profile"].keys()) == {
+        "wahs-12b-kb",
+        "wahs-12b-raw",
+        "wahs-qwen3-14b-kb",
+    }
+    assert set(res.summary["by_model_family"].keys()) == {"gemma-4", "qwen"}
+
+    # Verify judge-prep.py runs cleanly on the WAHS run directory
+    script = Path(__file__).resolve().parent.parent / "scripts" / "judge-prep.py"
+    proc = subprocess.run(
+        [sys.executable, str(script), str(res.run_dir), "--blind"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "wrote 3 cells" in proc.stdout
+    assert (res.run_dir / "judge-cells.jsonl").is_file()
+    assert (res.run_dir / "judge-blind-map.json").is_file()
+    cells = [
+        json.loads(line)
+        for line in (res.run_dir / "judge-cells.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(cells) == 3
+    bundles = list((res.run_dir / "judge-bundles").glob("*.jsonl"))
+    assert len(bundles) == 1
+    bundle_rows = [
+        json.loads(line)
+        for line in bundles[0].read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(bundle_rows) == 3
+    assert {r["backend_id"] for r in bundle_rows} == {"A", "B", "C"}
+
+
+
+
 

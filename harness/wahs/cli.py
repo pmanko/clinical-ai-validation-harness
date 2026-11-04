@@ -74,6 +74,12 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         help="Condensation mode(s) to evaluate (repeatable)",
     )
     run_p.add_argument(
+        "--profile",
+        action="append",
+        dest="profiles",
+        help="WAHS simple profile ID(s) to evaluate via /v1/chat/completions (repeatable)",
+    )
+    run_p.add_argument(
         "--evaluation-modality",
         choices=VALID_EVALUATION_MODALITIES,
         default="deterministic_pipeline",
@@ -117,6 +123,7 @@ def dispatch(args: argparse.Namespace) -> int:
             budgets=args.budgets,
             context_arms=getattr(args, "context_arms", None),
             condense_modes=getattr(args, "condense_modes", None),
+            profiles=getattr(args, "profiles", None),
             git_sha=args.git_sha,
             target_provenance=provenance,
             evaluation_modality=getattr(args, "evaluation_modality", "deterministic_pipeline"),
