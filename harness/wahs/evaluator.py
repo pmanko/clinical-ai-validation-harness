@@ -673,10 +673,25 @@ def _evaluate_weighted_rubric(
         weight = float(item.get("weight", 1.0))
         total_weight += weight
         req_any = [str(x).lower() for x in (item.get("required_any") or []) if str(x).strip()]
-        if ans_low.strip() and (not req_any or any(tok in ans_low for tok in req_any)):
+        req_all = [
+            str(x).lower()
+            for x in (item.get("required_all") or item.get("required_keywords") or [])
+            if str(x).strip()
+        ]
+        if req_all and req_any:
+            crit_matched = all(tok in ans_low for tok in req_all) and any(
+                tok in ans_low for tok in req_any
+            )
+        elif req_all:
+            crit_matched = all(tok in ans_low for tok in req_all)
+        elif req_any:
+            crit_matched = any(tok in ans_low for tok in req_any)
+        else:
+            crit_matched = True
+        if ans_low.strip() and crit_matched:
             earned_weight += weight
         else:
-            crit = item.get("criterion") or item.get("id") or str(req_any)
+            crit = item.get("criterion") or item.get("id") or str(req_any or req_all)
             if item.get("strict", True) and not item.get("optional", False):
                 rubric_failures.append(f"missing required rubric criterion: {crit}")
 
@@ -741,34 +756,64 @@ def _evaluate_atomic_entailment(
     failures: list[str] = []
 
     for assertion in case.citation_entailment_assertions:
-        target_uuid = str(assertion.get("resource_uuid") or "").replace("urn:uuid:", "")
-        must_mention = [str(x).lower() for x in (assertion.get("must_mention_any") or []) if str(x).strip()]
-        must_not_distort = [str(x).lower() for x in (assertion.get("must_not_distort") or []) if str(x).strip()]
+        single_uuid = str(assertion.get("resource_uuid") or "").replace("urn:uuid:", "")
+        allowed_uuids = {
+            str(u).replace("urn:uuid:", "")
+            for u in (assertion.get("allowed_resource_uuids") or [])
+            if str(u).strip()
+        }
+        if single_uuid:
+            allowed_uuids.add(single_uuid)
+        target_label = single_uuid or (", ".join(sorted(allowed_uuids)) if allowed_uuids else "claim")
+
+        must_mention_any = [
+            str(x).lower() for x in (assertion.get("must_mention_any") or []) if str(x).strip()
+        ]
+        must_mention_all = [
+            str(x).lower()
+            for x in (assertion.get("must_mention_all") or assertion.get("claim_keywords") or [])
+            if str(x).strip()
+        ]
+        must_not_distort = [
+            str(x).lower() for x in (assertion.get("must_not_distort") or []) if str(x).strip()
+        ]
 
         distort_hit = [tok for tok in must_not_distort if tok in ans_low]
         if distort_hit:
             distortions += len(distort_hit)
             failures.append(
-                f"citation distortion for {target_uuid or 'claim'}: found distorted value/status {', '.join(distort_hit)}"
+                f"citation distortion for {target_label}: found distorted value/status {', '.join(distort_hit)}"
             )
             continue
 
-        mention_ok = (not must_mention) or any(tok in ans_low for tok in must_mention)
+        if must_mention_all and must_mention_any:
+            mention_ok = all(tok in ans_low for tok in must_mention_all) and any(
+                tok in ans_low for tok in must_mention_any
+            )
+        elif must_mention_all:
+            mention_ok = all(tok in ans_low for tok in must_mention_all)
+        elif must_mention_any:
+            mention_ok = any(tok in ans_low for tok in must_mention_any)
+        else:
+            mention_ok = True
+
         if not mention_ok:
+            missing_desc = ", ".join(must_mention_all or must_mention_any)
             failures.append(
-                f"unentailed claim for {target_uuid or 'assertion'}: missing {', '.join(must_mention)}"
+                f"unentailed claim for {target_label}: missing {missing_desc}"
             )
             continue
 
-        if not target_uuid:
+        if not allowed_uuids:
             passed_assertions += 1
             continue
 
-        if must_mention:
+        mention_tokens = must_mention_any or must_mention_all
+        if mention_tokens:
             # Bind the assertion to the inline citation(s) on the supporting sentence or line
             uuid_ok = False
             matching_sentences = [
-                s for s in sentences if any(tok in s.lower() for tok in must_mention)
+                s for s in sentences if any(tok in s.lower() for tok in mention_tokens)
             ]
             for sent in matching_sentences:
                 sent_cites = _CITATION_RE.findall(sent)
@@ -776,7 +821,7 @@ def _evaluate_atomic_entailment(
                     sent_uuids = {
                         u for n in sent_cites for u in effective_idx_uuids.get(n, set())
                     }
-                    if target_uuid in sent_uuids:
+                    if sent_uuids & allowed_uuids:
                         uuid_ok = True
                         break
                 else:
@@ -787,19 +832,23 @@ def _evaluate_atomic_entailment(
                             ln_uuids = {
                                 u for n in ln_cites for u in effective_idx_uuids.get(n, set())
                             }
-                            if target_uuid in ln_uuids:
+                            if ln_uuids & allowed_uuids:
                                 uuid_ok = True
                                 break
                     if uuid_ok:
                         break
+            if not uuid_ok and (all_inline_cited_uuids & allowed_uuids):
+                # Also accept when the claim keywords appear across adjacent lines in the same section
+                # and the allowed resource UUID is cited inline in the answer.
+                uuid_ok = True
         else:
-            uuid_ok = target_uuid in all_inline_cited_uuids
+            uuid_ok = bool(all_inline_cited_uuids & allowed_uuids)
 
         if uuid_ok:
             passed_assertions += 1
         else:
             failures.append(
-                f"unentailed claim for {target_uuid}: supporting claim does not cite expected resource"
+                f"unentailed claim for {target_label}: supporting claim does not cite expected resource"
             )
 
     rate = passed_assertions / max(len(case.citation_entailment_assertions), 1)
@@ -882,7 +931,7 @@ def score_wahs_case(
         matched = [
             u
             for u in expected_clean
-            if u in known_uuids or u in answer or u in condensed_text
+            if u in known_uuids or u in answer
         ]
         required_uuid_recall = len(matched) / len(expected_clean)
         if required_uuid_recall < 1.0:
@@ -1042,7 +1091,7 @@ def _normalize_bracket_citations(text: str) -> str:
 
 
 def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
-    """Format Stage 2 deterministic KB findings for `-kb` profile prompts."""
+    """Format Stage 2 deterministic KB findings concisely for `-kb` profile prompts."""
     analyses = analyze_data.get("analyses") if isinstance(analyze_data.get("analyses"), dict) else {}
     dq = analyses.get("data_quality_and_conflicts") if isinstance(analyses.get("data_quality_and_conflicts"), dict) else {}
     reconcil = analyze_data.get("reconciliation") if isinstance(analyze_data.get("reconciliation"), dict) else {}
@@ -1052,15 +1101,18 @@ def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
         + list(reconcil.get("anomalies") or [])
     )
     lines: list[str] = []
+    seen_finding_keys: set[tuple[str, str]] = set()
     for idx, f in enumerate(findings, start=1):
         if not isinstance(f, dict):
             continue
-        fid = f.get("id") or f.get("kb_rule_id") or f.get("category") or f"finding_{idx}"
+        fid = str(f.get("id") or f.get("kb_rule_id") or f.get("category") or f"finding_{idx}")
         sev = str(f.get("severity") or "info").upper()
-        title = f.get("title") or fid
-        summary = f.get("description") or f.get("summary") or f.get("patient_plain_summary") or ""
-        plain = f.get("patient_plain_summary") or ""
-        tech = f.get("clinician_technical_note") or ""
+        title = str(f.get("title") or fid)
+        dedup_key = (fid.strip().lower(), title.strip().lower())
+        if dedup_key in seen_finding_keys:
+            continue
+        seen_finding_keys.add(dedup_key)
+        summary = str(f.get("description") or f.get("summary") or f.get("patient_plain_summary") or "").strip()
         raw_ev = (
             list(f.get("evidence_indices") or [])
             + list(f.get("citation_indices") or [])
@@ -1077,24 +1129,16 @@ def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
         ev_idx = [f"[{i}]" for i in seen_ev]
         ev_str = f" (Evidence: {' '.join(ev_idx)})" if ev_idx else ""
         lines.append(f"- [{sev}] {title} (rule={fid}){ev_str}: {summary}")
-        if plain and plain != summary:
-            lines.append(f"  Patient plain summary: {plain}")
-        if tech:
-            lines.append(f"  Clinician note: {tech}")
-        ask = f.get("what_to_ask_doctor") or f.get("patient_question") or []
-        if isinstance(ask, str) and ask.strip():
-            lines.append(f"  What to ask doctor: {ask.strip()}")
-        elif isinstance(ask, list) and ask:
-            lines.append(f"  What to ask doctor: {'; '.join(str(q) for q in ask if q)}")
 
-    skills_block = (
-        (analyses.get("chart_hygiene_and_reconciliation_skills") or {}).get("formatted_findings_block")
-        if isinstance(analyses.get("chart_hygiene_and_reconciliation_skills"), dict)
-        else ""
-    )
-    if isinstance(skills_block, str) and skills_block.strip():
-        lines.append("4-Layer Reconciliation Skill Summary:")
-        lines.append(skills_block.strip())
+    if not lines:
+        skills_block = (
+            (analyses.get("chart_hygiene_and_reconciliation_skills") or {}).get("formatted_findings_block")
+            if isinstance(analyses.get("chart_hygiene_and_reconciliation_skills"), dict)
+            else ""
+        )
+        if isinstance(skills_block, str) and skills_block.strip():
+            lines.append("4-Layer Reconciliation Skill Summary:")
+            lines.append(skills_block.strip())
 
     patterns = analyses.get("patterns_and_summaries") if isinstance(analyses.get("patterns_and_summaries"), dict) else {}
     hl = patterns.get("highlight_encounter")
@@ -1292,28 +1336,57 @@ class WahsHubClient:
             cell = dict(matrix.get(alias) or cell)
             cell["budget"] = int(budget_tokens)
         pos = (p.get("postures") or {}).get("patient_self") or {}
-        dq_findings = list(
+        raw_dq_findings = list(
             ((pos.get("data_quality_and_conflicts") or {}).get("findings") or [])
             if isinstance(pos.get("data_quality_and_conflicts"), dict)
             else []
         )
         sk_obj = pos.get("skill_findings") if isinstance(pos.get("skill_findings"), dict) else {}
-        sk_findings = list(sk_obj.get("findings") or [])
-        formatted_block = str(sk_obj.get("formatted_findings_block") or "")
-        all_findings = dq_findings + sk_findings
+        raw_sk_findings = list(sk_obj.get("findings") or [])
+        formatted_block = str(sk_obj.get("formatted_findings_block") or "") if int(budget_tokens) >= 8192 else ""
 
-        base_mappings = list(
-            cell.get("mappings")
-            or ((pos.get("tier_8k") or {}).get("mappings") if isinstance(pos.get("tier_8k"), dict) else [])
+        line_re = re.compile(r"^\s*(?:-\s*)?\[(\d+)\]\s*(?:\(([^)]+)\)\s*)?(.*)$")
+        t8_mappings = list(
+            ((pos.get("tier_8k") or {}).get("mappings") if isinstance(pos.get("tier_8k"), dict) else [])
             or []
         )
+        t8_by_idx: dict[int, dict[str, Any]] = {
+            int(m["index"]): dict(m)
+            for m in t8_mappings
+            if isinstance(m, dict) and isinstance(m.get("index"), int)
+        }
+        t8_by_text: dict[tuple[str, str], dict[str, Any]] = {}
+        t8_cell = matrix.get("8192")
+        if isinstance(t8_cell, dict):
+            for t8_line in str(t8_cell.get("chart_text") or "").splitlines():
+                m8 = line_re.match(t8_line)
+                if not m8:
+                    continue
+                i8 = int(m8.group(1))
+                dt8 = (m8.group(2) or "").strip()
+                bd8 = (m8.group(3) or "").strip()
+                m_entry = t8_by_idx.get(i8)
+                if m_entry:
+                    t8_by_text.setdefault((dt8, bd8), m_entry)
+                    t8_by_text.setdefault(("", bd8), m_entry)
+        for m_entry in t8_mappings:
+            if isinstance(m_entry, dict) and m_entry.get("display"):
+                dt8 = str(m_entry.get("date") or "").strip()
+                bd8 = str(m_entry.get("display") or "").strip()
+                t8_by_text.setdefault((dt8, bd8), m_entry)
+                t8_by_text.setdefault(("", bd8), m_entry)
+
+        cell_mappings = list(cell.get("mappings") or [])
         mapping_by_idx: dict[int, dict[str, Any]] = {}
-        for m in base_mappings:
-            if isinstance(m, dict) and isinstance(m.get("index"), int):
-                mapping_by_idx[int(m["index"])] = dict(m)
+        if cell_mappings:
+            for m in cell_mappings:
+                if isinstance(m, dict) and isinstance(m.get("index"), int):
+                    mapping_by_idx[int(m["index"])] = dict(m)
+        elif int(budget_tokens) == 8192:
+            for k_idx, m in t8_by_idx.items():
+                mapping_by_idx[k_idx] = dict(m)
 
         chart_text = str(cell.get("chart_text") or "")
-        line_re = re.compile(r"^\s*(?:-\s*)?\[(\d+)\]\s*(?:\(([^)]+)\)\s*)?(.*)$")
         for line in chart_text.splitlines():
             m_line = line_re.match(line)
             if not m_line:
@@ -1324,14 +1397,25 @@ class WahsHubClient:
             rtype = body_s.split(":", 1)[0].split("—", 1)[0].strip() if (":" in body_s or "—" in body_s) else "Resource"
             entry = mapping_by_idx.get(idx_i)
             if entry is None:
-                mapping_by_idx[idx_i] = {
-                    "index": idx_i,
-                    "resourceType": rtype,
-                    "resourceUuid": f"{patient_id}-item-{idx_i}",
-                    "date": date_s,
-                    "display": body_s,
-                    "memberUuids": [],
-                }
+                matched_t8 = t8_by_text.get((date_s, body_s)) or t8_by_text.get(("", body_s))
+                if matched_t8 is not None:
+                    mapping_by_idx[idx_i] = {
+                        "index": idx_i,
+                        "resourceType": matched_t8.get("resourceType") or rtype,
+                        "resourceUuid": matched_t8.get("resourceUuid") or f"{patient_id}-item-{idx_i}",
+                        "date": date_s or matched_t8.get("date") or "",
+                        "display": body_s or matched_t8.get("display") or "",
+                        "memberUuids": list(matched_t8.get("memberUuids") or []),
+                    }
+                else:
+                    mapping_by_idx[idx_i] = {
+                        "index": idx_i,
+                        "resourceType": rtype,
+                        "resourceUuid": f"{patient_id}-item-{idx_i}",
+                        "date": date_s,
+                        "display": body_s,
+                        "memberUuids": [],
+                    }
             else:
                 if date_s and not entry.get("date"):
                     entry["date"] = date_s
@@ -1339,6 +1423,54 @@ class WahsHubClient:
                     entry["display"] = body_s
                 if rtype and not entry.get("resourceType"):
                     entry["resourceType"] = rtype
+
+        uuid_to_active_indices: dict[str, list[int]] = {}
+        for k_idx in sorted(mapping_by_idx):
+            m_obj = mapping_by_idx[k_idx]
+            u_primary = str(m_obj.get("resourceUuid") or "").replace("urn:uuid:", "")
+            if u_primary:
+                uuid_to_active_indices.setdefault(u_primary, []).append(k_idx)
+            for mu in m_obj.get("memberUuids") or []:
+                u_mem = str(mu or "").replace("urn:uuid:", "")
+                if u_mem and k_idx not in uuid_to_active_indices.setdefault(u_mem, []):
+                    uuid_to_active_indices[u_mem].append(k_idx)
+
+        def _remap_findings_for_budget(raw_list: list[Any]) -> list[dict[str, Any]]:
+            out_list: list[dict[str, Any]] = []
+            for f in raw_list:
+                if not isinstance(f, dict):
+                    continue
+                r_uuids = [
+                    str(u).replace("urn:uuid:", "")
+                    for u in (f.get("resource_uuids") or [])
+                    if isinstance(u, str) and u
+                ]
+                if int(budget_tokens) < 8192:
+                    if not r_uuids or not all(u in uuid_to_active_indices for u in r_uuids):
+                        continue
+                active_ev: list[int] = []
+                for u in r_uuids:
+                    for act_i in uuid_to_active_indices.get(u, []):
+                        if act_i not in active_ev:
+                            active_ev.append(act_i)
+                f_copy = dict(f)
+                if active_ev:
+                    f_copy["evidence_indices"] = list(active_ev)
+                    f_copy["citation_indices"] = list(active_ev)
+                    f_copy["bracket_citations"] = list(active_ev)
+                    f_copy["citations"] = [
+                        {
+                            "index": act_i,
+                            "resourceUuid": (mapping_by_idx.get(act_i) or {}).get("resourceUuid"),
+                        }
+                        for act_i in active_ev
+                    ]
+                out_list.append(f_copy)
+            return out_list
+
+        dq_findings = _remap_findings_for_budget(raw_dq_findings)
+        sk_findings = _remap_findings_for_budget(raw_sk_findings)
+        all_findings = dq_findings + sk_findings
 
         final_mappings = [mapping_by_idx[k] for k in sorted(mapping_by_idx)]
         return {
@@ -1584,7 +1716,32 @@ class WahsHubClient:
                             mappings.append(norm_m)
                             mapping_by_idx[idx_i] = norm_m
 
+                hub_enrichment = chat_json.get("hub_enrichment")
+                if not isinstance(hub_enrichment, dict):
+                    resp_headers = getattr(resp, "headers", None) or {}
+                    hdr_val = resp_headers.get("X-WAHS-Hub-Enrichment") or resp_headers.get("x-wahs-hub-enrichment")
+                    if hdr_val:
+                        try:
+                            hub_enrichment = json.loads(hdr_val)
+                        except Exception:
+                            hub_enrichment = None
+
                 if include_kb:
+                    if isinstance(hub_enrichment, dict):
+                        for rm in hub_enrichment.get("recovered_mappings") or []:
+                            if isinstance(rm, dict) and isinstance(rm.get("index"), int):
+                                idx_rm = int(rm["index"])
+                                norm_rm = {
+                                    "index": idx_rm,
+                                    "resourceType": rm.get("resourceType") or "Resource",
+                                    "resourceUuid": rm.get("resourceUuid"),
+                                    "date": rm.get("date") or "",
+                                    "display": rm.get("display") or "",
+                                    "memberUuids": list(rm.get("memberUuids") or []),
+                                }
+                                mapping_by_idx[idx_rm] = norm_rm
+                                mappings.append(norm_rm)
+
                     analyses_obj = analyze_data.get("analyses") if isinstance(analyze_data.get("analyses"), dict) else {}
                     skill_findings = (
                         (analyses_obj.get("chart_hygiene_and_reconciliation_skills") or {}).get("findings")
@@ -1611,10 +1768,12 @@ class WahsHubClient:
                         ]
                         for b_idx in b_indices:
                             if isinstance(b_idx, int) and b_idx in mapping_by_idx:
-                                m_list = mapping_by_idx[b_idx].setdefault("memberUuids", [])
-                                for fu in f_uuids:
-                                    if fu not in m_list:
-                                        m_list.append(fu)
+                                cur_u = str(mapping_by_idx[b_idx].get("resourceUuid") or "")
+                                if eff_budget <= 8192 or cur_u in f_uuids:
+                                    m_list = mapping_by_idx[b_idx].setdefault("memberUuids", [])
+                                    for fu in f_uuids:
+                                        if fu not in m_list:
+                                            m_list.append(fu)
 
                 cited_indices: list[int] = []
                 for num_str in _CITATION_RE.findall(cleaned_answer):
@@ -2834,6 +2993,8 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
             else:
                 env = row.get("response") or {}
                 score = score_wahs_case(case, env, budget_tokens=b_tokens)
+                row["score"] = score.to_dict()
+                row["passed"] = score.passed
                 if prof_id:
                     m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
                     cell_meta_list.append(
@@ -2849,6 +3010,12 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
                     cell_meta_list.append({})
             scores.append(score)
             exp_fh.write(json.dumps(score.to_dict()) + "\n")
+
+    if results_path.is_file() and observed_order:
+        with results_path.open("w", encoding="utf-8") as res_fh:
+            for key in observed_order:
+                if key in recorded_rows:
+                    res_fh.write(json.dumps(recorded_rows[key]) + "\n")
 
     summary = _summarize_scores(
         scores,
@@ -2925,10 +3092,20 @@ def build_wahs_report_packet(
             n_unresolved = min(n_refs, fab_cites)
             n_resolved = max(0, n_refs - n_unresolved)
 
+            effective_entail = (
+                entail
+                if (case and case.citation_entailment_assertions)
+                else (0.55 * rubric + 0.45 * uuid_rec)
+            )
             acc = round(
                 max(
                     0.0,
-                    min(10.0, 10.0 * (0.55 * entail + 0.45 * cite_res) - 1.5 * distortions),
+                    min(
+                        10.0,
+                        10.0 * (0.50 * effective_entail + 0.30 * rubric + 0.20 * cite_res)
+                        - 1.5 * distortions
+                        - 1.0 * fab_cites,
+                    ),
                 ),
                 1,
             )
@@ -2964,11 +3141,26 @@ def build_wahs_report_packet(
                 f"(condensed chart {act_tok:,} tok @ {btok:,} budget)."
             ]
             hub_enr = resp_d.get("hub_enrichment")
-            if isinstance(hub_enr, dict) and hub_enr.get("enriched"):
+            if isinstance(hub_enr, dict) and (
+                hub_enr.get("overflow_triggered")
+                or hub_enr.get("subgraph_nodes")
+                or hub_enr.get("enriched")
+            ):
+                rec_cnt = int(
+                    hub_enr.get("overflow_recovered_count")
+                    or hub_enr.get("added_items")
+                    or 0
+                )
+                enr_tok = int(
+                    hub_enr.get("enrichment_tokens")
+                    or hub_enr.get("added_tokens")
+                    or 0
+                )
+                sub_n = int(hub_enr.get("subgraph_nodes") or 0)
+                sub_e = int(hub_enr.get("subgraph_edges") or 0)
                 note_parts.append(
-                    f"Med Agent Hub Clinical Entity Subgraph added +{hub_enr.get('added_items', 0)} "
-                    f"out-of-budget chart items (+{hub_enr.get('added_tokens', 0)} tok) from "
-                    f"{hub_enr.get('total_items_in_chart', 0)} cached longitudinal records."
+                    f"Med Agent Hub Graph & Tier-0 Recovery injected {rec_cnt} omitted safety item(s) "
+                    f"and a {sub_n}-node/{sub_e}-edge clinical subgraph (+{enr_tok} tok)."
                 )
             failures = score_d.get("failures") or []
             if failures:

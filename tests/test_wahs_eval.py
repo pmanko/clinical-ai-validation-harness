@@ -1058,6 +1058,82 @@ def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
     assert meta_json["judging"]["recorded"] is True
 
 
+def test_demo_data_text_matching_and_recovered_mappings_resolution(tmp_path: Path, monkeypatch):
+    demo_js = tmp_path / "wahs_demo_data.js"
+    demo_payload = {
+        "patients": {
+            "p_test": {
+                "condensation_matrix": {
+                    "lossless_structural": {
+                        "1024": {
+                            "tier": 3,
+                            "actual_tokens": 512,
+                            "chart_text": "[1] (2026-01-25) Medication: Lipitor 40 MG\n[2] (2026-01-24) Finding — eGFR: 35",
+                            "omitted_sections": {"medications": 2},
+                        },
+                        "8192": {
+                            "tier": 1,
+                            "actual_tokens": 4100,
+                            "chart_text": (
+                                "[1] (2026-01-25) Medication: Lipitor 40 MG\n"
+                                "[2] (2026-01-24) Medication: Spironolactone 25 MG\n"
+                                "[3] (2026-01-24) Finding — eGFR: 35"
+                            ),
+                            "omitted_sections": {},
+                        },
+                    }
+                },
+                "postures": {
+                    "patient_self": {
+                        "tier_8k": {
+                            "mappings": [
+                                {"index": 1, "resourceType": "MedicationRequest", "resourceUuid": "uuid-lipitor", "date": "2026-01-25", "display": "Medication: Lipitor 40 MG"},
+                                {"index": 2, "resourceType": "MedicationRequest", "resourceUuid": "uuid-spiro", "date": "2026-01-24", "display": "Medication: Spironolactone 25 MG"},
+                                {"index": 3, "resourceType": "Observation", "resourceUuid": "uuid-egfr", "date": "2026-01-24", "display": "Finding — eGFR: 35"},
+                            ]
+                        },
+                        "data_quality_and_conflicts": {
+                            "findings": [
+                                {
+                                    "id": "f_spiro_egfr",
+                                    "title": "Spironolactone in low eGFR",
+                                    "severity": "critical",
+                                    "description": "Spironolactone with eGFR 35",
+                                    "resource_uuids": ["uuid-spiro", "uuid-egfr"],
+                                    "citations": [{"index": 2}, {"index": 3}],
+                                },
+                                {
+                                    "id": "f_egfr_only",
+                                    "title": "Reduced eGFR",
+                                    "severity": "high",
+                                    "description": "eGFR is 35",
+                                    "resource_uuids": ["uuid-egfr"],
+                                    "citations": [{"index": 3}],
+                                },
+                            ]
+                        },
+                    }
+                },
+            }
+        }
+    }
+    demo_js.write_text("window.WAHS_DEMO_DATA = " + json.dumps(demo_payload) + ";", encoding="utf-8")
+    monkeypatch.setenv("WAHS_DEMO_DATA_JS", str(demo_js))
+
+    c = WahsHubClient()
+    d1k = c._resolve_demo_data_analyze("p_test", 1024)
+    assert d1k is not None
+    m1k = {m["index"]: m["resourceUuid"] for m in d1k["condensation"]["mappings"]}
+    assert m1k[1] == "uuid-lipitor"
+    assert m1k[2] == "uuid-egfr"
+    # Finding requiring omitted uuid-spiro is filtered out of client-side 1k findings,
+    # while finding requiring surviving uuid-egfr is retained and remapped from [3] -> [2]
+    assert len(d1k["kb_findings"]) == 1
+    assert d1k["kb_findings"][0]["id"] == "f_egfr_only"
+    assert d1k["kb_findings"][0]["evidence_indices"] == [2]
+
+
+
 
 
 
