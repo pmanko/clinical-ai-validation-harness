@@ -1133,6 +1133,90 @@ def test_demo_data_text_matching_and_recovered_mappings_resolution(tmp_path: Pat
     assert d1k["kb_findings"][0]["evidence_indices"] == [2]
 
 
+def test_direct_llm_profile_routes_to_direct_base_url_without_med_agent_hub(tmp_path: Path):
+    seen_urls: list[tuple[str, dict]] = []
+
+    class DirectSession:
+        headers = {}
+
+        def get(self, url, **kwargs):
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    return {"data": []}
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            payload = kwargs["json"]
+            seen_urls.append((url, payload))
+            if url.endswith("/wahs/api/analyze"):
+                class AnalyzeResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {
+                            "condensation": {
+                                "condensed_text": "[1] Lipitor 40 MG\n[2] Simvastatin 20 MG",
+                                "actual_tokens": 300,
+                                "mappings": [
+                                    {"index": 1, "resourceType": "MedicationRequest", "resourceUuid": "u1", "display": "Lipitor 40 MG"},
+                                    {"index": 2, "resourceType": "MedicationRequest", "resourceUuid": "u2", "display": "Simvastatin 20 MG"},
+                                ],
+                            },
+                            "kb_findings": [{"id": "dup_statin", "title": "Duplicate Statin"}],
+                        }
+
+                return AnalyzeResp()
+
+            class ChatResp:
+                status_code = 200
+
+                def json(self):
+                    return {
+                        "choices": [{"message": {"content": "Lipitor [1] and Simvastatin [2] are both active."}}],
+                        "usage": {"prompt_tokens": 320, "completion_tokens": 12},
+                    }
+
+            return ChatResp()
+
+    cases_path = tmp_path / "direct_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c_direct",
+                "patient_id": "p1",
+                "use_case": "uc1_med_reconcile",
+                "prompt": "Check my statins.",
+                "target_token_budgets": [8192],
+                "expected_target_uuids": ["u1", "u2"],
+                "positive_rubric_items": [{"id": "r1", "criterion": "Statins", "required_keywords": ["lipitor", "simvastatin"], "weight": 1.0}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    client = WahsHubClient(
+        base_url="http://127.0.0.1:18081",
+        direct_llm_base_url="http://127.0.0.1:8076",
+        session=DirectSession(),
+    )
+    res = run_wahs_suite(
+        cases_path,
+        client=client,
+        output_dir=tmp_path / "runs",
+        profiles=["direct-12b@8k"],
+        evaluation_modality="live_model_and_team_eval",
+    )
+    assert res.total_cells == 1
+    chat_url, chat_payload = seen_urls[-1]
+    assert chat_url == "http://127.0.0.1:8076/v1/chat/completions"
+    assert chat_payload["model"] == "gemma-4-12b"
+    assert "STAGE 2 CLINICAL KB" not in chat_payload["messages"][0]["content"]
+
+
+
 
 
 

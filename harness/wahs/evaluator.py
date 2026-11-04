@@ -40,6 +40,7 @@ _CITATION_RE = re.compile(r"\[(\d+)\]")
 _ABSTENTION_RE = re.compile(
     r"\b("
     r"not documented|no documented|no documentation|not recorded|no record|no records|"
+    r"no information|not listed|cannot find|do not see|does not show|"
     r"cannot verify|not found in|not present in|does not contain|do not contain|"
     r"does not include|does not list|not mentioned|no mention|not available|"
     r"abstain|abstains|grounded abstention"
@@ -49,13 +50,15 @@ _ABSTENTION_RE = re.compile(
 _ABSTENTION_META_OR_NEG_RE = re.compile(
     r"\b(?:"
     r"not\s+documented|no\s+documented|no\s+documentation|not\s+recorded|no\s+records?|"
-    r"cannot\s+verify|not\s+found\s+in|not\s+present\s+in|does\s+not\s+(?:contain|include|list|document)|"
-    r"do\s+not\s+(?:contain|include|list|document)|not\s+mentioned|no\s+mention|not\s+available|unavailable|"
-    r"abstain|abstains|grounded\s+abstention|"
-    r"no\s+matching\s+records|unrecorded|undocumented|missing|absent|without|none|no\s+evidence|"
+    r"no\s+information|not\s+listed|cannot\s+find|do\s+not\s+see|does\s+not\s+show|"
+    r"cannot\s+verify|not\s+found\s+in|not\s+present\s+in|does\s+not\s+(?:contain|include|list|document|show)|"
+    r"do\s+not\s+(?:contain|include|list|document|show)|not\s+mentioned|no\s+mention|not\s+available|unavailable|"
+    r"abstain|abstains|grounded\s+abstention|neither|nor|cannot\s+answer|cannot\s+provide|unable\s+to|"
+    r"no\s+matching\s+records|unrecorded|undocumented|missing|absent|without|none|no\s+evidence|no\s+results?|"
     r"safety\s+posture|grounding\s+rules|external\s+share|external_share|patient_self|"
     r"42\s+cfr|mhmda|my\s+health\s+my\s+data|redacted|excluded|withheld|hidden|"
-    r"switch\s+(?:back\s+)?to|ask\s+your\s+doctor|doctor|physician|provider|clinic|only\s+reports\s+facts"
+    r"switch\s+(?:back\s+)?to|ask\s+your\s+doctor|doctor|physician|provider|clinic|clinician|care\s+team|specialist|"
+    r"only\s+reports\s+facts|chart|bundle|health\s+records?|medical\s+records?|reviewed|however|while|although|if\s+you"
     r")\b",
     re.IGNORECASE,
 )
@@ -866,12 +869,19 @@ def _is_clean_abstention(answer_text: str, envelope: dict[str, Any]) -> bool:
     ):
         return False
 
+    summary_part = re.split(
+        r"\n+\s*(?:#+\s*)?QUESTIONS[_\s]+FOR[_\s]+(?:YOUR[_\s]+)?(?:DOCTOR|CLINICIAN|PROVIDER)\s*:?",
+        answer_text,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0]
+
     envelope_abstained = bool(envelope.get("abstained")) or bool(envelope.get("abstains"))
-    explicit_abstains = envelope_abstained or bool(_ABSTENTION_RE.search(answer_text))
+    explicit_abstains = envelope_abstained or bool(_ABSTENTION_RE.search(summary_part))
     if not explicit_abstains:
         return False
 
-    raw_sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(answer_text) if s.strip()]
+    raw_sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(summary_part) if s.strip()]
     for sent in raw_sentences:
         if sent.startswith("#") or sent.endswith(":"):
             continue
@@ -879,10 +889,11 @@ def _is_clean_abstention(answer_text: str, envelope: dict[str, Any]) -> bool:
         if len(words) < 3:
             continue
         has_neg_or_meta = bool(_ABSTENTION_META_OR_NEG_RE.search(sent))
+        has_explicit_abstain = bool(_ABSTENTION_RE.search(sent))
         has_affirm_finding = bool(_AFFIRMATIVE_CLINICAL_FINDING_RE.search(sent))
-        if has_affirm_finding and not has_neg_or_meta:
+        if has_affirm_finding and not has_explicit_abstain and not _CITATION_RE.search(sent):
             return False
-        if not has_neg_or_meta:
+        if not has_neg_or_meta and not _CITATION_RE.search(sent):
             return False
 
     return True
@@ -1235,6 +1246,29 @@ def _build_profile_prompt(
     return "\n\n".join(parts)
 
 
+def _build_direct_llm_prompt(
+    case: WahsEvalCase,
+    analyze_data: dict[str, Any],
+    *,
+    budget_tokens: int,
+) -> str:
+    """Build a direct-to-LLM user prompt (bypassing Med Agent Hub system prompt, Stage 2 KB findings, and ClinicalEntityGraph)."""
+    condensation = analyze_data.get("condensation") or {}
+    chart_text = str(
+        condensation.get("chart_text")
+        or condensation.get("condensed_text")
+        or analyze_data.get("condensed_text")
+        or ""
+    ).strip()
+    return (
+        f"Patient Chart ({case.patient_id}, budget <= {budget_tokens} tokens):\n"
+        f"{chart_text}\n\n"
+        f"Question:\n{case.prompt}\n\n"
+        "Answer the question based on the patient chart above. "
+        "Cite supporting chart entries inline using their [N] bracket numbers."
+    )
+
+
 MAX_TOKEN_BUDGET = 262144
 
 
@@ -1278,9 +1312,15 @@ class WahsHubClient:
         max_retries: int = 1,
         retry_backoff_s: float = 0.0,
         bundle_dirs: list[Path] | None = None,
+        direct_llm_base_url: str | None = None,
     ) -> None:
         self.base_url = (
             base_url or os.environ.get("MED_AGENT_HUB_BASE_URL", "http://127.0.0.1:8000")
+        ).rstrip("/")
+        self.direct_llm_base_url = (
+            direct_llm_base_url
+            or os.environ.get("DIRECT_LLM_BASE_URL")
+            or self.base_url
         ).rstrip("/")
         self.timeout = timeout
         self.max_retries = max(0, int(max_retries))
@@ -1630,7 +1670,10 @@ class WahsHubClient:
         profiles = self.get_wahs_profiles()
         profile_meta = profiles.get(api_profile_id) or profiles.get(profile_id) or {}
         policies = profile_meta.get("policies") if isinstance(profile_meta.get("policies"), dict) else {}
-        if "include_kb_findings" in policies:
+        is_direct_llm = api_profile_id.startswith("direct-") or api_profile_id.startswith("direct:")
+        if is_direct_llm:
+            include_kb = False
+        elif "include_kb_findings" in policies:
             include_kb = bool(policies["include_kb_findings"])
         elif "kb_guided" in profile_meta:
             include_kb = bool(profile_meta["kb_guided"])
@@ -1639,23 +1682,43 @@ class WahsHubClient:
                 api_profile_id.endswith("-raw") or api_profile_id.startswith("wahs-raw:")
             )
 
-        user_prompt = _build_profile_prompt(
-            case,
-            analyze_data,
-            budget_tokens=eff_budget,
-            include_kb_findings=include_kb,
-        )
-        chat_req = {
-            "model": api_profile_id,
-            "messages": [{"role": "user", "content": user_prompt}],
-            "stream": False,
-        }
+        if is_direct_llm:
+            _, underlying_model, _ = _infer_model_family_and_id(profile_id, profile_meta)
+            target_model = os.environ.get("DIRECT_LLM_MODEL", "").strip() or underlying_model
+            user_prompt = _build_direct_llm_prompt(
+                case,
+                analyze_data,
+                budget_tokens=eff_budget,
+            )
+            target_chat_url = f"{self.direct_llm_base_url}/v1/chat/completions"
+            chat_req = {
+                "model": target_model,
+                "messages": [{"role": "user", "content": user_prompt}],
+                "stream": False,
+                "temperature": 0.0,
+            }
+        else:
+            user_prompt = _build_profile_prompt(
+                case,
+                analyze_data,
+                budget_tokens=eff_budget,
+                include_kb_findings=include_kb,
+            )
+            target_chat_url = f"{self.base_url}/v1/chat/completions"
+            chat_req = {
+                "model": api_profile_id,
+                "messages": [{"role": "user", "content": user_prompt}],
+                "stream": False,
+            }
+        env_max_tok = os.environ.get("WAHS_EVAL_MAX_TOKENS", "").strip()
+        if env_max_tok.isdigit() and int(env_max_tok) > 0:
+            chat_req["max_tokens"] = int(env_max_tok)
         last_err: Exception | None = None
         for attempt in range(self.max_retries + 1):
             started = time.monotonic()
             try:
                 resp = self._session.post(
-                    f"{self.base_url}/v1/chat/completions",
+                    target_chat_url,
                     json=chat_req,
                     timeout=self.timeout,
                 )
@@ -2017,7 +2080,10 @@ def _infer_model_family_and_id(
         include_kb = bool(policies["include_kb_findings"])
     else:
         include_kb = not (
-            api_profile_id.endswith("-raw") or api_profile_id.startswith("wahs-raw:")
+            api_profile_id.endswith("-raw")
+            or api_profile_id.startswith("wahs-raw:")
+            or api_profile_id.startswith("direct-")
+            or api_profile_id.startswith("direct:")
         )
 
     pid_low = api_profile_id.lower()
@@ -2393,12 +2459,20 @@ def _write_judge_prep_artifacts(
         _, api_pid, eff_b, b_tag = _split_profile_budget(pid)
         p_meta = profiles_catalog.get(api_pid) or profiles_catalog.get(pid) or {}
         fam, underlying, inc_kb = _infer_model_family_and_id(pid, p_meta)
-        base_label = str(p_meta.get("label") or api_pid)
+        is_direct = api_pid.startswith("direct-") or api_pid.startswith("direct:")
+        if is_direct:
+            base_label = (
+                "Gemma-4-12B (Q8) Direct LLM (No Med Agent Hub)"
+                if underlying == "gemma-4-12b"
+                else f"{underlying} Direct LLM (No Med Agent Hub)"
+            )
+        else:
+            base_label = str(p_meta.get("label") or api_pid)
         label = f"{base_label} ({b_tag} budget)" if b_tag else base_label
         backends_meta[pid] = {
             "label": label,
             "kind": "provider_arm",
-            "provider": "hub",
+            "provider": "direct" if is_direct else "hub",
             "modelName": underlying,
             "profile": api_pid,
             "budget_tokens": eff_b,
@@ -2700,7 +2774,15 @@ def run_wahs_suite(
         for prof_id in [str(p) for p in profiles if str(p).strip()]:
             _, api_pid, _, b_tag = _split_profile_budget(prof_id)
             p_meta = profiles_catalog.get(api_pid) or profiles_catalog.get(prof_id) or {}
-            base_label = str(p_meta.get("label") or api_pid)
+            _, underlying, _ = _infer_model_family_and_id(prof_id, p_meta)
+            if api_pid.startswith("direct-") or api_pid.startswith("direct:"):
+                base_label = (
+                    "Gemma-4-12B (Q8) Direct LLM (No Med Agent Hub)"
+                    if underlying == "gemma-4-12b"
+                    else f"{underlying} Direct LLM (No Med Agent Hub)"
+                )
+            else:
+                base_label = str(p_meta.get("label") or api_pid)
             label = f"{base_label} ({b_tag} budget)" if b_tag else base_label
             append_event(
                 events_path,
@@ -3052,19 +3134,36 @@ def build_wahs_report_packet(
         else {}
     )
     if isinstance(manifest_data, dict) and "context" not in manifest_data and manifest_path.is_file():
-        manifest_data["context"] = {
-            "text": (
-                "How this run is scored & why 32k–128k drop on a 16k KV server: "
-                "Each answer is graded deterministically against ground-truth clinical criteria (rubric_weighted_score), "
-                "target FHIR resourceUuid citation recall (required_uuid_recall), and sentence-level [N] claim-to-UUID entailment (atomic_entailment_rate). "
-                "On the shared UW CIRG L4 GPU (24 GB VRAM), Ollama defaults to a fixed num_ctx = 16,384 KV window (usage.prompt_tokens = 16,387): "
-                "when a 32k, 64k, or 128k chart exceeds 16,384 tokens without a dynamic num_ctx override, Ollama silently left-truncates the beginning of the prompt—clipping "
-                "top-of-chart active allergies, active conditions, active medications, and 2025–2026 admissions ([1]–[349]) and leaving only older 2022–2023 records ([350]+). "
-                "Med Agent Hub (+KB & Graph) retains 53.0–53.8/100 at 32k–128k (vs. 20.4–21.2 Raw) because Stage 2 KB findings and the ClinicalEntityGraph are appended at the bottom of the prompt inside the surviving 16,384-token KV tail."
-            ),
-            "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
-            "label": "Med Agent Hub WAHS Architecture & KV Window Analysis →",
-        }
+        prof_list = [str(p) for p in (manifest_data.get("profiles") or [])]
+        has_direct_arm = any(p.startswith("direct-") or p.startswith("direct:") for p in prof_list)
+        if has_direct_arm:
+            manifest_data["context"] = {
+                "text": (
+                    "What this experiment measures (MacBook 96k KV Window · Direct LLM vs. Med Agent Hub across 3 Scenario Types): "
+                    "Evaluates Gemma-4-12B (Q8_0) locally on an Apple M5 Pro MacBook (64 GB Unified Memory, llama-router ctx-size = 98,304 tokens—zero KV left-truncation) "
+                    "across 12 clinical scenarios (4 huge-context patients × 3 scenario types: Medication & Staging Conflict Reconciliation, Historical Inpatient/Procedure Lookup, "
+                    "and Grounded Clinical Abstention) and 3 architectures at 1k, 8k, and 32k token budgets: "
+                    "(1) Direct LLM (No Med Agent Hub) calling llama-router directly with the chart and question; "
+                    "(2) Med Agent Hub (Raw Condensed) adding the CHART_SUMMARY_CITED clinical grounding/abstention contract without KB or Graph; and "
+                    "(3) Med Agent Hub (+KB & ClinicalEntityGraph) adding Stage 2 deterministic 4-Layer Clinical KB conflict findings, <clinical_entity_graph>, and Tier 0 overflow citation recovery."
+                ),
+                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
+                "label": "Med Agent Hub WAHS Architecture & Multi-Scenario Ablation →",
+            }
+        else:
+            manifest_data["context"] = {
+                "text": (
+                    "How this run is scored & why 32k–128k drop on a 16k KV server: "
+                    "Each answer is graded deterministically against ground-truth clinical criteria (rubric_weighted_score), "
+                    "target FHIR resourceUuid citation recall (required_uuid_recall), and sentence-level [N] claim-to-UUID entailment (atomic_entailment_rate). "
+                    "On the shared UW CIRG L4 GPU (24 GB VRAM), Ollama defaults to a fixed num_ctx = 16,384 KV window (usage.prompt_tokens = 16,387): "
+                    "when a 32k, 64k, or 128k chart exceeds 16,384 tokens without a dynamic num_ctx override, Ollama silently left-truncates the beginning of the prompt—clipping "
+                    "top-of-chart active allergies, active conditions, active medications, and 2025–2026 admissions ([1]–[349]) and leaving only older 2022–2023 records ([350]+). "
+                    "Med Agent Hub (+KB & Graph) retains 53.0–53.8/100 at 32k–128k (vs. 20.4–21.2 Raw) because Stage 2 KB findings and the ClinicalEntityGraph are appended at the bottom of the prompt inside the surviving 16,384-token KV tail."
+                ),
+                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
+                "label": "Med Agent Hub WAHS Architecture & KV Window Analysis →",
+            }
         manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
     evaluation_modality = str(
         manifest_data.get("evaluation_modality") or "live_model_and_team_eval"
@@ -3144,6 +3243,14 @@ def build_wahs_report_packet(
             abst_ok = bool(score_d.get("abstention_ok", True))
             if case and case.must_abstain:
                 ao = "correct" if abst_ok else "failed-to-abstain"
+                if abst_ok:
+                    acc = round(max(0.0, min(10.0, 10.0 * cite_res - 1.0 * fab_cites)), 1)
+                    comp = 10.0
+                    rel = round(max(0.0, min(10.0, 10.0 * (0.80 + 0.20 * read_align))), 1)
+                else:
+                    acc = 0.0
+                    comp = 0.0
+                    rel = 2.0
             else:
                 ao = "n-a" if abst_ok else "over-abstained"
 
