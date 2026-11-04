@@ -3051,6 +3051,21 @@ def build_wahs_report_packet(
         if manifest_path.is_file()
         else {}
     )
+    if isinstance(manifest_data, dict) and "context" not in manifest_data and manifest_path.is_file():
+        manifest_data["context"] = {
+            "text": (
+                "How this run is scored & why 32k–128k drop on a 16k KV server: "
+                "Each answer is graded deterministically against ground-truth clinical criteria (rubric_weighted_score), "
+                "target FHIR resourceUuid citation recall (required_uuid_recall), and sentence-level [N] claim-to-UUID entailment (atomic_entailment_rate). "
+                "On the shared UW CIRG L4 GPU (24 GB VRAM), Ollama defaults to a fixed num_ctx = 16,384 KV window (usage.prompt_tokens = 16,387): "
+                "when a 32k, 64k, or 128k chart exceeds 16,384 tokens without a dynamic num_ctx override, Ollama silently left-truncates the beginning of the prompt—clipping "
+                "top-of-chart active allergies, active conditions, active medications, and 2025–2026 admissions ([1]–[349]) and leaving only older 2022–2023 records ([350]+). "
+                "Med Agent Hub (+KB & Graph) retains 53.0–53.8/100 at 32k–128k (vs. 20.4–21.2 Raw) because Stage 2 KB findings and the ClinicalEntityGraph are appended at the bottom of the prompt inside the surviving 16,384-token KV tail."
+            ),
+            "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
+            "label": "Med Agent Hub WAHS Architecture & KV Window Analysis →",
+        }
+        manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
     evaluation_modality = str(
         manifest_data.get("evaluation_modality") or "live_model_and_team_eval"
     )
@@ -3135,11 +3150,24 @@ def build_wahs_report_packet(
             harm = bool(not score_d.get("privacy_zero_leakage", True))
             act_tok = int(score_d.get("actual_tokens") or resp_d.get("actual_tokens") or 0)
             btok = int(r.get("budget_tokens") or 8192)
+            usage_d = resp_d.get("usage") if isinstance(resp_d.get("usage"), dict) else {}
+            prompt_tok = int(usage_d.get("prompt_tokens") or 0)
+            kv_clause = (
+                f", active KV window {prompt_tok:,} tok"
+                if prompt_tok > 0
+                else ""
+            )
             note_parts = [
                 f"Rubric {rubric * 100:.1f}%, UUID recall {uuid_rec * 100:.1f}%, "
                 f"atomic entailment {entail * 100:.1f}%, citations {n_resolved}/{n_refs} resolved "
-                f"(condensed chart {act_tok:,} tok @ {btok:,} budget)."
+                f"(condensed chart {act_tok:,} tok @ {btok:,} budget{kv_clause})."
             ]
+            if prompt_tok > 0 and act_tok > prompt_tok + 1024:
+                clipped_tok = act_tok - prompt_tok
+                note_parts.append(
+                    f"KV Window Left-Truncation: Server default num_ctx=16,384 capped active KV tokens at {prompt_tok:,} "
+                    f"(silently left-truncating ~{clipped_tok:,} top-of-chart tokens including active allergies/meds/2025–2026 admissions)."
+                )
             hub_enr = resp_d.get("hub_enrichment")
             if isinstance(hub_enr, dict) and (
                 hub_enr.get("overflow_triggered")

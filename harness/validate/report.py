@@ -697,23 +697,29 @@ def _arm_cards_for(run_dir: Path, backends: list[str]) -> dict[str, Any]:
     return frozen_arm_cards(run_dir, backends)
 
 
-def _comparison_context(run_dir: Path, events: list[dict[str, Any]]) -> dict[str, str] | None:
+def _comparison_context(
+    run_dir: Path,
+    events: list[dict[str, Any]],
+    manifest: dict[str, Any] | None = None,
+) -> dict[str, str] | None:
     """The reader context the run's captured comparison set links to, if it names one.
 
     Only an https link is kept, with its label and a sentence introducing it.
     """
+    context: Any = None
     set_id = next(
         (e.get("comparison_set") for e in events
          if e.get("event_type") == "run" and e.get("comparison_set")),
         None,
     )
-    if not set_id:
-        return None
-    path = run_dir / "inputs" / "comparison_sets" / f"{set_id}.json"
-    try:
-        context = json.loads(path.read_text(encoding="utf-8")).get("context")
-    except (OSError, ValueError):
-        return None
+    if set_id:
+        path = run_dir / "inputs" / "comparison_sets" / f"{set_id}.json"
+        try:
+            context = json.loads(path.read_text(encoding="utf-8")).get("context")
+        except (OSError, ValueError):
+            context = None
+    if not isinstance(context, dict) and isinstance(manifest, dict):
+        context = manifest.get("context")
     if not isinstance(context, dict):
         return None
     url = str(context.get("url") or "").replace("'", "%27").replace('"', "%22")
@@ -788,7 +794,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     judge_rows = _load_judge(run_dir)
     judge_actors = _load_judge_actors(run_dir)
     arm_cards = _arm_cards_for(run_dir, backends)
-    context = _comparison_context(run_dir, events)
+    context = _comparison_context(run_dir, events, manifest)
     # The product's checks scored against the judge (judges/check-precision.json, written
     # by scripts/check-precision.py after judging); absent until a run is judged.
     check_precision = load_check_precision(run_dir)
