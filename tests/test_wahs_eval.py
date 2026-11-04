@@ -584,7 +584,9 @@ def test_token_evidence_and_budget_validation():
     from harness.cli import _build_parser
 
     parser = _build_parser()
-    for bad_budget in ("", "bad", "0", "65537"):
+    parsed = parser.parse_args(["wahs", "run", "--cases", "x", "--budget", "262144"])
+    assert parsed.budgets == [262144]
+    for bad_budget in ("", "bad", "0", "262145"):
         with pytest.raises(SystemExit):
             parser.parse_args(["wahs", "run", "--cases", "x", "--budget", bad_budget])
 
@@ -1043,6 +1045,17 @@ def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
     ]
     assert len(bundle_rows) == 3
     assert {r["backend_id"] for r in bundle_rows} == {"A", "B", "C"}
+
+    # Verify build_wahs_report_packet and CLI `wahs report` produce report.html, dashboard.html, meta.json, judge.jsonl
+    assert main(["wahs", "report", str(res.run_dir)]) == 0
+    assert (res.run_dir / "report.html").is_file()
+    assert (res.run_dir / "dashboard.html").is_file()
+    assert (res.run_dir / "meta.json").is_file()
+    assert (res.run_dir / "judge.jsonl").is_file()
+    meta_json = json.loads((res.run_dir / "meta.json").read_text(encoding="utf-8"))
+    assert meta_json["cells"] == 3
+    assert len(meta_json["scout"]) == 3
+    assert meta_json["judging"]["recorded"] is True
 
 
 

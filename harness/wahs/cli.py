@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from .evaluator import (
+    MAX_TOKEN_BUDGET,
     VALID_CONDENSE_MODES,
     VALID_CONTEXT_ARMS,
     VALID_EVALUATION_MODALITIES,
     WahsHubClient,
+    build_wahs_report_packet,
     run_wahs_suite,
     score_wahs_run,
 )
@@ -22,9 +24,9 @@ def _positive_token_budget(raw: str) -> int:
         val = int(raw)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(f"invalid token budget: {raw!r}") from exc
-    if val <= 0 or val > 65536:
+    if val <= 0 or val > MAX_TOKEN_BUDGET:
         raise argparse.ArgumentTypeError(
-            f"token budget must be between 1 and 65536 (got {val})"
+            f"token budget must be between 1 and {MAX_TOKEN_BUDGET} (got {val})"
         )
     return val
 
@@ -57,7 +59,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         action="append",
         type=_positive_token_budget,
         dest="budgets",
-        help="Target token budget(s) to evaluate in [1, 65536] (repeatable; defaults to each case's target_token_budgets)",
+        help=f"Target token budget(s) to evaluate in [1, {MAX_TOKEN_BUDGET}] (repeatable; defaults to each case's target_token_budgets)",
     )
     run_p.add_argument(
         "--context-arm",
@@ -77,7 +79,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         "--profile",
         action="append",
         dest="profiles",
-        help="WAHS simple profile ID(s) to evaluate via /v1/chat/completions (repeatable)",
+        help="WAHS simple profile ID(s) (optionally @budget, e.g. wahs-12b-kb@64k) to evaluate via /v1/chat/completions (repeatable)",
     )
     run_p.add_argument(
         "--evaluation-modality",
@@ -102,12 +104,31 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     )
     score_p.add_argument("run_dir", help="Completed WAHS run directory")
 
+    report_p = sub.add_parser(
+        "report",
+        help="Generate a reproducible OpenClinAI report packet (report.html, dashboard.html, meta.json, judge.jsonl) from a WAHS run directory",
+    )
+    report_p.add_argument("run_dir", help="Completed WAHS run directory")
+    report_p.add_argument(
+        "--patients",
+        default=None,
+        help="Optional summary label for the patient cohort in meta.json",
+    )
+
 
 def dispatch(args: argparse.Namespace) -> int:
     if args.wahs_action == "score":
         summary = score_wahs_run(Path(args.run_dir))
         print(json.dumps(summary, indent=2))
         return 0 if (summary["passed_cells"] == summary["total_cells"] and not summary.get("incomplete")) else 1
+
+    if args.wahs_action == "report":
+        packet = build_wahs_report_packet(
+            Path(args.run_dir),
+            patients_summary=getattr(args, "patients", None),
+        )
+        print(json.dumps(packet, indent=2))
+        return 0
 
     if args.wahs_action == "run":
         provenance = (
