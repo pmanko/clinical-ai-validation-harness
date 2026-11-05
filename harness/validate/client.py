@@ -278,15 +278,23 @@ class ChartSearchAiClient:
     def _ensure_session_location(self) -> None:
         if not self.location_uuid or self._location_applied:
             return
-        self._location_applied = True
-        try:
-            self._session.post(
+        attempt = 0
+        while True:
+            resp = self._session.post(
                 f"{self.base_url}/ws/rest/v1/session",
                 json={"location": self.location_uuid},
                 timeout=self.timeout,
             )
-        except Exception:
-            pass
+            if resp.status_code in _RETRYABLE and attempt < self.max_retries:
+                attempt += 1
+                time.sleep(self.retry_wait_s)
+                continue
+            if resp.status_code >= 400:
+                raise RuntimeError(
+                    f"session location({self.location_uuid!r}) failed [{resp.status_code}]: {resp.text[:300]}"
+                )
+            self._location_applied = True
+            return
 
     def new_session(self, patient: str, provider: str | None = None) -> str:
         """Close the active session for this patient and open a fresh one — bound to
@@ -326,7 +334,11 @@ class ChartSearchAiClient:
             lines: list[str] = []
             current_event = ""
             event_stamped = False
-            for raw_line in resp.iter_lines(decode_unicode=False):
+            try:
+                line_iter = resp.iter_lines(chunk_size=1, decode_unicode=False)
+            except TypeError:
+                line_iter = resp.iter_lines(decode_unicode=False)
+            for raw_line in line_iter:
                 line = (
                     raw_line.decode("utf-8", errors="replace")
                     if isinstance(raw_line, (bytes, bytearray))
@@ -816,20 +828,22 @@ class OpenAICompatibleClient:
         model_name: str | None = None
         usage: dict[str, Any] | None = None
 
-        lines_iter = (
-            response.iter_lines(decode_unicode=True)
-            if hasattr(response, "iter_lines")
-            else str(getattr(response, "text", "") or "").splitlines()
-        )
+        if hasattr(response, "iter_lines"):
+            try:
+                lines_iter = response.iter_lines(chunk_size=1, decode_unicode=True)
+            except TypeError:
+                lines_iter = response.iter_lines(decode_unicode=True)
+        else:
+            lines_iter = str(getattr(response, "text", "") or "").splitlines()
         for raw_line in lines_iter:
-            if raw_line is None:
+            if not raw_line:
                 continue
             line = (
                 raw_line.decode("utf-8", errors="replace")
                 if isinstance(raw_line, bytes)
                 else str(raw_line)
             ).strip()
-            if not line or not line.startswith("data:"):
+            if not line.startswith("data:"):
                 continue
             payload_str = line[5:].strip()
             if payload_str == "[DONE]":
@@ -845,10 +859,12 @@ class OpenAICompatibleClient:
                 model_name = str(chunk["model"])
             if isinstance(chunk.get("usage"), dict):
                 usage = chunk["usage"]
-            choices = chunk.get("choices")
-            if not isinstance(choices, list) or not choices:
-                continue
-            delta = choices[0].get("delta") if isinstance(choices[0], dict) else None
+            choices = chunk.get("choices") or []
+            delta = (
+                choices[0].get("delta")
+                if isinstance(choices, list) and choices and isinstance(choices[0], dict)
+                else None
+            )
             if not isinstance(delta, dict):
                 continue
             c_piece = delta.get("content")

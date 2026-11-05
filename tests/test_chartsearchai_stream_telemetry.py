@@ -594,7 +594,7 @@ def test_openai_compatible_client_supports_plain_text_and_sse_streaming(monkeypa
     assert plain_metrics["cached_tokens"] == 900
 
     # 2. Streaming SSE completion with TTFT / ITL / TPOT telemetry
-    ticks = iter([10.000, 10.010, 10.040, 10.080, 10.120, 10.140])
+    ticks = iter([10.000, 10.010, 10.020, 10.030, 10.040, 10.080, 10.120, 10.140])
     monkeypatch.setattr("harness.validate.client.time.monotonic", lambda: next(ticks))
 
     class _StreamResponse:
@@ -602,6 +602,12 @@ def test_openai_compatible_client_supports_plain_text_and_sse_streaming(monkeypa
         text = ""
 
         def iter_lines(self, decode_unicode=True):
+            yield ""
+            yield ": keepalive"
+            yield "data: {bad"
+            yield "data: []"
+            yield 'data: {"choices":[{}]}'
+            yield 'data: {"model":"gemma-4-12b","choices":[{"delta":{"reasoning_content":"think"}}]}'
             yield 'data: {"model":"gemma-4-12b","choices":[{"delta":{"content":"First "}}]}'
             yield 'data: {"model":"gemma-4-12b","choices":[{"delta":{"content":"second "}}]}'
             yield 'data: {"model":"gemma-4-12b","choices":[{"delta":{"content":"third."}}],"usage":{"prompt_tokens":2048,"completion_tokens":12}}'
@@ -629,20 +635,358 @@ def test_openai_compatible_client_supports_plain_text_and_sse_streaming(monkeypa
     assert s_res.envelope is not None
     assert s_res.envelope["answer"] == "First second third."
     st = s_res.envelope["stream_timings"]
-    assert st["ttft_ms"] == 40
+    assert st["ttft_ms"] == 30
     assert st["answer_done_ms"] == 120
     assert st["turn_done_ms"] == 140
     assert st["answer_delta_count"] == 3
     assert st["tpot_ms"] == 40.0
+    assert st["reasoning_chars"] == 5
     s_metrics = compute_metrics(
         envelope=s_res.envelope,
         latency_ms=s_res.latency_ms,
         http_status=s_res.status,
         first_turn=True,
     )
-    assert s_metrics["ttft_ms"] == 40
+    assert s_metrics["ttft_ms"] == 30
     assert s_metrics["tpot_ms"] == 40.0
     assert s_metrics["tokens_in"] == 2048
     assert s_metrics["tokens_out"] == 12
+
+
+def test_live_http_sse_stream_is_unbuffered_and_location_setup_checks_status():
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import time as real_time
+    import pytest
+
+    class _SseHandler(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            return
+
+        def do_POST(self):
+            if self.path.endswith("/chat/stream"):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                frames = [
+                    b'event: answer_delta\ndata: {"delta":"First "}\n\n',
+                    b'event: answer_done\ndata: {"answer":"First done.","references":[]}\n\n',
+                    b'event: done\ndata: {"session":"s-http","answer":"First done.","references":[]}\n\n',
+                ]
+                for idx, frame in enumerate(frames):
+                    if idx > 0:
+                        real_time.sleep(0.06)
+                    self.wfile.write(frame)
+                    self.wfile.flush()
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"session":"s-http"}')
+
+    server = HTTPServer(("127.0.0.1", 0), _SseHandler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        client = ChartSearchAiClient(
+            base_url=f"http://127.0.0.1:{port}/openmrs",
+            min_interval_s=0.0,
+            max_retries=0,
+        )
+        res = client.chat("pt-1", "s-http", "Question?")
+        assert res.status == 200
+        assert res.envelope is not None
+        timings = res.envelope["stream_timings"]
+        # First frame arrives immediately (~0-30ms), whereas done arrives after ~120ms.
+        # Without chunk_size=1, iter_lines buffers all 3 small frames until EOF (~120ms).
+        assert timings["ttft_ms"] < timings["turn_done_ms"] - 60
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    # Verify _ensure_session_location only marks applied after HTTP 2xx
+    class _LocResp:
+        def __init__(self, status_code: int, text: str = ""):
+            self.status_code = status_code
+            self.text = text
+
+        def json(self):
+            return {"session": "s-loc"}
+
+    class _LocSession:
+        def __init__(self):
+            self.auth = None
+            self.headers = {}
+            self.responses = [
+                _LocResp(503, "unavailable"),
+                _LocResp(403, "forbidden"),
+                _LocResp(200, "ok"),
+                _LocResp(200, '{"session":"s-loc"}'),
+            ]
+
+        def post(self, url, *, json=None, timeout=None, stream=False):
+            return self.responses.pop(0)
+
+    loc_client = ChartSearchAiClient(
+        base_url="http://openmrs.local/openmrs",
+        location_uuid="loc-1",
+        max_retries=1,
+        retry_wait_s=0.0,
+        session=_LocSession(),
+    )
+    with pytest.raises(RuntimeError, match="session location"):
+        loc_client.new_session("pt-1")
+    assert loc_client._location_applied is False
+    # Subsequent call retries location setup and succeeds on 200
+    assert loc_client.new_session("pt-1") == "s-loc"
+    assert loc_client._location_applied is True
+
+
+def test_openai_compatible_and_cli_concurrency_edge_branches(tmp_path, monkeypatch):
+    import pytest
+    from harness.cli import main as cli_main
+    from harness.validate.client import (
+        OpenAICompatibleClient,
+        _coerce_openai_content_to_envelope,
+    )
+    from harness.validate.concurrency import (
+        _make_transport_client_factory,
+        _meets_slo,
+        summarize_concurrency_rows,
+    )
+
+    # _coerce_openai_content_to_envelope branches
+    assert _coerce_openai_content_to_envelope({"answer": "A", "citations": [1]}) == {
+        "answer": "A",
+        "citations": [1],
+        "references": [1],
+        "blocks": [],
+    }
+    assert _coerce_openai_content_to_envelope('{"answer": "B"}')["answer"] == "B"
+    assert _coerce_openai_content_to_envelope("{not-json}")["answer"] == "{not-json}"
+    assert _coerce_openai_content_to_envelope(None)["answer"] == ""
+
+    # _meets_slo branches
+    assert _meets_slo({"ttft_ms": 4000}, ttft_slo_ms=3000, answer_done_slo_ms=10000, tpot_slo_ms=50) is False
+    assert _meets_slo({"answer_done_ms": 12000}, ttft_slo_ms=3000, answer_done_slo_ms=10000, tpot_slo_ms=50) is False
+    assert _meets_slo({"tpot_ms": 80}, ttft_slo_ms=3000, answer_done_slo_ms=10000, tpot_slo_ms=50) is False
+    assert summarize_concurrency_rows(
+        [],
+        run_id="r0",
+        comparison_set_id="c0",
+        backend_id="b0",
+        n_users=1,
+        turns_per_user=1,
+        wall_clock_s=0.0,
+    )["goodput_rate"] == 0.0
+
+    # _make_transport_client_factory branches
+    hub_f = _make_transport_client_factory("med-agent-hub", "http://hub/v1/chat/completions")
+    oai_f = _make_transport_client_factory("openai-compatible", "http://vllm/v1/chat/completions")
+    assert hub_f("u", "p").base_url == "http://hub/v1/chat/completions"
+    assert oai_f("u", "p").base_url == "http://vllm/v1/chat/completions"
+
+    # OpenAICompatibleClient error, retry, system_prompt, api_key, and profile branches
+    class _ErrResp:
+        def __init__(self, status_code: int, text: str = "err", payload=None):
+            self.status_code = status_code
+            self.text = text
+            self._payload = payload
+
+        def json(self):
+            if self._payload is None:
+                raise ValueError("bad json")
+            return self._payload
+
+    class _ErrSession:
+        def __init__(self, responses):
+            self.headers = {}
+            self.responses = list(responses)
+
+        def post(self, url, *, json=None, timeout=None, **kwargs):
+            return self.responses.pop(0)
+
+    c_err = OpenAICompatibleClient(
+        base_url="http://vllm/v1/chat/completions",
+        api_key="k",
+        system_prompt="Be concise.",
+        stream=False,
+        max_retries=1,
+        retry_wait_s=0.0,
+        session=_ErrSession([_ErrResp(503), _ErrResp(400, "bad req"), _ErrResp(200, "not-json", None)]),
+    )
+    assert c_err.get_patient_profile("p1") == {}
+    with pytest.raises(ValueError, match="profile"):
+        c_err.chat("p1", None, "Q?")
+    s1 = c_err.new_session("p1")
+    with pytest.raises(ValueError, match="different patient"):
+        c_err.chat("p2", s1, "Q?", profile="m")
+    r_400 = c_err.chat("p1", None, "Q?", profile="m", request_id="req-1")
+    assert r_400.status == 400
+    r_502 = c_err.chat("p1", s1, "Q?", profile="m")
+    assert r_502.status == 502
+
+    # CLI validate run + validate concurrency on openai-compatible transport
+    data_root = tmp_path / "validation"
+    (data_root / "comparison_sets").mkdir(parents=True)
+    (data_root / "scenarios").mkdir(parents=True)
+    (data_root / "backends.json").write_text(
+        json.dumps(
+            {
+                "oai-arm": {
+                    "label": "OAI Arm",
+                    "endpointUrl": "http://vllm:8000/v1/chat/completions",
+                    "modelName": "gemma-4-12b",
+                    "indepthEndpointUrl": "http://vllm:8000/v1/chat/completions",
+                    "indepthModelName": "gemma-4-12b",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (data_root / "comparison_sets" / "oai-set.json").write_text(
+        json.dumps(
+            {
+                "id": "oai-set",
+                "transport": "openai-compatible",
+                "scenario_ids": ["s1"],
+                "backend_ids": ["oai-arm"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (data_root / "scenarios" / "s1.json").write_text(
+        json.dumps(
+            {
+                "id": "s1",
+                "patient_ref": "pt-1",
+                "turns": [{"n": 1, "question": "Summarize chart."}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "harness.validate.client.OpenAICompatibleClient.chat",
+        lambda self, patient, session, question, **kw: ChatResult(
+            status=200,
+            envelope={
+                "session": session or "s-oai",
+                "answer": "Summary [1].",
+                "references": [{"index": 1}],
+                "stream_timings": {"ttft_ms": 120, "answer_done_ms": 300, "turn_done_ms": 310, "tpot_ms": 12.0},
+            },
+            latency_ms=310,
+            raw_text="",
+        ),
+    )
+    rc_run = cli_main(
+        [
+            "validate",
+            "run",
+            "oai-set",
+            "--data-root",
+            str(data_root),
+            "--output-dir",
+            str(tmp_path / "runs"),
+        ]
+    )
+    assert rc_run == 0
+
+    hw_file = tmp_path / "hw.json"
+    hw_file.write_text(json.dumps({"tier": "gpu_server", "gpu": "H200"}), encoding="utf-8")
+    rc_conc = cli_main(
+        [
+            "validate",
+            "concurrency",
+            "oai-set",
+            "--users",
+            "2",
+            "--turns-per-user",
+            "1",
+            "--backend-id",
+            "oai-arm",
+            "--data-root",
+            str(data_root),
+            "--output-dir",
+            str(tmp_path / "conc"),
+            "--hardware-metadata",
+            str(hw_file),
+        ]
+    )
+    assert rc_conc == 0
+
+    # Concurrency validation & worker failure branches
+    with pytest.raises(ValueError, match="n_users"):
+        run_concurrency_benchmark(comparison_set_id="oai-set", n_users=0, data_root=data_root)
+    with pytest.raises(ValueError, match="turns_per_user"):
+        run_concurrency_benchmark(comparison_set_id="oai-set", turns_per_user=0, data_root=data_root)
+    with pytest.raises(ValueError, match="accounts"):
+        run_concurrency_benchmark(comparison_set_id="oai-set", accounts=(), data_root=data_root)
+    with pytest.raises(ValueError, match="backend_id"):
+        run_concurrency_benchmark(comparison_set_id="oai-set", backend_id="missing", data_root=data_root)
+
+    class _FaultyWorkerClient:
+        def __init__(self, fail_session: bool):
+            self.fail_session = fail_session
+
+        def new_session(self, patient: str) -> str:
+            if self.fail_session:
+                raise RuntimeError("session boom")
+            return "s-ok"
+
+        def chat(self, patient: str, session: str | None, question: str, **kw) -> ChatResult:
+            raise RuntimeError("chat boom")
+
+    faulty_res = run_concurrency_benchmark(
+        comparison_set_id="oai-set",
+        n_users=2,
+        turns_per_user=1,
+        data_root=data_root,
+        output_dir=tmp_path / "conc-faulty",
+        client_factory=lambda u, _p: _FaultyWorkerClient(fail_session=(u == "eval-doctor")),
+    )
+    assert faulty_res.summary["error_turns"] == 2
+
+    # Engine-tap edge cases + capture helpers
+    raw_bad, meta_bad = ENGINE_TAP.apply_local_engine_dry_policy(b"not-json")
+    assert raw_bad == b"not-json" and meta_bad == {"simulated_local_engine_dry": False}
+    raw_nom, meta_nom = ENGINE_TAP.apply_local_engine_dry_policy(b'{"other": 1}')
+    assert raw_nom == b'{"other": 1}' and meta_nom == {"simulated_local_engine_dry": False}
+    assert ENGINE_TAP.extract_upstream_telemetry(b'{"usage":{"prompt_tokens":10},"timings":{"cache_n":5}}') == {
+        "usage": {"prompt_tokens": 10},
+        "timings": {"cache_n": 5},
+    }
+    assert ENGINE_TAP.extract_upstream_telemetry(b"{bad-json\ndata: {bad\n") == {}
+    ENGINE_TAP._update_capture_meta(tmp_path / "missing.json", {"x": 1})
+    cap_meta = ENGINE_TAP._capture(
+        tmp_path / "caps",
+        "bundled",
+        "POST",
+        "/v1/chat/completions",
+        b'{"messages":[]}',
+        extra_meta={"simulated_local_engine_dry": True},
+    )
+    ENGINE_TAP._update_capture_meta(cap_meta, {"upstream_status": 200})
+    saved_meta = json.loads(cap_meta.read_text(encoding="utf-8"))
+    assert saved_meta["simulated_local_engine_dry"] is True
+    assert saved_meta["upstream_status"] == 200
+
+    # Additional client branches for non-iter_lines SSE and chart_client delegation
+    class _TextOnlyStreamResp:
+        text = 'data: {"choices":[{"delta":{"content":"Text fallback"}}]}\ndata: [DONE]\n'
+
+    text_content, _, _, text_st = c_err._consume_sse_stream(_TextOnlyStreamResp(), 0.0)
+    assert text_content == "Text fallback"
+    assert text_st["answer_delta_count"] == 1
+
+    class _StubChartClient:
+        def get_patient_profile(self, patient: str):
+            return {"uuid": patient}
+
+    c_with_chart = OpenAICompatibleClient(chart_client=_StubChartClient())
+    assert c_with_chart.get_patient_profile("p-stub") == {"uuid": "p-stub"}
+
+
 
 
