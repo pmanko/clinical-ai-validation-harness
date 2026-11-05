@@ -504,7 +504,7 @@ def test_concurrency_benchmark_isolates_clinician_sessions_and_aggregates_percen
         "eval-doctor",
         "eval-nurse",
         "eval-pharmacy",
-        "eval-clerk",
+        "eval-clinical-officer",
     }
     assert res.summary["n_users"] == 4
     assert res.summary["turns_per_user"] == 2
