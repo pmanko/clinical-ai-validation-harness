@@ -106,3 +106,31 @@ def test_comparison_rejects_unknown_transport(tmp_path):
 
     with pytest.raises(ValueError, match="transport"):
         load_comparison_set(data / "comparison_sets" / "mini.json")
+
+
+def test_openai_compatible_transport_accepts_arbitrary_model_arm(tmp_path):
+    data = _write_inputs(
+        tmp_path,
+        transport="openai-compatible",
+        kind=None,
+        model="Qwen/Qwen2.5-14B-Instruct",
+    )
+    comparison = load_comparison_set(data / "comparison_sets" / "mini.json")
+    backends = load_backends(data / "backends.json")
+
+    validate_execution_contract(comparison, [backends["arm"]])
+
+
+def test_openai_compatible_transport_rejects_provider_pinned_backend(tmp_path):
+    data = _write_inputs(
+        tmp_path,
+        transport="openai-compatible",
+        kind="provider_arm",
+        provider="bundled",
+        model="gemma-e4b",
+    )
+    comparison = load_comparison_set(data / "comparison_sets" / "mini.json")
+    backends = load_backends(data / "backends.json")
+
+    with pytest.raises(ValueError, match="provider"):
+        validate_execution_contract(comparison, [backends["arm"]])

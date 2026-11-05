@@ -142,6 +142,27 @@ def _build_parser() -> argparse.ArgumentParser:
         "relevance,harm,note}} map without prompting (scripted/test use).",
     )
 
+    val_conc = val_sub.add_parser(
+        "concurrency",
+        help="Run N concurrent OpenMRS clinical user sessions and emit concurrency_summary.json",
+    )
+    val_conc.add_argument(
+        "comparison_set",
+        nargs="?",
+        default="demo",
+        help="Comparison-set id under <data-root>/comparison_sets/ (default: demo)",
+    )
+    val_conc.add_argument("--users", type=int, default=1, help="Concurrent clinical user sessions (e.g. 1, 2, 4)")
+    val_conc.add_argument("--turns-per-user", type=int, default=1, help="Turns per concurrent session")
+    val_conc.add_argument("--backend-id", help="Backend id from the comparison set (defaults to first)")
+    val_conc.add_argument("--data-root", default="datasets/validation")
+    val_conc.add_argument("--output-dir", default="artifacts/concurrency")
+    val_conc.add_argument("--reference-date", metavar="YYYY-MM-DD", help="Optional reference date")
+    val_conc.add_argument("--hardware-metadata", help="Optional JSON file of hardware tier/GPU/slot metadata")
+    val_conc.add_argument("--ttft-slo-ms", type=float, default=3000.0, help="TTFT SLO threshold in ms for goodput (default: 3000)")
+    val_conc.add_argument("--answer-done-slo-ms", type=float, default=10000.0, help="Answer-done SLO threshold in ms for goodput (default: 10000)")
+    val_conc.add_argument("--tpot-slo-ms", type=float, default=50.0, help="TPOT SLO threshold in ms/token for goodput (default: 50)")
+
     from .catalyst.cli import configure_parser as configure_catalyst_parser
     from .wahs.cli import configure_parser as configure_wahs_parser
 
@@ -268,14 +289,19 @@ def main(
                 )
                 return 0
         if args.validate_action == "run":
-            from .validate.client import ChartSearchAiClient, MedAgentHubClient
+            from .validate.client import (
+                ChartSearchAiClient,
+                MedAgentHubClient,
+                OpenAICompatibleClient,
+            )
             from .validate.runner import run_comparison
 
-            client = (
-                MedAgentHubClient()
-                if comparison.transport == "med-agent-hub"
-                else ChartSearchAiClient()
-            )
+            if comparison.transport == "med-agent-hub":
+                client = MedAgentHubClient()
+            elif comparison.transport == "openai-compatible":
+                client = OpenAICompatibleClient()
+            else:
+                client = ChartSearchAiClient()
             result = run_comparison(
                 comparison_set_id=args.comparison_set,
                 client=client,
@@ -353,6 +379,29 @@ def main(
                 f"{run_dir / 'adjudication.jsonl'}"
             )
             return 0
+        if args.validate_action == "concurrency":
+            from .validate.concurrency import run_concurrency_benchmark
+
+            hw_meta = (
+                json.loads(Path(args.hardware_metadata).read_text(encoding="utf-8"))
+                if args.hardware_metadata
+                else None
+            )
+            out = run_concurrency_benchmark(
+                comparison_set_id=args.comparison_set,
+                n_users=args.users,
+                turns_per_user=args.turns_per_user,
+                backend_id=args.backend_id,
+                data_root=args.data_root,
+                output_dir=args.output_dir,
+                reference_date=args.reference_date,
+                hardware_metadata=hw_meta,
+                ttft_slo_ms=args.ttft_slo_ms,
+                answer_done_slo_ms=args.answer_done_slo_ms,
+                tpot_slo_ms=args.tpot_slo_ms,
+            )
+            print(json.dumps(out.summary, indent=2))
+            return 0 if out.summary["error_turns"] == 0 else 1
         return _not_yet_implemented(f"validate {args.validate_action}")
 
     print(f"unknown command: {args.command}", file=sys.stderr)
