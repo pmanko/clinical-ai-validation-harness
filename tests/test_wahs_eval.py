@@ -1723,6 +1723,84 @@ def test_wahs_profile_metadata_arm_cards_and_kb_formatting_helpers(tmp_path: Pat
             os.environ["WAHS_DEMO_DATA_JS"] = os_env_prev
 
 
+def test_w29_question_scoped_kb_findings_for_prompt():
+    from harness.wahs.evaluator import (
+        WahsEvalCase,
+        _build_profile_prompt,
+        _format_kb_findings_for_prompt,
+        _is_reconciliation_or_broad_prompt_question,
+    )
+
+    sample_analyze = {
+        "condensation": {"actual_tokens": 512, "chart_text": "[1] Patient: Demo\n[2] Med: Simvastatin"},
+        "analyses": {
+            "data_quality_and_conflicts": {
+                "findings": [
+                    {
+                        "id": "conflict-med-statin",
+                        "severity": "high",
+                        "title": "Concurrent Active Statin Prescriptions (Lipitor vs Simvastatin)",
+                        "description": "Duplicate statins across clinics.",
+                        "citations": [{"index": 2}],
+                    }
+                ]
+            },
+            "patterns_and_summaries": {
+                "highlight_encounter": {
+                    "title": "ICU Stay",
+                    "narrative": "Admitted for heart failure.",
+                    "citations": [{"index": 3}],
+                },
+                "trajectories": [
+                    {
+                        "concept": "Creatinine",
+                        "unit": "mg/dL",
+                        "citations": [{"index": 4}],
+                        "initial": {"value": 1.0, "date": "2024-01-01"},
+                        "latest": {"value": 1.8, "date": "2026-01-01"},
+                        "min": {"value": 1.0},
+                        "max": {"value": 1.8},
+                        "direction": "increasing",
+                    }
+                ],
+            },
+        },
+    }
+
+    assert _is_reconciliation_or_broad_prompt_question("Please audit my active medications for conflicts.") is True
+    assert _is_reconciliation_or_broad_prompt_question("Provide a clinical health summary.") is True
+    assert _is_reconciliation_or_broad_prompt_question("What was the result of my APOE4 genetic test?") is False
+
+    # Narrow abstention question filters out unrelated statin conflicts and ICU encounter summary
+    kb_narrow = _format_kb_findings_for_prompt(
+        sample_analyze,
+        question="What was the result of my APOE4 genetic test and amyloid PET brain scan?",
+    )
+    assert "No Stage 2 KB conflicts apply to this specific lookup" in kb_narrow
+    assert "Concurrent Active Statin" not in kb_narrow
+
+    # Narrow lookup mentioning Creatinine keeps only the Creatinine trajectory
+    kb_creat = _format_kb_findings_for_prompt(
+        sample_analyze,
+        question="What was my earliest Creatinine lab result?",
+    )
+    assert "[TRAJECTORY] Creatinine" in kb_creat
+    assert "Concurrent Active Statin" not in kb_creat
+
+    # _build_profile_prompt includes updated W29 grounding rules
+    c_abstain = WahsEvalCase(
+        case_id="c_abs",
+        patient_id="p1",
+        use_case="uc3_grounded_abstention",
+        prompt="What was the result of my APOE4 genetic test?",
+        must_abstain=True,
+    )
+    built = _build_profile_prompt(c_abstain, sample_analyze, budget_tokens=8192, include_kb_findings=True)
+    assert "No Stage 2 KB conflicts apply to this specific lookup" in built
+    assert "never attach [1] (Demographics) or [2] (Completeness Manifest)" in built
+
+
+
 
 
 

@@ -1737,7 +1737,7 @@ function judgeHeatmap(run){
       var jump='<a href="#sec-answers" class="jh-jump" data-jump-sid="'+htmlEsc(td.dataset.sid)+'">Jump to side-by-side answers for '+htmlEsc(td.dataset.sid)+' ↓</a>';
       var noteEl=wrap.querySelector('#jh-note');
       noteEl.innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b>'+qLine+'<div>'+htmlEsc(td.dataset.det)+'</div><div>'+htmlEsc(td.dataset.note||'(no note)')+'</div>'+judgePassLines(run, td.dataset.sid, td.dataset.arm)+jump;
-      var jLink=noteEl.querySelector('.jh-jump');
+      var jLink=noteEl.querySelector?noteEl.querySelector('.jh-jump'):null;
       if(jLink){
         jLink.onclick=function(ev){
           ev.preventDefault();
