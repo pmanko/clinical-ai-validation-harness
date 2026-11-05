@@ -828,10 +828,14 @@ def _evaluate_atomic_entailment(
                         uuid_ok = True
                         break
                 else:
-                    # Sentence had no inline citation of its own; check enclosing line if it has citations
-                    for ln in lines:
+                    # Sentence had no inline citation of its own; check enclosing line or immediately adjacent continuation line
+                    for line_idx, ln in enumerate(lines):
                         if sent in ln:
                             ln_cites = _CITATION_RE.findall(ln)
+                            if not ln_cites and line_idx + 1 < len(lines):
+                                next_ln = lines[line_idx + 1]
+                                if not next_ln.startswith("#") and not next_ln.upper().startswith("QUESTIONS"):
+                                    ln_cites = _CITATION_RE.findall(next_ln)
                             ln_uuids = {
                                 u for n in ln_cites for u in effective_idx_uuids.get(n, set())
                             }
@@ -840,10 +844,6 @@ def _evaluate_atomic_entailment(
                                 break
                     if uuid_ok:
                         break
-            if not uuid_ok and (all_inline_cited_uuids & allowed_uuids):
-                # Also accept when the claim keywords appear across adjacent lines in the same section
-                # and the allowed resource UUID is cited inline in the answer.
-                uuid_ok = True
         else:
             uuid_ok = bool(all_inline_cited_uuids & allowed_uuids)
 
@@ -891,9 +891,9 @@ def _is_clean_abstention(answer_text: str, envelope: dict[str, Any]) -> bool:
         has_neg_or_meta = bool(_ABSTENTION_META_OR_NEG_RE.search(sent))
         has_explicit_abstain = bool(_ABSTENTION_RE.search(sent))
         has_affirm_finding = bool(_AFFIRMATIVE_CLINICAL_FINDING_RE.search(sent))
-        if has_affirm_finding and not has_explicit_abstain and not _CITATION_RE.search(sent):
+        if has_affirm_finding and not has_explicit_abstain:
             return False
-        if not has_neg_or_meta and not _CITATION_RE.search(sent):
+        if not has_neg_or_meta:
             return False
 
     return True
@@ -1628,7 +1628,7 @@ class WahsHubClient:
                         json=req_body,
                         timeout=self.timeout,
                     )
-                else:
+                elif case.sharing_posture != "external_share":
                     demo_data = self._resolve_demo_data_analyze(
                         case.patient_id, int(budget_tokens), condense_mode
                     )
@@ -3346,41 +3346,31 @@ def build_wahs_report_packet(
 
     if isinstance(manifest_data, dict) and manifest_path.is_file():
         prof_list = [str(p) for p in (manifest_data.get("profiles") or backend_ids)]
-        has_direct_arm = any(p.startswith("direct-") or p.startswith("direct:") for p in prof_list)
-        has_budget_curve = any("@32k" in p or "@64k" in p or "@128k" in p for p in prof_list)
-        if has_direct_arm:
+        existing_ctx = manifest_data.get("context")
+        if not (isinstance(existing_ctx, dict) and str(existing_ctx.get("text") or "").strip()):
+            budgets_seen = sorted(
+                {
+                    int(r.get("budget_tokens"))
+                    for r in rows
+                    if isinstance(r.get("budget_tokens"), int)
+                    and not isinstance(r.get("budget_tokens"), bool)
+                }
+            )
+            budget_desc = (
+                ", ".join(
+                    f"{b // 1024}k" if b >= 1024 and b % 1024 == 0 else str(b)
+                    for b in budgets_seen
+                )
+                if budgets_seen
+                else "configured"
+            )
             manifest_data["context"] = {
                 "text": (
-                    "What this study tests: We ran a 12B medical AI model locally on a MacBook Pro (with a full 96k-word working memory, so nothing is cut off) "
-                    "across three types of clinical questions: reconciling conflicting medications and disease stages, looking up past hospital stays and procedures, "
-                    "and knowing when to say 'not in the chart' when asked about records that don't exist. "
-                    "We compared three setups at tight (1k), standard (8k), and full-chart (32k) summary budgets: "
-                    "(1) Direct AI (calling the model directly with the chart and question, without Med Agent Hub), "
-                    "(2) Med Agent Hub with chart-only prompts (citation and abstention rules, but no automated clinical checks), and "
-                    "(3) Med Agent Hub with full clinical rules and the patient relationship graph."
-                ),
-                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
-                "label": "How Med Agent Hub works →",
-            }
-        elif has_budget_curve:
-            manifest_data["context"] = {
-                "text": (
-                    "What this study tests & why scores drop above 16k on a standard cloud server: "
-                    "We tested condensed chart budgets from 1k up to 128k tokens on a shared 24 GB cloud GPU. "
-                    "Because the standard Ollama server defaults to a 16k-token active working memory window, sending a 32k, 64k, or 128k chart "
-                    "causes the server to silently drop the beginning of the prompt—cutting off the patient's active allergies, active medications, "
-                    "and recent 2025–2026 hospital admissions at the top of the chart. "
-                    "In a blinded 2-judge clinical review (Claude Opus 4.6 + GPT-5.4), plain chart summaries collapse from 80.2/100 at 8k down to 0.0–2.8/100 once that cutoff happens (with 4/4 unsafe answers), "
-                    "while Med Agent Hub (+ clinical rules & graph) leads at 88.0/100 with Gemma 4 26B at 8k (0 unsafe answers), beats raw at 1k (43.8 vs. 24.8/100), and still rescues the Part 1 medication conflicts above the cutoff (27.0–32.8/100) because its safety summary sits inside the active window at the end of the prompt."
-                ),
-                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
-                "label": "How Med Agent Hub works →",
-            }
-        else:
-            manifest_data["context"] = {
-                "text": (
-                    "What this study tests: We compared 7 open-weight AI models (from a compact 4B model up to 35B models across Google Gemma, MedGemma, Alibaba Qwen, and Liquid LFM2) "
-                    "in two modes on the same complex patient charts: reading the condensed chart alone vs. reading the chart alongside Med Agent Hub's automated clinical conflict rules."
+                    f"What this run evaluates: {len(cases)} clinical scenario{'s' if len(cases) != 1 else ''} "
+                    f"across {len(prof_list)} profile{'s' if len(prof_list) != 1 else ''} "
+                    f"({', '.join(prof_list[:6])}{'...' if len(prof_list) > 6 else ''}) "
+                    f"at {budget_desc} token budget{'s' if len(budgets_seen) != 1 else ''} "
+                    f"({len(rows)} total evaluation cells)."
                 ),
                 "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
                 "label": "How Med Agent Hub works →",

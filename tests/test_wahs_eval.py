@@ -1320,6 +1320,135 @@ def test_direct_llm_profile_routes_to_direct_base_url_without_med_agent_hub(tmp_
     assert "STAGE 2 CLINICAL KB" not in chat_payload["messages"][0]["content"]
 
 
+def test_analyze_case_blocks_demo_fallback_for_external_share(tmp_path: Path, monkeypatch):
+    demo_js = tmp_path / "wahs_demo_data.js"
+    demo_payload = {
+        "patients": {
+            "p_ext": {
+                "condensation_matrix": {
+                    "lossless_structural": {
+                        "4096": {
+                            "tier": 1,
+                            "actual_tokens": 500,
+                            "chart_text": "[1] (2026-01-25) Condition: Unredacted sensitive patient-self chart",
+                        }
+                    }
+                },
+                "postures": {"patient_self": {"tier_8k": {"mappings": []}}},
+            }
+        }
+    }
+    demo_js.write_text("window.WAHS_DEMO_DATA = " + json.dumps(demo_payload) + ";", encoding="utf-8")
+    monkeypatch.setenv("WAHS_DEMO_DATA_JS", str(demo_js))
+
+    class NotFoundSession:
+        headers = {}
+
+        def post(self, url, **kwargs):
+            class Resp:
+                status_code = 404
+                text = "Not Found"
+
+            return Resp()
+
+    client = WahsHubClient(session=NotFoundSession(), max_retries=0)
+    ext_case = WahsEvalCase(
+        case_id="c_ext",
+        patient_id="p_ext",
+        use_case="B2_privacy",
+        prompt="Share summary.",
+        sharing_posture="external_share",
+    )
+    with pytest.raises(RuntimeError, match="WAHS analyze failed \\[404\\]"):
+        client.analyze_case(ext_case, budget_tokens=4096)
+
+
+def test_atomic_entailment_rejects_wrong_sentence_citation_even_when_expected_uuid_cited_elsewhere():
+    case = WahsEvalCase(
+        case_id="c_entail_strict",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        citation_entailment_assertions=[
+            {"resource_uuid": "uuid-mri", "must_mention_any": ["tumor"]}
+        ],
+    )
+    # "tumor" claim cites [2] (appointment), while [1] (MRI) is cited in a later unrelated sentence
+    env = {
+        "answer": "Brain scan showed a tumor [2]. Next clinic appointment is scheduled for Friday [1].",
+        "actual_tokens": 20,
+        "references": [
+            {"index": 1, "resourceUuid": "uuid-mri"},
+            {"index": 2, "resourceUuid": "uuid-appt"},
+        ],
+    }
+    sc = score_wahs_case(case, env, budget_tokens=1024)
+    assert sc.atomic_entailment_rate == 0.0
+    assert sc.passed is False
+
+
+def test_abstention_rejects_contradictory_finding_even_with_bracket_citation():
+    from harness.wahs.evaluator import _is_clean_abstention
+
+    assert _is_clean_abstention("MRI is not documented. MRI showed a tumor [1].", {}) is False
+    case = WahsEvalCase(
+        case_id="c_abstain_contradict_cite",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        must_abstain=True,
+        valid_uuids=["u1"],
+    )
+    sc = score_wahs_case(
+        case,
+        {
+            "answer": "MRI is not documented. MRI showed a tumor [1].",
+            "actual_tokens": 20,
+            "references": [{"index": 1, "resourceUuid": "u1"}],
+        },
+    )
+    assert sc.abstention_ok is False
+    assert sc.passed is False
+
+
+def test_build_wahs_report_packet_preserves_caller_context_and_derives_default_from_run(tmp_path: Path):
+    from harness.wahs.evaluator import build_wahs_report_packet
+
+    cases_path = tmp_path / "cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c1",
+                "patient_id": "p1",
+                "use_case": "qa",
+                "prompt": "q",
+                "target_token_budgets": [32768],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    res = run_wahs_suite(
+        cases_path,
+        client=_StubWahsClient(),
+        output_dir=tmp_path / "runs",
+        budgets=[32768],
+    )
+    build_wahs_report_packet(res.run_dir)
+    manifest = json.loads(res.manifest_path.read_text(encoding="utf-8"))
+    ctx_text = manifest["context"]["text"]
+    assert "What this run evaluates: 1 clinical scenario" in ctx_text
+    assert "80.2/100" not in ctx_text
+
+    # Caller-supplied context is preserved on subsequent report builds
+    manifest["context"] = {"text": "Caller-supplied study context.", "url": "", "label": ""}
+    res.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    build_wahs_report_packet(res.run_dir)
+    manifest_after = json.loads(res.manifest_path.read_text(encoding="utf-8"))
+    assert manifest_after["context"]["text"] == "Caller-supplied study context."
+
+
+
 
 
 
