@@ -27,6 +27,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -37,17 +38,27 @@ from ..metadata import RunManifest, append_event, copy_target_provenance, write_
 
 _CITATION_RE = re.compile(r"\[(\d+)\]")
 _ABSTENTION_RE = re.compile(
-    r"\b(not documented|no documented|no documentation|not recorded|no record|cannot verify|not found in|not present in|abstain|abstains|grounded abstention)\b",
+    r"\b("
+    r"not documented|no documented|no documentation|not recorded|no record|no records|"
+    r"no information|not listed|cannot find|do not see|does not show|"
+    r"cannot verify|not found in|not present in|does not contain|do not contain|"
+    r"does not include|does not list|not mentioned|no mention|not available|"
+    r"abstain|abstains|grounded abstention"
+    r")\b",
     re.IGNORECASE,
 )
 _ABSTENTION_META_OR_NEG_RE = re.compile(
     r"\b(?:"
-    r"not\s+documented|no\s+documented|no\s+documentation|not\s+recorded|no\s+record|"
-    r"cannot\s+verify|not\s+found\s+in|not\s+present\s+in|abstain|abstains|grounded\s+abstention|"
-    r"no\s+matching\s+records|unrecorded|undocumented|missing|absent|without|none|"
+    r"not\s+documented|no\s+documented|no\s+documentation|not\s+recorded|no\s+records?|"
+    r"no\s+information|not\s+listed|cannot\s+find|do\s+not\s+see|does\s+not\s+show|"
+    r"cannot\s+verify|not\s+found\s+in|not\s+present\s+in|does\s+not\s+(?:contain|include|list|document|show)|"
+    r"do\s+not\s+(?:contain|include|list|document|show)|not\s+mentioned|no\s+mention|not\s+available|unavailable|"
+    r"abstain|abstains|grounded\s+abstention|neither|nor|cannot\s+answer|cannot\s+provide|unable\s+to|"
+    r"no\s+matching\s+records|unrecorded|undocumented|missing|absent|without|none|no\s+evidence|no\s+results?|"
     r"safety\s+posture|grounding\s+rules|external\s+share|external_share|patient_self|"
     r"42\s+cfr|mhmda|my\s+health\s+my\s+data|redacted|excluded|withheld|hidden|"
-    r"switch\s+(?:back\s+)?to|ask\s+your\s+doctor|only\s+reports\s+facts"
+    r"switch\s+(?:back\s+)?to|ask\s+your\s+doctor|doctor|physician|provider|clinic|clinician|care\s+team|specialist|"
+    r"only\s+reports\s+facts|chart|bundle|health\s+records?|medical\s+records?|reviewed|however|while|although|if\s+you"
     r")\b",
     re.IGNORECASE,
 )
@@ -665,10 +676,25 @@ def _evaluate_weighted_rubric(
         weight = float(item.get("weight", 1.0))
         total_weight += weight
         req_any = [str(x).lower() for x in (item.get("required_any") or []) if str(x).strip()]
-        if ans_low.strip() and (not req_any or any(tok in ans_low for tok in req_any)):
+        req_all = [
+            str(x).lower()
+            for x in (item.get("required_all") or item.get("required_keywords") or [])
+            if str(x).strip()
+        ]
+        if req_all and req_any:
+            crit_matched = all(tok in ans_low for tok in req_all) and any(
+                tok in ans_low for tok in req_any
+            )
+        elif req_all:
+            crit_matched = all(tok in ans_low for tok in req_all)
+        elif req_any:
+            crit_matched = any(tok in ans_low for tok in req_any)
+        else:
+            crit_matched = True
+        if ans_low.strip() and crit_matched:
             earned_weight += weight
         else:
-            crit = item.get("criterion") or item.get("id") or str(req_any)
+            crit = item.get("criterion") or item.get("id") or str(req_any or req_all)
             if item.get("strict", True) and not item.get("optional", False):
                 rubric_failures.append(f"missing required rubric criterion: {crit}")
 
@@ -733,34 +759,64 @@ def _evaluate_atomic_entailment(
     failures: list[str] = []
 
     for assertion in case.citation_entailment_assertions:
-        target_uuid = str(assertion.get("resource_uuid") or "").replace("urn:uuid:", "")
-        must_mention = [str(x).lower() for x in (assertion.get("must_mention_any") or []) if str(x).strip()]
-        must_not_distort = [str(x).lower() for x in (assertion.get("must_not_distort") or []) if str(x).strip()]
+        single_uuid = str(assertion.get("resource_uuid") or "").replace("urn:uuid:", "")
+        allowed_uuids = {
+            str(u).replace("urn:uuid:", "")
+            for u in (assertion.get("allowed_resource_uuids") or [])
+            if str(u).strip()
+        }
+        if single_uuid:
+            allowed_uuids.add(single_uuid)
+        target_label = single_uuid or (", ".join(sorted(allowed_uuids)) if allowed_uuids else "claim")
+
+        must_mention_any = [
+            str(x).lower() for x in (assertion.get("must_mention_any") or []) if str(x).strip()
+        ]
+        must_mention_all = [
+            str(x).lower()
+            for x in (assertion.get("must_mention_all") or assertion.get("claim_keywords") or [])
+            if str(x).strip()
+        ]
+        must_not_distort = [
+            str(x).lower() for x in (assertion.get("must_not_distort") or []) if str(x).strip()
+        ]
 
         distort_hit = [tok for tok in must_not_distort if tok in ans_low]
         if distort_hit:
             distortions += len(distort_hit)
             failures.append(
-                f"citation distortion for {target_uuid or 'claim'}: found distorted value/status {', '.join(distort_hit)}"
+                f"citation distortion for {target_label}: found distorted value/status {', '.join(distort_hit)}"
             )
             continue
 
-        mention_ok = (not must_mention) or any(tok in ans_low for tok in must_mention)
+        if must_mention_all and must_mention_any:
+            mention_ok = all(tok in ans_low for tok in must_mention_all) and any(
+                tok in ans_low for tok in must_mention_any
+            )
+        elif must_mention_all:
+            mention_ok = all(tok in ans_low for tok in must_mention_all)
+        elif must_mention_any:
+            mention_ok = any(tok in ans_low for tok in must_mention_any)
+        else:
+            mention_ok = True
+
         if not mention_ok:
+            missing_desc = ", ".join(must_mention_all or must_mention_any)
             failures.append(
-                f"unentailed claim for {target_uuid or 'assertion'}: missing {', '.join(must_mention)}"
+                f"unentailed claim for {target_label}: missing {missing_desc}"
             )
             continue
 
-        if not target_uuid:
+        if not allowed_uuids:
             passed_assertions += 1
             continue
 
-        if must_mention:
+        mention_tokens = must_mention_any or must_mention_all
+        if mention_tokens:
             # Bind the assertion to the inline citation(s) on the supporting sentence or line
             uuid_ok = False
             matching_sentences = [
-                s for s in sentences if any(tok in s.lower() for tok in must_mention)
+                s for s in sentences if any(tok in s.lower() for tok in mention_tokens)
             ]
             for sent in matching_sentences:
                 sent_cites = _CITATION_RE.findall(sent)
@@ -768,30 +824,34 @@ def _evaluate_atomic_entailment(
                     sent_uuids = {
                         u for n in sent_cites for u in effective_idx_uuids.get(n, set())
                     }
-                    if target_uuid in sent_uuids:
+                    if sent_uuids & allowed_uuids:
                         uuid_ok = True
                         break
                 else:
-                    # Sentence had no inline citation of its own; check enclosing line if it has citations
-                    for ln in lines:
+                    # Sentence had no inline citation of its own; check enclosing line or immediately adjacent continuation line
+                    for line_idx, ln in enumerate(lines):
                         if sent in ln:
                             ln_cites = _CITATION_RE.findall(ln)
+                            if not ln_cites and line_idx + 1 < len(lines):
+                                next_ln = lines[line_idx + 1]
+                                if not next_ln.startswith("#") and not next_ln.upper().startswith("QUESTIONS"):
+                                    ln_cites = _CITATION_RE.findall(next_ln)
                             ln_uuids = {
                                 u for n in ln_cites for u in effective_idx_uuids.get(n, set())
                             }
-                            if target_uuid in ln_uuids:
+                            if ln_uuids & allowed_uuids:
                                 uuid_ok = True
                                 break
                     if uuid_ok:
                         break
         else:
-            uuid_ok = target_uuid in all_inline_cited_uuids
+            uuid_ok = bool(all_inline_cited_uuids & allowed_uuids)
 
         if uuid_ok:
             passed_assertions += 1
         else:
             failures.append(
-                f"unentailed claim for {target_uuid}: supporting claim does not cite expected resource"
+                f"unentailed claim for {target_label}: supporting claim does not cite expected resource"
             )
 
     rate = passed_assertions / max(len(case.citation_entailment_assertions), 1)
@@ -809,12 +869,19 @@ def _is_clean_abstention(answer_text: str, envelope: dict[str, Any]) -> bool:
     ):
         return False
 
+    summary_part = re.split(
+        r"\n+\s*(?:#+\s*)?QUESTIONS[_\s]+FOR[_\s]+(?:YOUR[_\s]+)?(?:DOCTOR|CLINICIAN|PROVIDER)\s*:?",
+        answer_text,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0]
+
     envelope_abstained = bool(envelope.get("abstained")) or bool(envelope.get("abstains"))
-    explicit_abstains = envelope_abstained or bool(_ABSTENTION_RE.search(answer_text))
+    explicit_abstains = envelope_abstained or bool(_ABSTENTION_RE.search(summary_part))
     if not explicit_abstains:
         return False
 
-    raw_sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(answer_text) if s.strip()]
+    raw_sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(summary_part) if s.strip()]
     for sent in raw_sentences:
         if sent.startswith("#") or sent.endswith(":"):
             continue
@@ -822,8 +889,9 @@ def _is_clean_abstention(answer_text: str, envelope: dict[str, Any]) -> bool:
         if len(words) < 3:
             continue
         has_neg_or_meta = bool(_ABSTENTION_META_OR_NEG_RE.search(sent))
+        has_explicit_abstain = bool(_ABSTENTION_RE.search(sent))
         has_affirm_finding = bool(_AFFIRMATIVE_CLINICAL_FINDING_RE.search(sent))
-        if has_affirm_finding and not has_neg_or_meta:
+        if has_affirm_finding and not has_explicit_abstain:
             return False
         if not has_neg_or_meta:
             return False
@@ -874,7 +942,7 @@ def score_wahs_case(
         matched = [
             u
             for u in expected_clean
-            if u in known_uuids or u in answer or u in condensed_text
+            if u in known_uuids or u in answer
         ]
         required_uuid_recall = len(matched) / len(expected_clean)
         if required_uuid_recall < 1.0:
@@ -1019,25 +1087,849 @@ def score_wahs_case(
     )
 
 
+_THINK_RE = re.compile(r"<think>[\s\S]*?</think>", re.IGNORECASE)
+_MULTI_BRACKET_RE = re.compile(r"\[(\d+(?:\s*(?:,|;|/|-|\band\b)\s*\d+)+)\]", re.IGNORECASE)
+
+
+def _normalize_bracket_citations(text: str) -> str:
+    """Expand multi-index bracket citations like `[48, 56]` or `[3, 4, 5]` into `[48] [56]` / `[3] [4] [5]`."""
+    def _repl(match: re.Match[str]) -> str:
+        raw_inner = match.group(1)
+        nums = re.findall(r"\d+", raw_inner)
+        return " ".join(f"[{n}]" for n in nums)
+
+    return _MULTI_BRACKET_RE.sub(_repl, text or "")
+
+
+def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
+    """Format Stage 2 deterministic KB findings concisely for `-kb` profile prompts."""
+    analyses = analyze_data.get("analyses") if isinstance(analyze_data.get("analyses"), dict) else {}
+    dq = analyses.get("data_quality_and_conflicts") if isinstance(analyses.get("data_quality_and_conflicts"), dict) else {}
+    reconcil = analyze_data.get("reconciliation") if isinstance(analyze_data.get("reconciliation"), dict) else {}
+    findings = (
+        list(dq.get("findings") or [])
+        + list(analyze_data.get("kb_findings") or [])
+        + list(reconcil.get("anomalies") or [])
+    )
+    lines: list[str] = []
+    seen_finding_keys: set[tuple[str, str]] = set()
+    for idx, f in enumerate(findings, start=1):
+        if not isinstance(f, dict):
+            continue
+        fid = str(f.get("id") or f.get("kb_rule_id") or f.get("category") or f"finding_{idx}")
+        sev = str(f.get("severity") or "info").upper()
+        title = str(f.get("title") or fid)
+        dedup_key = (fid.strip().lower(), title.strip().lower())
+        if dedup_key in seen_finding_keys:
+            continue
+        seen_finding_keys.add(dedup_key)
+        summary = str(f.get("description") or f.get("summary") or f.get("patient_plain_summary") or "").strip()
+        raw_ev = (
+            list(f.get("evidence_indices") or [])
+            + list(f.get("citation_indices") or [])
+            + [
+                c.get("index")
+                for c in (f.get("citations") or [])
+                if isinstance(c, dict) and isinstance(c.get("index"), int)
+            ]
+        )
+        seen_ev: list[int] = []
+        for i in raw_ev:
+            if isinstance(i, int) and i not in seen_ev:
+                seen_ev.append(i)
+        ev_idx = [f"[{i}]" for i in seen_ev]
+        ev_str = f" (Evidence: {' '.join(ev_idx)})" if ev_idx else ""
+        lines.append(f"- [{sev}] {title} (rule={fid}){ev_str}: {summary}")
+
+    if not lines:
+        skills_block = (
+            (analyses.get("chart_hygiene_and_reconciliation_skills") or {}).get("formatted_findings_block")
+            if isinstance(analyses.get("chart_hygiene_and_reconciliation_skills"), dict)
+            else ""
+        )
+        if isinstance(skills_block, str) and skills_block.strip():
+            lines.append("4-Layer Reconciliation Skill Summary:")
+            lines.append(skills_block.strip())
+
+    patterns = analyses.get("patterns_and_summaries") if isinstance(analyses.get("patterns_and_summaries"), dict) else {}
+    hl = patterns.get("highlight_encounter")
+    if isinstance(hl, dict) and hl.get("narrative"):
+        hl_cites = " ".join(
+            f"[{c['index']}]"
+            for c in (hl.get("citations") or [])
+            if isinstance(c, dict) and isinstance(c.get("index"), int)
+        )
+        lines.append(f"- [ENCOUNTER SUMMARY] {hl.get('title') or 'Encounter'} {hl_cites}: {hl.get('narrative')}")
+
+    for traj in patterns.get("trajectories") or []:
+        if not isinstance(traj, dict):
+            continue
+        t_cites = " ".join(
+            f"[{c['index']}]"
+            for c in (traj.get("citations") or [])
+            if isinstance(c, dict) and isinstance(c.get("index"), int)
+        )
+        init_v = (traj.get("initial") or {}).get("value")
+        init_d = (traj.get("initial") or {}).get("date")
+        lat_v = (traj.get("latest") or {}).get("value")
+        lat_d = (traj.get("latest") or {}).get("date")
+        min_v = (traj.get("min") or {}).get("value")
+        max_v = (traj.get("max") or {}).get("value")
+        lines.append(
+            f"- [TRAJECTORY] {traj.get('concept')} ({traj.get('unit') or ''}) {t_cites}: "
+            f"initial {init_v} ({init_d}) -> latest {lat_v} ({lat_d}), range [{min_v}, {max_v}], direction={traj.get('direction')}"
+        )
+
+    if not lines:
+        lines.append("- No active medication/immunization/problem-lab conflicts flagged by Stage 2 KB rules.")
+    redaction_notice = str(analyze_data.get("redaction_notice") or "").strip()
+    if redaction_notice:
+        lines.append(f"- Privacy posture note: {redaction_notice}")
+    return "\n".join(lines)
+
+
+def _build_profile_prompt(
+    case: WahsEvalCase,
+    analyze_data: dict[str, Any],
+    *,
+    budget_tokens: int,
+    include_kb_findings: bool,
+) -> str:
+    """Build the OpenAI chat completion user prompt for a WAHS simple profile arm."""
+    condensation = analyze_data.get("condensation") or {}
+    tier_info = condensation.get("tier_info") if isinstance(condensation.get("tier_info"), dict) else {}
+    actual_tokens = int(
+        condensation.get("actual_tokens")
+        or tier_info.get("actual_tokens")
+        or analyze_data.get("actual_tokens")
+        or 0
+    )
+    chart_text = str(
+        condensation.get("chart_text")
+        or condensation.get("condensed_text")
+        or analyze_data.get("condensed_text")
+        or ""
+    ).strip()
+    omitted_sections = (
+        condensation.get("omitted_sections")
+        if isinstance(condensation.get("omitted_sections"), dict)
+        else {}
+    )
+    omitted_total = sum(
+        int(v) for v in omitted_sections.values() if isinstance(v, (int, float))
+    )
+    parts = [
+        f"Patient ID: {case.patient_id}\n"
+        f"CONDENSED PATIENT CHART (Stage 1 Lossless Structural, Budget <= {budget_tokens} tokens, Actual {actual_tokens} tokens, omitted items: {omitted_total}):\n{chart_text}"
+    ]
+    if include_kb_findings:
+        parts.append(
+            "STAGE 2 CLINICAL KB & RECONCILIATION FINDINGS (deterministic 4-Layer Clinical Knowledge Base findings):\n"
+            + _format_kb_findings_for_prompt(analyze_data)
+        )
+    else:
+        parts.append(
+            "STAGE 2 CLINICAL KB & RECONCILIATION FINDINGS:\n"
+            "(Stage 2 KB findings are intentionally withheld in this raw-condensed arm; rely solely on the Condensed Patient Chart above.)"
+        )
+        if case.sharing_posture == "external_share" and analyze_data.get("redaction_notice"):
+            parts.append(f"PRIVACY POSTURE NOTE:\n{analyze_data.get('redaction_notice')}")
+
+    parts.append(
+        f"CLINICAL TASK / PATIENT QUESTION (Use Case: {case.use_case}, Sharing Posture: {case.sharing_posture}):\n"
+        f"{case.prompt}\n\n"
+        "GROUNDING & FORMATTING RULES:\n"
+        "1. Cite supporting records from the Condensed Patient Chart inline using [N] bracket numbers on every substantive sentence (for example, [1] or [1] [2]). Never invent citation numbers that do not appear in the chart.\n"
+        "2. If the question asks about a test, imaging study, procedure, or diagnosis that is NOT documented in the Condensed Patient Chart, explicitly state that it is not documented in the chart (grounded abstention) and do not guess or invent clinical findings.\n"
+        "3. Write in clear, patient-friendly language (6th-to-8th grade reading level) while preserving exact medication names, doses, lab values, dates, and [N] citations."
+    )
+    return "\n\n".join(parts)
+
+
+def _build_direct_llm_prompt(
+    case: WahsEvalCase,
+    analyze_data: dict[str, Any],
+    *,
+    budget_tokens: int,
+) -> str:
+    """Build a direct-to-LLM user prompt (bypassing Med Agent Hub system prompt, Stage 2 KB findings, and ClinicalEntityGraph)."""
+    condensation = analyze_data.get("condensation") or {}
+    chart_text = str(
+        condensation.get("chart_text")
+        or condensation.get("condensed_text")
+        or analyze_data.get("condensed_text")
+        or ""
+    ).strip()
+    return (
+        f"Patient Chart ({case.patient_id}, budget <= {budget_tokens} tokens):\n"
+        f"{chart_text}\n\n"
+        f"Question:\n{case.prompt}\n\n"
+        "Answer the question based on the patient chart above. "
+        "Cite supporting chart entries inline using their [N] bracket numbers."
+    )
+
+
+MAX_TOKEN_BUDGET = 262144
+
+
+def _split_profile_budget(
+    profile_spec: str,
+    fallback_budget: int = 8192,
+) -> tuple[str, str, int, str | None]:
+    """Parse an optional `@<budget>` suffix on a WAHS profile spec (e.g. `wahs-12b-kb@64k`).
+
+    Returns `(backend_id, api_profile_id, budget_tokens, budget_tag)`.
+    """
+    spec = str(profile_spec or "").strip()
+    if "@" not in spec:
+        return spec, spec, int(fallback_budget), None
+    api_prof, raw_b = spec.split("@", 1)
+    api_prof = api_prof.strip()
+    raw_b_low = raw_b.strip().lower()
+    if raw_b_low.endswith("k") and raw_b_low[:-1].isdigit():
+        eff_b = int(raw_b_low[:-1]) * 1024
+        b_tag = raw_b_low
+    elif raw_b_low.isdigit():
+        eff_b = int(raw_b_low)
+        b_tag = f"{eff_b // 1024}k" if eff_b >= 1024 and eff_b % 1024 == 0 else str(eff_b)
+    else:
+        raise ValueError(f"Invalid profile budget suffix in {profile_spec!r}")
+    if eff_b <= 0 or eff_b > MAX_TOKEN_BUDGET:
+        raise ValueError(
+            f"Invalid profile budget {eff_b} in {profile_spec!r}: expected int in [1, {MAX_TOKEN_BUDGET}]"
+        )
+    return f"{api_prof}@{b_tag}", api_prof, eff_b, b_tag
+
+
 class WahsHubClient:
-    """HTTP client for Med Agent Hub WAHS endpoints (`/wahs/api/chat` and `/wahs/api/analyze`)."""
+    """HTTP client for Med Agent Hub WAHS endpoints (`/wahs/api/chat`, `/wahs/api/analyze`, and `/v1/chat/completions`)."""
 
     def __init__(
         self,
         base_url: str | None = None,
-        timeout: float = 120.0,
+        timeout: float = 180.0,
         session: requests.Session | None = None,
         max_retries: int = 1,
         retry_backoff_s: float = 0.0,
+        bundle_dirs: list[Path] | None = None,
+        direct_llm_base_url: str | None = None,
     ) -> None:
         self.base_url = (
             base_url or os.environ.get("MED_AGENT_HUB_BASE_URL", "http://127.0.0.1:8000")
+        ).rstrip("/")
+        self.direct_llm_base_url = (
+            direct_llm_base_url
+            or os.environ.get("DIRECT_LLM_BASE_URL")
+            or self.base_url
         ).rstrip("/")
         self.timeout = timeout
         self.max_retries = max(0, int(max_retries))
         self.retry_backoff_s = max(0.0, float(retry_backoff_s))
         self._session = session or requests.Session()
         self._session.headers.update({"Content-Type": "application/json"})
+        self._analyze_cache: dict[tuple[str, int, str, str], dict[str, Any]] = {}
+        self._profiles_cache: dict[str, dict[str, Any]] | None = None
+        self._bundle_cache: dict[str, dict[str, Any] | None] = {}
+        self._demo_data_cache: dict[str, Any] | None = None
+        self.bundle_dirs: list[Path] = list(bundle_dirs or [])
+        env_bdir = os.environ.get("WAHS_BUNDLE_DIR", "").strip()
+        if env_bdir:
+            self.bundle_dirs.extend([Path(env_bdir), Path(env_bdir) / "eval"])
+
+    def _resolve_demo_data_analyze(
+        self,
+        patient_id: str,
+        budget_tokens: int,
+        condense_mode: str = "lossless_structural",
+    ) -> dict[str, Any] | None:
+        """Synthesize an `/wahs/api/analyze` envelope from a supplied `wahs_demo_data.js` file if configured."""
+        if self._demo_data_cache is None:
+            js_path_str = os.environ.get("WAHS_DEMO_DATA_JS", "").strip()
+            candidates: list[Path] = [Path(js_path_str)] if js_path_str else []
+            for bdir in self.bundle_dirs:
+                candidates.append(bdir / "wahs_demo_data.js")
+            loaded: dict[str, Any] = {}
+            for cand in candidates:
+                if cand.is_file():
+                    try:
+                        raw = cand.read_text(encoding="utf-8")
+                        prefix = "window.WAHS_DEMO_DATA = "
+                        idx = raw.find(prefix)
+                        if idx >= 0:
+                            loaded = json.loads(raw[idx + len(prefix) :].rstrip().rstrip(";"))
+                            break
+                    except Exception:
+                        continue
+            self._demo_data_cache = loaded
+        patients = (self._demo_data_cache or {}).get("patients") or {}
+        p = patients.get(patient_id) or patients.get(f"{patient_id}_set_b")
+        if not isinstance(p, dict):
+            return None
+        matrix = (p.get("condensation_matrix") or {}).get(condense_mode) or (
+            p.get("condensation_matrix") or {}
+        ).get("lossless_structural") or {}
+        cell = matrix.get(str(int(budget_tokens)))
+        if not isinstance(cell, dict):
+            return None
+        if cell.get("alias_of_budget"):
+            alias = str(cell["alias_of_budget"])
+            cell = dict(matrix.get(alias) or cell)
+            cell["budget"] = int(budget_tokens)
+        pos = (p.get("postures") or {}).get("patient_self") or {}
+        raw_dq_findings = list(
+            ((pos.get("data_quality_and_conflicts") or {}).get("findings") or [])
+            if isinstance(pos.get("data_quality_and_conflicts"), dict)
+            else []
+        )
+        sk_obj = pos.get("skill_findings") if isinstance(pos.get("skill_findings"), dict) else {}
+        raw_sk_findings = list(sk_obj.get("findings") or [])
+        formatted_block = str(sk_obj.get("formatted_findings_block") or "") if int(budget_tokens) >= 8192 else ""
+
+        line_re = re.compile(r"^\s*(?:-\s*)?\[(\d+)\]\s*(?:\(([^)]+)\)\s*)?(.*)$")
+        t8_mappings = list(
+            ((pos.get("tier_8k") or {}).get("mappings") if isinstance(pos.get("tier_8k"), dict) else [])
+            or []
+        )
+        t8_by_idx: dict[int, dict[str, Any]] = {
+            int(m["index"]): dict(m)
+            for m in t8_mappings
+            if isinstance(m, dict) and isinstance(m.get("index"), int)
+        }
+        t8_by_text: dict[tuple[str, str], dict[str, Any]] = {}
+        t8_cell = matrix.get("8192")
+        if isinstance(t8_cell, dict):
+            for t8_line in str(t8_cell.get("chart_text") or "").splitlines():
+                m8 = line_re.match(t8_line)
+                if not m8:
+                    continue
+                i8 = int(m8.group(1))
+                dt8 = (m8.group(2) or "").strip()
+                bd8 = (m8.group(3) or "").strip()
+                m_entry = t8_by_idx.get(i8)
+                if m_entry:
+                    t8_by_text.setdefault((dt8, bd8), m_entry)
+                    t8_by_text.setdefault(("", bd8), m_entry)
+        for m_entry in t8_mappings:
+            if isinstance(m_entry, dict) and m_entry.get("display"):
+                dt8 = str(m_entry.get("date") or "").strip()
+                bd8 = str(m_entry.get("display") or "").strip()
+                t8_by_text.setdefault((dt8, bd8), m_entry)
+                t8_by_text.setdefault(("", bd8), m_entry)
+
+        cell_mappings = list(cell.get("mappings") or [])
+        mapping_by_idx: dict[int, dict[str, Any]] = {}
+        if cell_mappings:
+            for m in cell_mappings:
+                if isinstance(m, dict) and isinstance(m.get("index"), int):
+                    mapping_by_idx[int(m["index"])] = dict(m)
+        elif int(budget_tokens) == 8192:
+            for k_idx, m in t8_by_idx.items():
+                mapping_by_idx[k_idx] = dict(m)
+
+        chart_text = str(cell.get("chart_text") or "")
+        for line in chart_text.splitlines():
+            m_line = line_re.match(line)
+            if not m_line:
+                continue
+            idx_i = int(m_line.group(1))
+            date_s = (m_line.group(2) or "").strip()
+            body_s = (m_line.group(3) or "").strip()
+            rtype = body_s.split(":", 1)[0].split("—", 1)[0].strip() if (":" in body_s or "—" in body_s) else "Resource"
+            entry = mapping_by_idx.get(idx_i)
+            if entry is None:
+                matched_t8 = t8_by_text.get((date_s, body_s)) or t8_by_text.get(("", body_s))
+                if matched_t8 is not None:
+                    mapping_by_idx[idx_i] = {
+                        "index": idx_i,
+                        "resourceType": matched_t8.get("resourceType") or rtype,
+                        "resourceUuid": matched_t8.get("resourceUuid") or f"{patient_id}-item-{idx_i}",
+                        "date": date_s or matched_t8.get("date") or "",
+                        "display": body_s or matched_t8.get("display") or "",
+                        "memberUuids": list(matched_t8.get("memberUuids") or []),
+                    }
+                else:
+                    mapping_by_idx[idx_i] = {
+                        "index": idx_i,
+                        "resourceType": rtype,
+                        "resourceUuid": f"{patient_id}-item-{idx_i}",
+                        "date": date_s,
+                        "display": body_s,
+                        "memberUuids": [],
+                    }
+            else:
+                if date_s and not entry.get("date"):
+                    entry["date"] = date_s
+                if body_s and not entry.get("display"):
+                    entry["display"] = body_s
+                if rtype and not entry.get("resourceType"):
+                    entry["resourceType"] = rtype
+
+        uuid_to_active_indices: dict[str, list[int]] = {}
+        for k_idx in sorted(mapping_by_idx):
+            m_obj = mapping_by_idx[k_idx]
+            u_primary = str(m_obj.get("resourceUuid") or "").replace("urn:uuid:", "")
+            if u_primary:
+                uuid_to_active_indices.setdefault(u_primary, []).append(k_idx)
+            for mu in m_obj.get("memberUuids") or []:
+                u_mem = str(mu or "").replace("urn:uuid:", "")
+                if u_mem and k_idx not in uuid_to_active_indices.setdefault(u_mem, []):
+                    uuid_to_active_indices[u_mem].append(k_idx)
+
+        def _remap_findings_for_budget(raw_list: list[Any]) -> list[dict[str, Any]]:
+            out_list: list[dict[str, Any]] = []
+            for f in raw_list:
+                if not isinstance(f, dict):
+                    continue
+                r_uuids = [
+                    str(u).replace("urn:uuid:", "")
+                    for u in (f.get("resource_uuids") or [])
+                    if isinstance(u, str) and u
+                ]
+                if int(budget_tokens) < 8192:
+                    if not r_uuids or not all(u in uuid_to_active_indices for u in r_uuids):
+                        continue
+                active_ev: list[int] = []
+                for u in r_uuids:
+                    for act_i in uuid_to_active_indices.get(u, []):
+                        if act_i not in active_ev:
+                            active_ev.append(act_i)
+                f_copy = dict(f)
+                if active_ev:
+                    f_copy["evidence_indices"] = list(active_ev)
+                    f_copy["citation_indices"] = list(active_ev)
+                    f_copy["bracket_citations"] = list(active_ev)
+                    f_copy["citations"] = [
+                        {
+                            "index": act_i,
+                            "resourceUuid": (mapping_by_idx.get(act_i) or {}).get("resourceUuid"),
+                        }
+                        for act_i in active_ev
+                    ]
+                out_list.append(f_copy)
+            return out_list
+
+        dq_findings = _remap_findings_for_budget(raw_dq_findings)
+        sk_findings = _remap_findings_for_budget(raw_sk_findings)
+        all_findings = dq_findings + sk_findings
+
+        final_mappings = [mapping_by_idx[k] for k in sorted(mapping_by_idx)]
+        return {
+            "condensation": {
+                "chart_text": chart_text,
+                "condensed_text": chart_text,
+                "actual_tokens": int(cell.get("actual_tokens") or 0),
+                "condense_mode": condense_mode,
+                "omitted_sections": dict(cell.get("omitted_sections") or {}),
+                "mappings": final_mappings,
+                "tier_info": {
+                    "tier_used": cell.get("tier") or 0,
+                    "actual_tokens": int(cell.get("actual_tokens") or 0),
+                    "budget_tokens": int(budget_tokens),
+                },
+            },
+            "analyses": {
+                "data_quality_and_conflicts": {"findings": dq_findings},
+                "chart_hygiene_and_reconciliation_skills": {
+                    "findings": sk_findings,
+                    "formatted_findings_block": formatted_block,
+                },
+            },
+            "kb_findings": all_findings,
+        }
+
+    def _resolve_local_bundle(self, patient_id: str) -> dict[str, Any] | None:
+        if patient_id in self._bundle_cache:
+            return self._bundle_cache[patient_id]
+        stem = patient_id[:-5] if patient_id.endswith(".json") else patient_id
+        for bdir in self.bundle_dirs:
+            for candidate in (bdir / f"{stem}.json", bdir / "eval" / f"{stem}.json"):
+                if candidate.is_file():
+                    try:
+                        data = json.loads(candidate.read_text(encoding="utf-8"))
+                        if isinstance(data, dict) and data.get("resourceType") == "Bundle":
+                            self._bundle_cache[patient_id] = data
+                            return data
+                    except Exception:
+                        continue
+        self._bundle_cache[patient_id] = None
+        return None
+
+    def get_wahs_profiles(self) -> dict[str, dict[str, Any]]:
+        """Fetch and cache `/v1/models?workflow=wahs` profile metadata from Med Agent Hub."""
+        if self._profiles_cache is not None:
+            return self._profiles_cache
+        get_fn = getattr(self._session, "get", None)
+        if not callable(get_fn):
+            self._profiles_cache = {}
+            return self._profiles_cache
+        try:
+            resp = get_fn(f"{self.base_url}/v1/models?workflow=wahs", timeout=self.timeout)
+            if getattr(resp, "status_code", None) == 200:
+                payload = resp.json()
+                data = payload.get("data") if isinstance(payload, dict) else []
+                self._profiles_cache = {
+                    str(m["id"]): dict(m)
+                    for m in (data or [])
+                    if isinstance(m, dict) and m.get("id")
+                }
+                return self._profiles_cache
+        except Exception:
+            pass
+        self._profiles_cache = {}
+        return self._profiles_cache
+
+    def analyze_case(
+        self,
+        case: WahsEvalCase,
+        *,
+        budget_tokens: int,
+        condense_mode: str = "lossless_structural",
+    ) -> dict[str, Any]:
+        """Fetch and cache deterministic Stage 1 + Stage 2 `/wahs/api/analyze` output for `(patient_id, budget, posture, mode)`."""
+        cache_key = (case.patient_id, int(budget_tokens), case.sharing_posture, condense_mode)
+        if cache_key in self._analyze_cache:
+            return self._analyze_cache[cache_key]
+        if os.environ.get("WAHS_DEMO_DATA_JS", "").strip() and case.sharing_posture != "external_share":
+            demo_data = self._resolve_demo_data_analyze(
+                case.patient_id, int(budget_tokens), condense_mode
+            )
+            if demo_data is not None:
+                self._analyze_cache[cache_key] = demo_data
+                return demo_data
+        req_body: dict[str, Any] = {
+            "patient_id": case.patient_id,
+            "target_tokens": int(budget_tokens),
+            "sharing_posture": case.sharing_posture,
+            "condense_mode": condense_mode,
+        }
+        last_err: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = self._session.post(
+                    f"{self.base_url}/wahs/api/analyze",
+                    json=req_body,
+                    timeout=self.timeout,
+                )
+            except Exception as exc:
+                last_err = exc
+                if attempt < self.max_retries:
+                    if self.retry_backoff_s > 0:
+                        time.sleep(self.retry_backoff_s)
+                    continue
+                raise RuntimeError(
+                    f"WAHS analyze transport failure for {case.case_id}: {exc}"
+                ) from exc
+            if resp.status_code == 404 and "fhir_bundle" not in req_body:
+                local_bundle = self._resolve_local_bundle(case.patient_id)
+                if local_bundle is not None:
+                    req_body["fhir_bundle"] = local_bundle
+                    resp = self._session.post(
+                        f"{self.base_url}/wahs/api/analyze",
+                        json=req_body,
+                        timeout=self.timeout,
+                    )
+                elif case.sharing_posture != "external_share":
+                    demo_data = self._resolve_demo_data_analyze(
+                        case.patient_id, int(budget_tokens), condense_mode
+                    )
+                    if demo_data is not None:
+                        self._analyze_cache[cache_key] = demo_data
+                        return demo_data
+            if resp.status_code == 200:
+                data = dict(resp.json())
+                self._analyze_cache[cache_key] = data
+                return data
+            err_text = getattr(resp, "text", "")[:300]
+            last_err = RuntimeError(
+                f"WAHS analyze failed [{resp.status_code}] for {case.case_id}: {err_text}"
+            )
+            if resp.status_code in {502, 503, 504} and attempt < self.max_retries:
+                if self.retry_backoff_s > 0:
+                    time.sleep(self.retry_backoff_s)
+                continue
+            raise last_err
+        assert last_err is not None
+        raise last_err
+
+    def _evaluate_profile_case(
+        self,
+        case: WahsEvalCase,
+        *,
+        profile_id: str,
+        budget_tokens: int,
+        condense_mode: str | None = None,
+    ) -> dict[str, Any]:
+        """Evaluate a live LLM simple profile (`-kb` or `-raw`, optionally `@<budget>`) via `/wahs/api/analyze` + `/v1/chat/completions`."""
+        _backend_id, api_profile_id, eff_budget, _b_tag = _split_profile_budget(
+            profile_id, budget_tokens
+        )
+        eff_mode = condense_mode or "lossless_structural"
+        analyze_data = self.analyze_case(
+            case, budget_tokens=eff_budget, condense_mode=eff_mode
+        )
+        profiles = self.get_wahs_profiles()
+        profile_meta = profiles.get(api_profile_id) or profiles.get(profile_id) or {}
+        policies = profile_meta.get("policies") if isinstance(profile_meta.get("policies"), dict) else {}
+        is_direct_llm = api_profile_id.startswith("direct-") or api_profile_id.startswith("direct:")
+        if is_direct_llm:
+            include_kb = False
+        elif "include_kb_findings" in policies:
+            include_kb = bool(policies["include_kb_findings"])
+        elif "kb_guided" in profile_meta:
+            include_kb = bool(profile_meta["kb_guided"])
+        else:
+            include_kb = not (
+                api_profile_id.endswith("-raw") or api_profile_id.startswith("wahs-raw:")
+            )
+
+        if is_direct_llm:
+            _, underlying_model, _ = _infer_model_family_and_id(profile_id, profile_meta)
+            target_model = os.environ.get("DIRECT_LLM_MODEL", "").strip() or underlying_model
+            user_prompt = _build_direct_llm_prompt(
+                case,
+                analyze_data,
+                budget_tokens=eff_budget,
+            )
+            target_chat_url = f"{self.direct_llm_base_url}/v1/chat/completions"
+            chat_req = {
+                "model": target_model,
+                "messages": [{"role": "user", "content": user_prompt}],
+                "stream": False,
+                "temperature": 0.0,
+            }
+        else:
+            user_prompt = _build_profile_prompt(
+                case,
+                analyze_data,
+                budget_tokens=eff_budget,
+                include_kb_findings=include_kb,
+            )
+            target_chat_url = f"{self.base_url}/v1/chat/completions"
+            chat_req = {
+                "model": api_profile_id,
+                "messages": [{"role": "user", "content": user_prompt}],
+                "stream": False,
+            }
+        env_max_tok = os.environ.get("WAHS_EVAL_MAX_TOKENS", "").strip()
+        if env_max_tok.isdigit() and int(env_max_tok) > 0:
+            chat_req["max_tokens"] = int(env_max_tok)
+        last_err: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            started = time.monotonic()
+            try:
+                resp = self._session.post(
+                    target_chat_url,
+                    json=chat_req,
+                    timeout=self.timeout,
+                )
+            except Exception as exc:
+                last_err = exc
+                if attempt < self.max_retries:
+                    if self.retry_backoff_s > 0:
+                        time.sleep(self.retry_backoff_s)
+                    continue
+                raise RuntimeError(
+                    f"WAHS profile {profile_id} transport failure for {case.case_id}: {exc}"
+                ) from exc
+
+            latency_ms = int((time.monotonic() - started) * 1000)
+            if resp.status_code == 200:
+                chat_json = dict(resp.json())
+                choices = chat_json.get("choices") or []
+                msg = (choices[0].get("message") if choices and isinstance(choices[0], dict) else {}) or {}
+                raw_content = str(msg.get("content") or "")
+                cleaned_answer = _normalize_bracket_citations(
+                    _THINK_RE.sub("", raw_content).strip()
+                )
+
+                condensation = analyze_data.get("condensation") or {}
+                raw_mappings = condensation.get("mappings") or []
+                mappings: list[dict[str, Any]] = []
+                mapping_by_idx: dict[int, dict[str, Any]] = {}
+                if isinstance(raw_mappings, dict):
+                    for k_str, v_obj in raw_mappings.items():
+                        if not isinstance(v_obj, dict):
+                            continue
+                        num_m = re.search(r"\d+", str(k_str))
+                        if not num_m:
+                            continue
+                        idx_i = int(num_m.group(0))
+                        norm_m = {
+                            "index": idx_i,
+                            "resourceType": v_obj.get("resourceType") or v_obj.get("resource_type"),
+                            "resourceUuid": v_obj.get("resourceUuid") or v_obj.get("primary_uuid") or v_obj.get("resource_uuid"),
+                            "date": v_obj.get("date") or "",
+                            "display": v_obj.get("display") or v_obj.get("summary") or v_obj.get("text") or "",
+                            "memberUuids": list(v_obj.get("memberUuids") or v_obj.get("member_uuids") or []),
+                        }
+                        mappings.append(norm_m)
+                        mapping_by_idx[idx_i] = norm_m
+                elif isinstance(raw_mappings, list):
+                    for m in raw_mappings:
+                        if isinstance(m, dict) and isinstance(m.get("index"), int):
+                            idx_i = int(m["index"])
+                            norm_m = {
+                                "index": idx_i,
+                                "resourceType": m.get("resourceType") or m.get("resource_type"),
+                                "resourceUuid": m.get("resourceUuid") or m.get("resource_uuid") or m.get("primary_uuid"),
+                                "date": m.get("date") or "",
+                                "display": m.get("display") or m.get("text") or m.get("summary") or "",
+                                "memberUuids": list(m.get("memberUuids") or m.get("member_uuids") or []),
+                            }
+                            mappings.append(norm_m)
+                            mapping_by_idx[idx_i] = norm_m
+
+                hub_enrichment = chat_json.get("hub_enrichment")
+                if not isinstance(hub_enrichment, dict):
+                    resp_headers = getattr(resp, "headers", None) or {}
+                    hdr_val = resp_headers.get("X-WAHS-Hub-Enrichment") or resp_headers.get("x-wahs-hub-enrichment")
+                    if hdr_val:
+                        try:
+                            hub_enrichment = json.loads(hdr_val)
+                        except Exception:
+                            hub_enrichment = None
+
+                if include_kb:
+                    if isinstance(hub_enrichment, dict):
+                        for rm in hub_enrichment.get("recovered_mappings") or []:
+                            if isinstance(rm, dict) and isinstance(rm.get("index"), int):
+                                idx_rm = int(rm["index"])
+                                norm_rm = {
+                                    "index": idx_rm,
+                                    "resourceType": rm.get("resourceType") or "Resource",
+                                    "resourceUuid": rm.get("resourceUuid"),
+                                    "date": rm.get("date") or "",
+                                    "display": rm.get("display") or "",
+                                    "memberUuids": list(rm.get("memberUuids") or []),
+                                }
+                                mapping_by_idx[idx_rm] = norm_rm
+                                mappings.append(norm_rm)
+
+                    analyses_obj = analyze_data.get("analyses") if isinstance(analyze_data.get("analyses"), dict) else {}
+                    skill_findings = (
+                        (analyses_obj.get("chart_hygiene_and_reconciliation_skills") or {}).get("findings")
+                        if isinstance(analyses_obj.get("chart_hygiene_and_reconciliation_skills"), dict)
+                        else []
+                    ) or []
+                    dq_findings = (
+                        (analyses_obj.get("data_quality_and_conflicts") or {}).get("findings")
+                        if isinstance(analyses_obj.get("data_quality_and_conflicts"), dict)
+                        else []
+                    ) or []
+                    for f_obj in list(skill_findings) + list(dq_findings):
+                        if not isinstance(f_obj, dict):
+                            continue
+                        f_uuids = [
+                            str(u)
+                            for u in (f_obj.get("resource_uuids") or [])
+                            if isinstance(u, str) and u
+                        ]
+                        b_indices = list(f_obj.get("bracket_citations") or []) + [
+                            c.get("index")
+                            for c in (f_obj.get("citations") or [])
+                            if isinstance(c, dict) and isinstance(c.get("index"), int)
+                        ]
+                        for b_idx in b_indices:
+                            if isinstance(b_idx, int) and b_idx in mapping_by_idx:
+                                cur_u = str(mapping_by_idx[b_idx].get("resourceUuid") or "")
+                                if eff_budget <= 8192 or cur_u in f_uuids:
+                                    m_list = mapping_by_idx[b_idx].setdefault("memberUuids", [])
+                                    for fu in f_uuids:
+                                        if fu not in m_list:
+                                            m_list.append(fu)
+
+                cited_indices: list[int] = []
+                for num_str in _CITATION_RE.findall(cleaned_answer):
+                    if num_str.isdigit():
+                        idx_val = int(num_str)
+                        if idx_val not in cited_indices:
+                            cited_indices.append(idx_val)
+
+                references: list[dict[str, Any]] = []
+                for c_idx in cited_indices:
+                    m_obj = mapping_by_idx.get(c_idx)
+                    if m_obj is not None:
+                        ref_entry: dict[str, Any] = {
+                            "index": c_idx,
+                            "resourceType": m_obj.get("resourceType"),
+                            "resourceUuid": m_obj.get("resourceUuid"),
+                        }
+                        if m_obj.get("date"):
+                            ref_entry["date"] = m_obj["date"]
+                        if m_obj.get("display"):
+                            ref_entry["display"] = m_obj["display"]
+                        if m_obj.get("memberUuids"):
+                            ref_entry["memberUuids"] = list(m_obj["memberUuids"])
+                        references.append(ref_entry)
+
+                tier_info = condensation.get("tier_info") if isinstance(condensation.get("tier_info"), dict) else {}
+                actual_tokens = int(
+                    condensation.get("actual_tokens")
+                    or tier_info.get("actual_tokens")
+                    or analyze_data.get("actual_tokens")
+                    or 0
+                )
+                redaction_notice = (
+                    analyze_data.get("redaction_notice")
+                    or condensation.get("redaction_notice")
+                )
+                if not redaction_notice and case.sharing_posture == "external_share":
+                    redacted_list = condensation.get("redacted_for_privacy") or []
+                    if redacted_list:
+                        redaction_notice = (
+                            f"Redacted categories: {len(redacted_list)} privacy-sensitive SDOH/behavioral health "
+                            "record(s) excluded under 42 CFR Part 2 and WA MHMDA."
+                        )
+                hub_profile = chat_json.get("hub_profile") or {
+                    "id": api_profile_id,
+                    "include_kb_findings": include_kb,
+                    "model_family": policies.get("model_family") or profile_meta.get("model_family"),
+                    "parameter_size": policies.get("parameter_size"),
+                    "quantization": policies.get("quantization"),
+                    "role_models": profile_meta.get("role_models") or {},
+                }
+                envelope: dict[str, Any] = {
+                    "answer": cleaned_answer,
+                    "references": references,
+                    "citations": references,
+                    "mappings": mappings,
+                    "actual_tokens": actual_tokens,
+                    "budget_tokens": eff_budget,
+                    "tier_info": {
+                        "actual_tokens": actual_tokens,
+                        "condense_mode": condensation.get("condense_mode", eff_mode),
+                    },
+                    "condensed_text": str(
+                        condensation.get("chart_text")
+                        or condensation.get("condensed_text")
+                        or ""
+                    ),
+                    "redaction_notice": redaction_notice,
+                    "latency_ms": int(chat_json.get("latency_ms") or latency_ms),
+                    "usage": chat_json.get("usage") or {},
+                    "hub_profile": hub_profile,
+                    "hub_enrichment": hub_enrichment or {},
+                    "profile_id": profile_id,
+                    "api_profile_id": api_profile_id,
+                    "include_kb_findings": include_kb,
+                    "kb_findings_Injected": (
+                        list(analyze_data.get("kb_findings") or []) if include_kb else []
+                    ),
+                }
+                return envelope
+
+            err_text = getattr(resp, "text", "")[:300]
+            last_err = RuntimeError(
+                f"WAHS profile {profile_id} failed [{resp.status_code}] for {case.case_id}: {err_text}"
+            )
+            if resp.status_code in {502, 503, 504} and attempt < self.max_retries:
+                if self.retry_backoff_s > 0:
+                    time.sleep(self.retry_backoff_s)
+                continue
+            raise last_err
+
+        assert last_err is not None
+        raise last_err
 
     def evaluate_case(
         self,
@@ -1048,7 +1940,15 @@ class WahsHubClient:
         context_arm: str | None = None,
         condense_mode: str | None = None,
         use_lookup_tools: bool | None = None,
+        profile_id: str | None = None,
     ) -> dict[str, Any]:
+        if profile_id is not None:
+            return self._evaluate_profile_case(
+                case,
+                profile_id=profile_id,
+                budget_tokens=budget_tokens,
+                condense_mode=condense_mode,
+            )
         req_body: dict[str, Any] = {
             "patient_id": case.patient_id,
             "question": case.prompt,
@@ -1156,18 +2056,111 @@ def _missing_cell_score(case: WahsEvalCase, budget_tokens: int, reason: str | No
     )
 
 
+def _infer_model_family_and_id(
+    profile_id: str,
+    profile_meta: dict[str, Any] | None = None,
+) -> tuple[str, str, bool]:
+    """Return `(model_family, underlying_model_id, include_kb_findings)` for a WAHS simple profile."""
+    _, api_profile_id, _, _ = _split_profile_budget(profile_id)
+    meta = profile_meta or {}
+    policies = meta.get("policies") if isinstance(meta.get("policies"), dict) else {}
+    role_models = meta.get("role_models") if isinstance(meta.get("role_models"), dict) else {}
+    underlying = str(role_models.get("synthesizer") or meta.get("answer_model") or "")
+    fam = str(policies.get("model_family") or "")
+    if "include_kb_findings" in policies:
+        include_kb = bool(policies["include_kb_findings"])
+    else:
+        include_kb = not (
+            api_profile_id.endswith("-raw")
+            or api_profile_id.startswith("wahs-raw:")
+            or api_profile_id.startswith("direct-")
+            or api_profile_id.startswith("direct:")
+        )
+
+    pid_low = api_profile_id.lower()
+    if not underlying:
+        if ":" in api_profile_id:
+            underlying = api_profile_id.split(":", 1)[1]
+        elif "medgemma-27b" in pid_low:
+            underlying = "medgemma-27b"
+        elif "medgemma-4b" in pid_low:
+            underlying = "medgemma-1.5-4b-q8"
+        elif "12b-q4" in pid_low:
+            underlying = "gemma-4-12b-q4"
+        elif "12b" in pid_low and "mistral" not in pid_low:
+            underlying = "gemma-4-12b"
+        elif "e2b" in pid_low:
+            underlying = "gemma-e2b"
+        elif "e4b-q8" in pid_low:
+            underlying = "gemma-e4b-q8"
+        elif "e4b" in pid_low:
+            underlying = "gemma-e4b"
+        elif "26b" in pid_low:
+            underlying = "gemma-26b"
+        elif "31b" in pid_low:
+            underlying = "gemma-31b"
+        elif "qwen3-4b" in pid_low:
+            underlying = "qwen3-4b"
+        elif "qwen35-9b" in pid_low:
+            underlying = "qwen3.5-9b"
+        elif "qwen25-14b" in pid_low:
+            underlying = "qwen2.5-14b"
+        elif "qwen3-14b" in pid_low:
+            underlying = "qwen3-14b"
+        elif "qwen36-35b" in pid_low:
+            underlying = "qwen3.6-35b"
+        elif "llama31-8b" in pid_low:
+            underlying = "llama-3.1-8b"
+        elif "mistral-nemo-12b" in pid_low:
+            underlying = "mistral-nemo-12b"
+        elif "granite33-8b" in pid_low:
+            underlying = "granite-3.3-8b"
+        elif "lfm2-8b" in pid_low:
+            underlying = "lfm2-8b-a1b"
+        else:
+            underlying = api_profile_id
+
+    if not fam:
+        u_low = underlying.lower()
+        if "medgemma" in u_low or "medgemma" in pid_low:
+            fam = "medgemma"
+        elif "gemma" in u_low or "gemma" in pid_low:
+            fam = "gemma-4"
+        elif "qwen" in u_low or "qwen" in pid_low:
+            fam = "qwen"
+        elif "llama" in u_low or "llama" in pid_low:
+            fam = "llama"
+        elif "mistral" in u_low or "mistral" in pid_low:
+            fam = "mistral"
+        elif "granite" in u_low or "granite" in pid_low:
+            fam = "granite"
+        elif "lfm2" in u_low or "lfm2" in pid_low:
+            fam = "lfm2"
+        elif "gemini" in u_low or "gemini" in pid_low:
+            fam = "gemini"
+        elif "claude" in u_low or "claude" in pid_low:
+            fam = "claude"
+        else:
+            fam = "other"
+
+    return fam, underlying, include_kb
+
+
 def _summarize_scores(
     scores: list[WahsCaseScore],
     *,
     evaluation_modality: str = "deterministic_pipeline",
     missing_cells: list[dict[str, Any]] | None = None,
+    cell_meta_list: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     total = len(scores)
     passed = sum(1 for s in scores if s.passed)
     by_use_case: dict[str, dict[str, Any]] = {}
     by_horizon: dict[str, dict[str, Any]] = {}
+    by_profile: dict[str, dict[str, Any]] = {}
+    by_family: dict[str, dict[str, Any]] = {}
 
-    for s in scores:
+    for idx, s in enumerate(scores):
         bucket = by_use_case.setdefault(
             s.use_case,
             {
@@ -1207,6 +2200,59 @@ def _summarize_scores(
         h_bucket["uuid_recall_sum"] += s.required_uuid_recall
         h_bucket["rubric_score_sum"] += s.rubric_weighted_score
         h_bucket["quality_score_sum"] += s.case_quality_score
+
+        c_meta = (
+            cell_meta_list[idx]
+            if cell_meta_list and idx < len(cell_meta_list)
+            else {}
+        ) or {}
+        prof_id = c_meta.get("profile_id")
+        if prof_id:
+            m_fam = str(c_meta.get("model_family") or "other")
+            inc_kb = bool(c_meta.get("include_kb_findings", not str(prof_id).endswith("-raw")))
+            lat_ms = float(c_meta.get("latency_ms") or 0.0)
+            for target_map, group_key, extra_info in (
+                (
+                    by_profile,
+                    str(prof_id),
+                    {
+                        "model_family": m_fam,
+                        "include_kb_findings": inc_kb,
+                        "underlying_model": c_meta.get("underlying_model") or str(prof_id),
+                    },
+                ),
+                (by_family, m_fam, {}),
+            ):
+                p_bucket = target_map.setdefault(
+                    group_key,
+                    {
+                        **extra_info,
+                        "total": 0,
+                        "passed": 0,
+                        "uuid_recall_sum": 0.0,
+                        "citation_rate_sum": 0.0,
+                        "sentence_cite_sum": 0.0,
+                        "rubric_score_sum": 0.0,
+                        "entailment_sum": 0.0,
+                        "fk_grade_sum": 0.0,
+                        "quality_score_sum": 0.0,
+                        "privacy_leaks": 0,
+                        "abstention_ok_sum": 0,
+                        "latency_ms_sum": 0.0,
+                    },
+                )
+                p_bucket["total"] += 1
+                p_bucket["passed"] += int(s.passed)
+                p_bucket["uuid_recall_sum"] += s.required_uuid_recall
+                p_bucket["citation_rate_sum"] += s.citation_resolution_rate
+                p_bucket["sentence_cite_sum"] += s.sentence_citation_coverage
+                p_bucket["rubric_score_sum"] += s.rubric_weighted_score
+                p_bucket["entailment_sum"] += s.atomic_entailment_rate
+                p_bucket["fk_grade_sum"] += s.flesch_kincaid_grade
+                p_bucket["quality_score_sum"] += s.case_quality_score
+                p_bucket["privacy_leaks"] += int(not s.privacy_zero_leakage)
+                p_bucket["abstention_ok_sum"] += int(s.abstention_ok)
+                p_bucket["latency_ms_sum"] += lat_ms
 
     use_case_summary = {}
     for uc, b in sorted(by_use_case.items()):
@@ -1278,6 +2324,49 @@ def _summarize_scores(
         "by_use_case": use_case_summary,
         "by_question_horizon": horizon_summary,
     }
+    if by_profile:
+        prof_summary = {}
+        for pid, pb in sorted(by_profile.items()):
+            n = pb["total"] or 1
+            prof_summary[pid] = {
+                "model_family": pb.get("model_family"),
+                "underlying_model": pb.get("underlying_model"),
+                "include_kb_findings": pb.get("include_kb_findings"),
+                "total": pb["total"],
+                "passed": pb["passed"],
+                "pass_rate": round(pb["passed"] / n, 4),
+                "mean_uuid_recall": round(pb["uuid_recall_sum"] / n, 4),
+                "mean_citation_resolution_rate": round(pb["citation_rate_sum"] / n, 4),
+                "mean_sentence_citation_coverage": round(pb["sentence_cite_sum"] / n, 4),
+                "mean_rubric_weighted_score": round(pb["rubric_score_sum"] / n, 4),
+                "mean_atomic_entailment_rate": round(pb["entailment_sum"] / n, 4),
+                "mean_flesch_kincaid_grade": round(pb["fk_grade_sum"] / n, 2),
+                "mean_case_quality_score": round(pb["quality_score_sum"] / n, 2),
+                "privacy_leaks": pb["privacy_leaks"],
+                "abstention_accuracy": round(pb["abstention_ok_sum"] / n, 4),
+                "mean_latency_ms": round(pb["latency_ms_sum"] / n, 1),
+            }
+        summary["by_profile"] = prof_summary
+    if by_family:
+        fam_summary = {}
+        for fid, fb in sorted(by_family.items()):
+            n = fb["total"] or 1
+            fam_summary[fid] = {
+                "total": fb["total"],
+                "passed": fb["passed"],
+                "pass_rate": round(fb["passed"] / n, 4),
+                "mean_uuid_recall": round(fb["uuid_recall_sum"] / n, 4),
+                "mean_citation_resolution_rate": round(fb["citation_rate_sum"] / n, 4),
+                "mean_sentence_citation_coverage": round(fb["sentence_cite_sum"] / n, 4),
+                "mean_rubric_weighted_score": round(fb["rubric_score_sum"] / n, 4),
+                "mean_atomic_entailment_rate": round(fb["entailment_sum"] / n, 4),
+                "mean_flesch_kincaid_grade": round(fb["fk_grade_sum"] / n, 2),
+                "mean_case_quality_score": round(fb["quality_score_sum"] / n, 2),
+                "privacy_leaks": fb["privacy_leaks"],
+                "abstention_accuracy": round(fb["abstention_ok_sum"] / n, 4),
+                "mean_latency_ms": round(fb["latency_ms_sum"] / n, 1),
+            }
+        summary["by_model_family"] = fam_summary
     return summary
 
 
@@ -1289,6 +2378,7 @@ def _invoke_client_evaluate_case(
     evaluation_modality: str,
     context_arm: str | None = None,
     condense_mode: str | None = None,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
     fn = client.evaluate_case
     try:
@@ -1299,10 +2389,12 @@ def _invoke_client_evaluate_case(
         accepts_modality = "evaluation_modality" in sig.parameters or has_var_kw
         accepts_context_arm = "context_arm" in sig.parameters or has_var_kw
         accepts_condense_mode = "condense_mode" in sig.parameters or has_var_kw
+        accepts_profile_id = "profile_id" in sig.parameters or has_var_kw
     except (TypeError, ValueError):
         accepts_modality = False
         accepts_context_arm = False
         accepts_condense_mode = False
+        accepts_profile_id = False
     kwargs: dict[str, Any] = {"budget_tokens": budget_tokens}
     if accepts_modality:
         kwargs["evaluation_modality"] = evaluation_modality
@@ -1310,6 +2402,8 @@ def _invoke_client_evaluate_case(
         kwargs["context_arm"] = context_arm
     if condense_mode is not None and accepts_condense_mode:
         kwargs["condense_mode"] = condense_mode
+    if profile_id is not None and accepts_profile_id:
+        kwargs["profile_id"] = profile_id
     return fn(case, **kwargs)
 
 
@@ -1318,13 +2412,206 @@ def _cell_dict(
     budget_tokens: int,
     context_arm: str | None = None,
     condense_mode: str | None = None,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
     cell: dict[str, Any] = {"case_id": case_id, "budget_tokens": int(budget_tokens)}
     if context_arm is not None:
         cell["context_arm"] = context_arm
     if condense_mode is not None:
         cell["condense_mode"] = condense_mode
+    if profile_id is not None:
+        cell["profile_id"] = profile_id
     return cell
+
+
+def _write_judge_prep_artifacts(
+    run_dir: Path,
+    cases: list[WahsEvalCase],
+    profiles: list[str],
+    client: Any,
+    observed_envelopes: dict[str, dict[str, Any]],
+) -> None:
+    """Write `inputs/scenarios/`, `inputs/charts/`, and `run_meta.json` so `scripts/judge-prep.py`
+    and `review/bin/review.py --rejudge <run_dir> --blind` work directly on WAHS profile runs.
+    """
+    scenarios_dir = run_dir / "inputs" / "scenarios"
+    charts_dir = run_dir / "inputs" / "charts"
+    scenarios_dir.mkdir(parents=True, exist_ok=True)
+    charts_dir.mkdir(parents=True, exist_ok=True)
+
+    profiles_catalog = (
+        client.get_wahs_profiles()
+        if hasattr(client, "get_wahs_profiles") and callable(client.get_wahs_profiles)
+        else {}
+    )
+    backends_meta: dict[str, dict[str, Any]] = {}
+    arm_cards_meta: dict[str, dict[str, Any]] = {}
+    for pid in profiles:
+        _, api_pid, eff_b, b_tag = _split_profile_budget(pid)
+        p_meta = profiles_catalog.get(api_pid) or profiles_catalog.get(pid) or {}
+        fam, underlying, inc_kb = _infer_model_family_and_id(pid, p_meta)
+        is_direct = api_pid.startswith("direct-") or api_pid.startswith("direct:")
+        if is_direct:
+            base_label = (
+                "Gemma-4-12B (Q8) Direct LLM (No Med Agent Hub)"
+                if underlying == "gemma-4-12b"
+                else f"{underlying} Direct LLM (No Med Agent Hub)"
+            )
+        else:
+            base_label = str(p_meta.get("label") or api_pid)
+        label = f"{base_label} ({b_tag} budget)" if b_tag else base_label
+        backends_meta[pid] = {
+            "label": label,
+            "kind": "provider_arm",
+            "provider": "direct" if is_direct else "hub",
+            "modelName": underlying,
+            "profile": api_pid,
+            "budget_tokens": eff_b,
+            "answer_model": underlying,
+        }
+        arm_cards_meta[pid] = {
+            "id": pid,
+            "label": label,
+            "kind": "single",
+            "models": [{"id": underlying, "family": fam}],
+            "roles": {"synthesizer": {"id": underlying, "family": fam}},
+            "answer_model": underlying,
+            "include_kb_findings": inc_kb,
+            "budget_tokens": eff_b,
+        }
+
+    run_meta = {
+        "reference_date": "2026-11-03",
+        "backends": backends_meta,
+        "arm_cards": arm_cards_meta,
+    }
+    (run_dir / "run_meta.json").write_text(
+        json.dumps(run_meta, indent=2) + "\n", encoding="utf-8"
+    )
+    _write_scenario_and_chart_inputs(run_dir, cases, observed_envelopes)
+
+
+def _merge_scenario_envelopes(
+    existing_env: dict[str, Any] | None,
+    envelope: dict[str, Any],
+) -> dict[str, Any]:
+    if existing_env is None:
+        merged = dict(envelope)
+    else:
+        merged = dict(existing_env)
+        cur_text = str(merged.get("condensed_text") or "")
+        new_text = str(envelope.get("condensed_text") or "")
+        new_is_longer = len(new_text) > len(cur_text)
+        if new_is_longer:
+            merged["condensed_text"] = envelope.get("condensed_text")
+
+        primary_maps = (envelope.get("mappings") or []) if new_is_longer else (merged.get("mappings") or [])
+        secondary_maps = (merged.get("mappings") or []) if new_is_longer else (envelope.get("mappings") or [])
+        by_idx: dict[int, dict[str, Any]] = {}
+        seen_uuids: set[str] = set()
+        extra_maps: list[dict[str, Any]] = []
+        for m in primary_maps:
+            if isinstance(m, dict):
+                idx = m.get("index")
+                if isinstance(idx, int) and idx not in by_idx:
+                    by_idx[idx] = m
+                ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if ru:
+                    seen_uuids.add(ru)
+        for m in secondary_maps:
+            if isinstance(m, dict):
+                idx = m.get("index")
+                ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if isinstance(idx, int) and idx not in by_idx:
+                    by_idx[idx] = m
+                    if ru:
+                        seen_uuids.add(ru)
+                elif ru and ru not in seen_uuids:
+                    seen_uuids.add(ru)
+                    extra_maps.append(m)
+        merged["mappings"] = [by_idx[k] for k in sorted(by_idx)] + extra_maps
+
+    vset: set[str] = set()
+    for src in (existing_env or {}, envelope):
+        for key in ("valid_uuids", "retained_uuids"):
+            for u in src.get(key) or []:
+                if u:
+                    vset.add(str(u).replace("urn:uuid:", ""))
+        for m in src.get("mappings") or []:
+            if isinstance(m, dict):
+                ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if ru:
+                    vset.add(ru)
+                for mu in m.get("memberUuids") or []:
+                    if mu:
+                        vset.add(str(mu).replace("urn:uuid:", ""))
+    merged["valid_uuids"] = sorted(vset)
+    return merged
+
+
+def _write_scenario_and_chart_inputs(
+    run_dir: Path,
+    cases: list[WahsEvalCase],
+    observed_envelopes: dict[str, dict[str, Any]],
+) -> None:
+    scenarios_dir = run_dir / "inputs" / "scenarios"
+    charts_dir = run_dir / "inputs" / "charts"
+    scenarios_dir.mkdir(parents=True, exist_ok=True)
+    charts_dir.mkdir(parents=True, exist_ok=True)
+
+    cases_by_id = {c.case_id: c for c in cases}
+    for scenario_id, env in observed_envelopes.items():
+        base_cid = scenario_id.split("__b", 1)[0]
+        case = cases_by_id.get(base_cid)
+        if case is None:
+            continue
+        scen_obj = {
+            "id": scenario_id,
+            "title": f"{case.use_case}: {case.case_id}",
+            "patient_ref": scenario_id,
+            "should_abstain": case.must_abstain,
+            "expectations": {"should_abstain": case.must_abstain},
+            "turns": [{"n": 1, "question": case.prompt}],
+        }
+        (scenarios_dir / f"{scenario_id}.json").write_text(
+            json.dumps(scen_obj, indent=2) + "\n", encoding="utf-8"
+        )
+
+        mappings = list(env.get("mappings") or [])
+        valid_set: set[str] = set()
+        for u in (
+            list(case.valid_uuids)
+            + list(case.expected_target_uuids)
+            + list(env.get("valid_uuids") or [])
+            + list(env.get("retained_uuids") or [])
+        ):
+            if u:
+                valid_set.add(str(u).replace("urn:uuid:", ""))
+        for m in mappings:
+            if isinstance(m, dict):
+                ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if ru:
+                    valid_set.add(ru)
+                for mu in m.get("memberUuids") or []:
+                    if mu:
+                        valid_set.add(str(mu).replace("urn:uuid:", ""))
+
+        chart_snapshot = str(env.get("condensed_text") or "").strip()
+        chart_obj = {
+            "patient": {
+                "uuid": scenario_id,
+                "name": case.patient_id,
+                "gender": "unknown",
+                "birthdate": "",
+                "slug": scenario_id,
+            },
+            "valid_uuids": sorted(valid_set),
+            "mappings": mappings,
+            "chart_snapshot": chart_snapshot,
+        }
+        (charts_dir / f"{scenario_id}.json").write_text(
+            json.dumps(chart_obj, indent=2) + "\n", encoding="utf-8"
+        )
 
 
 def run_wahs_suite(
@@ -1335,6 +2622,7 @@ def run_wahs_suite(
     budgets: tuple[int, ...] | list[int] | None = None,
     context_arms: tuple[str, ...] | list[str] | None = None,
     condense_modes: tuple[str, ...] | list[str] | None = None,
+    profiles: tuple[str, ...] | list[str] | None = None,
     git_sha: str | None = None,
     target_provenance: list[dict[str, Any]] | None = None,
     dataset_id: str = "wahs-synthetic-r4",
@@ -1349,8 +2637,10 @@ def run_wahs_suite(
         )
     if budgets is not None:
         for b in budgets:
-            if isinstance(b, bool) or not isinstance(b, int) or b <= 0 or b > 65536:
-                raise ValueError(f"Invalid token budget {b!r}: expected int in [1, 65536]")
+            if isinstance(b, bool) or not isinstance(b, int) or b <= 0 or b > MAX_TOKEN_BUDGET:
+                raise ValueError(
+                    f"Invalid token budget {b!r}: expected int in [1, {MAX_TOKEN_BUDGET}]"
+                )
     if context_arms is not None:
         for arm in context_arms:
             if arm not in VALID_CONTEXT_ARMS:
@@ -1368,6 +2658,15 @@ def run_wahs_suite(
     cases_bytes = cases_file.read_bytes()
     suite_sha256 = hashlib.sha256(cases_bytes).hexdigest()
     cases = load_wahs_cases(cases_file)
+    if hasattr(client, "bundle_dirs") and isinstance(getattr(client, "bundle_dirs"), list):
+        for candidate_dir in (
+            cases_file.resolve().parent,
+            cases_file.resolve().parent.parent,
+            cases_file.resolve().parent.parent.parent / "work" / "wahs_data",
+            cases_file.resolve().parent.parent.parent / "work" / "wahs_data" / "eval",
+        ):
+            if candidate_dir not in client.bundle_dirs:
+                client.bundle_dirs.append(candidate_dir)
 
     active_context_arms: list[str | None] = (
         [str(a) for a in context_arms] if context_arms else [None]
@@ -1375,22 +2674,34 @@ def run_wahs_suite(
     active_condense_modes: list[str | None] = (
         [str(m) for m in condense_modes] if condense_modes else [None]
     )
+    active_profiles: list[str | None] = (
+        [str(p) for p in profiles if str(p).strip()] if profiles else [None]
+    )
+
+    def _budgets_for_profile_case(prof_spec: str | None, case_obj: WahsEvalCase) -> list[int]:
+        if prof_spec and "@" in prof_spec:
+            _, _, pinned_b, _ = _split_profile_budget(prof_spec)
+            return [int(pinned_b)]
+        if budgets:
+            return [int(b) for b in budgets]
+        return [int(b) for b in (case_obj.target_token_budgets or DEFAULT_TOKEN_BUDGETS)]
 
     expected_cells: list[dict[str, Any]] = []
-    for case in cases:
-        active_budgets = (
-            [int(b) for b in budgets]
-            if budgets
-            else [int(b) for b in (case.target_token_budgets or DEFAULT_TOKEN_BUDGETS)]
-        )
-        for b_tokens in active_budgets:
-            for c_arm in active_context_arms:
-                for c_mode in active_condense_modes:
-                    expected_cells.append(
-                        _cell_dict(case.case_id, int(b_tokens), c_arm, c_mode)
-                    )
+    all_active_budgets: set[int] = set()
+    max_budgets_per_profile = 1
+    for prof_id in active_profiles:
+        for case in cases:
+            active_budgets = _budgets_for_profile_case(prof_id, case)
+            max_budgets_per_profile = max(max_budgets_per_profile, len(active_budgets))
+            for b_tokens in active_budgets:
+                all_active_budgets.add(int(b_tokens))
+                for c_arm in active_context_arms:
+                    for c_mode in active_condense_modes:
+                        expected_cells.append(
+                            _cell_dict(case.case_id, int(b_tokens), c_arm, c_mode, prof_id)
+                        )
 
-    prior_rows: dict[tuple[str, int, str | None, str | None], dict[str, Any]] = {}
+    prior_rows: dict[tuple[str, int, str | None, str | None, str | None], dict[str, Any]] = {}
     resumed_run_id: str | None = None
     resume_ancestry: list[str] = []
     if resume_from is not None:
@@ -1431,8 +2742,9 @@ def run_wahs_suite(
                 btok = int(row.get("budget_tokens") or 8192)
                 c_arm = row.get("context_arm")
                 c_mode = row.get("condense_mode")
+                prof_id = row.get("profile_id")
                 if cid and isinstance(row.get("response"), dict) and not row.get("error"):
-                    prior_rows[(cid, btok, c_arm, c_mode)] = row
+                    prior_rows[(cid, btok, c_arm, c_mode, prof_id)] = row
 
     run_id = str(uuid4())
     run_dir = Path(output_dir) / run_id
@@ -1471,73 +2783,180 @@ def run_wahs_suite(
         manifest_payload["context_arms"] = [str(a) for a in context_arms]
     if condense_modes is not None:
         manifest_payload["condense_modes"] = [str(m) for m in condense_modes]
+    if profiles is not None:
+        manifest_payload["profiles"] = [str(p) for p in profiles if str(p).strip()]
     manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8")
-    append_event(
-        events_path,
-        {
-            "event_type": "run",
-            "run_id": run_id,
-            "component": "wahs-evaluation",
-            "evaluation_modality": evaluation_modality,
-            "suite_sha256": suite_sha256,
-            "expected_cells": len(expected_cells),
-        },
+    profiles_catalog = (
+        client.get_wahs_profiles()
+        if profiles and hasattr(client, "get_wahs_profiles") and callable(client.get_wahs_profiles)
+        else {}
     )
+    single_budget_mode = max_budgets_per_profile == 1
+    run_event_payload: dict[str, Any] = {
+        "event_type": "run",
+        "run_id": run_id,
+        "component": "wahs-evaluation",
+        "evaluation_modality": evaluation_modality,
+        "suite_sha256": suite_sha256,
+        "expected_cells": len(expected_cells),
+        "reference_date": "2026-11-03",
+        "comparison_set": cases_file.stem,
+    }
+    if profiles:
+        run_event_payload["scenario_ids"] = (
+            [c.case_id for c in cases]
+            if single_budget_mode
+            else [
+                f"{c.case_id}__b{int(b)}"
+                for c in cases
+                for b in (
+                    [int(x) for x in budgets]
+                    if budgets
+                    else [int(x) for x in (c.target_token_budgets or DEFAULT_TOKEN_BUDGETS)]
+                )
+            ]
+        )
+        run_event_payload["backend_ids"] = [str(p) for p in profiles if str(p).strip()]
+    append_event(events_path, run_event_payload)
+    if profiles:
+        for prof_id in [str(p) for p in profiles if str(p).strip()]:
+            _, api_pid, _, b_tag = _split_profile_budget(prof_id)
+            p_meta = profiles_catalog.get(api_pid) or profiles_catalog.get(prof_id) or {}
+            _, underlying, _ = _infer_model_family_and_id(prof_id, p_meta)
+            if api_pid.startswith("direct-") or api_pid.startswith("direct:"):
+                base_label = (
+                    "Gemma-4-12B (Q8) Direct LLM (No Med Agent Hub)"
+                    if underlying == "gemma-4-12b"
+                    else f"{underlying} Direct LLM (No Med Agent Hub)"
+                )
+            else:
+                base_label = str(p_meta.get("label") or api_pid)
+            label = f"{base_label} ({b_tag} budget)" if b_tag else base_label
+            append_event(
+                events_path,
+                {
+                    "event_type": "backend_selected",
+                    "backend_id": prof_id,
+                    "label": label,
+                },
+            )
 
     results_path = run_dir / "results.jsonl"
     scores: list[WahsCaseScore] = []
-    with results_path.open("w", encoding="utf-8") as fh:
-        for case in cases:
-            active_budgets = (
-                [int(b) for b in budgets]
-                if budgets
-                else [int(b) for b in (case.target_token_budgets or DEFAULT_TOKEN_BUDGETS)]
-            )
-            for b_tokens in active_budgets:
-                for c_arm in active_context_arms:
-                    for c_mode in active_condense_modes:
-                        prior = prior_rows.get((case.case_id, b_tokens, c_arm, c_mode))
-                        if prior is not None:
-                            envelope = dict(prior["response"])
-                        else:
-                            envelope = _invoke_client_evaluate_case(
-                                client,
-                                case,
-                                budget_tokens=b_tokens,
-                                evaluation_modality=evaluation_modality,
-                                context_arm=c_arm,
-                                condense_mode=c_mode,
-                            )
-                        score = score_wahs_case(case, envelope, budget_tokens=b_tokens)
-                        scores.append(score)
-                        req_meta: dict[str, Any] = {
-                            "prompt": case.prompt,
-                            "sharing_posture": case.sharing_posture,
-                            "budget_tokens": b_tokens,
-                            "evaluation_modality": evaluation_modality,
-                        }
-                        if c_arm is not None:
-                            req_meta["context_arm"] = c_arm
-                        if c_mode is not None:
-                            req_meta["condense_mode"] = c_mode
-                        row: dict[str, Any] = {
-                            "case_id": case.case_id,
-                            "patient_id": case.patient_id,
-                            "use_case": case.use_case,
-                            "sharing_posture": case.sharing_posture,
-                            "budget_tokens": b_tokens,
-                            "request": req_meta,
-                            "response": envelope,
-                            "score": score.to_dict(),
-                        }
-                        if c_arm is not None:
-                            row["context_arm"] = c_arm
-                        if c_mode is not None:
-                            row["condense_mode"] = c_mode
-                        fh.write(json.dumps(row) + "\n")
-                        fh.flush()
+    cell_meta_list: list[dict[str, Any]] = []
+    observed_envelopes: dict[str, dict[str, Any]] = {}
 
-    summary = _summarize_scores(scores, evaluation_modality=evaluation_modality)
+    with results_path.open("w", encoding="utf-8") as fh:
+        for prof_id in active_profiles:
+            for case in cases:
+                active_budgets = _budgets_for_profile_case(prof_id, case)
+                for b_tokens in active_budgets:
+                    for c_arm in active_context_arms:
+                        for c_mode in active_condense_modes:
+                            started_iso = datetime.now(timezone.utc).isoformat()
+                            prior = prior_rows.get((case.case_id, b_tokens, c_arm, c_mode, prof_id))
+                            if prior is not None:
+                                envelope = dict(prior["response"])
+                            else:
+                                envelope = _invoke_client_evaluate_case(
+                                    client,
+                                    case,
+                                    budget_tokens=b_tokens,
+                                    evaluation_modality=evaluation_modality,
+                                    context_arm=c_arm,
+                                    condense_mode=c_mode,
+                                    profile_id=prof_id,
+                                )
+                            ended_iso = datetime.now(timezone.utc).isoformat()
+                            score = score_wahs_case(case, envelope, budget_tokens=b_tokens)
+                            scores.append(score)
+                            req_meta: dict[str, Any] = {
+                                "prompt": case.prompt,
+                                "question": case.prompt,
+                                "sharing_posture": case.sharing_posture,
+                                "budget_tokens": b_tokens,
+                                "evaluation_modality": evaluation_modality,
+                            }
+                            if c_arm is not None:
+                                req_meta["context_arm"] = c_arm
+                            if c_mode is not None:
+                                req_meta["condense_mode"] = c_mode
+                            if prof_id is not None:
+                                req_meta["profile"] = prof_id
+                            row: dict[str, Any] = {
+                                "case_id": case.case_id,
+                                "patient_id": case.patient_id,
+                                "use_case": case.use_case,
+                                "sharing_posture": case.sharing_posture,
+                                "budget_tokens": b_tokens,
+                                "request": req_meta,
+                                "response": envelope,
+                                "score": score.to_dict(),
+                            }
+                            if c_arm is not None:
+                                row["context_arm"] = c_arm
+                            if c_mode is not None:
+                                row["condense_mode"] = c_mode
+                            if prof_id is not None:
+                                _, api_pid, _, _ = _split_profile_budget(prof_id, b_tokens)
+                                p_meta = profiles_catalog.get(api_pid) or profiles_catalog.get(prof_id) or {}
+                                m_fam, underlying_m, inc_kb = _infer_model_family_and_id(
+                                    prof_id, p_meta
+                                )
+                                scenario_id = (
+                                    case.case_id
+                                    if single_budget_mode
+                                    else f"{case.case_id}__b{b_tokens}"
+                                )
+                                lat_ms = int(envelope.get("latency_ms") or 0)
+                                row["profile_id"] = prof_id
+                                row["model_family"] = m_fam
+                                row["underlying_model"] = underlying_m
+                                row["include_kb_findings"] = inc_kb
+                                row["scenario_id"] = scenario_id
+                                row["backend_id"] = prof_id
+                                row["turn"] = 1
+                                row["started_at"] = started_iso
+                                row["ended_at"] = ended_iso
+                                row["metrics"] = {
+                                    "total_ms": lat_ms,
+                                    "latency_ms": lat_ms,
+                                    "http_status": 200,
+                                    "answer_chars": len(str(envelope.get("answer") or "")),
+                                    "citation_count": len(envelope.get("references") or []),
+                                }
+                                observed_envelopes[scenario_id] = _merge_scenario_envelopes(
+                                    observed_envelopes.get(scenario_id),
+                                    dict(envelope),
+                                )
+                                cell_meta_list.append(
+                                    {
+                                        "profile_id": prof_id,
+                                        "model_family": m_fam,
+                                        "underlying_model": underlying_m,
+                                        "include_kb_findings": inc_kb,
+                                        "latency_ms": lat_ms,
+                                    }
+                                )
+                            else:
+                                cell_meta_list.append({})
+                            fh.write(json.dumps(row) + "\n")
+                            fh.flush()
+
+    if profiles:
+        _write_judge_prep_artifacts(
+            run_dir,
+            cases,
+            [str(p) for p in profiles if str(p).strip()],
+            client,
+            observed_envelopes,
+        )
+
+    summary = _summarize_scores(
+        scores,
+        evaluation_modality=evaluation_modality,
+        cell_meta_list=cell_meta_list,
+    )
     summary_path = run_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     append_event(
@@ -1568,7 +2987,7 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
     """Re-score a frozen WAHS run directory offline without network or target access.
 
     Compares recorded `results.jsonl` rows against the frozen suite's expected
-    `(case_id, budget_tokens[, context_arm, condense_mode])` matrix so interrupted
+    `(case_id, budget_tokens[, context_arm, condense_mode, profile_id])` matrix so interrupted
     or partial runs are flagged as incomplete and missing/error cells count as failed.
     """
     rdir = Path(run_dir)
@@ -1587,8 +3006,8 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
     cases = load_wahs_cases(cases_path)
     cases_by_id = {c.case_id: c for c in cases}
 
-    recorded_rows: dict[tuple[str, int, str | None, str | None], dict[str, Any]] = {}
-    observed_order: list[tuple[str, int, str | None, str | None]] = []
+    recorded_rows: dict[tuple[str, int, str | None, str | None, str | None], dict[str, Any]] = {}
+    observed_order: list[tuple[str, int, str | None, str | None, str | None]] = []
     if results_path.is_file():
         for line in results_path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
@@ -1598,12 +3017,13 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
             b_tokens = int(row.get("budget_tokens") or 8192)
             c_arm = row.get("context_arm")
             c_mode = row.get("condense_mode")
-            key = (cid, b_tokens, c_arm, c_mode)
+            prof_id = row.get("profile_id")
+            key = (cid, b_tokens, c_arm, c_mode, prof_id)
             recorded_rows[key] = row
             if key not in observed_order:
                 observed_order.append(key)
 
-    expected_keys: list[tuple[str, int, str | None, str | None]] = []
+    expected_keys: list[tuple[str, int, str | None, str | None, str | None]] = []
     raw_expected = manifest_data.get("expected_cells")
     if isinstance(raw_expected, list) and raw_expected:
         for item in raw_expected:
@@ -1613,6 +3033,7 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
                     int(item.get("budget_tokens") or 8192),
                     item.get("context_arm"),
                     item.get("condense_mode"),
+                    item.get("profile_id"),
                 )
                 if key not in expected_keys:
                     expected_keys.append(key)
@@ -1620,6 +3041,7 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
         manifest_budgets = manifest_data.get("budgets")
         manifest_arms = manifest_data.get("context_arms")
         manifest_modes = manifest_data.get("condense_modes")
+        manifest_profiles = manifest_data.get("profiles")
         active_arms: list[str | None] = (
             [str(a) for a in manifest_arms]
             if isinstance(manifest_arms, list) and manifest_arms
@@ -1628,6 +3050,11 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
         active_modes: list[str | None] = (
             [str(m) for m in manifest_modes]
             if isinstance(manifest_modes, list) and manifest_modes
+            else [None]
+        )
+        active_profiles: list[str | None] = (
+            [str(p) for p in manifest_profiles]
+            if isinstance(manifest_profiles, list) and manifest_profiles
             else [None]
         )
         for case in cases:
@@ -1639,20 +3066,22 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
             for b_tokens in active_budgets:
                 for c_arm in active_arms:
                     for c_mode in active_modes:
-                        key = (case.case_id, b_tokens, c_arm, c_mode)
-                        if key not in expected_keys:
-                            expected_keys.append(key)
+                        for prof_id in active_profiles:
+                            key = (case.case_id, b_tokens, c_arm, c_mode, prof_id)
+                            if key not in expected_keys:
+                                expected_keys.append(key)
         for key in observed_order:
             if key not in expected_keys:
                 expected_keys.append(key)
 
     scores: list[WahsCaseScore] = []
+    cell_meta_list: list[dict[str, Any]] = []
     missing_cells: list[dict[str, Any]] = []
     expectations_path = rdir / "expectations.jsonl"
     with expectations_path.open("w", encoding="utf-8") as exp_fh:
-        for cid, b_tokens, c_arm, c_mode in expected_keys:
+        for cid, b_tokens, c_arm, c_mode, prof_id in expected_keys:
             case = cases_by_id[cid]
-            row = recorded_rows.get((cid, b_tokens, c_arm, c_mode))
+            row = recorded_rows.get((cid, b_tokens, c_arm, c_mode, prof_id))
             if row is None or row.get("error") or not isinstance(row.get("response"), dict):
                 err_msg = (
                     f"evaluation error for cell ({cid}, {b_tokens}): {row.get('error')}"
@@ -1660,16 +3089,351 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
                     else f"missing or incomplete evaluation result for cell ({cid}, {b_tokens})"
                 )
                 score = _missing_cell_score(case, b_tokens, reason=err_msg)
-                missing_cells.append(_cell_dict(cid, b_tokens, c_arm, c_mode))
+                missing_cells.append(_cell_dict(cid, b_tokens, c_arm, c_mode, prof_id))
+                if prof_id:
+                    m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
+                    cell_meta_list.append(
+                        {
+                            "profile_id": prof_id,
+                            "model_family": m_fam,
+                            "underlying_model": underlying_m,
+                            "include_kb_findings": inc_kb,
+                            "latency_ms": 0,
+                        }
+                    )
+                else:
+                    cell_meta_list.append({})
             else:
-                score = score_wahs_case(case, row.get("response") or {}, budget_tokens=b_tokens)
+                env = row.get("response") or {}
+                score = score_wahs_case(case, env, budget_tokens=b_tokens)
+                row["score"] = score.to_dict()
+                row["passed"] = score.passed
+                req_d = row.get("request")
+                if not isinstance(req_d, dict):
+                    req_d = {}
+                    row["request"] = req_d
+                req_d.setdefault("patient", str(row.get("patient_id") or case.patient_id))
+                if prof_id:
+                    m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
+                    cell_meta_list.append(
+                        {
+                            "profile_id": prof_id,
+                            "model_family": str(row.get("model_family") or m_fam),
+                            "underlying_model": str(row.get("underlying_model") or underlying_m),
+                            "include_kb_findings": bool(row.get("include_kb_findings", inc_kb)),
+                            "latency_ms": int(env.get("latency_ms") or 0),
+                        }
+                    )
+                else:
+                    cell_meta_list.append({})
             scores.append(score)
             exp_fh.write(json.dumps(score.to_dict()) + "\n")
+
+    if results_path.is_file() and observed_order:
+        with results_path.open("w", encoding="utf-8") as res_fh:
+            for key in observed_order:
+                if key in recorded_rows:
+                    res_fh.write(json.dumps(recorded_rows[key]) + "\n")
+
+    if (rdir / "inputs" / "scenarios").is_dir() or (rdir / "inputs" / "charts").is_dir() or any(
+        r.get("scenario_id") or r.get("backend_id") for r in recorded_rows.values()
+    ):
+        observed_envelopes: dict[str, dict[str, Any]] = {}
+        for row in recorded_rows.values():
+            env = row.get("response")
+            if isinstance(env, dict):
+                scen_id = str(row.get("scenario_id") or row.get("case_id") or "")
+                if scen_id:
+                    observed_envelopes[scen_id] = _merge_scenario_envelopes(
+                        observed_envelopes.get(scen_id),
+                        env,
+                    )
+        if observed_envelopes:
+            _write_scenario_and_chart_inputs(rdir, cases, observed_envelopes)
 
     summary = _summarize_scores(
         scores,
         evaluation_modality=evaluation_modality,
         missing_cells=missing_cells,
+        cell_meta_list=cell_meta_list,
     )
     (rdir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return summary
+
+
+_WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
+    "Maurice742_Auer97_set_b": {
+        "badge": "Synthea Longitudinal Chart",
+        "display": "Maurice Auer — Multi-year outpatient & inpatient history (~94k tokens)",
+        "medications": [
+            "Tacrolimus (immunosuppression)",
+            "Furosemide / Warfarin longitudinal history",
+            "Multi-specialty renal, cardiac & hematology care",
+        ],
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    },
+    "MIMIC_10014354_ICU_Heme_Cardiorenal_set_b": {
+        "badge": "MIMIC-IV ICU & Hematology Chart",
+        "display": "Complex ICU, Hematology & Cardiorenal Admission (~128k tokens; 1,100+ records across 2022–2026)",
+        "medications": [
+            "Vancomycin (held for trough 28.4 ug/mL & acute kidney injury)",
+            "Apixaban 5 mg BID (active) vs. Warfarin (discontinued)",
+            "Norepinephrine & Furosemide ICU infusions",
+        ],
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    },
+    "Batch01_Synthea_HIV_Outpatient": {
+        "badge": "Synthea HIV & Primary Care Cohort",
+        "display": "Longitudinal outpatient HIV & primary-care charts",
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    },
+}
+
+
+def _wahs_patient_profile(patient_id: str) -> dict[str, Any]:
+    known = _WAHS_PATIENT_PROFILES.get(patient_id)
+    if known:
+        return dict(known)
+    return {
+        "badge": "Clinical Chart",
+        "display": patient_id.replace("_", " "),
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    }
+
+
+def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
+    raw_id = str(backend_id or "").strip()
+    base_id, _, budget_tag = raw_id.partition("@")
+    budget_suffix = f" · {budget_tag} chart" if budget_tag else ""
+    short_budget = f" ({budget_tag})" if budget_tag else ""
+
+    m_fam, underlying, inc_kb = _infer_model_family_and_id(raw_id)
+    is_direct = base_id.startswith("direct-") or base_id.startswith("direct:")
+
+    model_info: dict[str, str] = {"family": "Gemma 4", "params": "12B", "quant": "Q8_0"}
+    short_model = "12B"
+    full_model = "Gemma 12B"
+    if "4b" in base_id:
+        model_info = {"family": "Gemma 4", "params": "4B", "quant": "Q8_0"}
+        short_model = "4B"
+        full_model = "Gemma 4B"
+    elif "26b" in base_id:
+        model_info = {"family": "Gemma 4", "params": "26B MoE", "quant": "Q8_0"}
+        short_model = "26B"
+        full_model = "Gemma 26B"
+    elif "27b" in base_id or "medgemma" in underlying:
+        model_info = {"family": "MedGemma", "params": "27B", "quant": "Q8_0"}
+        short_model = "MedGemma 27B"
+        full_model = "MedGemma 27B"
+    elif "qwen35b" in base_id:
+        model_info = {"family": "Qwen 3", "params": "35B MoE", "quant": "Q8_0"}
+        short_model = "Qwen 35B"
+        full_model = "Qwen 3 35B"
+    elif "qwen30b" in base_id:
+        model_info = {"family": "Qwen 3 Coder", "params": "30B MoE", "quant": "Q8_0"}
+        short_model = "Qwen Coder 30B"
+        full_model = "Qwen 3 Coder 30B"
+    elif "lfm24b" in base_id:
+        model_info = {"family": "Liquid LFM2", "params": "24B", "quant": "Q8_0"}
+        short_model = "Liquid 24B"
+        full_model = "Liquid LFM2 24B"
+
+    if is_direct:
+        title = f"Direct AI — no Hub ({full_model}{budget_suffix})"
+        short_title = f"Direct AI ({short_model}{short_budget})"
+        path_desc = (
+            "Sends the condensed chart and question directly to the AI model "
+            "without Med Agent Hub prompts, clinical rules, or relationship graph"
+        )
+    elif inc_kb:
+        title = f"Med Agent Hub + clinical rules ({full_model}{budget_suffix})"
+        short_title = f"Hub + rules ({short_model}{short_budget})"
+        path_desc = (
+            "Full Med Agent Hub pipeline: condensed chart + automated clinical conflict rules "
+            "+ patient relationship graph + safety net recovery"
+        )
+    else:
+        title = f"Med Agent Hub — chart only ({full_model}{budget_suffix})"
+        short_title = f"Hub chart-only ({short_model}{short_budget})"
+        path_desc = (
+            "Med Agent Hub citation & abstention prompts on the condensed chart only "
+            "(automated clinical conflict rules & graph turned off)"
+        )
+
+    return {
+        "title": title,
+        "short_title": short_title,
+        "kind": "single",
+        "path": path_desc,
+        "models": [model_info],
+    }
+
+
+def build_wahs_report_packet(
+    run_dir: Path | str,
+    *,
+    patients_summary: str | None = None,
+) -> dict[str, Any]:
+    """Generate a reproducible, self-contained OpenClinAI report packet (`report.html`,
+    `dashboard.html`, `meta.json`, `judge.jsonl`, and `judges/`) for a completed WAHS run directory.
+    """
+    import importlib.util
+    from harness.validate.judging import arm_families, judge_summary
+    from harness.validate.reconcile import scout_summary
+    from harness.validate.report import build_report
+
+    rdir = Path(run_dir).resolve()
+    if not (rdir / "results.jsonl").is_file():
+        raise FileNotFoundError(f"results.jsonl not found in {rdir}")
+
+    summary = score_wahs_run(rdir)
+    manifest_path = rdir / "run_manifest.json"
+    manifest_data = (
+        json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest_path.is_file()
+        else {}
+    )
+    evaluation_modality = str(
+        manifest_data.get("evaluation_modality") or "live_model_and_team_eval"
+    )
+    cases_path = rdir / "inputs" / "wahs_eval_cases.jsonl"
+    cases = load_wahs_cases(cases_path) if cases_path.is_file() else []
+    cases_by_id = {c.case_id: c for c in cases}
+
+    rows: list[dict[str, Any]] = []
+    for line in (rdir / "results.jsonl").read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            rows.append(json.loads(line))
+
+    backend_ids: list[str] = []
+    for r in rows:
+        bid = str(r.get("backend_id") or r.get("profile_id") or "")
+        if bid and bid not in backend_ids:
+            backend_ids.append(bid)
+
+    if isinstance(manifest_data, dict) and manifest_path.is_file():
+        prof_list = [str(p) for p in (manifest_data.get("profiles") or backend_ids)]
+        existing_ctx = manifest_data.get("context")
+        if not (isinstance(existing_ctx, dict) and str(existing_ctx.get("text") or "").strip()):
+            budgets_seen = sorted(
+                {
+                    int(r.get("budget_tokens"))
+                    for r in rows
+                    if isinstance(r.get("budget_tokens"), int)
+                    and not isinstance(r.get("budget_tokens"), bool)
+                }
+            )
+            budget_desc = (
+                ", ".join(
+                    f"{b // 1024}k" if b >= 1024 and b % 1024 == 0 else str(b)
+                    for b in budgets_seen
+                )
+                if budgets_seen
+                else "configured"
+            )
+            manifest_data["context"] = {
+                "text": (
+                    f"What this run evaluates: {len(cases)} clinical scenario{'s' if len(cases) != 1 else ''} "
+                    f"across {len(prof_list)} profile{'s' if len(prof_list) != 1 else ''} "
+                    f"({', '.join(prof_list[:6])}{'...' if len(prof_list) > 6 else ''}) "
+                    f"at {budget_desc} token budget{'s' if len(budgets_seen) != 1 else ''} "
+                    f"({len(rows)} total evaluation cells)."
+                ),
+                "url": "https://openclinai.org/med-agent-hub/wahs-architecture/",
+                "label": "How Med Agent Hub works →",
+            }
+        patients_map: dict[str, Any] = {}
+        for c in cases:
+            if c.patient_id and c.patient_id not in patients_map:
+                patients_map[c.patient_id] = _wahs_patient_profile(c.patient_id)
+        for r in rows:
+            pid = str(r.get("patient_id") or (r.get("request") or {}).get("patient") or "")
+            if pid and pid not in patients_map:
+                patients_map[pid] = _wahs_patient_profile(pid)
+        if patients_map:
+            manifest_data["patients"] = patients_map
+        manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
+
+    run_meta_path = rdir / "run_meta.json"
+    run_meta_data = (
+        json.loads(run_meta_path.read_text(encoding="utf-8"))
+        if run_meta_path.is_file()
+        else {}
+    )
+    run_meta_data["arm_cards"] = {bid: _wahs_arm_card(bid) for bid in backend_ids}
+    run_meta_path.write_text(json.dumps(run_meta_data, indent=2) + "\n", encoding="utf-8")
+
+    import shutil
+
+    judge_path = rdir / "judge.jsonl"
+    deterministic_actor_dir = rdir / "judges" / "wahs-deterministic-rubric-p1"
+    if deterministic_actor_dir.is_dir():
+        shutil.rmtree(deterministic_actor_dir)
+        canon_path = rdir / "judges" / "canonical.json"
+        if canon_path.is_file():
+            try:
+                canon_data = json.loads(canon_path.read_text(encoding="utf-8"))
+                if canon_data.get("built_from") == ["wahs-deterministic-rubric-p1"]:
+                    canon_path.unlink(missing_ok=True)
+                    judge_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    if judge_path.is_file():
+        judge_rows = [
+            json.loads(line)
+            for line in judge_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    else:
+        judge_rows = []
+
+    scout = scout_summary(judge_rows, backend_ids)
+    judging = judge_summary(rdir)
+    if not patients_summary:
+        unique_patients = []
+        for c in cases:
+            if c.patient_id not in unique_patients:
+                unique_patients.append(c.patient_id)
+        n_pt = len(unique_patients)
+        pt_label = (
+            f"{n_pt} complex ICU & longitudinal patient{'s' if n_pt != 1 else ''}"
+            if n_pt > 0
+            else "Clinical cohort"
+        )
+        patients_summary = (
+            f"{pt_label} · {len(cases)} clinical question{'s' if len(cases) != 1 else ''} × {len(backend_ids)} setups"
+        )
+
+    meta_payload = {
+        "scout": scout,
+        "judging": judging,
+        "evaluation_modality": evaluation_modality,
+        "patients": patients_summary,
+        "cells": len(rows),
+        "date": datetime.now(timezone.utc).strftime("%-d %b %Y"),
+    }
+    meta_path = rdir / "meta.json"
+    meta_path.write_text(json.dumps(meta_payload, indent=2) + "\n", encoding="utf-8")
+
+    report_html_path = build_report(rdir)
+
+    dash_script = Path(__file__).resolve().parents[2] / "scripts" / "validate-dashboard.py"
+    dash_html_path = rdir / "dashboard.html"
+    if dash_script.is_file():
+        spec = importlib.util.spec_from_file_location("_wahs_validate_dashboard", dash_script)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            setattr(mod, "_RUN_OVERRIDE", str(rdir))
+            mod.freeze(str(dash_html_path))
+
+    return {
+        "run_dir": str(rdir),
+        "report_html": str(report_html_path),
+        "dashboard_html": str(dash_html_path) if dash_html_path.is_file() else None,
+        "meta_json": str(meta_path),
+        "total_cells": summary["total_cells"],
+        "passed_cells": summary["passed_cells"],
+        "scout": scout,
+    }
