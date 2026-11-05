@@ -663,9 +663,13 @@ def test_live_http_sse_stream_is_unbuffered_and_location_setup_checks_status():
             return
 
         def do_POST(self):
+            content_len = int(self.headers.get("Content-Length", "0") or 0)
+            if content_len > 0:
+                self.rfile.read(content_len)
             if self.path.endswith("/chat/stream"):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Connection", "close")
                 self.end_headers()
                 frames = [
                     b'event: answer_delta\ndata: {"delta":"First "}\n\n',

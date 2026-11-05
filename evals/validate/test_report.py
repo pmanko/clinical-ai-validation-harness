@@ -559,3 +559,27 @@ def test_report_setup_filter_is_a_multiselect_dropdown_not_a_checkbox_list(tmp_p
     assert "setup-count" in html or "count-badge" in html
     # Still wired to the existing show/hide column behavior.
     assert "applyBackendToggle" in html
+
+
+def test_report_renders_executive_summary_results_first_and_tile_judge_pills(tmp_path):
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    (run_dir / "judge.jsonl").write_text(
+        json.dumps({"scenario_id": "s", "backend_id": "gemma-local", "accuracy": 9,
+                    "completeness": 8, "relevance": 9, "abstention_outcome": "n-a",
+                    "citation_groundedness": "supported", "harm": False, "note": "Clean chart grounding."}) + "\n",
+        encoding="utf-8",
+    )
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    assert "function renderExecutiveSummary(" in html
+    assert "At-a-Glance Setup Leaderboard" in html
+    assert "toggle-tile-details" in html
+    assert "tile-jscore" in html
+    assert "../index.html" in html
+    assert html.index("'sec-quality'") < html.index("'sec-arms'")
+    assert html.index("'sec-answers'") < html.index("'sec-arms'")
+

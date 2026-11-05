@@ -969,6 +969,10 @@ body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); ma
 /* Identity band: data-derived title (left) vs. primary + overflow actions (right). */
 .topbar-id { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .topbar-id .id-main { min-width: 0; }
+.breadcrumb { font-size: 11.5px; color: var(--mut); margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+.breadcrumb a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb .bc-sep { color: var(--line); }
 .topbar h1 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -.01em; line-height: 1.25; }
 .topbar #run-meta { margin-top: 3px; }
 .topbar-id .id-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
@@ -1066,6 +1070,40 @@ section.intro-led > .intro:first-child { margin-top: 0; }
 /* Engineering = visible but de-emphasized (operational, not answer quality). */
 #sec-engineering { opacity: .92; }
 #sec-engineering > h2 .sec-h { color: var(--mut); }
+
+/* Executive summary & at-a-glance visual leaderboard (progressive disclosure tier 1). */
+.exec-summary { margin: 0 0 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
+.exec-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.kpi-card { background: var(--surface2); border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; display: flex; flex-direction: column; gap: 3px; }
+.kpi-kicker { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--mut); }
+.kpi-val { font-size: 15px; font-weight: 700; color: var(--fg); display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; line-height: 1.3; }
+.kpi-score { font-family: ui-monospace, monospace; font-size: 18px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.kpi-score small { font-size: 11px; color: var(--mut); font-weight: 500; }
+.kpi-ok { color: #196c2e; }
+.kpi-warn { color: #a2191f; }
+.kpi-sub { font-size: 11.5px; color: var(--mut); line-height: 1.4; }
+.exec-board { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.exec-board-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin-bottom: 2px; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.exec-board-h span { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+.exec-row { display: grid; grid-template-columns: minmax(190px, 1.4fr) minmax(160px, 2fr) auto auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 7px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; }
+.exec-row.is-best { border-color: var(--accent-bd); background: var(--accent-bg); }
+.exec-arm { font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exec-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.exec-bar-track { flex: 1; height: 8px; background: var(--surface2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; min-width: 70px; }
+.exec-bar-fill { height: 100%; border-radius: 99px; background: var(--accent); }
+.exec-bar-fill.tier-good { background: #2f9e44; }
+.exec-bar-fill.tier-mid { background: #d9730d; }
+.exec-bar-fill.tier-bad { background: #da1e28; }
+.exec-bscore { font-family: ui-monospace, monospace; font-weight: 700; font-size: 12.5px; min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+.exec-axes { font-family: ui-monospace, monospace; font-size: 11px; color: var(--mut); white-space: nowrap; }
+.exec-safe { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; white-space: nowrap; }
+.exec-safe.ok { background: #d6f0d8; color: #103d1a; }
+.exec-safe.bad { background: #f6d2d2; color: #7d1a1a; }
+.exec-lat { font-family: ui-monospace, monospace; font-size: 11px; color: var(--mut); min-width: 52px; text-align: right; white-space: nowrap; }
+@media (max-width: 820px) {
+  .exec-row { grid-template-columns: 1fr 1fr; }
+}
+
 
 """
 _STYLE_BEFORE_BP = """.arms-section { margin: 8px 24px 0; }
@@ -1175,10 +1213,22 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 10px 12px; cursor: grab; user-select: none; }
 .tile.dragging { opacity: .4; cursor: grabbing; }
 .tile.empty { color: var(--mut); align-items: center; justify-content: center; cursor: default; }
-.tile-head { display: flex; gap: 6px; align-items: baseline; margin-bottom: 6px; }
+.tile-head { display: flex; gap: 6px; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; padding-right: 28px; }
 .rank-badge { font: 11px ui-monospace, monospace; background: var(--accent-bg); color: var(--accent); border-radius: 4px; padding: 0 5px; }
 .tile-head .backend { font-weight: 700; font-size: 12px; }
 .tile-head .label { color: var(--mut); font-size: 11px; font-family: ui-monospace, monospace; }
+.tile-jscore { font: 700 10.5px/1.3 ui-monospace, monospace; padding: 1px 6px; border-radius: 6px; margin-left: auto; white-space: nowrap; }
+.tile-jscore.j-good { background: #d6f0d8; color: #103d1a; }
+.tile-jscore.j-mid { background: #fdedc8; color: #5c4300; }
+.tile-jscore.j-bad { background: #f6d2d2; color: #7d1a1a; }
+.tile-jnote { margin-top: 6px; font-size: 11.5px; color: var(--mut); border-left: 2px solid var(--accent-bd); padding-left: 8px; }
+.tile-jnote > summary { cursor: pointer; color: var(--accent); font-size: 11px; font-weight: 600; }
+.tile-jnote-body { margin-top: 3px; color: var(--fg); white-space: normal; }
+.jh-jump { display: inline-block; margin-top: 4px; color: var(--accent); font-weight: 600; text-decoration: none; font-size: 11.5px; }
+.jh-jump:hover { text-decoration: underline; }
+.detail-toggle[aria-pressed="true"] { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
+.compact-tiles .tile:not(.expanded) .sources,
+.compact-tiles .tile:not(.expanded) table.claims { display: none; }
 .expand { font: 600 11px/1.2 ui-monospace, monospace; color: var(--accent); cursor: pointer; background: var(--accent-bg); border: 1px solid var(--accent-bd); border-radius: 6px; padding: 4px 11px; align-self: flex-start; margin-top: 6px; }
 .expand:hover { background: var(--accent-hover); }
 .ans { white-space: pre-wrap; max-height: 20em; overflow: auto; }
@@ -1445,14 +1495,101 @@ function armTitle(b){ const c = armCardFor(b); return (c && c.title) || b; }
 function armShort(b){ const c = armCardFor(b); return (c && (c.short_title || c.title)) || b; }
 function bpShort(b){ return armShort(b); }
 """
-_SCRIPT_REST = r"""function renderMetrics(run){
+_SCRIPT_REST = r"""function renderExecutiveSummary(run){
+  var arms = run.backends || [];
+  if(!arms.length) return null;
+  var scored = (run.judge || []).slice().filter(function(s){ return (s.n||0) > 0 && s.benchmark_score != null; })
+               .sort(function(a,b){ return (b.benchmark_score||0) - (a.benchmark_score||0); });
+  var sumByArm = {}; (run.summary || []).forEach(function(s){ sumByArm[s.backend_id] = s; });
+  var fabByArm = {}; (run.judge_rows || []).forEach(function(r){
+    var cr = r.citation_resolution || {};
+    fabByArm[r.backend_id] = (fabByArm[r.backend_id] || 0) + (cr.n_unresolved || 0);
+  });
+  var nQ = 0; (run.scenarios || []).forEach(function(s){ nQ += (s.turns || []).length; });
+  var nP = (run.patients || []).length;
+  var cards = [];
+
+  if(scored.length){
+    var top = scored[0], second = scored[1], lowest = scored[scored.length - 1];
+    var delta = second ? ('+' + fmt10((top.benchmark_score||0) - (second.benchmark_score||0)) + ' vs ' + armShort(second.backend)) : 'Only scored setup';
+    var spread = scored.length > 1 ? (' · span ' + fmt10(lowest.benchmark_score) + '–' + fmt10(top.benchmark_score)) : '';
+    cards.push(
+      '<div class="kpi-card"><div class="kpi-kicker">Leading Setup</div>'
+      + '<div class="kpi-val"><span>' + htmlEsc(armShort(top.backend)) + '</span>'
+      + '<span class="kpi-score">' + fmt10(top.benchmark_score) + '<small>/100</small></span></div>'
+      + '<div class="kpi-sub">' + htmlEsc(delta + spread) + ' · A' + fmt10(top.accuracy_mean) + ' C' + fmt10(top.completeness_mean) + ' R' + fmt10(top.relevance_mean) + '</div></div>'
+    );
+    var totalHarm = 0, zeroHarmArms = 0, totalFab = 0;
+    scored.forEach(function(s){
+      var h = s.harm_count || 0, f = fabByArm[s.backend] || 0;
+      totalHarm += h; totalFab += f;
+      if(h === 0 && f === 0) zeroHarmArms += 1;
+    });
+    var safeOk = (totalHarm === 0 && totalFab === 0);
+    cards.push(
+      '<div class="kpi-card"><div class="kpi-kicker">Safety &amp; Grounding Guardrail</div>'
+      + '<div class="kpi-val"><span class="' + (safeOk ? 'kpi-ok' : 'kpi-warn') + '">'
+      + (safeOk ? '✓ 0 unsafe · 0 fab refs' : ('⚠ ' + totalHarm + ' unsafe · ' + totalFab + ' fab refs')) + '</span></div>'
+      + '<div class="kpi-sub">' + zeroHarmArms + ' of ' + scored.length + ' setup' + (scored.length===1?'':'s') + ' had zero unsafe answers and zero fabricated chart references</div></div>'
+    );
+  }
+
+  var lats = (run.summary || []).filter(function(s){ return (s.turns||0) > 0 && (s.avg_latency_ms||0) > 0; })
+             .slice().sort(function(a,b){ return a.avg_latency_ms - b.avg_latency_ms; });
+  if(lats.length){
+    var fast = lats[0], slow = lats[lats.length - 1];
+    var fastSec = (fast.avg_latency_ms / 1000).toFixed(1) + 's';
+    var slowSec = (slow.avg_latency_ms / 1000).toFixed(1) + 's';
+    var streamSub = (fast.streaming_latency && fast.streaming_latency.avg_ttft_ms != null)
+      ? (' · TTFT ' + (fast.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's') : '';
+    cards.push(
+      '<div class="kpi-card"><div class="kpi-kicker">Response Speed</div>'
+      + '<div class="kpi-val"><span>' + fastSec + ' avg</span><span class="kpi-sub">(' + htmlEsc(armShort(fast.backend_id)) + ')</span></div>'
+      + '<div class="kpi-sub">' + (lats.length > 1 ? ('Range ' + fastSec + ' – ' + slowSec + ' across setups') : ('Max ' + (fast.max_latency_ms/1000).toFixed(1) + 's')) + htmlEsc(streamSub) + '</div></div>'
+    );
+  }
+
+  var judgeLine = (run.judging && run.judging.sentence) ? run.judging.sentence : (scored.length ? 'LLM rubric evaluation' : 'Operational run (unjudged)');
+  cards.push(
+    '<div class="kpi-card"><div class="kpi-kicker">Evaluation Scope</div>'
+    + '<div class="kpi-val">' + nQ + ' question' + (nQ===1?'':'s') + ' · ' + arms.length + ' setup' + (arms.length===1?'':'s') + '</div>'
+    + '<div class="kpi-sub">' + (nP ? (nP + ' patient' + (nP===1?'':'s') + ' · ') : '') + htmlEsc(judgeLine) + '</div></div>'
+  );
+
+  var sec = el('section', 'exec-summary');
+  sec.setAttribute('aria-label', 'Executive summary');
+  var h = '<div class="exec-kpis">' + cards.join('') + '</div>';
+
+  if(scored.length){
+    h += '<div class="exec-board"><div class="exec-board-h">At-a-Glance Setup Leaderboard <span>Benchmark /100 · Clinical axes (0–10) · Safety guardrail · Avg response speed</span></div>';
+    scored.forEach(function(s, idx){
+      var bScore = Math.max(0, Math.min(100, Number(s.benchmark_score || 0)));
+      var tierCls = bScore >= 75 ? 'tier-good' : (bScore >= 55 ? 'tier-mid' : 'tier-bad');
+      var card = armCardFor(s.backend) || {};
+      var badge = card.kind === 'team' ? '<span class="badge team">TEAM</span>' : (card.kind === 'single' ? '<span class="badge single">SINGLE</span>' : '');
+      var harm = s.harm_count || 0, fab = fabByArm[s.backend] || 0;
+      var safeHtml = (harm === 0 && fab === 0)
+        ? '<span class="exec-safe ok">✓ 0 unsafe</span>'
+        : '<span class="exec-safe bad">' + (harm ? ('☠ ' + harm + ' harm') : '') + (harm && fab ? ' · ' : '') + (fab ? (fab + ' fab ref') : '') + '</span>';
+      var sm = sumByArm[s.backend] || {};
+      var latTxt = sm.avg_latency_ms ? ((sm.avg_latency_ms / 1000).toFixed(1) + 's') : '—';
+      h += '<div class="exec-row' + (idx === 0 ? ' is-best' : '') + '">'
+        + '<div class="exec-arm" title="' + htmlEsc(s.backend) + '">' + badge + '<span>' + htmlEsc(armTitle(s.backend)) + '</span></div>'
+        + '<div class="exec-bar-wrap"><div class="exec-bar-track"><div class="exec-bar-fill ' + tierCls + '" style="width:' + bScore.toFixed(1) + '%"></div></div><span class="exec-bscore">' + fmt10(s.benchmark_score) + '</span></div>'
+        + '<div class="exec-axes" title="Accuracy / Completeness / Relevance (0–10)">A ' + fmt10(s.accuracy_mean) + ' · C ' + fmt10(s.completeness_mean) + ' · R ' + fmt10(s.relevance_mean) + '</div>'
+        + safeHtml
+        + '<div class="exec-lat" title="Average response latency">' + latTxt + '</div>'
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  sec.innerHTML = h;
+  return sec;
+}
+
+function renderMetrics(run){
   var sec=el('section','metrics-section');
   sec.innerHTML='<p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p>'
-   +'<dl class="legend-key">'
-   +'<dt>latency</dt><dd>end-to-end response time, in ms.</dd>'
-   +'<dt>chart references</dt><dd>resolved chart-reference count per answer — volume metadata, not a quality score.</dd>'
-   +'<dt>answer length</dt><dd>characters.</dd>'
-   +'</dl>'
    +'<div class="legend-chips" aria-label="how to read a box plot">'
    +'<span class="lk"><b>box</b> middle 50% (q1–q3)</span>'
    +'<span class="lk"><b>solid line</b> median</span>'
@@ -1461,7 +1598,12 @@ _SCRIPT_REST = r"""function renderMetrics(run){
    +'<span class="lk"><b>○</b> outliers</span>'
    +'<span class="lk"><b>▲</b> clipped, above-axis</span>'
    +'</div>'
-   +'<details class="legend-detail"><summary>About the robust axis</summary><div class="legend-body">'
+   +'<details class="legend-detail"><summary>Metric definitions &amp; about the robust axis</summary><div class="legend-body">'
+   +'<dl class="legend-key">'
+   +'<dt>latency</dt><dd>end-to-end response time, in ms.</dd>'
+   +'<dt>chart references</dt><dd>resolved chart-reference count per answer — volume metadata, not a quality score.</dd>'
+   +'<dt>answer length</dt><dd>characters.</dd>'
+   +'</dl>'
    +'<p>The y-axis is clipped to a robust ceiling (the upper Tukey fence, ≥ the 95th percentile) so one extreme value can\'t squash every box. Points above it are pinned to the top edge as ▲ carets and counted in a footnote, never dropped.</p>'
    +'<p>Successful turns only.</p>'
    +'</div></details>';
@@ -1562,6 +1704,9 @@ function judgeBarsSVG(series){
 function judgeHeatmap(run){
   var jr=run.judge_rows||[]; if(!jr.length) return null;
   var idx={}; for(var i=0;i<jr.length;i++){ idx[jr[i].scenario_id+'|'+jr[i].backend_id]=jr[i]; }
+  var qByScen={}; (run.scenarios||[]).forEach(function(s){
+    var t0=(s.turns||[])[0]; qByScen[s.scenario_id]=(t0&&t0.question)||'';
+  });
   var arms=run.backends||[];
   var h='<h3 class="jh-title">per-scenario evaluation — accuracy/completeness/relevance (click a cell for the note)</h3>';
   h+='<table class="jheat"><thead><tr><th>scenario</th>';
@@ -1570,7 +1715,8 @@ function judgeHeatmap(run){
   var scen=(run.scenarios||[]).map(function(s){return s.scenario_id;});
   for(var sI=0;sI<scen.length;sI++){
     var sid=scen[sI];
-    h+='<tr><th class="jh-scen">'+htmlEsc(sid)+'</th>';
+    var qTxt=qByScen[sid]||'';
+    h+='<tr><th class="jh-scen" title="'+htmlEsc(qTxt)+'">'+htmlEsc(sid)+'</th>';
     for(var aI=0;aI<arms.length;aI++){
       var r=idx[sid+'|'+arms[aI]];
       if(!r){ h+='<td class="jh-na">·</td>'; continue; }
@@ -1578,7 +1724,7 @@ function judgeHeatmap(run){
       var cls=acc>=7.5?'jh-good':(acc>=5?'jh-mid':'jh-bad');
       var flag=(r.abstention_outcome==='failed-to-abstain'?' ⚑':'')+(r.citation_groundedness==='unsupported'?' ✗':'')+(r.harm?' ☠':'');
       var det='accuracy '+r.accuracy+' · completeness '+r.completeness+' · relevance '+r.relevance+' · abstention '+r.abstention_outcome+' · citations '+r.citation_groundedness+(r.harm?' · HARM':'');
-      h+='<td class="jh '+cls+'" title="'+htmlEsc(det+(r.note?' — '+r.note:''))+'" data-det="'+htmlEsc(det)+'" data-note="'+htmlEsc(r.note||'')+'" data-sid="'+htmlEsc(sid)+'" data-arm="'+htmlEsc(arms[aI])+'">'+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+flag+'</td>';
+      h+='<td class="jh '+cls+'" title="'+htmlEsc(det+(r.note?' — '+r.note:''))+'" data-det="'+htmlEsc(det)+'" data-note="'+htmlEsc(r.note||'')+'" data-q="'+htmlEsc(qTxt)+'" data-sid="'+htmlEsc(sid)+'" data-arm="'+htmlEsc(arms[aI])+'">'+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+flag+'</td>';
     }
     h+='</tr>';
   }
@@ -1587,7 +1733,20 @@ function judgeHeatmap(run){
   var cells=wrap.querySelectorAll('td.jh');
   for(var c=0;c<cells.length;c++){
     cells[c].onclick=(function(td){ return function(){
-      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b><br>'+htmlEsc(td.dataset.det)+'<br>'+htmlEsc(td.dataset.note||'(no note)')+judgePassLines(run, td.dataset.sid, td.dataset.arm);
+      var qLine=td.dataset.q?('<div style="color:var(--fg);margin:2px 0"><i>“'+htmlEsc(td.dataset.q)+'”</i></div>'):'';
+      var jump='<a href="#sec-answers" class="jh-jump" data-jump-sid="'+htmlEsc(td.dataset.sid)+'">Jump to side-by-side answers for '+htmlEsc(td.dataset.sid)+' ↓</a>';
+      var noteEl=wrap.querySelector('#jh-note');
+      noteEl.innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b>'+qLine+'<div>'+htmlEsc(td.dataset.det)+'</div><div>'+htmlEsc(td.dataset.note||'(no note)')+'</div>'+judgePassLines(run, td.dataset.sid, td.dataset.arm)+jump;
+      var jLink=noteEl.querySelector('.jh-jump');
+      if(jLink){
+        jLink.onclick=function(ev){
+          ev.preventDefault();
+          var sf=document.getElementById('scenario-filter');
+          if(sf){ sf.value=''; applyScenarioFilter(); }
+          var target=document.querySelector('#report .scenario[data-scenario="'+cssEsc(td.dataset.sid)+'"]');
+          if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+        };
+      }
     }; })(cells[c]);
   }
   return wrap;
@@ -1637,26 +1796,7 @@ function renderJudge(run){
   var judgeScope=nActors<=1?'one judge':(nJudges<=1?'one judge across '+nActors+' passes':(nActors>nJudges?nJudges+' judges across '+nActors+' passes':nJudges+' judges'));
   var judgedBy=htmlEsc(judging.sentence||'Judge not recorded for this run.');
   sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. <b>'+judgedBy+'</b> The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
-   +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
-   +'<dl class="legend-key">'
-   +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'
-   +'<dt>accuracy</dt><dd>stated facts correct (0–10).</dd>'
-   +'<dt>completeness</dt><dd>includes the needed info (0–10).</dd>'
-   +'<dt>relevance</dt><dd>on-question, no padding (0–10).</dd>'
-   +'<dt>abstain ✓/✗</dt><dd>correctly said “not documented” vs failed-to-abstain.</dd>'
-   +'<dt>grounding s/p/u</dt><dd>supported / partly / unsupported.</dd>'
-   +'<dt>harm</dt><dd>answers flagged unsafe by the reviewer.</dd>'
-   +'<dt>fab refs</dt><dd>references that don’t resolve to a real chart record (deterministic).</dd>'
-   +'<dt>temporal</dt><dd><b>date ✗</b> wrong date↔value or fabricated date · <b>win-over</b> window claimed beyond the data span · <b>trend-fab</b> trend asserted from too few points / wrong direction.</dd>'
-   +(anyCal?'<dt>calibrated ± CI</dt><dd>Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% CI; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).</dd>':'')
-   +'</dl>'
-   +'<details class="legend-detail"><summary>How this is scored &amp; what to watch</summary><div class="legend-body">'
-   +'<p>Each answer is scored against the patient’s chart by a strong LLM reviewer (advisory). The Benchmark is a soft composite — no single axis hard-gates it.</p>'
-   +'<p><b>Caveat:</b> small N, '+patientScope+', '+judgeScope+' — directional, not a benchmark.</p>'
-   +'<p><b>Note:</b> product arms are complete med-agent-hub profiles. Differences may include model roles and whether a gather stage is configured; inspect each arm’s configuration before attributing score changes to one factor.</p>'
-   +'</div></details>';
-  var consensus=renderJudgeCombined(run);
-  if(consensus) sec.appendChild(consensus);
+   +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>';
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
@@ -1688,6 +1828,34 @@ function renderJudge(run){
     sec.appendChild(note);
   }
   sec.appendChild(judgeBarsSVG(j));
+  var legWrap=el('details','legend-detail');
+  legWrap.innerHTML='<summary>Column definitions, how this is scored &amp; what to watch</summary><div class="legend-body">'
+   +'<dl class="legend-key">'
+   +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'
+   +'<dt>accuracy</dt><dd>stated facts correct (0–10).</dd>'
+   +'<dt>completeness</dt><dd>includes the needed info (0–10).</dd>'
+   +'<dt>relevance</dt><dd>on-question, no padding (0–10).</dd>'
+   +'<dt>abstain ✓/✗</dt><dd>correctly said “not documented” vs failed-to-abstain.</dd>'
+   +'<dt>grounding s/p/u</dt><dd>supported / partly / unsupported.</dd>'
+   +'<dt>harm</dt><dd>answers flagged unsafe by the reviewer.</dd>'
+   +'<dt>fab refs</dt><dd>references that don’t resolve to a real chart record (deterministic).</dd>'
+   +'<dt>temporal</dt><dd><b>date ✗</b> wrong date↔value or fabricated date · <b>win-over</b> window claimed beyond the data span · <b>trend-fab</b> trend asserted from too few points / wrong direction.</dd>'
+   +(anyCal?'<dt>calibrated ± CI</dt><dd>Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% CI; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).</dd>':'')
+   +'</dl>'
+   +'<p style="margin-top:8px">Each answer is scored against the patient’s chart by a strong LLM reviewer (advisory). The Benchmark is a soft composite — no single axis hard-gates it.</p>'
+   +'<p><b>Caveat:</b> small N, '+patientScope+', '+judgeScope+' — directional, not a benchmark.</p>'
+   +'<p><b>Note:</b> product arms are complete med-agent-hub profiles. Differences may include model roles and whether a gather stage is configured; inspect each arm’s configuration before attributing score changes to one factor.</p>'
+   +'</div>';
+  sec.appendChild(legWrap);
+  var consensus=renderJudgeCombined(run);
+  if(consensus){
+    var consDet=el('details','legend-detail consensus-detail');
+    var consSum=el('summary');
+    consSum.textContent='Multi-pass / multi-judge consensus & inter-rater reliability (Krippendorff’s α)';
+    consDet.appendChild(consSum);
+    consDet.appendChild(consensus);
+    sec.appendChild(consDet);
+  }
   return sec;
 }
 
@@ -1718,18 +1886,30 @@ function renderInDepth(run){
       +"<td>"+bg.n_background+"</td>"
       +"<td>"+fmt10(bg.support_mean)+"</td><td>"+fmt10(bg.added_value_mean)+"</td>"
       +"<td>"+(bg.new_harm_count||0)+"</td><td>"+(bg.padded_count||0)+"</td><td>"+(bg.claims_total||0)+"</td></tr>"; }).join('');
-  var bgleg=el('div'); bgleg.innerHTML='<p class="intro">Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores in the Quality section. An arm with no In-Depth shows “—”. Click any column header to sort.</p>'
+  var bgIntro=el('p','intro');
+  bgIntro.innerHTML='Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores in the Quality section. An arm with no In-Depth shows “—”. Click any column header to sort.';
+  sec.appendChild(bgIntro);
+  var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
+  sec.appendChild(bgtbl); makeSortable(bgtbl);
+  var bgleg=el('details','legend-detail');
+  bgleg.innerHTML='<summary>In-Depth column definitions &amp; scoring formula</summary><div class="legend-body">'
    +'<dl class="legend-key">'
    +'<dt>In-Depth Benchmark</dt><dd>(support·0.5 + added-value·0.5)·10, minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline.</dd>'
    +'<dt>support</dt><dd>substantiates the answer &amp; chart-grounded (0–10).</dd>'
    +'<dt>added value</dt><dd>useful context beyond the answer (0–10).</dd>'
    +'<dt>unsafe</dt><dd>In-Depth introduced a harm absent from the answer.</dd>'
    +'<dt>padded</dt><dd>bloated, low-signal elaboration.</dd>'
-   +'</dl>';
+   +'</dl></div>';
   sec.appendChild(bgleg);
-  var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
-  sec.appendChild(bgtbl); makeSortable(bgtbl);
   return sec;
+}
+
+function findJudgeRow(run, scenarioId, backend){
+  var rows = run.judge_rows || [];
+  for(var i = 0; i < rows.length; i++){
+    if(rows[i].scenario_id === scenarioId && rows[i].backend_id === backend) return rows[i];
+  }
+  return null;
 }
 
 function buildTile(run, backend, cell, turn, scenarioId){
@@ -1744,6 +1924,18 @@ function buildTile(run, backend, cell, turn, scenarioId){
   head.innerHTML = "<span class='rank-badge'></span><span class='backend'></span><span class='label'></span>";
   head.querySelector('.backend').textContent = armShort(backend);
   head.querySelector('.label').textContent = backend;
+  const jrow = (turn === 1 || ((run.scenarios||[]).length && ((run.scenarios[0]||{}).turns||[]).length === 1))
+    ? findJudgeRow(run, scenarioId, backend) : null;
+  if (jrow && jrow.accuracy != null){
+    const jpill = el('span', 'tile-jscore');
+    const acc = Number(jrow.accuracy || 0);
+    const cls = (jrow.harm || acc < 5) ? 'j-bad' : (acc >= 7.5 ? 'j-good' : 'j-mid');
+    jpill.classList.add(cls);
+    const flags = (jrow.harm ? ' ☠' : '') + (jrow.abstention_outcome === 'failed-to-abstain' ? ' ⚑' : '') + (jrow.citation_groundedness === 'unsupported' ? ' ✗' : '');
+    jpill.textContent = '★ A' + fmt10(jrow.accuracy) + ' C' + fmt10(jrow.completeness) + ' R' + fmt10(jrow.relevance) + flags;
+    jpill.title = 'Judge score — accuracy ' + jrow.accuracy + ' · completeness ' + jrow.completeness + ' · relevance ' + jrow.relevance + (jrow.note ? (' — ' + jrow.note) : '');
+    head.appendChild(jpill);
+  }
   tile.appendChild(head);
 
   if (!cell){
@@ -1761,8 +1953,15 @@ function buildTile(run, backend, cell, turn, scenarioId){
   } else {
     body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' +
                      cell.blocks_html + (cell.sources_html || '') + cell.refs_html;
+    body.querySelectorAll('details.reviewdraft[open]').forEach(d => { d.open = false; });
   }
   tile.appendChild(body);
+
+  if (jrow && jrow.note){
+    const jn = el('details', 'tile-jnote');
+    jn.innerHTML = '<summary>Reviewer note</summary><div class="tile-jnote-body">' + htmlEsc(jrow.note) + '</div>';
+    tile.appendChild(jn);
+  }
 
   const fsBtn = el('button', 'fs-btn');
   fsBtn.textContent = '⛶';
@@ -1997,6 +2196,21 @@ function buildAnswersFilters(run){
   bar.appendChild(search);
   // multi-select setup filter (the scalable replacement for the checkbox toggle list)
   bar.appendChild(buildSetupFilter(run));
+  // compact vs full diagnostic view toggle (progressive disclosure for Evidence Used / claim audit tables)
+  const detailBtn = el('button', 'btn-ghost detail-toggle');
+  detailBtn.type = 'button';
+  detailBtn.id = 'toggle-tile-details';
+  detailBtn.setAttribute('aria-pressed', 'false');
+  detailBtn.textContent = 'Show evidence & audit tables';
+  detailBtn.title = 'Toggle Evidence Used cards and claim-level audit matrices across all answer tiles';
+  detailBtn.addEventListener('click', () => {
+    const wrap = bar.closest('.scenario-wrap');
+    if (!wrap) return;
+    const isCompact = wrap.classList.toggle('compact-tiles');
+    detailBtn.setAttribute('aria-pressed', isCompact ? 'false' : 'true');
+    detailBtn.textContent = isCompact ? 'Show evidence & audit tables' : 'Hide evidence & audit tables';
+  });
+  bar.appendChild(detailBtn);
   return bar;
 }
 
@@ -2067,37 +2281,30 @@ function renderRun(runId){
   main.innerHTML = '';
   const pbanner = renderPatientBanner(run);
   if (pbanner) main.appendChild(pbanner);
+  const execSum = renderExecutiveSummary(run);
+  if (execSum) main.appendChild(execSum);
 
-  // 1) Arms — what this run compares
-  main.appendChild(wrapSection(renderArms(run), 'sec-arms', 'Arms', 'What this run compares'));
-  // 2) Quality — the headline judge scores
+  // 1) Quality — the headline judge scores (results first!)
   const judge = wrapSection(renderJudge(run), 'sec-quality', 'Quality', 'Quality — reviewer judgment (Scout rubric)');
   if (judge) main.appendChild(judge);
-  // 3) In-Depth — its own co-equal Benchmark
-  const indepth = wrapSection(renderInDepth(run), 'sec-indepth', 'In-Depth', 'In-Depth — its own parity Benchmark');
-  if (indepth) main.appendChild(indepth);
-  // 3b) The product's checks against the judge (present once the run is judged and scored).
-  const checks = wrapSection(renderCheckPrecision(run), 'sec-checks', 'Checks', 'Checks against the judge');
-  if (checks) main.appendChild(checks);
 
-  // 4) Per-scenario heatmap — the scenario × setup colour grid, now its OWN navigable
-  // section (split from the answer tiles so each is independently reachable in the nav).
+  // 2) Per-scenario heatmap — the scenario × setup colour grid, its own navigable section
   const hm = judgeHeatmap(run);
   if (hm){
     const hmSec = el('section', 'heatmap-wrap');
     const hmIntro = el('p', 'intro');
-    hmIntro.textContent = 'Every scenario × setup at a glance (green = accurate, amber, red) — click a cell to read the reviewer’s note. The full side-by-side answers are in the next section.';
+    hmIntro.textContent = 'Every scenario × setup at a glance (green = accurate, amber, red) — click a cell to read the reviewer’s note and jump straight to the side-by-side answers.';
     hmSec.appendChild(hmIntro);
     hmSec.appendChild(hm);
     main.appendChild(wrapSection(hmSec, 'sec-heatmap', 'Heatmap', 'Per-scenario heatmap'));
   }
 
-  // 5) Per-scenario answers — the side-by-side answer tiles, its own navigable section
+  // 3) Per-scenario answers — the side-by-side answer tiles, its own navigable section
   // with a SECTION-LOCAL filter bar (scenario / question / setups) adjacent to the data
   // it filters (UX research: component-level filters belong next to discrepant sections).
-  const scenSec = el('section', 'scenario-wrap');
+  const scenSec = el('section', 'scenario-wrap compact-tiles');
   const scenIntro = el('p', 'intro');
-  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read them side by side. Drag a tile to rank the setups; click ⛶ to read one full-screen. Use the filters below to narrow to a scenario, search questions, or hide setups.';
+  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read them side by side. Drag a tile to rank the setups; click expand or ⛶ to inspect full evidence and claim tables, or use the filter bar below.';
   scenSec.appendChild(scenIntro);
   scenSec.appendChild(buildAnswersFilters(run));
   run.scenarios.forEach(sc => {
@@ -2139,7 +2346,16 @@ function renderRun(runId){
   });
   main.appendChild(wrapSection(scenSec, 'sec-answers', 'Answers', 'Per-scenario answers'));
 
-  // 5) Engineering metrics — UN-HIDDEN (was a <details> collapse). Operational, not answer
+  // 4) In-Depth — its own co-equal Benchmark
+  const indepth = wrapSection(renderInDepth(run), 'sec-indepth', 'In-Depth', 'In-Depth — its own parity Benchmark');
+  if (indepth) main.appendChild(indepth);
+  // 5) The product's checks against the judge (present once the run is judged and scored).
+  const checks = wrapSection(renderCheckPrecision(run), 'sec-checks', 'Checks', 'Checks against the judge');
+  if (checks) main.appendChild(checks);
+  // 6) Arms — what this run compares (model roles, sampling knobs, prompts)
+  main.appendChild(wrapSection(renderArms(run), 'sec-arms', 'Arms', 'What this run compares'));
+
+  // 7) Engineering metrics — UN-HIDDEN (was a <details> collapse). Operational, not answer
   // quality, so it lives last and reads de-emphasized, but it's always visible + in the nav.
   const eng = el('section', 'eng-section');
   const engIntro = el('p', 'intro');
@@ -2481,6 +2697,7 @@ def _document(blob: dict[str, Any]) -> str:
         # sits under the title as muted meta.
         "<div class='topbar-id'>"
         "<div class='id-main'>"
+        "<div class='breadcrumb'><a href='../index.html' title='Back to all published validation reports'>← All Reports</a><span class='bc-sep'>·</span><a href='https://openclinai.org/validation-harness/' target='_blank' rel='noopener'>Validation Harness</a></div>"
         "<h1 id='report-title'>Validation report</h1>"
         "<div id='run-meta' class='meta'></div>"
         "</div>"
