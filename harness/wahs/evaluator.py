@@ -1888,15 +1888,6 @@ class WahsHubClient:
                     "quantization": policies.get("quantization"),
                     "role_models": profile_meta.get("role_models") or {},
                 }
-                hub_enrichment = chat_json.get("hub_enrichment")
-                if not isinstance(hub_enrichment, dict):
-                    resp_headers = getattr(resp, "headers", None) or {}
-                    hdr_val = resp_headers.get("X-WAHS-Hub-Enrichment") or resp_headers.get("x-wahs-hub-enrichment")
-                    if hdr_val:
-                        try:
-                            hub_enrichment = json.loads(hdr_val)
-                        except Exception:
-                            hub_enrichment = None
                 envelope: dict[str, Any] = {
                     "answer": cleaned_answer,
                     "references": references,
@@ -3276,30 +3267,6 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         "path": path_desc,
         "models": [model_info],
     }
-
-
-def _format_wahs_failure_for_reader(failure: str) -> str:
-    f = str(failure or "").strip()
-    if f.startswith("missing required target UUIDs:"):
-        n_missing = f.count("'") // 2
-        if n_missing > 0:
-            return f"Missed citing {n_missing} key source record{'s' if n_missing != 1 else ''} from the chart"
-        return "Missed citing required source records from the chart"
-    if f.startswith("missing positive rubric item"):
-        m = re.search(r"\((.+?)\):", f)
-        if m:
-            return f"Missed clinical point: {m.group(1)}"
-        return "Missed a required clinical checklist point"
-    if f.startswith("missing required rubric criterion:"):
-        crit = f.split(":", 1)[1].strip().strip("'\"")
-        return f"Missed clinical point: {crit}"
-    if "atomic citation entailment" in f:
-        return "One or more cited source records did not fully support the sentence's claim"
-    if f.startswith("abstention violation:"):
-        if "must abstain" in f:
-            return "Did not clearly state that the requested record is absent from the chart"
-        return "Over-abstained on a question that is answerable from the chart"
-    return f
 
 
 def build_wahs_report_packet(

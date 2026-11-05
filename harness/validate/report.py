@@ -2146,7 +2146,7 @@ function renderPatientBanner(run){
     const head = el('div', 'pt-head');
     head.appendChild(document.createTextNode('Patient — '));
     const id = el('span', 'pt-id');
-    id.textContent = pt.badge || (pt.identifier ? ('OpenMRS ID ' + pt.identifier) : ('UUID ' + (pt.uuid || '').slice(0, 8)));
+    id.textContent = pt.identifier ? ('OpenMRS ID ' + pt.identifier) : ('UUID ' + (pt.uuid || '').slice(0, 8));
     head.appendChild(id);
     if (pt.display){ const nm = el('span', 'pt-name'); nm.textContent = ' ' + pt.display; head.appendChild(nm); }
     const demo = [pt.gender, (pt.age != null ? pt.age + 'y' : ''), (pt.birthdate ? 'b.' + pt.birthdate : '')].filter(Boolean).join(', ');
