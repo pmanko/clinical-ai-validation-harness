@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -584,7 +585,9 @@ def test_token_evidence_and_budget_validation():
     from harness.cli import _build_parser
 
     parser = _build_parser()
-    for bad_budget in ("", "bad", "0", "65537"):
+    parsed = parser.parse_args(["wahs", "run", "--cases", "x", "--budget", "262144"])
+    assert parsed.budgets == [262144]
+    for bad_budget in ("", "bad", "0", "262145"):
         with pytest.raises(SystemExit):
             parser.parse_args(["wahs", "run", "--cases", "x", "--budget", bad_budget])
 
@@ -837,6 +840,894 @@ def test_trace_transport_for_result_distinguishes_chartsearchai_from_hub_and_bun
         )
         == "hub"
     )
+
+
+def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
+    import subprocess
+    import sys
+
+    chat_requests: list[dict] = []
+
+    class ProfileSession:
+        headers = {}
+
+        def get(self, url, **kwargs):
+            assert "/v1/models?workflow=wahs" in url
+
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    return {
+                        "data": [
+                            {
+                                "id": "wahs-12b-kb",
+                                "label": "Gemma 4 12B — KB-Guided",
+                                "model": "gemma-4-12b",
+                                "model_family": "Gemma 4",
+                                "kb_guided": True,
+                            },
+                            {
+                                "id": "wahs-12b-raw",
+                                "label": "Gemma 4 12B — Raw Condensed",
+                                "model": "gemma-4-12b",
+                                "model_family": "Gemma 4",
+                                "kb_guided": False,
+                            },
+                            {
+                                "id": "wahs-qwen3-14b-kb",
+                                "label": "Qwen 3 14B — KB-Guided",
+                                "model": "qwen3-14b",
+                                "model_family": "Qwen",
+                                "kb_guided": True,
+                            },
+                        ]
+                    }
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            payload = kwargs["json"]
+            if url.endswith("/wahs/api/analyze"):
+                class AnalyzeResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {
+                            "condensation": {
+                                "condensed_text": "[1] Simvastatin 40 MG\n[2] Atorvastatin 80 MG",
+                                "tier_info": {
+                                    "tier_used": 1,
+                                    "actual_tokens": 640,
+                                    "budget_tokens": payload["target_tokens"],
+                                },
+                                "retained_uuids": ["uuid-simva-40", "uuid-atorva-80"],
+                                "redaction_notice": "",
+                                "mappings": {
+                                    "[1]": {
+                                        "primary_uuid": "uuid-simva-40",
+                                        "resource_type": "MedicationRequest",
+                                        "summary": "Simvastatin 40 MG Oral Tablet",
+                                        "member_uuids": [],
+                                    },
+                                    "[2]": {
+                                        "primary_uuid": "uuid-atorva-80",
+                                        "resource_type": "MedicationRequest",
+                                        "summary": "Atorvastatin 80 MG Oral Tablet",
+                                        "member_uuids": [],
+                                    },
+                                },
+                            },
+                            "reconciliation": {
+                                "anomalies": [
+                                    {
+                                        "category": "duplicate_therapy",
+                                        "severity": "high",
+                                        "title": "Duplicate Statin Therapy",
+                                        "summary": "Simvastatin 40 MG [1] and Atorvastatin 80 MG [2] are both active.",
+                                        "patient_question": "Ask your doctor which cholesterol medicine to keep taking.",
+                                        "citation_indices": [1, 2],
+                                    }
+                                ]
+                            },
+                            "kb_evaluation": {
+                                "contraindications": [],
+                                "monitoring_gaps": [],
+                                "care_gaps": [],
+                            },
+                        }
+
+                return AnalyzeResp()
+
+            if url.endswith("/v1/chat/completions"):
+                chat_requests.append(payload)
+
+                class ChatResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "content": (
+                                            "<think>Checking statin duplication...</think>\n"
+                                            "Your chart lists two cholesterol medications at the same time: "
+                                            "Simvastatin 40 MG [1] and Atorvastatin 80 MG [2]. "
+                                            "Ask your doctor which one to stop."
+                                        )
+                                    }
+                                }
+                            ]
+                        }
+
+                return ChatResp()
+
+            raise AssertionError(f"Unexpected URL: {url}")
+
+    cases_path = tmp_path / "profile_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "wahs_a_statin_dup",
+                "patient_id": "Maurice742_Auer97_set_b",
+                "use_case": "A_reconciliation",
+                "prompt": "Check my medications for duplicates.",
+                "sharing_posture": "patient_self",
+                "target_token_budgets": [4096],
+                "expected_anomaly_ids": ["anom_statin_dup"],
+                "expected_target_uuids": ["uuid-simva-40", "uuid-atorva-80"],
+                "valid_uuids": ["uuid-simva-40", "uuid-atorva-80"],
+                "positive_rubric_items": [
+                    {
+                        "id": "r1",
+                        "criterion": "Names both statins",
+                        "required_any": ["Simvastatin", "Atorvastatin"],
+                        "weight": 1.0,
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    client = WahsHubClient(base_url="http://127.0.0.1:18081", session=ProfileSession())
+    out_dir = tmp_path / "profile_runs"
+    res = run_wahs_suite(
+        cases_path,
+        client=client,
+        output_dir=out_dir,
+        budgets=[4096],
+        profiles=["wahs-12b-kb", "wahs-12b-raw", "wahs-qwen3-14b-kb"],
+        evaluation_modality="live_model_and_team_eval",
+    )
+    assert res.total_cells == 3
+    assert res.passed_cells == 3
+    assert len(chat_requests) == 3
+
+    # Verify -kb profile includes Stage 2 KB findings while -raw profile omits them
+    kb_prompt = chat_requests[0]["messages"][0]["content"]
+    raw_prompt = chat_requests[1]["messages"][0]["content"]
+    assert "deterministic 4-Layer Clinical Knowledge Base findings" in kb_prompt
+    assert "Duplicate Statin Therapy" in kb_prompt
+    assert "Stage 2 KB findings are intentionally withheld" in raw_prompt
+    assert "Duplicate Statin Therapy" not in raw_prompt
+
+    # Verify summary includes by_profile and by_model_family breakdowns
+    assert set(res.summary["by_profile"].keys()) == {
+        "wahs-12b-kb",
+        "wahs-12b-raw",
+        "wahs-qwen3-14b-kb",
+    }
+    assert set(res.summary["by_model_family"].keys()) == {"gemma-4", "qwen"}
+
+    # Verify judge-prep.py runs cleanly on the WAHS run directory and chart_snapshot is pure chart text
+    chart_files = list((res.run_dir / "inputs" / "charts").glob("*.json"))
+    assert len(chart_files) == 1
+    chart_payload = json.loads(chart_files[0].read_text(encoding="utf-8"))
+    assert "Required Clinical Facts" not in chart_payload["chart_snapshot"]
+
+    script = Path(__file__).resolve().parent.parent / "scripts" / "judge-prep.py"
+    proc = subprocess.run(
+        [sys.executable, str(script), str(res.run_dir), "--blind"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "wrote 3 cells" in proc.stdout
+    assert (res.run_dir / "judge-cells.jsonl").is_file()
+    assert (res.run_dir / "judge-blind-map.json").is_file()
+    cells = [
+        json.loads(line)
+        for line in (res.run_dir / "judge-cells.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(cells) == 3
+    bundles = list((res.run_dir / "judge-bundles").glob("*.jsonl"))
+    assert len(bundles) == 1
+    bundle_rows = [
+        json.loads(line)
+        for line in bundles[0].read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(bundle_rows) == 3
+    assert {r["backend_id"] for r in bundle_rows} == {"A", "B", "C"}
+
+    # Verify build_wahs_report_packet does NOT fabricate a synthetic judge.jsonl before LLM judging
+    assert main(["wahs", "report", str(res.run_dir)]) == 0
+    assert (res.run_dir / "report.html").is_file()
+    assert (res.run_dir / "dashboard.html").is_file()
+    assert (res.run_dir / "meta.json").is_file()
+    assert not (res.run_dir / "judge.jsonl").is_file()
+
+    # Finalize blinded LLM judge rows via judge-finalize.py and verify report packet
+    blind_rows_path = tmp_path / "blind_judge_rows.json"
+    blind_rows = [
+        {
+            "scenario_id": r["scenario_id"],
+            "backend_id": r["backend_id"],
+            "accuracy": 9.0,
+            "completeness": 8.0,
+            "relevance": 9.0,
+            "abstention_outcome": "n-a",
+            "citation_groundedness": "supported",
+            "harm": False,
+            "temporal_date_accuracy": "ok",
+            "temporal_window": "ok",
+            "temporal_trend": "ok",
+            "note": "Blinded LLM judge evaluation note.",
+        }
+        for r in bundle_rows
+    ]
+    blind_rows_path.write_text(json.dumps(blind_rows), encoding="utf-8")
+    finalize_script = Path(__file__).resolve().parent.parent / "scripts" / "judge-finalize.py"
+    subprocess.run(
+        [
+            sys.executable,
+            str(finalize_script),
+            str(res.run_dir),
+            str(blind_rows_path),
+            "--actor",
+            "claude-opus-5-5-high-p1",
+            "--model",
+            "claude-opus-5-5",
+            "--blind",
+            "--promote",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert main(["wahs", "report", str(res.run_dir)]) == 0
+    assert (res.run_dir / "judge.jsonl").is_file()
+    meta_json = json.loads((res.run_dir / "meta.json").read_text(encoding="utf-8"))
+    assert meta_json["cells"] == 3
+    assert len(meta_json["scout"]) == 3
+    assert meta_json["judging"]["recorded"] is True
+
+
+def test_multi_budget_valid_uuids_union_and_cell_source_resolution():
+    from harness.validate.sources import build_sources
+    from harness.wahs.evaluator import _merge_scenario_envelopes
+
+    env_1k = {
+        "condensed_text": "[1] (2026-01-25) Medication: Vancomycin\n[18] (2022-05-03) Procedure: Extraction of Stomach",
+        "mappings": [
+            {"index": 1, "resourceUuid": "uuid-vanco", "resourceType": "MedicationRequest"},
+            {"index": 18, "resourceUuid": "uuid-stomach-1k", "resourceType": "Procedure"},
+        ],
+        "retained_uuids": ["uuid-vanco", "uuid-stomach-1k"],
+    }
+    env_32k = {
+        "condensed_text": (
+            "[1] (2026-01-25) Medication: Vancomycin\n"
+            "[18] (2024-06-08) Device: Dual-chamber pacemaker\n"
+            "[45] (2022-05-03) Procedure: Extraction of Stomach"
+        ),
+        "mappings": [
+            {"index": 1, "resourceUuid": "uuid-vanco", "resourceType": "MedicationRequest"},
+            {"index": 18, "resourceUuid": "uuid-pacemaker-32k", "resourceType": "Device"},
+            {"index": 45, "resourceUuid": "uuid-stomach-1k", "resourceType": "Procedure"},
+        ],
+        "retained_uuids": ["uuid-vanco", "uuid-pacemaker-32k", "uuid-stomach-1k"],
+    }
+    merged = _merge_scenario_envelopes(env_1k, env_32k)
+    assert set(merged["valid_uuids"]) == {"uuid-vanco", "uuid-stomach-1k", "uuid-pacemaker-32k"}
+    chart_fixture = {
+        "valid_uuids": merged["valid_uuids"],
+        "mappings": merged["mappings"],
+        "chart_snapshot": merged["condensed_text"],
+    }
+
+    resp_1k = {
+        **env_1k,
+        "answer": "Patient had stomach extraction [18].",
+        "references": [{"index": 18, "resourceUuid": "uuid-stomach-1k", "resourceType": "Procedure"}],
+    }
+    sources_1k = build_sources(resp_1k, chart_fixture)
+    assert sources_1k["diagnostics"]["unresolved_refs"] == []
+    s18_1k = sources_1k["sources"][0]
+    assert s18_1k["resolution_status"] == "resolved"
+    assert s18_1k["resource_uuid"] == "uuid-stomach-1k"
+    assert "Extraction of Stomach" in s18_1k["source_text"]
+
+    resp_32k = {
+        **env_32k,
+        "answer": "Patient has a dual-chamber pacemaker [18].",
+        "references": [{"index": 18, "resourceUuid": "uuid-pacemaker-32k", "resourceType": "Device"}],
+    }
+    sources_32k = build_sources(resp_32k, chart_fixture)
+    assert sources_32k["diagnostics"]["unresolved_refs"] == []
+    s18_32k = sources_32k["sources"][0]
+    assert s18_32k["resolution_status"] == "resolved"
+    assert s18_32k["resource_uuid"] == "uuid-pacemaker-32k"
+    assert "Dual-chamber pacemaker" in s18_32k["source_text"]
+
+
+def test_demo_data_text_matching_and_recovered_mappings_resolution(tmp_path: Path, monkeypatch):
+    demo_js = tmp_path / "wahs_demo_data.js"
+    demo_payload = {
+        "patients": {
+            "p_test": {
+                "condensation_matrix": {
+                    "lossless_structural": {
+                        "1024": {
+                            "tier": 3,
+                            "actual_tokens": 512,
+                            "chart_text": "[1] (2026-01-25) Medication: Lipitor 40 MG\n[2] (2026-01-24) Finding — eGFR: 35",
+                            "omitted_sections": {"medications": 2},
+                        },
+                        "8192": {
+                            "tier": 1,
+                            "actual_tokens": 4100,
+                            "chart_text": (
+                                "[1] (2026-01-25) Medication: Lipitor 40 MG\n"
+                                "[2] (2026-01-24) Medication: Spironolactone 25 MG\n"
+                                "[3] (2026-01-24) Finding — eGFR: 35"
+                            ),
+                            "omitted_sections": {},
+                        },
+                    }
+                },
+                "postures": {
+                    "patient_self": {
+                        "tier_8k": {
+                            "mappings": [
+                                {"index": 1, "resourceType": "MedicationRequest", "resourceUuid": "uuid-lipitor", "date": "2026-01-25", "display": "Medication: Lipitor 40 MG"},
+                                {"index": 2, "resourceType": "MedicationRequest", "resourceUuid": "uuid-spiro", "date": "2026-01-24", "display": "Medication: Spironolactone 25 MG"},
+                                {"index": 3, "resourceType": "Observation", "resourceUuid": "uuid-egfr", "date": "2026-01-24", "display": "Finding — eGFR: 35"},
+                            ]
+                        },
+                        "data_quality_and_conflicts": {
+                            "findings": [
+                                {
+                                    "id": "f_spiro_egfr",
+                                    "title": "Spironolactone in low eGFR",
+                                    "severity": "critical",
+                                    "description": "Spironolactone with eGFR 35",
+                                    "resource_uuids": ["uuid-spiro", "uuid-egfr"],
+                                    "citations": [{"index": 2}, {"index": 3}],
+                                },
+                                {
+                                    "id": "f_egfr_only",
+                                    "title": "Reduced eGFR",
+                                    "severity": "high",
+                                    "description": "eGFR is 35",
+                                    "resource_uuids": ["uuid-egfr"],
+                                    "citations": [{"index": 3}],
+                                },
+                            ]
+                        },
+                    }
+                },
+            }
+        }
+    }
+    demo_js.write_text("window.WAHS_DEMO_DATA = " + json.dumps(demo_payload) + ";", encoding="utf-8")
+    monkeypatch.setenv("WAHS_DEMO_DATA_JS", str(demo_js))
+
+    c = WahsHubClient()
+    d1k = c._resolve_demo_data_analyze("p_test", 1024)
+    assert d1k is not None
+    m1k = {m["index"]: m["resourceUuid"] for m in d1k["condensation"]["mappings"]}
+    assert m1k[1] == "uuid-lipitor"
+    assert m1k[2] == "uuid-egfr"
+    # Finding requiring omitted uuid-spiro is filtered out of client-side 1k findings,
+    # while finding requiring surviving uuid-egfr is retained and remapped from [3] -> [2]
+    assert len(d1k["kb_findings"]) == 1
+    assert d1k["kb_findings"][0]["id"] == "f_egfr_only"
+    assert d1k["kb_findings"][0]["evidence_indices"] == [2]
+
+
+def test_direct_llm_profile_routes_to_direct_base_url_without_med_agent_hub(tmp_path: Path):
+    seen_urls: list[tuple[str, dict]] = []
+
+    class DirectSession:
+        headers = {}
+
+        def get(self, url, **kwargs):
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    return {"data": []}
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            payload = kwargs["json"]
+            seen_urls.append((url, payload))
+            if url.endswith("/wahs/api/analyze"):
+                class AnalyzeResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {
+                            "condensation": {
+                                "condensed_text": "[1] Lipitor 40 MG\n[2] Simvastatin 20 MG",
+                                "actual_tokens": 300,
+                                "mappings": [
+                                    {"index": 1, "resourceType": "MedicationRequest", "resourceUuid": "u1", "display": "Lipitor 40 MG"},
+                                    {"index": 2, "resourceType": "MedicationRequest", "resourceUuid": "u2", "display": "Simvastatin 20 MG"},
+                                ],
+                            },
+                            "kb_findings": [{"id": "dup_statin", "title": "Duplicate Statin"}],
+                        }
+
+                return AnalyzeResp()
+
+            class ChatResp:
+                status_code = 200
+
+                def json(self):
+                    return {
+                        "choices": [{"message": {"content": "Lipitor [1] and Simvastatin [2] are both active."}}],
+                        "usage": {"prompt_tokens": 320, "completion_tokens": 12},
+                    }
+
+            return ChatResp()
+
+    cases_path = tmp_path / "direct_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c_direct",
+                "patient_id": "p1",
+                "use_case": "uc1_med_reconcile",
+                "prompt": "Check my statins.",
+                "target_token_budgets": [8192],
+                "expected_target_uuids": ["u1", "u2"],
+                "positive_rubric_items": [{"id": "r1", "criterion": "Statins", "required_keywords": ["lipitor", "simvastatin"], "weight": 1.0}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    client = WahsHubClient(
+        base_url="http://127.0.0.1:18081",
+        direct_llm_base_url="http://127.0.0.1:8076",
+        session=DirectSession(),
+    )
+    res = run_wahs_suite(
+        cases_path,
+        client=client,
+        output_dir=tmp_path / "runs",
+        profiles=["direct-12b@8k"],
+        evaluation_modality="live_model_and_team_eval",
+    )
+    assert res.total_cells == 1
+    chat_url, chat_payload = seen_urls[-1]
+    assert chat_url == "http://127.0.0.1:8076/v1/chat/completions"
+    assert chat_payload["model"] == "gemma-4-12b"
+    assert "STAGE 2 CLINICAL KB" not in chat_payload["messages"][0]["content"]
+
+
+def test_analyze_case_blocks_demo_fallback_for_external_share(tmp_path: Path, monkeypatch):
+    demo_js = tmp_path / "wahs_demo_data.js"
+    demo_payload = {
+        "patients": {
+            "p_ext": {
+                "condensation_matrix": {
+                    "lossless_structural": {
+                        "4096": {
+                            "tier": 1,
+                            "actual_tokens": 500,
+                            "chart_text": "[1] (2026-01-25) Condition: Unredacted sensitive patient-self chart",
+                        }
+                    }
+                },
+                "postures": {"patient_self": {"tier_8k": {"mappings": []}}},
+            }
+        }
+    }
+    demo_js.write_text("window.WAHS_DEMO_DATA = " + json.dumps(demo_payload) + ";", encoding="utf-8")
+    monkeypatch.setenv("WAHS_DEMO_DATA_JS", str(demo_js))
+
+    class NotFoundSession:
+        headers = {}
+
+        def post(self, url, **kwargs):
+            class Resp:
+                status_code = 404
+                text = "Not Found"
+
+            return Resp()
+
+    client = WahsHubClient(session=NotFoundSession(), max_retries=0)
+    ext_case = WahsEvalCase(
+        case_id="c_ext",
+        patient_id="p_ext",
+        use_case="B2_privacy",
+        prompt="Share summary.",
+        sharing_posture="external_share",
+    )
+    with pytest.raises(RuntimeError, match="WAHS analyze failed \\[404\\]"):
+        client.analyze_case(ext_case, budget_tokens=4096)
+
+
+def test_atomic_entailment_rejects_wrong_sentence_citation_even_when_expected_uuid_cited_elsewhere():
+    case = WahsEvalCase(
+        case_id="c_entail_strict",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        citation_entailment_assertions=[
+            {"resource_uuid": "uuid-mri", "must_mention_any": ["tumor"]}
+        ],
+    )
+    # "tumor" claim cites [2] (appointment), while [1] (MRI) is cited in a later unrelated sentence
+    env = {
+        "answer": "Brain scan showed a tumor [2]. Next clinic appointment is scheduled for Friday [1].",
+        "actual_tokens": 20,
+        "references": [
+            {"index": 1, "resourceUuid": "uuid-mri"},
+            {"index": 2, "resourceUuid": "uuid-appt"},
+        ],
+    }
+    sc = score_wahs_case(case, env, budget_tokens=1024)
+    assert sc.atomic_entailment_rate == 0.0
+    assert sc.passed is False
+
+
+def test_abstention_rejects_contradictory_finding_even_with_bracket_citation():
+    from harness.wahs.evaluator import _is_clean_abstention
+
+    assert _is_clean_abstention("MRI is not documented. MRI showed a tumor [1].", {}) is False
+    case = WahsEvalCase(
+        case_id="c_abstain_contradict_cite",
+        patient_id="p",
+        use_case="qa",
+        prompt="q",
+        must_abstain=True,
+        valid_uuids=["u1"],
+    )
+    sc = score_wahs_case(
+        case,
+        {
+            "answer": "MRI is not documented. MRI showed a tumor [1].",
+            "actual_tokens": 20,
+            "references": [{"index": 1, "resourceUuid": "u1"}],
+        },
+    )
+    assert sc.abstention_ok is False
+    assert sc.passed is False
+
+
+def test_build_wahs_report_packet_preserves_caller_context_and_derives_default_from_run(tmp_path: Path):
+    from harness.wahs.evaluator import build_wahs_report_packet
+
+    cases_path = tmp_path / "cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c1",
+                "patient_id": "p1",
+                "use_case": "qa",
+                "prompt": "q",
+                "target_token_budgets": [32768],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    res = run_wahs_suite(
+        cases_path,
+        client=_StubWahsClient(),
+        output_dir=tmp_path / "runs",
+        budgets=[32768],
+    )
+    build_wahs_report_packet(res.run_dir)
+    manifest = json.loads(res.manifest_path.read_text(encoding="utf-8"))
+    ctx_text = manifest["context"]["text"]
+    assert "What this run evaluates: 1 clinical scenario" in ctx_text
+    assert "80.2/100" not in ctx_text
+
+    # Caller-supplied context is preserved on subsequent report builds, and legacy synthetic judge dir is cleaned up
+    det_dir = res.run_dir / "judges" / "wahs-deterministic-rubric-p1"
+    det_dir.mkdir(parents=True, exist_ok=True)
+    canon_file = res.run_dir / "judges" / "canonical.json"
+    canon_file.write_text(json.dumps({"built_from": ["wahs-deterministic-rubric-p1"]}), encoding="utf-8")
+    (res.run_dir / "judge.jsonl").write_text("{}\n", encoding="utf-8")
+    manifest["context"] = {"text": "Caller-supplied study context.", "url": "", "label": ""}
+    res.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    build_wahs_report_packet(res.run_dir)
+    manifest_after = json.loads(res.manifest_path.read_text(encoding="utf-8"))
+    assert manifest_after["context"]["text"] == "Caller-supplied study context."
+    assert not det_dir.exists()
+    assert not canon_file.exists()
+
+
+def test_wahs_profile_metadata_arm_cards_and_kb_formatting_helpers(tmp_path: Path):
+    from harness.wahs.evaluator import (
+        _format_kb_findings_for_prompt,
+        _infer_model_family_and_id,
+        _normalize_bracket_citations,
+        _split_profile_budget,
+        _wahs_arm_card,
+    )
+
+    assert _normalize_bracket_citations("See [1, 2 and 3] and [10; 11].") == "See [1] [2] [3] and [10] [11]."
+    assert _split_profile_budget("wahs-12b-kb@8192") == ("wahs-12b-kb@8k", "wahs-12b-kb", 8192, "8k")
+    with pytest.raises(ValueError, match="Invalid profile budget suffix"):
+        _split_profile_budget("wahs-12b-kb@bad")
+    with pytest.raises(ValueError, match="Invalid profile budget"):
+        _split_profile_budget("wahs-12b-kb@999k")
+
+    for pid, expected_fam in (
+        ("wahs:medgemma-27b", "medgemma"),
+        ("wahs-medgemma-27b-kb", "medgemma"),
+        ("wahs-medgemma-4b-kb", "medgemma"),
+        ("wahs-12b-q4-kb", "gemma-4"),
+        ("wahs-e2b-kb", "gemma-4"),
+        ("wahs-e4b-q8-kb", "gemma-4"),
+        ("wahs-e4b-kb", "gemma-4"),
+        ("wahs-26b-kb", "gemma-4"),
+        ("wahs-31b-kb", "gemma-4"),
+        ("wahs-qwen3-4b-kb", "qwen"),
+        ("wahs-qwen35-9b-kb", "qwen"),
+        ("wahs-qwen25-14b-kb", "qwen"),
+        ("wahs-qwen3-14b-kb", "qwen"),
+        ("wahs-qwen36-35b-kb", "qwen"),
+        ("wahs-llama31-8b-kb", "llama"),
+        ("wahs-mistral-nemo-12b-kb", "mistral"),
+        ("wahs-granite33-8b-kb", "granite"),
+        ("wahs-lfm2-8b-kb", "lfm2"),
+        ("gemini-2.5-pro", "gemini"),
+        ("claude-opus-4", "claude"),
+        ("custom-model", "other"),
+    ):
+        fam, _, _ = _infer_model_family_and_id(pid)
+        assert fam == expected_fam
+
+    for arm_id in (
+        "wahs-4b-kb@8k",
+        "wahs-26b-kb@8k",
+        "wahs-27b-kb@8k",
+        "wahs-qwen35b-kb@8k",
+        "wahs-qwen30b-kb@8k",
+        "wahs-lfm24b-kb@8k",
+        "direct-12b@8k",
+        "wahs-12b-raw@8k",
+    ):
+        card = _wahs_arm_card(arm_id)
+        assert card["title"]
+        assert card["short_title"]
+
+    kb_str = _format_kb_findings_for_prompt(
+        {
+            "analyses": {
+                "chart_hygiene_and_reconciliation_skills": {
+                    "formatted_findings_block": "Skill summary line 1",
+                },
+                "patterns_and_summaries": {
+                    "highlight_encounter": {
+                        "title": "ICU Admission",
+                        "narrative": "Treated for sepsis.",
+                        "citations": [{"index": 4}],
+                    },
+                    "trajectories": [
+                        {
+                            "concept": "Creatinine",
+                            "unit": "mg/dL",
+                            "citations": [{"index": 5}],
+                            "initial": {"value": 1.1, "date": "2025-01-01"},
+                            "latest": {"value": 2.4, "date": "2026-01-01"},
+                            "min": {"value": 1.1},
+                            "max": {"value": 2.4},
+                            "direction": "rising",
+                        }
+                    ],
+                },
+            },
+            "redaction_notice": "Redacted 1 item.",
+        }
+    )
+    assert "4-Layer Reconciliation Skill Summary:" in kb_str
+    assert "[ENCOUNTER SUMMARY] ICU Admission [4]" in kb_str
+    assert "[TRAJECTORY] Creatinine" in kb_str
+    assert "Privacy posture note: Redacted 1 item." in kb_str
+
+    # Verify local bundle resolution and hub_enrichment header fallback
+    bdir = tmp_path / "bundles"
+    bdir.mkdir()
+    (bdir / "p_local.json").write_text(json.dumps({"resourceType": "Bundle", "entry": []}), encoding="utf-8")
+
+    class LocalBundleAndHeaderSession:
+        headers = {}
+        analyze_calls = 0
+
+        def get(self, url, **kwargs):
+            class Resp:
+                status_code = 500
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            if url.endswith("/wahs/api/analyze"):
+                self.analyze_calls += 1
+                if self.analyze_calls == 1:
+                    class Resp404:
+                        status_code = 404
+                        text = "not found"
+
+                    return Resp404()
+
+                class Resp200:
+                    status_code = 200
+
+                    def json(self):
+                        return {
+                            "condensation": {
+                                "chart_text": "[1] (2026-01-01) Condition: CKD",
+                                "actual_tokens": 120,
+                                "redacted_for_privacy": ["sdoh-1"],
+                                "mappings": [{"index": 1, "resourceType": "Condition", "resourceUuid": "u-ckd", "date": "2026-01-01", "display": "CKD"}],
+                            },
+                            "analyses": {
+                                "data_quality_and_conflicts": {
+                                    "findings": [
+                                        {
+                                            "id": "f1",
+                                            "title": "CKD Alert",
+                                            "resource_uuids": ["u-ckd", "u-extra"],
+                                            "bracket_citations": [1],
+                                        }
+                                    ]
+                                }
+                            },
+                        }
+
+                return Resp200()
+
+            class ChatResp:
+                status_code = 200
+                headers = {
+                    "X-WAHS-Hub-Enrichment": json.dumps(
+                        {
+                            "recovered_mappings": [
+                                {
+                                    "index": 101,
+                                    "resourceType": "Procedure",
+                                    "resourceUuid": "u-rec-101",
+                                    "date": "2024-05-01",
+                                    "display": "Dialysis catheter",
+                                }
+                            ]
+                        }
+                    )
+                }
+
+                def json(self):
+                    return {
+                        "choices": [{"message": {"content": "CKD [1] and recovered procedure [101]."}}],
+                    }
+
+            return ChatResp()
+
+    c_local = WahsHubClient(session=LocalBundleAndHeaderSession(), bundle_dirs=[bdir])
+    env_out = c_local.evaluate_case(
+        WahsEvalCase(
+            case_id="c_loc",
+            patient_id="p_local",
+            use_case="B2_privacy",
+            prompt="Check chart.",
+            sharing_posture="external_share",
+        ),
+        budget_tokens=4096,
+        profile_id="wahs-12b-kb@4k",
+    )
+    assert "42 CFR Part 2" in env_out["redaction_notice"]
+    ref_by_idx = {r["index"]: r for r in env_out["references"]}
+    assert ref_by_idx[101]["resourceUuid"] == "u-rec-101"
+    assert "u-extra" in ref_by_idx[1]["memberUuids"]
+
+    # Multiline entailment fallback (uncited sentence followed by cited continuation line)
+    entail_case = WahsEvalCase(
+        case_id="c_multiline_entail",
+        patient_id="p1",
+        use_case="qa",
+        prompt="q",
+        citation_entailment_assertions=[
+            {"resource_uuid": "u-egfr", "must_mention_all": ["egfr", "35"]}
+        ],
+    )
+    entail_sc = score_wahs_case(
+        entail_case,
+        {
+            "answer": "Latest kidney lab shows eGFR is 35 mL/min.\nSupporting record from renal panel [1].",
+            "actual_tokens": 20,
+            "references": [{"index": 1, "resourceUuid": "u-egfr"}],
+        },
+    )
+    assert entail_sc.atomic_entailment_rate == 1.0
+
+    # Demo data analyze_case cache + 8192 budget + alias_of_budget + memberUuids
+    demo_js = tmp_path / "demo_full.js"
+    demo_js.write_text(
+        "window.WAHS_DEMO_DATA = "
+        + json.dumps(
+            {
+                "patients": {
+                    "p_demo": {
+                        "condensation_matrix": {
+                            "lossless_structural": {
+                                "8192": {
+                                    "tier": 1,
+                                    "actual_tokens": 800,
+                                    "chart_text": "[1] (2026-01-01) Medication: Lipitor\n[2] (2026-01-02) Unmapped line",
+                                    "mappings": [
+                                        {
+                                            "index": 1,
+                                            "resourceUuid": "u-lip",
+                                            "memberUuids": ["u-mem-1"],
+                                        }
+                                    ],
+                                },
+                                "16384": {"alias_of_budget": "8192"},
+                            }
+                        },
+                        "postures": {
+                            "patient_self": {
+                                "tier_8k": {
+                                    "mappings": [
+                                        {
+                                            "index": 1,
+                                            "resourceUuid": "u-lip",
+                                            "memberUuids": ["u-mem-1"],
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+        )
+        + ";",
+        encoding="utf-8",
+    )
+    os_env_prev = os.environ.get("WAHS_DEMO_DATA_JS")
+    os.environ["WAHS_DEMO_DATA_JS"] = str(demo_js)
+    try:
+        c_demo = WahsHubClient()
+        d_res = c_demo.analyze_case(
+            WahsEvalCase(case_id="cd", patient_id="p_demo", use_case="qa", prompt="q"),
+            budget_tokens=8192,
+        )
+        assert d_res["condensation"]["actual_tokens"] == 800
+        d_alias = c_demo._resolve_demo_data_analyze("p_demo", 16384)
+        assert d_alias is not None and d_alias["condensation"]["tier_info"]["budget_tokens"] == 16384
+    finally:
+        if os_env_prev is None:
+            os.environ.pop("WAHS_DEMO_DATA_JS", None)
+        else:
+            os.environ["WAHS_DEMO_DATA_JS"] = os_env_prev
+
+
+
+
+
+
+
 
 
 

@@ -285,8 +285,11 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
     """
     response = response if isinstance(response, dict) else {}
     snapshot = parse_snapshot_records((chart_fixture or {}).get("chart_snapshot"))
+    resp_snapshot = parse_snapshot_records(response.get("condensed_text"))
     mappings = _chart_mappings(chart_fixture)
+    resp_mappings = _chart_mappings(response)
     mappings_by_uuid = _chart_mappings_by_uuid(chart_fixture)
+    resp_mappings_by_uuid = _chart_mappings_by_uuid(response)
     valid_uuids = set((chart_fixture or {}).get("valid_uuids") or [])
 
     top_refs, ref_objects = _reference_objects(response)
@@ -305,27 +308,45 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
     sources = []
     for pos, idx in enumerate(order, start=1):
         ref_obj = ref_objects.get(idx) or {}
-        mapping_by_index = mappings.get(idx) or {}
-        snap = snapshot.get(idx) or {}
+        resp_map_idx = resp_mappings.get(idx) or {}
+        mapping_by_index = resp_map_idx or mappings.get(idx) or {}
         uuid = (
             ref_obj.get("resourceUuid")
             or ref_obj.get("uuid")
             or mapping_by_index.get("resourceUuid")
             or mapping_by_index.get("uuid")
         )
-        mapping_by_uuid = mappings_by_uuid.get(uuid) if isinstance(uuid, str) else None
+        mapping_by_uuid = (
+            (resp_mappings_by_uuid.get(uuid) or mappings_by_uuid.get(uuid))
+            if isinstance(uuid, str)
+            else None
+        )
         mapping = mapping_by_uuid or mapping_by_index
-        chart_index = _int_ref(mapping.get("index")) or idx
-        snap = snapshot.get(chart_index) or snap
+        chart_index = _int_ref((mappings_by_uuid.get(uuid) or {}).get("index")) if isinstance(uuid, str) else None
+        if chart_index is None:
+            chart_index = _int_ref(mapping.get("index")) or idx
+        if idx in resp_snapshot:
+            snap = resp_snapshot[idx]
+        else:
+            snap = snapshot.get(chart_index) or snapshot.get(idx) or {}
         rtype = ref_obj.get("resourceType") or mapping.get("resourceType")
         date = _normalize_date(ref_obj.get("date")) or _normalize_date(mapping.get("date")) or snap.get("date")
+        norm_uuid = str(uuid).replace("urn:uuid:", "") if isinstance(uuid, str) else None
         if valid_uuids:
-            resolution_status = "resolved" if uuid in valid_uuids else "unresolved"
+            resolution_status = (
+                "resolved"
+                if (uuid in valid_uuids or (norm_uuid and norm_uuid in valid_uuids))
+                else "unresolved"
+            )
         elif uuid:
             resolution_status = "unknown"
         else:
             resolution_status = "unknown"
-        title = snap.get("title") or (f"{rtype} record" if rtype else f"Record {idx}")
+        display_fallback = str(
+            ref_obj.get("display") or resp_map_idx.get("display") or mapping.get("display") or ""
+        ).strip()
+        title = snap.get("title") or display_fallback or (f"{rtype} record" if rtype else f"Record {idx}")
+        source_text = snap.get("source_text") or display_fallback
         sources.append({
             "source_id": f"S{pos}",
             "citation_index": idx,
@@ -335,7 +356,7 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
             "resource_uuid": uuid,
             "date": date,
             "title": title,
-            "source_text": snap.get("source_text") or "",
+            "source_text": source_text,
             "facts_used": _compact(facts_by_ref.get(idx, []), limit=8),
             "used_by": usage_by_ref.get(idx, []),
             "resolution_status": resolution_status,
