@@ -2286,8 +2286,12 @@ def _infer_model_family_and_id(
             underlying = "qwen3-14b"
         elif "qwen36-35b" in pid_low:
             underlying = "qwen3.6-35b"
-        elif "llama31-8b" in pid_low:
+        elif "llama32-3b" in pid_low or "llama-3.2-3b" in pid_low:
+            underlying = "llama-3.2-3b"
+        elif "llama31-8b" in pid_low or "llama-3.1-8b" in pid_low:
             underlying = "llama-3.1-8b"
+        elif "hermes3-8b" in pid_low:
+            underlying = "hermes3-8b"
         elif "mistral-nemo-12b" in pid_low:
             underlying = "mistral-nemo-12b"
         elif "granite33-8b" in pid_low:
@@ -2305,7 +2309,7 @@ def _infer_model_family_and_id(
             fam = "gemma-4"
         elif "qwen" in u_low or "qwen" in pid_low:
             fam = "qwen"
-        elif "llama" in u_low or "llama" in pid_low:
+        elif "llama" in u_low or "llama" in pid_low or "hermes3" in u_low or "hermes3" in pid_low:
             fam = "llama"
         elif "mistral" in u_low or "mistral" in pid_low:
             fam = "mistral"
@@ -2742,15 +2746,26 @@ def _write_scenario_and_chart_inputs(
         case = cases_by_id.get(base_cid)
         if case is None:
             continue
+        scen_path = scenarios_dir / f"{scenario_id}.json"
+        existing_scen: dict[str, Any] = {}
+        if scen_path.is_file():
+            try:
+                existing_scen = json.loads(scen_path.read_text(encoding="utf-8"))
+            except Exception:
+                existing_scen = {}
         scen_obj = {
+            **existing_scen,
             "id": scenario_id,
-            "title": f"{case.use_case}: {case.case_id}",
+            "title": str(existing_scen.get("title") or f"{case.use_case}: {case.case_id}"),
             "patient_ref": scenario_id,
             "should_abstain": case.must_abstain,
-            "expectations": {"should_abstain": case.must_abstain},
-            "turns": [{"n": 1, "question": case.prompt}],
+            "expectations": {
+                **(existing_scen.get("expectations") if isinstance(existing_scen.get("expectations"), dict) else {}),
+                "should_abstain": case.must_abstain,
+            },
+            "turns": existing_scen.get("turns") or [{"n": 1, "question": case.prompt}],
         }
-        (scenarios_dir / f"{scenario_id}.json").write_text(
+        scen_path.write_text(
             json.dumps(scen_obj, indent=2) + "\n", encoding="utf-8"
         )
 
@@ -3385,46 +3400,88 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
     short_budget = f" ({budget_tag})" if budget_tag else ""
 
     m_fam, underlying, inc_kb = _infer_model_family_and_id(raw_id)
-    is_direct = base_id.startswith("direct-") or base_id.startswith("direct:")
+    b_low = base_id.lower()
+    u_low = underlying.lower()
+    is_direct_kb = (
+        b_low.endswith("-direct-kb")
+        or b_low.startswith("wahs-direct-kb:")
+        or b_low.endswith("__direct_kb")
+    )
+    is_direct = (
+        b_low.startswith("direct-")
+        or b_low.startswith("direct:")
+        or b_low.endswith("__direct")
+    )
 
     model_info: dict[str, str] = {"family": "Gemma 4", "params": "12B", "quant": "Q8_0"}
-    short_model = "12B"
-    full_model = "Gemma 12B"
-    if "4b" in base_id:
+    short_model = "Gemma 12B"
+    full_model = "Gemma 4 12B"
+    if "qwen3-4b" in b_low or "qwen3-4b" in u_low:
+        model_info = {"family": "Qwen 3", "params": "4B", "quant": "Q8_0"}
+        short_model = "Qwen3 4B"
+        full_model = "Qwen 3 4B"
+    elif "qwen35-9b" in b_low or "qwen3.5-9b" in u_low or "qwen3:8b" in u_low:
+        model_info = {"family": "Qwen 3", "params": "8B/9B", "quant": "Q8_0"}
+        short_model = "Qwen3 9B"
+        full_model = "Qwen 3.5 9B"
+    elif "qwen3-14b" in b_low or "qwen3-14b" in u_low:
+        model_info = {"family": "Qwen 3", "params": "14B", "quant": "Q8_0"}
+        short_model = "Qwen3 14B"
+        full_model = "Qwen 3 14B"
+    elif "llama32-3b" in b_low or "llama-3.2-3b" in u_low:
+        model_info = {"family": "Llama 3", "params": "3B", "quant": "Q8_0"}
+        short_model = "Llama 3.2 3B"
+        full_model = "Llama 3.2 3B"
+    elif "llama31-8b" in b_low or "llama-3.1-8b" in u_low:
+        model_info = {"family": "Llama 3", "params": "8B", "quant": "Q8_0"}
+        short_model = "Llama 3.1 8B"
+        full_model = "Llama 3.1 8B"
+    elif "hermes3-8b" in b_low or "hermes3-8b" in u_low:
+        model_info = {"family": "Llama 3", "params": "8B", "quant": "Q8_0"}
+        short_model = "Hermes 3 8B"
+        full_model = "Hermes 3 (Llama 3.1) 8B"
+    elif "e4b" in b_low or "4b" in b_low or "e4b" in u_low:
         model_info = {"family": "Gemma 4", "params": "4B", "quant": "Q8_0"}
-        short_model = "4B"
-        full_model = "Gemma 4B"
-    elif "26b" in base_id:
+        short_model = "Gemma 4B"
+        full_model = "Gemma 4 E4B"
+    elif "26b" in b_low or "26b" in u_low:
         model_info = {"family": "Gemma 4", "params": "26B MoE", "quant": "Q8_0"}
-        short_model = "26B"
-        full_model = "Gemma 26B"
-    elif "27b" in base_id or "medgemma" in underlying:
+        short_model = "Gemma 26B"
+        full_model = "Gemma 4 26B"
+    elif "27b" in b_low or "medgemma" in u_low:
         model_info = {"family": "MedGemma", "params": "27B", "quant": "Q8_0"}
         short_model = "MedGemma 27B"
         full_model = "MedGemma 27B"
-    elif "qwen35b" in base_id:
+    elif "qwen35b" in b_low:
         model_info = {"family": "Qwen 3", "params": "35B MoE", "quant": "Q8_0"}
         short_model = "Qwen 35B"
         full_model = "Qwen 3 35B"
-    elif "qwen30b" in base_id:
+    elif "qwen30b" in b_low:
         model_info = {"family": "Qwen 3 Coder", "params": "30B MoE", "quant": "Q8_0"}
         short_model = "Qwen Coder 30B"
         full_model = "Qwen 3 Coder 30B"
-    elif "lfm24b" in base_id:
+    elif "lfm24b" in b_low:
         model_info = {"family": "Liquid LFM2", "params": "24B", "quant": "Q8_0"}
         short_model = "Liquid 24B"
         full_model = "Liquid LFM2 24B"
 
     if is_direct:
         title = f"Direct AI — no Hub ({full_model}{budget_suffix})"
-        short_title = f"Direct AI ({short_model}{short_budget})"
+        short_title = f"Direct ({short_model}{short_budget})"
         path_desc = (
             "Sends the condensed chart and question directly to the AI model "
             "without Med Agent Hub prompts, clinical rules, or relationship graph"
         )
+    elif is_direct_kb:
+        title = f"Direct + Clinical KB ({full_model}{budget_suffix})"
+        short_title = f"Direct+KB ({short_model}{short_budget})"
+        path_desc = (
+            "Condensed chart + Stage 2 deterministic 4-Layer Clinical KB findings "
+            "(without Med Agent Hub clinical entity subgraph or Tier-0 overflow recovery)"
+        )
     elif inc_kb:
-        title = f"Med Agent Hub + clinical rules ({full_model}{budget_suffix})"
-        short_title = f"Hub + rules ({short_model}{short_budget})"
+        title = f"Med Agent Hub + Clinical Graph & KB ({full_model}{budget_suffix})"
+        short_title = f"Hub ({short_model}{short_budget})"
         path_desc = (
             "Full Med Agent Hub pipeline: condensed chart + automated clinical conflict rules "
             "+ patient relationship graph + safety net recovery"

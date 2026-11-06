@@ -288,7 +288,10 @@ def main() -> None:
         has_in_depth = bool(final["in_depth_section"])
         is_team = has_in_depth or (cards.get(backend_id) or {}).get("kind") == "team"
         p = chart.get("patient") or {}
-        out.append({
+        exp = scen.get("expectations") or {}
+        what_it_tests = exp.get("what_it_tests") or scen.get("what_it_tests")
+        ref_notes = exp.get("reference_verification_notes") or scen.get("reference_verification_notes")
+        cell_obj = {
             "scenario_id": scenario_id,
             "backend_id": backend_id,
             # The run's "today", beside every cell, so a judge never scores a date against the
@@ -299,7 +302,7 @@ def main() -> None:
             "score_background": has_in_depth,
             "patient": {k: p.get(k) for k in ("name", "gender", "birthdate", "slug")},
             "snapshot_file": snapshot_path.relative_to(rd).as_posix(),
-            "should_abstain": ((scen.get("expectations") or {}).get("should_abstain")
+            "should_abstain": (exp.get("should_abstain")
                                or scen.get("should_abstain") or scen.get("expect_abstain") or False),
             "n_turns": len(turns),
             "turns": turns,
@@ -311,7 +314,12 @@ def main() -> None:
             "sources": final.get("sources") or [],
             "source_diagnostics": final.get("source_diagnostics") or {},
             "temporal_facts_summary": trace.get("temporal_facts_summary"),
-        })
+        }
+        if what_it_tests:
+            cell_obj["what_it_tests"] = what_it_tests
+        if ref_notes:
+            cell_obj["reference_verification_notes"] = ref_notes
+        out.append(cell_obj)
 
     cells_path = rd / "judge-cells.jsonl"
     with open(cells_path, "w") as fh:
