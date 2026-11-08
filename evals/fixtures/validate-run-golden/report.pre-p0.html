@@ -892,7 +892,7 @@ function plainArmRoleDesc(b){
   if(c.kind === 'team'){
     return 'Multi-agent team profile (orchestrator + specialist gather stage before answer synthesis)';
   }
-  return b;
+  return c.label || c.title || b;
 }
 
 function renderExecutiveSummary(run){
