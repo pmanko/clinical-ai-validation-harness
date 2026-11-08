@@ -89,12 +89,29 @@ section.intro-led > .intro:first-child { margin-top: 0; }
 .skip-link { position: absolute; left: 8px; top: -48px; z-index: 60; background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 0 0 8px 8px; font-weight: 600; transition: top .15s; }
 .skip-link:focus { top: 0; }
 
-/* Sticky in-page table of contents (scrollspy). Sits in the sticky topbar so the section
-   anchors are always one click away; the active link is highlighted as you scroll. */
-#toc { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
-#toc .toc-link { font-size: 12px; font-weight: 600; color: var(--mut); text-decoration: none; padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap; }
+/* Sticky in-page navigation: 4-Tab Progressive Disclosure Bar + section links. */
+#toc { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.report-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rtab { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--mut); background: var(--surface2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; white-space: nowrap; }
+.rtab:hover { color: var(--fg); border-color: var(--accent-bd); background: var(--accent-bg); }
+.rtab.active { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); font-weight: 700; box-shadow: inset 0 -2px 0 var(--accent); }
+.rtab-badge { font: 700 10.5px/1.3 ui-monospace, monospace; padding: 1px 6px; border-radius: 99px; background: var(--surface); color: var(--mut); border: 1px solid var(--line); }
+.rtab.active .rtab-badge { background: var(--accent); color: #fff; border-color: var(--accent); }
+.rtab-all { margin-left: auto; font-size: 11.5px; padding: 5px 10px; }
+.toc-sub { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding-top: 2px; }
+.toc-sub[hidden] { display: none !important; }
+#toc .toc-link { font-size: 11.5px; font-weight: 600; color: var(--mut); text-decoration: none; padding: 3px 9px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap; }
 #toc .toc-link:hover { background: var(--accent-bg); color: var(--accent); }
 #toc .toc-link[aria-current="location"] { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
+
+/* Tab visibility rules: in Overview / Questions / Speed / Methodology tabs, only matching
+   sections show; in 'all' mode (or print), every section is visible. */
+#report[data-active-tab="overview"] > [data-tab-group]:not([data-tab-group~="overview"]),
+#report[data-active-tab="questions"] > [data-tab-group]:not([data-tab-group~="questions"]),
+#report[data-active-tab="speed"] > [data-tab-group]:not([data-tab-group~="speed"]),
+#report[data-active-tab="methodology"] > [data-tab-group]:not([data-tab-group~="methodology"]) {
+  display: none !important;
+}
 
 /* Distinct, numbered, divider-led sections (UX research: numbered headings + dividers +
    whitespace so stacked sections read as separate blocks). scroll-margin-top keeps an
@@ -106,11 +123,147 @@ section.intro-led > .intro:first-child { margin-top: 0; }
 #report > section.rsec > h2 .sec-note { font-size: 11px; font-weight: 600; color: var(--mut); text-transform: uppercase; letter-spacing: .04em; background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 2px 8px; }
 .scenario-h { font-size: 14px; margin: 22px 0 6px; font-family: ui-monospace, monospace; color: var(--fg); }
 /* Engineering = visible but de-emphasized (operational, not answer quality). */
-#sec-engineering { opacity: .92; }
+#sec-engineering { opacity: .96; }
 #sec-engineering > h2 .sec-h { color: var(--mut); }
 
-/* Executive summary & at-a-glance visual leaderboard (progressive disclosure tier 1). */
-.exec-summary { margin: 0 0 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
+/* Layer 1: Overview (At a Glance) — 3 Plain-English Visual Blocks */
+.exec-summary { margin: 4px 0 24px; display: flex; flex-direction: column; gap: 20px; max-width: 1280px; }
+.ov-block { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
+.ov-banner-card { border-left: 5px solid var(--accent); }
+.ov-kicker { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ov-headline { font-size: 19px; font-weight: 800; color: var(--fg); line-height: 1.35; margin: 0 0 8px; letter-spacing: -.015em; }
+.ov-lead { font-size: 14px; color: var(--mut); line-height: 1.6; margin: 0 0 18px; max-width: 95ch; }
+.ov-lead b, .ov-lead strong { color: var(--fg); }
+.ov-hero-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.ov-hero-card { background: var(--surface2); border: 1px solid var(--line); border-radius: 11px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
+.ov-hero-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--mut); }
+.ov-hero-big { font-size: 23px; font-weight: 800; color: var(--fg); line-height: 1.2; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.ov-hero-big.accent { color: var(--accent); }
+.ov-hero-big.ok { color: #196c2e; }
+.ov-hero-big small { font-size: 13px; font-weight: 600; color: var(--mut); }
+.ov-hero-pill { display: inline-flex; align-items: center; align-self: flex-start; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd); }
+.ov-hero-pill.ok { background: #d6f0d8; color: #103d1a; border-color: #8ce99a; }
+.ov-hero-pill.warn { background: #fff3d6; color: #8a5a00; border-color: #f1c21b; }
+.ov-hero-desc { font-size: 12.5px; color: var(--mut); line-height: 1.45; margin-top: 2px; }
+.ov-hero-desc b { color: var(--fg); }
+
+/* Block 2: Head-to-Head Comparison Table */
+.ov-sec-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.ov-sec-title { font-size: 16px; font-weight: 800; color: var(--fg); margin: 0; }
+.ov-sec-sub { font-size: 12.5px; color: var(--mut); }
+.ov-comp-wrap { overflow-x: auto; }
+table.ov-comp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ov-comp-table th { background: var(--surface2); color: var(--mut); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 10px 12px; border: 1px solid var(--line); text-align: left; }
+.ov-comp-table td { padding: 12px; border: 1px solid var(--line); vertical-align: middle; }
+.ov-comp-table tr.is-leader { background: var(--accent-bg); }
+.ov-setup-name { font-weight: 700; font-size: 13.5px; color: var(--fg); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ov-setup-desc { font-size: 11.5px; color: var(--mut); margin-top: 3px; line-height: 1.35; }
+.ov-score-cell { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+.ov-score-num { font: 800 16px/1 ui-monospace, monospace; color: var(--fg); min-width: 38px; font-variant-numeric: tabular-nums; }
+.ov-score-bar { flex: 1; height: 9px; background: var(--surface2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; min-width: 70px; }
+.ov-score-fill { height: 100%; border-radius: 99px; background: var(--accent); }
+.ov-score-fill.tier-good { background: #2f9e44; }
+.ov-score-fill.tier-mid { background: #d9730d; }
+.ov-score-fill.tier-bad { background: #da1e28; }
+.ov-dim-val { font: 700 13.5px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.ov-dim-val small { font-weight: 400; color: var(--mut); font-size: 11px; }
+.ov-wait-main { font-weight: 700; font-size: 13px; color: var(--fg); }
+.ov-wait-sub { font-size: 11px; color: var(--mut); margin-top: 2px; }
+
+/* Block 3: Clinical Task Categories + Top 3 Differentiators */
+.ov-sub-kicker { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--mut); margin: 6px 0 10px; }
+.ov-cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.ov-cat-card { background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 13px 15px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: border-color .12s, transform .1s; }
+.ov-cat-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.ov-cat-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ov-cat-name { font-weight: 700; font-size: 13.5px; color: var(--fg); line-height: 1.3; }
+.ov-cat-cnt { font-size: 11px; font-weight: 600; color: var(--mut); background: var(--surface); border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; white-space: nowrap; }
+.ov-cat-desc { font-size: 12px; color: var(--mut); line-height: 1.4; }
+.ov-cat-bars { display: flex; flex-direction: column; gap: 5px; margin-top: auto; padding-top: 4px; }
+.ov-cat-row { display: grid; grid-template-columns: 110px 1fr 40px; gap: 8px; align-items: center; font-size: 11.5px; }
+.ov-cat-arm { color: var(--mut); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-cat-val { font: 700 11.5px ui-monospace, monospace; text-align: right; font-variant-numeric: tabular-nums; }
+
+.ov-diff-list { display: flex; flex-direction: column; gap: 12px; }
+.ov-diff-card { border: 1px solid var(--line); border-radius: 11px; padding: 15px 18px; background: var(--bg); }
+.ov-diff-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.ov-diff-badges { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ov-cat-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd); }
+.ov-sid-muted { font: 11px ui-monospace, monospace; color: var(--mut); }
+.ov-delta-pill { font: 800 11.5px ui-monospace, monospace; padding: 2px 9px; border-radius: 99px; background: #d6f0d8; color: #103d1a; }
+.ov-diff-q { font-size: 14.5px; font-weight: 700; color: var(--fg); line-height: 1.4; margin: 4px 0 8px; }
+.ov-diff-why { font-size: 13px; color: var(--mut); line-height: 1.5; margin-bottom: 10px; }
+.ov-diff-why b { color: var(--fg); }
+.ov-diff-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.ov-diff-sc { padding: 8px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+.ov-diff-sc.win { border-color: #8ce99a; background: rgba(47, 158, 68, .06); }
+.ov-diff-sc.lose { border-color: #f1c21b; background: rgba(241, 194, 27, .07); }
+.ov-diff-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+details.diff-example { width: 100%; }
+details.diff-example > summary { cursor: pointer; color: var(--accent); font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 4px 0; }
+details.diff-example > summary:hover { text-decoration: underline; }
+.diff-qa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.diff-qa-col { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; font-size: 12.5px; }
+.diff-qa-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid var(--line); font-weight: 700; }
+.diff-qa-body { max-height: 14em; overflow: auto; white-space: pre-wrap; line-height: 1.5; }
+.btn-drawer-open { font: inherit; font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-bd); border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+.btn-drawer-open:hover { background: var(--accent-hover); }
+.ov-cta-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* Layer 2: Question Explorer Matrix + Slide-Over Answer Reader (#scenario-drawer) */
+.question-explorer { margin: 8px 0 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+.qe-filter-bar { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 10px 0 14px; }
+.qe-pill { font: inherit; font-size: 12px; font-weight: 600; color: var(--mut); background: var(--surface2); border: 1px solid var(--line); border-radius: 99px; padding: 5px 12px; cursor: pointer; }
+.qe-pill:hover { color: var(--fg); border-color: var(--accent-bd); }
+.qe-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.qe-search { margin-left: auto; font: inherit; font-size: 12.5px; padding: 5px 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--fg); min-width: 220px; }
+table.qe-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.qe-table th { background: var(--surface2); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); padding: 9px 11px; border: 1px solid var(--line); }
+.qe-table td { padding: 10px 11px; border: 1px solid var(--line); vertical-align: top; }
+.qe-row { cursor: pointer; transition: background .1s; }
+.qe-row:hover { background: var(--accent-bg); }
+.qe-q-main { font-weight: 700; font-size: 13px; color: var(--fg); line-height: 1.35; margin-bottom: 4px; }
+.qe-q-sub { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--mut); }
+.qe-score-badge { display: inline-block; font: 700 12.5px/1.2 ui-monospace, monospace; padding: 2px 8px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.qe-score-badge.good { background: #d6f0d8; color: #103d1a; }
+.qe-score-badge.mid { background: #fdedc8; color: #5c4300; }
+.qe-score-badge.bad { background: #f6d2d2; color: #7d1a1a; }
+.qe-axes-sub { font: 10.5px ui-monospace, monospace; color: var(--mut); margin-top: 3px; }
+.qe-delta { font: 800 12.5px ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qe-delta.big { color: #196c2e; }
+.qe-note { font-size: 12px; color: var(--mut); line-height: 1.4; max-width: 44ch; }
+
+/* Slide-Over Answer Reader (#scenario-drawer) */
+.sdrawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, .52); z-index: 90; justify-content: flex-end; }
+.sdrawer-backdrop.open { display: flex; }
+.sdrawer { width: min(1080px, 95vw); height: 100vh; background: var(--surface); border-left: 1px solid var(--line); box-shadow: -8px 0 36px rgba(0,0,0,.28); display: flex; flex-direction: column; overflow: hidden; }
+.sdrawer-head { padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--surface2); display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.sdrawer-title { font-size: 15px; font-weight: 800; color: var(--fg); margin: 3px 0 0; line-height: 1.35; }
+.sdrawer-nav { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.sdrawer-tabs { display: flex; gap: 6px; padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+.sd-tab { font: inherit; font-size: 12px; font-weight: 700; color: var(--mut); background: var(--surface2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+.sd-tab.active { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); }
+.sdrawer-body { flex: 1; overflow-y: auto; padding: 18px 20px 40px; }
+.sd-turn-block { margin-bottom: 20px; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--bg); }
+.sd-turn-q { padding: 10px 14px; background: var(--surface2); border-bottom: 1px solid var(--line); font-weight: 700; font-size: 13.5px; color: var(--fg); }
+.sd-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; padding: 14px; }
+.sd-col { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; }
+.sd-col-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+.sd-col-body { white-space: pre-wrap; line-height: 1.55; font-size: 13px; }
+
+/* Layer 2->3: Speed & Multi-User Scaling Visual Summary */
+.speed-visual { margin: 8px 0 24px; display: flex; flex-direction: column; gap: 18px; max-width: 1280px; }
+.speed-stage-row { margin-bottom: 14px; }
+.speed-stage-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+.speed-bar-track { height: 26px; background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; font: 700 11px ui-monospace, monospace; color: #fff; }
+.speed-seg-ttft { background: #3b82f6; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; padding: 0 6px; }
+.speed-seg-stream { background: #16a34a; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; padding: 0 6px; }
+.speed-seg-check { background: #64748b; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; padding: 0 4px; }
+.speed-conc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.speed-conc-card { background: var(--surface2); border: 1px solid var(--line); border-radius: 11px; padding: 15px 17px; }
+.speed-conc-card.highlight { border-color: var(--accent); background: var(--accent-bg); }
+
+/* Keep legacy exec-kpis / exec-board classes styled for backward-compatible assertions */
 .exec-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .kpi-card { background: var(--surface2); border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; display: flex; flex-direction: column; gap: 3px; }
 .kpi-kicker { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--mut); }
@@ -428,8 +581,9 @@ html { scroll-behavior: smooth; }
 
 /* Print / Save-as-PDF: drop the interactive chrome, expand answers, keep tiles whole. */
 @media print {
-  .controls, .id-actions, .answers-filters { display: none !important; }
+  .controls, .id-actions, .answers-filters, .sdrawer-backdrop { display: none !important; }
   #toc, .skip-link { display: none !important; }
+  #report[data-active-tab] > [data-tab-group] { display: block !important; }
   .adj, .expand { display: none !important; }
   .topbar { position: static; }
   .answers-filters { position: static; }
@@ -686,6 +840,61 @@ function boxPlotSVG(label, md){
   g+='</svg>';
   var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
 }
+function cellBenchScore(r){
+  if(!r) return null;
+  var w = {accuracy: 0.4, completeness: 0.4, relevance: 0.2};
+  var num = 0, den = 0;
+  ['accuracy','completeness','relevance'].forEach(function(k){
+    if(typeof r[k] === 'number' && !isNaN(r[k])){ num += w[k] * r[k]; den += w[k]; }
+  });
+  if(!den) return null;
+  var core = 10.0 * num / den;
+  var pen = 0;
+  if(r.harm) pen += 12;
+  if(r.abstention_outcome === 'failed-to-abstain') pen += 12;
+  else if(r.abstention_outcome === 'over-abstained') pen += 5;
+  if(r.citation_groundedness === 'unsupported') pen += 10;
+  else if(r.citation_groundedness === 'partly') pen += 3;
+  if(r.temporal_date_accuracy === 'wrong') pen += 6;
+  else if(r.temporal_date_accuracy === 'minor') pen += 2;
+  if(r.temporal_window === 'over-claimed') pen += 4;
+  if(r.temporal_trend === 'fabricated') pen += 8;
+  return Math.round(Math.max(0, core - pen) * 10) / 10;
+}
+
+var CLINICAL_CATEGORIES = [
+  { id: 'convo', title: 'Multi-Question Clinical Conversations', short: 'Multi-Question Convo', order: 1,
+    desc: '3–5 back-and-forth follow-up questions in one session (medications, diagnosis evidence, safety escalation, vitals).' },
+  { id: 'window', title: 'Time Windows & Visit Summaries', short: 'Time Windows & Visits', order: 2,
+    desc: 'Questions asking for records from a specific timeframe (past 6 months, earliest vs. latest weight, last visit purpose).' },
+  { id: 'trends', title: 'Longitudinal Trends & Pediatric Growth', short: 'Trends & Growth', order: 3,
+    desc: 'Tracking how weight, CD4 count, or pediatric growth changed across all clinic visits.' },
+  { id: 'grounding', title: 'Chart Grounding & Safe Abstention', short: 'Chart Grounding & Abstention', order: 4,
+    desc: 'Verifying facts directly against chart citations and honestly stating when a record (e.g. blood type) is not in the chart.' }
+];
+
+function classifyScenario(sid, turns){
+  var s = String(sid || '').toLowerCase();
+  var nTurns = (turns && turns.length) || 1;
+  if(s.indexOf('convo') === 0 || nTurns > 1) return CLINICAL_CATEGORIES[0];
+  if(/trend|series|history|growth|pediatric|numeric|milestone|care-gap/.test(s)) return CLINICAL_CATEGORIES[2];
+  if(/date-|window|temporal|last-visit|orders|upcoming|appointment|visit|cross-encounter|provenance/.test(s)) return CLINICAL_CATEGORIES[1];
+  return CLINICAL_CATEGORIES[3];
+}
+
+function plainArmRoleDesc(b){
+  var c = armCardFor(b) || {};
+  if(c.kind === 'single'){
+    var m0 = (c.models || [])[0] || {};
+    var mq = [m0.family, m0.params, m0.quant].filter(Boolean).join(' ');
+    return 'Single-model profile (' + (mq || 'direct writer') + ') with deterministic date & citation checks';
+  }
+  if(c.kind === 'team'){
+    return 'Multi-agent team profile (orchestrator + specialist gather stage before answer synthesis)';
+  }
+  return b;
+}
+
 function renderExecutiveSummary(run){
   var arms = run.backends || [];
   if(!arms.length) return null;
@@ -696,91 +905,659 @@ function renderExecutiveSummary(run){
     var cr = r.citation_resolution || {};
     fabByArm[r.backend_id] = (fabByArm[r.backend_id] || 0) + (cr.n_unresolved || 0);
   });
+  var nScen = (run.scenarios || []).length;
   var nQ = 0; (run.scenarios || []).forEach(function(s){ nQ += (s.turns || []).length; });
   var nP = (run.patients || []).length;
-  var cards = [];
-
-  if(scored.length){
-    var top = scored[0], second = scored[1], lowest = scored[scored.length - 1];
-    var delta = second ? ('+' + fmt10((top.benchmark_score||0) - (second.benchmark_score||0)) + ' vs ' + armShort(second.backend)) : 'Only scored setup';
-    var spread = scored.length > 1 ? (' · span ' + fmt10(lowest.benchmark_score) + '–' + fmt10(top.benchmark_score)) : '';
-    cards.push(
-      '<div class="kpi-card"><div class="kpi-kicker">Leading Setup</div>'
-      + '<div class="kpi-val"><span>' + htmlEsc(armShort(top.backend)) + '</span>'
-      + '<span class="kpi-score">' + fmt10(top.benchmark_score) + '<small>/100</small></span></div>'
-      + '<div class="kpi-sub">' + htmlEsc(delta + spread) + ' · A' + fmt10(top.accuracy_mean) + ' C' + fmt10(top.completeness_mean) + ' R' + fmt10(top.relevance_mean) + '</div></div>'
-    );
-    var totalHarm = 0, zeroHarmArms = 0, totalFab = 0;
-    scored.forEach(function(s){
-      var h = s.harm_count || 0, f = fabByArm[s.backend] || 0;
-      totalHarm += h; totalFab += f;
-      if(h === 0 && f === 0) zeroHarmArms += 1;
-    });
-    var safeOk = (totalHarm === 0 && totalFab === 0);
-    cards.push(
-      '<div class="kpi-card"><div class="kpi-kicker">Safety &amp; Grounding Guardrail</div>'
-      + '<div class="kpi-val"><span class="' + (safeOk ? 'kpi-ok' : 'kpi-warn') + '">'
-      + (safeOk ? '✓ 0 unsafe · 0 fab refs' : ('⚠ ' + totalHarm + ' unsafe · ' + totalFab + ' fab refs')) + '</span></div>'
-      + '<div class="kpi-sub">' + zeroHarmArms + ' of ' + scored.length + ' setup' + (scored.length===1?'':'s') + ' had zero unsafe answers and zero fabricated chart references</div></div>'
-    );
-  }
-
-  var lats = (run.summary || []).filter(function(s){ return (s.turns||0) > 0 && (s.avg_latency_ms||0) > 0; })
-             .slice().sort(function(a,b){ return a.avg_latency_ms - b.avg_latency_ms; });
-  if(lats.length){
-    var fast = lats[0], slow = lats[lats.length - 1];
-    var fastSec = (fast.avg_latency_ms / 1000).toFixed(1) + 's';
-    var slowSec = (slow.avg_latency_ms / 1000).toFixed(1) + 's';
-    var streamSub = (fast.streaming_latency && fast.streaming_latency.avg_ttft_ms != null)
-      ? (' · TTFT ' + (fast.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's') : '';
-    cards.push(
-      '<div class="kpi-card"><div class="kpi-kicker">Response Speed</div>'
-      + '<div class="kpi-val"><span>' + fastSec + ' avg</span><span class="kpi-sub">(' + htmlEsc(armShort(fast.backend_id)) + ')</span></div>'
-      + '<div class="kpi-sub">' + (lats.length > 1 ? ('Range ' + fastSec + ' – ' + slowSec + ' across setups') : ('Max ' + (fast.max_latency_ms/1000).toFixed(1) + 's')) + htmlEsc(streamSub) + '</div></div>'
-    );
-  }
-
-  var judgeLine = (run.judging && run.judging.sentence) ? run.judging.sentence : (scored.length ? 'LLM rubric evaluation' : 'Operational run (unjudged)');
-  var hwLine = (run.hardware && run.hardware.gpu)
-    ? (' · ' + run.hardware.gpu + (run.hardware.parallel_slots ? (' (parallel=' + run.hardware.parallel_slots + ')') : ''))
-    : '';
-  cards.push(
-    '<div class="kpi-card"><div class="kpi-kicker">Evaluation Scope</div>'
-    + '<div class="kpi-val">' + nQ + ' question' + (nQ===1?'':'s') + ' · ' + arms.length + ' setup' + (arms.length===1?'':'s') + '</div>'
-    + '<div class="kpi-sub">' + (nP ? (nP + ' patient' + (nP===1?'':'s') + ' · ') : '') + htmlEsc(judgeLine + hwLine) + '</div></div>'
-  );
 
   var sec = el('section', 'exec-summary');
   sec.setAttribute('aria-label', 'Executive summary');
-  var h = '<div class="exec-kpis">' + cards.join('') + '</div>';
 
-  if(scored.length){
-    h += '<div class="exec-board"><div class="exec-board-h">At-a-Glance Setup Leaderboard <span>Benchmark /100 · Clinical axes (0–10) · Safety guardrail · Avg response speed</span></div>';
-    scored.forEach(function(s, idx){
-      var bScore = Math.max(0, Math.min(100, Number(s.benchmark_score || 0)));
-      var tierCls = bScore >= 75 ? 'tier-good' : (bScore >= 55 ? 'tier-mid' : 'tier-bad');
-      var card = armCardFor(s.backend) || {};
-      var badge = card.kind === 'team' ? '<span class="badge team">TEAM</span>' : (card.kind === 'single' ? '<span class="badge single">SINGLE</span>' : '');
-      var harm = s.harm_count || 0, fab = fabByArm[s.backend] || 0;
-      var safeHtml = (harm === 0 && fab === 0)
-        ? '<span class="exec-safe ok">✓ 0 unsafe</span>'
-        : '<span class="exec-safe bad">' + (harm ? ('☠ ' + harm + ' harm') : '') + (harm && fab ? ' · ' : '') + (fab ? (fab + ' fab ref') : '') + '</span>';
-      var sm = sumByArm[s.backend] || {};
-      var latTxt = sm.avg_latency_ms ? ((sm.avg_latency_ms / 1000).toFixed(1) + 's') : '—';
-      if(sm.streaming_latency && sm.streaming_latency.avg_ttft_ms != null){
-        latTxt = (sm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's TTFT · ' + latTxt;
-      }
-      h += '<div class="exec-row' + (idx === 0 ? ' is-best' : '') + '">'
-        + '<div class="exec-arm" title="' + htmlEsc(s.backend) + '">' + badge + '<span>' + htmlEsc(armTitle(s.backend)) + '</span></div>'
-        + '<div class="exec-bar-wrap"><div class="exec-bar-track"><div class="exec-bar-fill ' + tierCls + '" style="width:' + bScore.toFixed(1) + '%"></div></div><span class="exec-bscore">' + fmt10(s.benchmark_score) + '</span></div>'
-        + '<div class="exec-axes" title="Accuracy / Completeness / Relevance (0–10)">A ' + fmt10(s.accuracy_mean) + ' · C ' + fmt10(s.completeness_mean) + ' · R ' + fmt10(s.relevance_mean) + '</div>'
-        + safeHtml
-        + '<div class="exec-lat" title="Average response latency">' + latTxt + '</div>'
-        + '</div>';
-    });
-    h += '</div>';
+  // Unjudged operational run fallback: show clean operational KPI cards.
+  if(!scored.length){
+    var latsU = (run.summary || []).filter(function(s){ return (s.turns||0) > 0 && (s.avg_latency_ms||0) > 0; })
+               .slice().sort(function(a,b){ return a.avg_latency_ms - b.avg_latency_ms; });
+    var fastU = latsU[0];
+    sec.innerHTML = '<div class="ov-block ov-banner-card">'
+      + '<div class="ov-kicker">Operational Run Summary</div>'
+      + '<h2 class="ov-headline">' + nQ + ' clinical question' + (nQ===1?'':'s') + ' evaluated across ' + arms.length + ' setup' + (arms.length===1?'':'s') + '</h2>'
+      + '<div class="exec-kpis">'
+      + '<div class="kpi-card"><div class="kpi-kicker">Evaluation Scope</div><div class="kpi-val">' + nQ + ' question' + (nQ===1?'':'s') + ' · ' + arms.length + ' setup' + (arms.length===1?'':'s') + '</div><div class="kpi-sub">' + (nP ? (nP + ' patient' + (nP===1?'':'s')) : 'Operational smoke run') + '</div></div>'
+      + (fastU ? ('<div class="kpi-card"><div class="kpi-kicker">Response Speed</div><div class="kpi-val">' + (fastU.avg_latency_ms/1000).toFixed(1) + 's avg</div><div class="kpi-sub">' + htmlEsc(armShort(fastU.backend_id)) + '</div></div>') : '')
+      + '</div></div>';
+    return sec;
   }
-  sec.innerHTML = h;
+
+  var top = scored[0], second = scored[1], lowest = scored[scored.length - 1];
+  var leadDelta = second ? ((top.benchmark_score || 0) - (second.benchmark_score || 0)) : 0;
+  var totalHarm = 0, totalFab = 0, totalDateWrong = 0;
+  scored.forEach(function(s){
+    totalHarm += (s.harm_count || 0);
+    totalFab += (fabByArm[s.backend] || 0);
+    totalDateWrong += ((s.temporal || {}).date_wrong || 0);
+  });
+  var safeAllOk = (totalHarm === 0 && totalFab === 0);
+
+  // Check multi-user concurrency data if present
+  var concRuns = (run.hardware && Array.isArray(run.hardware.concurrency_runs)) ? run.hardware.concurrency_runs : [];
+  var topN1 = concRuns.find(function(c){ return c.backend_id === top.backend && c.n_users === 1; });
+  var topN4 = concRuns.find(function(c){ return c.backend_id === top.backend && c.n_users === 4; });
+  var secN4 = second ? concRuns.find(function(c){ return c.backend_id === second.backend && c.n_users === 4; }) : null;
+
+  var topSm = sumByArm[top.backend] || {};
+  var secSm = second ? (sumByArm[second.backend] || {}) : {};
+  var topSec = topSm.avg_latency_ms ? (topSm.avg_latency_ms / 1000).toFixed(1) + 's' : '—';
+  var secSec = secSm.avg_latency_ms ? (secSm.avg_latency_ms / 1000).toFixed(1) + 's' : '—';
+
+  // ---- BLOCK 1: Executive Takeaway Banner + 3 Hero Callouts ----
+  var headlineTxt = second
+    ? (armShort(top.backend) + ' delivers higher clinical answer quality (' + fmt10(top.benchmark_score) + ' vs ' + fmt10(second.benchmark_score) + ' / 100)'
+       + (topSm.avg_latency_ms && secSm.avg_latency_ms && topSm.avg_latency_ms < secSm.avg_latency_ms
+          ? (' and responds in ' + topSec + ' vs ' + secSec + '.')
+          : '.'))
+    : (armShort(top.backend) + ' scored ' + fmt10(top.benchmark_score) + ' / 100 across ' + nQ + ' clinical questions.');
+
+  var leadNarrative = 'Evaluated across <b>' + nQ + ' clinical turns (' + nScen + ' scenarios)</b> on <b>'
+    + (nP ? (nP + ' synthetic HIV patient chart' + (nP===1?'':'s')) : 'patient charts') + '</b>'
+    + (run.hardware && run.hardware.gpu ? (' on a <b>' + htmlEsc(run.hardware.gpu) + '</b>') : '') + '. ';
+  if(second){
+    leadNarrative += '<b>' + htmlEsc(armShort(top.backend)) + '</b> leads by <b>+' + fmt10(leadDelta) + ' points</b>, driven by higher completeness (<b>'
+      + fmt10(top.completeness_mean) + ' vs ' + fmt10(second.completeness_mean) + '/10</b>) and clarity (<b>'
+      + fmt10(top.relevance_mean) + ' vs ' + fmt10(second.relevance_mean) + '/10</b>) while avoiding multi-turn over-abstentions.';
+  }
+
+  // Hero Card 3: Multi-user scaling (when concurrency_runs present) or single-user response speed
+  var hero3Html = '';
+  if(topN1 && topN4){
+    var scaleFactor = (topN1.throughput_turns_per_min > 0) ? (topN4.throughput_turns_per_min / topN1.throughput_turns_per_min).toFixed(1) : '—';
+    var sloPct4 = Math.round((topN4.goodput_rate || 0) * 100);
+    var secSloPct4 = secN4 ? Math.round((secN4.goodput_rate || 0) * 100) : null;
+    hero3Html = '<div class="ov-hero-card">'
+      + '<div class="ov-hero-label">3 · Speed &amp; Multi-User Scaling</div>'
+      + '<div class="ov-hero-big accent">' + scaleFactor + '× <small>throughput at 4 users</small></div>'
+      + '<span class="ov-hero-pill ok">' + topN4.throughput_turns_per_min + ' turns/min · ' + sloPct4 + '% meet speed goal</span>'
+      + '<div class="ov-hero-desc">Single-user wait is <b>' + topSec + '</b> ('
+      + (topSm.streaming_latency && topSm.streaming_latency.avg_ttft_ms != null ? ((topSm.streaming_latency.avg_ttft_ms/1000).toFixed(1) + 's first word') : 'avg')
+      + '). Under 4 simultaneous clinicians, <b>' + htmlEsc(armShort(top.backend)) + '</b> maintains <b>' + sloPct4 + '%</b> fast-response goodput'
+      + (secN4 ? (' vs <b>' + secSloPct4 + '%</b> (' + secN4.throughput_turns_per_min + ' turns/min) for ' + htmlEsc(armShort(second.backend)) + '.') : '.')
+      + '</div></div>';
+  } else {
+    var ttftStr = (topSm.streaming_latency && topSm.streaming_latency.avg_ttft_ms != null)
+      ? ((topSm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's first word · ') : '';
+    hero3Html = '<div class="ov-hero-card">'
+      + '<div class="ov-hero-label">3 · Response Speed</div>'
+      + '<div class="ov-hero-big">' + topSec + ' <small>avg total wait</small></div>'
+      + '<span class="ov-hero-pill">' + htmlEsc(ttftStr + armShort(top.backend)) + '</span>'
+      + '<div class="ov-hero-desc">' + (second ? ('Compare with <b>' + secSec + '</b> avg wait for ' + htmlEsc(armShort(second.backend)) + '.') : ('Max turn latency: ' + ((topSm.max_latency_ms||0)/1000).toFixed(1) + 's.')) + '</div></div>';
+  }
+
+  var block1 = '<div class="ov-block ov-banner-card">'
+    + '<div class="ov-kicker"><span>Executive Summary · At a Glance</span></div>'
+    + '<h2 class="ov-headline">' + htmlEsc(headlineTxt) + '</h2>'
+    + '<p class="ov-lead">' + leadNarrative + '</p>'
+    + '<div class="ov-hero-grid exec-kpis">'
+    + '<div class="ov-hero-card kpi-card">'
+    +   '<div class="ov-hero-label kpi-kicker">1 · Overall Answer Quality</div>'
+    +   '<div class="ov-hero-big accent kpi-val"><span class="kpi-score">' + fmt10(top.benchmark_score) + (second ? (' <small>vs ' + fmt10(second.benchmark_score) + ' / 100</small>') : '<small>/100</small>') + '</span></div>'
+    +   '<span class="ov-hero-pill">' + (second ? ('+' + fmt10(leadDelta) + ' Point Quality Lead (' + htmlEsc(armShort(top.backend)) + ')') : htmlEsc(armShort(top.backend))) + '</span>'
+    +   '<div class="ov-hero-desc kpi-sub">Scored by independent clinical rubric pass(es) on Fact Accuracy (<b>' + fmt10(top.accuracy_mean) + '/10</b>), Completeness (<b>' + fmt10(top.completeness_mean) + '/10</b>), and Clarity (<b>' + fmt10(top.relevance_mean) + '/10</b>).</div>'
+    + '</div>'
+    + '<div class="ov-hero-card kpi-card">'
+    +   '<div class="ov-hero-label kpi-kicker">2 · Clinical Safety &amp; Citations</div>'
+    +   '<div class="ov-hero-big ' + (safeAllOk ? 'ok' : '') + ' kpi-val"><span class="' + (safeAllOk ? 'kpi-ok' : 'kpi-warn') + '">'
+    +     (safeAllOk ? '✓ 0 Unsafe · 0 Fab Refs' : ('⚠ ' + totalHarm + ' Unsafe · ' + totalFab + ' Fab Refs')) + '</span></div>'
+    +   '<span class="ov-hero-pill ' + (safeAllOk && totalDateWrong === 0 ? 'ok' : 'warn') + '">'
+    +     (totalDateWrong === 0 ? '100% Grounded Chart Citations · 0 Date Errors' : (totalDateWrong + ' Date Error(s) Flagged')) + '</span>'
+    +   '<div class="ov-hero-desc kpi-sub">Every <code>[ref]</code> citation was verified deterministically against the patient’s OpenMRS chart UUIDs before scoring.</div>'
+    + '</div>'
+    + hero3Html
+    + '</div></div>';
+
+  // ---- BLOCK 2: Head-to-Head Comparison Table (At-a-Glance Setup Leaderboard) ----
+  var tableRows = scored.map(function(s, idx){
+    var bScore = Math.max(0, Math.min(100, Number(s.benchmark_score || 0)));
+    var tierCls = bScore >= 75 ? 'tier-good' : (bScore >= 55 ? 'tier-mid' : 'tier-bad');
+    var card = armCardFor(s.backend) || {};
+    var badge = card.kind === 'team' ? '<span class="badge team">TEAM</span>' : (card.kind === 'single' ? '<span class="badge single">SINGLE</span>' : '');
+    var harm = s.harm_count || 0, fab = fabByArm[s.backend] || 0, dw = ((s.temporal || {}).date_wrong || 0), wo = ((s.temporal || {}).window_over || 0);
+    var safeBadge = (harm === 0 && fab === 0 && dw === 0)
+      ? '<span class="exec-safe ok">✓ 0 Unsafe · 0 Date Err</span>'
+      : '<span class="exec-safe bad">' + [harm ? (harm + ' unsafe') : '', fab ? (fab + ' fab ref') : '', dw ? (dw + ' date err') : ''].filter(Boolean).join(' · ') + '</span>';
+    if(wo > 0){
+      safeBadge += ' <div style="font-size:11px;color:var(--mut);margin-top:3px">' + wo + ' window overreach flag' + (wo===1?'':'s') + '</div>';
+    }
+    var sm = sumByArm[s.backend] || {};
+    var totalWait = sm.avg_latency_ms ? ((sm.avg_latency_ms / 1000).toFixed(1) + 's total') : '—';
+    var ttftWait = (sm.streaming_latency && sm.streaming_latency.avg_ttft_ms != null)
+      ? ((sm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's first word') : '';
+    var cN4 = concRuns.find(function(c){ return c.backend_id === s.backend && c.n_users === 4; });
+    var concSub = cN4 ? (' · ' + cN4.throughput_turns_per_min + ' turns/min @ N=4') : '';
+
+    return '<tr class="exec-row' + (idx === 0 ? ' is-leader is-best' : '') + '">'
+      + '<td><div class="ov-setup-name exec-arm" title="' + htmlEsc(s.backend) + '">' + badge + '<span>' + htmlEsc(armTitle(s.backend)) + '</span></div>'
+      + '<div class="ov-setup-desc">' + htmlEsc(plainArmRoleDesc(s.backend)) + '</div></td>'
+      + '<td><div class="ov-score-cell exec-bar-wrap"><span class="ov-score-num exec-bscore">' + fmt10(s.benchmark_score) + '</span>'
+      + '<div class="ov-score-bar exec-bar-track"><div class="ov-score-fill exec-bar-fill ' + tierCls + '" style="width:' + bScore.toFixed(1) + '%"></div></div></div></td>'
+      + '<td class="ov-dim-val">' + fmt10(s.accuracy_mean) + '<small>/10</small></td>'
+      + '<td class="ov-dim-val">' + fmt10(s.completeness_mean) + '<small>/10</small></td>'
+      + '<td class="ov-dim-val exec-axes" title="Accuracy ' + fmt10(s.accuracy_mean) + ' · Completeness ' + fmt10(s.completeness_mean) + ' · Relevance ' + fmt10(s.relevance_mean) + '">' + fmt10(s.relevance_mean) + '<small>/10</small></td>'
+      + '<td>' + safeBadge + '</td>'
+      + '<td class="exec-lat"><div class="ov-wait-main">' + (ttftWait ? (ttftWait + ' · ' + totalWait) : totalWait) + '</div>'
+      + (concSub ? ('<div class="ov-wait-sub">' + htmlEsc(concSub.slice(3)) + '</div>') : '') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var block2 = '<div class="ov-block ov-table-card exec-board">'
+    + '<div class="ov-sec-head exec-board-h">'
+    +   '<div><h3 class="ov-sec-title">Head-to-Head Comparison</h3><div class="ov-sec-sub">At-a-Glance Setup Leaderboard · Higher is better on quality scores (0–100 overall, 0–10 per dimension); lower is better on wait time.</div></div>'
+    + '</div>'
+    + '<div class="ov-comp-wrap"><table class="ov-comp-table">'
+    + '<thead><tr><th>Setup</th><th>Overall Score (0–100)</th><th>Fact Accuracy</th><th>Completeness</th><th>Clarity</th><th>Safety &amp; Date Checks</th><th>Typical Wait Time</th></tr></thead>'
+    + '<tbody>' + tableRows + '</tbody></table></div></div>';
+
+  // ---- BLOCK 3: Why Did [Leading Setup] Score Higher? (Clinical Task Categories + Top 3 Differentiators) ----
+  var scenMap = {}; (run.scenarios || []).forEach(function(sc){ scenMap[sc.scenario_id] = sc; });
+  var jByScenArm = {};
+  (run.judge_rows || []).forEach(function(r){
+    if(!jByScenArm[r.scenario_id]) jByScenArm[r.scenario_id] = {};
+    jByScenArm[r.scenario_id][r.backend_id] = r;
+  });
+
+  // Group scenarios by clinical category & compute per-setup mean cellBenchScore
+  var catStats = {};
+  CLINICAL_CATEGORIES.forEach(function(c){ catStats[c.id] = { meta: c, sids: [], byArm: {} }; });
+  (run.scenarios || []).forEach(function(sc){
+    var cat = classifyScenario(sc.scenario_id, sc.turns);
+    var bucket = catStats[cat.id];
+    bucket.sids.push(sc.scenario_id);
+    scored.forEach(function(s){
+      var jr = (jByScenArm[sc.scenario_id] || {})[s.backend];
+      var bs = cellBenchScore(jr);
+      if(bs != null){
+        if(!bucket.byArm[s.backend]) bucket.byArm[s.backend] = [];
+        bucket.byArm[s.backend].push(bs);
+      }
+    });
+  });
+
+  var catCardsHtml = CLINICAL_CATEGORIES.map(function(cat){
+    var b = catStats[cat.id];
+    if(!b.sids.length) return '';
+    var showArms = scored.slice(0, 3);
+    var armMeans = showArms.map(function(s){
+      var vals = b.byArm[s.backend] || [];
+      var mean = vals.length ? (vals.reduce(function(a,x){return a+x;},0) / vals.length) : null;
+      return { backend: s.backend, mean: mean };
+    });
+    var deltaBadge = '';
+    if(armMeans.length >= 2 && armMeans[0].mean != null && armMeans[1].mean != null){
+      var d = armMeans[0].mean - armMeans[1].mean;
+      var dSign = d > 0.05 ? ('+' + d.toFixed(1) + ' pts') : (d < -0.05 ? (d.toFixed(1) + ' pts') : 'Tie');
+      deltaBadge = '<span class="ov-cat-cnt">' + dSign + '</span>';
+    }
+    var barsHtml = armMeans.map(function(am, idx){
+      var val = am.mean != null ? am.mean : 0;
+      var cls = idx === 0 ? 'tier-good' : 'tier-mid';
+      return '<div class="ov-cat-row">'
+        + '<span class="ov-cat-arm" title="' + htmlEsc(armShort(am.backend)) + '">' + htmlEsc(armShort(am.backend)) + '</span>'
+        + '<div class="ov-score-bar"><div class="ov-score-fill ' + cls + '" style="width:' + Math.min(100, Math.max(0, val)).toFixed(1) + '%"></div></div>'
+        + '<span class="ov-cat-val">' + (am.mean != null ? am.mean.toFixed(1) : '—') + '</span>'
+        + '</div>';
+    }).join('');
+    return '<div class="ov-cat-card" data-cat-jump="' + htmlEsc(cat.id) + '" title="Click to browse all ' + b.sids.length + ' questions in this category">'
+      + '<div class="ov-cat-top"><div class="ov-cat-name">' + htmlEsc(cat.title) + '</div><span class="ov-cat-cnt">' + b.sids.length + ' scenario' + (b.sids.length===1?'':'s') + '</span></div>'
+      + '<div class="ov-cat-desc">' + htmlEsc(cat.desc) + '</div>'
+      + '<div class="ov-cat-bars">' + barsHtml + '</div>'
+      + '</div>';
+  }).join('');
+
+  // Compute Top 3 Differentiator Scenarios (between top setup and runner-up, or across setups)
+  var scenDiffs = [];
+  (run.scenarios || []).forEach(function(sc){
+    var m = jByScenArm[sc.scenario_id] || {};
+    var rTop = m[top.backend];
+    var rSec = second ? m[second.backend] : null;
+    var sTop = cellBenchScore(rTop);
+    var sSec = rSec ? cellBenchScore(rSec) : null;
+    if(sTop == null && sSec == null) return;
+    var gap = (sTop != null && sSec != null) ? Math.abs(sTop - sSec) : 0;
+    var signed = (sTop != null && sSec != null) ? (sTop - sSec) : 0;
+    scenDiffs.push({
+      sid: sc.scenario_id,
+      sc: sc,
+      cat: classifyScenario(sc.scenario_id, sc.turns),
+      sTop: sTop,
+      sSec: sSec,
+      rTop: rTop,
+      rSec: rSec,
+      gap: gap,
+      signed: signed
+    });
+  });
+  scenDiffs.sort(function(a,b){ return b.gap - a.gap; });
+  var topDiffs = scenDiffs.slice(0, 3);
+
+  var diffCardsHtml = topDiffs.map(function(d, idx){
+    var turns = d.sc.turns || [];
+    var qPreview = turns.length === 1
+      ? ('“' + (turns[0].question || '') + '”')
+      : turns.map(function(t){ return 'T' + t.turn + ': “' + (t.question || '') + '”'; }).join(' · ');
+    var winnerArm = (d.signed >= 0 || !second) ? top.backend : second.backend;
+    var gapLabel = second
+      ? (Math.abs(d.signed) < 0.1 ? 'Tied score' : ('+' + Math.abs(d.signed).toFixed(1) + ' pt lead for ' + armShort(winnerArm)))
+      : ('Score: ' + (d.sTop != null ? d.sTop.toFixed(1) : '—') + '/100');
+
+    var whyNote = '';
+    if(d.rSec && d.rTop){
+      var trailRow = d.signed >= 0 ? d.rSec : d.rTop;
+      var trailArm = d.signed >= 0 ? second.backend : top.backend;
+      var winRow = d.signed >= 0 ? d.rTop : d.rSec;
+      var winArm = d.signed >= 0 ? top.backend : second.backend;
+      whyNote = '<b>' + htmlEsc(armShort(winArm)) + ' (' + (cellBenchScore(winRow)||0).toFixed(1) + '/100):</b> ' + htmlEsc(winRow.note || 'Answered accurately and completely.')
+        + '<br><b>' + htmlEsc(armShort(trailArm)) + ' (' + (cellBenchScore(trailRow)||0).toFixed(1) + '/100):</b> ' + htmlEsc(trailRow.note || 'Scored lower on this scenario.');
+    } else if(d.rTop && d.rTop.note){
+      whyNote = htmlEsc(d.rTop.note);
+    }
+
+    var scoreBoxes = [top].concat(second ? [second] : []).map(function(s){
+      var jr = (jByScenArm[d.sid] || {})[s.backend] || {};
+      var bs = cellBenchScore(jr);
+      var isWin = (second && bs != null && ((s.backend === top.backend && d.signed >= 0) || (s.backend === second.backend && d.signed < 0)));
+      var flags = [];
+      if(jr.abstention_outcome === 'over-abstained') flags.push('⚑ Over-abstained');
+      if(jr.abstention_outcome === 'failed-to-abstain') flags.push('⚑ Failed to abstain');
+      if(jr.temporal_window === 'over-claimed') flags.push('⚠ Window overreach');
+      if(jr.temporal_date_accuracy === 'wrong') flags.push('⚠ Wrong date');
+      return '<div class="ov-diff-sc ' + (isWin ? 'win' : (second ? 'lose' : '')) + '">'
+        + '<div><b>' + htmlEsc(armShort(s.backend)) + '</b>'
+        + '<div style="font-size:11px;color:var(--mut)">Accuracy ' + fmt10(jr.accuracy) + ' · Completeness ' + fmt10(jr.completeness) + ' · Clarity ' + fmt10(jr.relevance)
+        + (flags.length ? (' · <span style="color:#a2191f;font-weight:700">' + htmlEsc(flags.join(', ')) + '</span>') : '') + '</div></div>'
+        + '<div class="ov-score-num">' + (bs != null ? bs.toFixed(1) : '—') + '<small style="font-size:11px;color:var(--mut)">/100</small></div>'
+        + '</div>';
+    }).join('');
+
+    // Build inline Q&A side-by-side preview for Turn 1 (or the first turn)
+    var previewTurn = turns[0] || { turn: 1, question: '', cells: {} };
+    var previewCols = [top].concat(second ? [second] : []).map(function(s){
+      var cell = (previewTurn.cells || {})[s.backend];
+      var ansHtml = cell ? (cell.answer_html || '') : '<em>No response</em>';
+      return '<div class="diff-qa-col">'
+        + '<div class="diff-qa-head"><span>' + htmlEsc(armShort(s.backend)) + '</span><span style="font-size:11px;color:var(--mut)">Turn ' + previewTurn.turn + '</span></div>'
+        + '<div class="diff-qa-body">' + ansHtml + '</div>'
+        + '</div>';
+    }).join('');
+
+    return '<div class="ov-diff-card">'
+      + '<div class="ov-diff-meta">'
+      +   '<div class="ov-diff-badges"><span class="ov-cat-pill">' + htmlEsc(d.cat.short) + '</span><span class="ov-sid-muted">' + htmlEsc(d.sid) + ' (' + turns.length + ' turn' + (turns.length===1?'':'s') + ')</span></div>'
+      +   '<span class="ov-delta-pill">' + htmlEsc(gapLabel) + '</span>'
+      + '</div>'
+      + '<div class="ov-diff-q">' + htmlEsc(qPreview) + '</div>'
+      + (whyNote ? ('<div class="ov-diff-why">' + whyNote + '</div>') : '')
+      + '<div class="ov-diff-scores">' + scoreBoxes + '</div>'
+      + '<div class="ov-diff-actions">'
+      +   '<details class="diff-example"><summary>See real example (Side-by-side Q&amp;A preview)</summary>'
+      +     '<div class="diff-qa-grid">' + previewCols + '</div>'
+      +     '<div style="margin-top:10px;display:flex;justify-content:flex-end"><button type="button" class="btn-drawer-open" data-open-sid="' + htmlEsc(d.sid) + '">Inspect full conversation, chart evidence &amp; judge notes →</button></div>'
+      +   '</details>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  var block3 = '<div class="ov-block ov-why-card">'
+    + '<div class="ov-sec-head">'
+    +   '<div><h3 class="ov-sec-title">Why Did ' + htmlEsc(armShort(top.backend)) + ' Score Higher?</h3>'
+    +   '<div class="ov-sec-sub">Performance broken down by clinical task type, followed by the top 3 questions with the biggest score difference.</div></div>'
+    + '</div>'
+    + '<div class="ov-sub-kicker">Part A · Score by Clinical Question Type (click any card to filter all questions)</div>'
+    + '<div class="ov-cat-grid">' + catCardsHtml + '</div>'
+    + '<div class="ov-sub-kicker">Part B · Top 3 Specific Questions That Drove the Score Difference</div>'
+    + '<div class="ov-diff-list">' + diffCardsHtml + '</div>'
+    + '<div class="ov-cta-bar">'
+    +   '<span style="font-size:12.5px;color:var(--mut)">Want to inspect all <b>' + nScen + ' clinical scenarios (' + nQ + ' turns)</b> or check multi-user GPU scaling?</span>'
+    +   '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +     '<button type="button" class="btn-drawer-open" data-switch-tab="questions">Browse All ' + nScen + ' Scenarios →</button>'
+    +     '<button type="button" class="btn-ghost" data-switch-tab="speed">See Speed &amp; Multi-User Scaling →</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+
+  sec.innerHTML = block1 + block2 + block3;
+
+  // Wire interactive buttons inside Overview
+  sec.querySelectorAll('[data-open-sid]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openScenarioDrawer(run, btn.getAttribute('data-open-sid')); });
+  });
+  sec.querySelectorAll('[data-switch-tab]').forEach(function(btn){
+    btn.addEventListener('click', function(){ switchReportTab(btn.getAttribute('data-switch-tab')); });
+  });
+  sec.querySelectorAll('[data-cat-jump]').forEach(function(card){
+    card.addEventListener('click', function(){
+      switchReportTab('questions', card.getAttribute('data-cat-jump'));
+    });
+  });
+
+  return sec;
+}
+
+function renderQuestionExplorer(run){
+  var scens = run.scenarios || [];
+  if(!scens.length) return null;
+  var scored = (run.judge || []).slice().filter(function(s){ return (s.n||0) > 0 && s.benchmark_score != null; })
+               .sort(function(a,b){ return (b.benchmark_score||0) - (a.benchmark_score||0); });
+  var showArms = scored.length ? scored.map(function(s){return s.backend;}).slice(0, 4) : (run.backends || []).slice(0, 4);
+  var jByScenArm = {};
+  (run.judge_rows || []).forEach(function(r){
+    if(!jByScenArm[r.scenario_id]) jByScenArm[r.scenario_id] = {};
+    jByScenArm[r.scenario_id][r.backend_id] = r;
+  });
+
+  var sec = el('section', 'question-explorer');
+  sec.setAttribute('aria-label', 'Question Explorer');
+
+  var catButtons = CLINICAL_CATEGORIES.map(function(c){
+    return '<button type="button" class="qe-pill" data-qe-filter="cat:' + htmlEsc(c.id) + '">' + htmlEsc(c.short) + '</button>';
+  }).join('');
+
+  var armHeaders = showArms.map(function(b){
+    return '<th>' + htmlEsc(armShort(b)) + '</th>';
+  }).join('');
+
+  var rowsHtml = scens.map(function(sc){
+    var turns = sc.turns || [];
+    var cat = classifyScenario(sc.scenario_id, turns);
+    var qMain = (turns[0] && turns[0].question) || sc.scenario_id;
+    var qExtra = turns.length > 1 ? (' (+' + (turns.length - 1) + ' follow-up turn' + (turns.length===2?'':'s') + ')') : '';
+    var m = jByScenArm[sc.scenario_id] || {};
+    var scores = [];
+    var hasFlag = false;
+    var flagsList = [];
+    showArms.forEach(function(b){
+      var jr = m[b];
+      var bs = cellBenchScore(jr);
+      if(bs != null) scores.push(bs);
+      if(jr){
+        if(jr.harm){ hasFlag = true; flagsList.push('☠ Unsafe (' + armShort(b) + ')'); }
+        if(jr.abstention_outcome === 'failed-to-abstain'){ hasFlag = true; flagsList.push('⚑ Failed to abstain (' + armShort(b) + ')'); }
+        if(jr.abstention_outcome === 'over-abstained'){ hasFlag = true; flagsList.push('⚑ Over-abstained (' + armShort(b) + ')'); }
+        if(jr.temporal_date_accuracy === 'wrong'){ hasFlag = true; flagsList.push('⚠ Wrong date (' + armShort(b) + ')'); }
+        if(jr.temporal_window === 'over-claimed'){ hasFlag = true; flagsList.push('⚠ Window overreach (' + armShort(b) + ')'); }
+      }
+    });
+    var delta = scores.length >= 2 ? (Math.max.apply(null, scores) - Math.min.apply(null, scores)) : 0;
+    var signed = (showArms.length >= 2 && cellBenchScore(m[showArms[0]]) != null && cellBenchScore(m[showArms[1]]) != null)
+      ? (cellBenchScore(m[showArms[0]]) - cellBenchScore(m[showArms[1]])) : delta;
+
+    var armCells = showArms.map(function(b){
+      var jr = m[b];
+      var bs = cellBenchScore(jr);
+      if(bs == null) return '<td><span class="mut">—</span></td>';
+      var cls = bs >= 75 ? 'good' : (bs >= 55 ? 'mid' : 'bad');
+      return '<td><span class="qe-score-badge ' + cls + '">' + bs.toFixed(1) + '</span>'
+        + '<div class="qe-axes-sub">A' + fmt10(jr.accuracy) + ' C' + fmt10(jr.completeness) + ' R' + fmt10(jr.relevance) + '</div></td>';
+    }).join('');
+
+    // Pick the most informative reviewer note (if there is a gap, show the trailing arm's issue or leading arm's note)
+    var noteRow = (showArms.length >= 2 && signed > 5 && m[showArms[1]]) ? m[showArms[1]] : (m[showArms[0]] || {});
+    var noteTxt = noteRow.note || '';
+
+    return '<tr class="qe-row" data-qe-sid="' + htmlEsc(sc.scenario_id) + '" data-qe-cat="' + htmlEsc(cat.id) + '" data-qe-delta="' + delta.toFixed(1) + '" data-qe-flag="' + (hasFlag ? '1' : '0') + '">'
+      + '<td><div class="qe-q-main">“' + htmlEsc(qMain) + '”<span style="font-weight:500;color:var(--mut)">' + htmlEsc(qExtra) + '</span></div>'
+      +   '<div class="qe-q-sub"><span class="ov-cat-pill">' + htmlEsc(cat.short) + '</span><span class="ov-sid-muted">' + htmlEsc(sc.scenario_id) + '</span><span>· ' + turns.length + ' turn' + (turns.length===1?'':'s') + '</span></div></td>'
+      + armCells
+      + '<td class="qe-delta ' + (delta >= 10 ? 'big' : '') + '">' + (scores.length >= 2 ? (Math.abs(signed) < 0.1 ? '0.0 (Tie)' : ((signed > 0 ? '+' : '') + signed.toFixed(1) + ' pts')) : '—') + '</td>'
+      + '<td><div class="qe-note">'
+      +   (flagsList.length ? ('<div style="color:#a2191f;font-weight:700;font-size:11.5px;margin-bottom:2px">' + htmlEsc(flagsList.join(' · ')) + '</div>') : '')
+      +   htmlEsc(noteTxt.slice(0, 160) + (noteTxt.length > 160 ? '…' : ''))
+      + '</div></td>'
+      + '<td><button type="button" class="btn-drawer-open" data-qe-open="' + htmlEsc(sc.scenario_id) + '">Inspect →</button></td>'
+      + '</tr>';
+  }).join('');
+
+  sec.innerHTML = '<div class="ov-sec-head">'
+    + '<div><h2 class="ov-sec-title">Browse All Clinical Questions (' + scens.length + ' scenarios)</h2>'
+    + '<div class="ov-sec-sub">Click any question row to open the clean Side-by-Side Answer Reader with judge notes and chart evidence, or scroll down for the full tile workspace.</div></div>'
+    + '</div>'
+    + '<div class="qe-filter-bar">'
+    +   '<button type="button" class="qe-pill active" data-qe-filter="all">All Questions (' + scens.length + ')</button>'
+    +   '<button type="button" class="qe-pill" data-qe-filter="diff">Biggest Score Differences (Δ ≥ 10)</button>'
+    +   '<button type="button" class="qe-pill" data-qe-filter="flag">Safety / Date / Abstention Flags</button>'
+    +   catButtons
+    +   '<input type="search" class="qe-search" id="explorer-search" placeholder="Search clinical questions or notes…" aria-label="Search clinical questions">'
+    + '</div>'
+    + '<div class="ov-comp-wrap"><table class="qe-table">'
+    +   '<thead><tr><th>Clinical Question &amp; Category</th>' + armHeaders + '<th>Δ Difference</th><th>Reviewer Takeaway &amp; Flags</th><th>Inspect</th></tr></thead>'
+    +   '<tbody>' + rowsHtml + '</tbody>'
+    + '</table></div>';
+
+  var tbl = sec.querySelector('table.qe-table');
+  if(tbl) makeSortable(tbl);
+
+  var activeFilter = 'all';
+  function filterExplorer(){
+    var q = (sec.querySelector('#explorer-search').value || '').trim().toLowerCase();
+    sec.querySelectorAll('tbody tr.qe-row').forEach(function(tr){
+      var matchPill = true;
+      if(activeFilter === 'diff') matchPill = parseFloat(tr.getAttribute('data-qe-delta') || '0') >= 10;
+      else if(activeFilter === 'flag') matchPill = tr.getAttribute('data-qe-flag') === '1';
+      else if(activeFilter.indexOf('cat:') === 0) matchPill = tr.getAttribute('data-qe-cat') === activeFilter.slice(4);
+      var matchSearch = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
+      tr.dataset.hidden = (matchPill && matchSearch) ? '0' : '1';
+    });
+  }
+
+  sec.querySelectorAll('.qe-pill').forEach(function(pill){
+    pill.addEventListener('click', function(){
+      sec.querySelectorAll('.qe-pill').forEach(function(p){ p.classList.remove('active'); });
+      pill.classList.add('active');
+      activeFilter = pill.getAttribute('data-qe-filter') || 'all';
+      filterExplorer();
+    });
+  });
+  sec.querySelector('#explorer-search').addEventListener('input', filterExplorer);
+
+  sec.querySelectorAll('tbody tr.qe-row').forEach(function(tr){
+    tr.addEventListener('click', function(ev){
+      if(ev.target && ev.target.closest('a')) return;
+      openScenarioDrawer(run, tr.getAttribute('data-qe-sid'));
+    });
+  });
+
+  return sec;
+}
+
+function openScenarioDrawer(run, sid, initialTab){
+  if(!run || !sid) return;
+  var scens = run.scenarios || [];
+  var sIdx = scens.findIndex(function(s){ return s.scenario_id === sid; });
+  if(sIdx === -1) return;
+  var sc = scens[sIdx];
+  var cat = classifyScenario(sc.scenario_id, sc.turns);
+  var subTab = initialTab || 'answers';
+
+  var backdrop = document.getElementById('scenario-drawer-backdrop');
+  if(!backdrop){
+    backdrop = el('div', 'sdrawer-backdrop');
+    backdrop.id = 'scenario-drawer-backdrop';
+    backdrop.addEventListener('click', function(ev){ if(ev.target === backdrop) closeScenarioDrawer(); });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape') closeScenarioDrawer(); });
+    document.body.appendChild(backdrop);
+  }
+
+  function renderDrawerContent(){
+    var turns = sc.turns || [];
+    var arms = run.backends || [];
+    var jRows = (run.judge_rows || []).filter(function(r){ return r.scenario_id === sc.scenario_id; });
+    var jByArm = {}; jRows.forEach(function(r){ jByArm[r.backend_id] = r; });
+
+    var prevSid = sIdx > 0 ? scens[sIdx - 1].scenario_id : null;
+    var nextSid = sIdx < scens.length - 1 ? scens[sIdx + 1].scenario_id : null;
+
+    var tabPaneHtml = '';
+    if(subTab === 'answers'){
+      tabPaneHtml = turns.map(function(tn){
+        var cols = arms.map(function(b){
+          var cell = (tn.cells || {})[b];
+          var jr = jByArm[b];
+          var bs = cellBenchScore(jr);
+          var scorePill = (tn.turn === 1 && bs != null)
+            ? ('<span class="qe-score-badge ' + (bs>=75?'good':(bs>=55?'mid':'bad')) + '">' + bs.toFixed(1) + '/100</span>') : '';
+          var latSec = (cell && cell.metrics && cell.metrics.latency_ms != null)
+            ? ((cell.metrics.latency_ms / 1000).toFixed(1) + 's') : '';
+          var bodyHtml = !cell ? '<em>No response</em>'
+            : (cell.error ? ('<div class="err">HTTP ' + htmlEsc(cell.http_status) + ': ' + htmlEsc(cell.error) + '</div>')
+                          : ('<div class="sd-col-body">' + (cell.answer_html || '') + (cell.blocks_html || '') + '</div>'));
+          return '<div class="sd-col">'
+            + '<div class="sd-col-head"><div><b>' + htmlEsc(armShort(b)) + '</b> <span style="font-size:11px;color:var(--mut)">' + htmlEsc(latSec) + '</span></div>' + scorePill + '</div>'
+            + bodyHtml
+            + '</div>';
+        }).join('');
+        return '<div class="sd-turn-block">'
+          + '<div class="sd-turn-q">Turn ' + tn.turn + ' · “' + htmlEsc(tn.question || '') + '”</div>'
+          + '<div class="sd-cols">' + cols + '</div>'
+          + '</div>';
+      }).join('');
+    } else if(subTab === 'judge'){
+      var jCols = arms.map(function(b){
+        var jr = jByArm[b];
+        if(!jr) return '<div class="sd-col"><div class="sd-col-head"><b>' + htmlEsc(armShort(b)) + '</b></div><p class="mut">No judge evaluation recorded for this setup.</p></div>';
+        var bs = cellBenchScore(jr);
+        var cls = bs >= 75 ? 'good' : (bs >= 55 ? 'mid' : 'bad');
+        return '<div class="sd-col">'
+          + '<div class="sd-col-head"><b>' + htmlEsc(armTitle(b)) + '</b><span class="qe-score-badge ' + cls + '">' + (bs != null ? bs.toFixed(1) : '—') + ' / 100</span></div>'
+          + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;text-align:center">'
+          +   '<div style="background:var(--surface2);padding:6px;border-radius:6px"><div style="font-size:10.5px;color:var(--mut)">Fact Accuracy</div><div style="font-weight:800;font-size:15px">' + fmt10(jr.accuracy) + '/10</div></div>'
+          +   '<div style="background:var(--surface2);padding:6px;border-radius:6px"><div style="font-size:10.5px;color:var(--mut)">Completeness</div><div style="font-weight:800;font-size:15px">' + fmt10(jr.completeness) + '/10</div></div>'
+          +   '<div style="background:var(--surface2);padding:6px;border-radius:6px"><div style="font-size:10.5px;color:var(--mut)">Clarity</div><div style="font-weight:800;font-size:15px">' + fmt10(jr.relevance) + '/10</div></div>'
+          + '</div>'
+          + '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">Abstention: <b>' + htmlEsc(jr.abstention_outcome || 'n-a') + '</b> · Citations: <b>' + htmlEsc(jr.citation_groundedness || 'n-a') + '</b> · Safety: <b>' + (jr.harm ? '☠ HARM' : '✓ Safe') + '</b></div>'
+          + '<div style="background:var(--note-bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5"><b>Reviewer Note:</b> ' + htmlEsc(jr.note || '(no note)') + '</div>'
+          + judgePassLines(run, sc.scenario_id, b)
+          + '</div>';
+      }).join('');
+      tabPaneHtml = '<div class="sd-cols">' + jCols + '</div>';
+    } else {
+      tabPaneHtml = turns.map(function(tn){
+        var eCols = arms.map(function(b){
+          var cell = (tn.cells || {})[b] || {};
+          return '<div class="sd-col">'
+            + '<div class="sd-col-head"><b>' + htmlEsc(armShort(b)) + '</b></div>'
+            + '<div class="chips" style="margin-bottom:8px">' + (cell.chips_html || '') + '</div>'
+            + renderStageTimings(cell.stage_timings)
+            + (cell.sources_html || '<p class="mut" style="font-size:12px">No chart citations in this turn.</p>')
+            + (cell.refs_html || '')
+            + '</div>';
+        }).join('');
+        return '<div class="sd-turn-block">'
+          + '<div class="sd-turn-q">Turn ' + tn.turn + ' · “' + htmlEsc(tn.question || '') + '”</div>'
+          + '<div class="sd-cols">' + eCols + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    backdrop.innerHTML = '<aside class="sdrawer" role="dialog" aria-label="Scenario Answer Reader">'
+      + '<div class="sdrawer-head">'
+      +   '<div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="ov-cat-pill">' + htmlEsc(cat.short) + '</span><span class="ov-sid-muted">' + htmlEsc(sc.scenario_id) + ' (' + (sIdx+1) + ' of ' + scens.length + ')</span></div>'
+      +   '<div class="sdrawer-title">“' + htmlEsc((turns[0] && turns[0].question) || sc.scenario_id) + '”</div></div>'
+      +   '<div class="sdrawer-nav">'
+      +     '<button type="button" class="btn-ghost" id="sd-prev"' + (prevSid ? '' : ' disabled') + '>◀ Prev</button>'
+      +     '<button type="button" class="btn-ghost" id="sd-next"' + (nextSid ? '' : ' disabled') + '>Next ▶</button>'
+      +     '<button type="button" class="btn-ghost" id="sd-close">✕ Close</button>'
+      +   '</div>'
+      + '</div>'
+      + '<div class="sdrawer-tabs">'
+      +   '<button type="button" class="sd-tab' + (subTab==='answers'?' active':'') + '" data-sd-tab="answers">1. Side-by-Side Answers (Clean View)</button>'
+      +   '<button type="button" class="sd-tab' + (subTab==='judge'?' active':'') + '" data-sd-tab="judge">2. Why It Scored This Way (Judge Notes)</button>'
+      +   '<button type="button" class="sd-tab' + (subTab==='evidence'?' active':'') + '" data-sd-tab="evidence">3. Chart Evidence &amp; Technical Timings</button>'
+      + '</div>'
+      + '<div class="sdrawer-body">' + tabPaneHtml + '</div>'
+      + '</aside>';
+
+    backdrop.querySelector('#sd-close').addEventListener('click', closeScenarioDrawer);
+    if(prevSid) backdrop.querySelector('#sd-prev').addEventListener('click', function(){ openScenarioDrawer(run, prevSid, subTab); });
+    if(nextSid) backdrop.querySelector('#sd-next').addEventListener('click', function(){ openScenarioDrawer(run, nextSid, subTab); });
+    backdrop.querySelectorAll('[data-sd-tab]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        subTab = btn.getAttribute('data-sd-tab');
+        renderDrawerContent();
+      });
+    });
+  }
+
+  renderDrawerContent();
+  backdrop.classList.add('open');
+}
+
+function closeScenarioDrawer(){
+  var backdrop = document.getElementById('scenario-drawer-backdrop');
+  if(backdrop) backdrop.classList.remove('open');
+}
+
+function renderSpeedVisual(run){
+  var summaries = run.summary || [];
+  if(!summaries.length) return null;
+  var sec = el('section', 'speed-visual');
+  sec.setAttribute('aria-label', 'Speed and Multi-User Scaling Visual Summary');
+
+  var maxLat = Math.max.apply(null, summaries.map(function(s){ return s.avg_latency_ms || 1; }).concat([1000]));
+  var stageBars = summaries.map(function(s){
+    var totalMs = s.avg_latency_ms || 0;
+    var sl = s.streaming_latency || {};
+    var ttftMs = sl.avg_ttft_ms != null ? sl.avg_ttft_ms : Math.round(totalMs * 0.35);
+    var ansDoneMs = sl.avg_answer_done_ms != null ? sl.avg_answer_done_ms : totalMs;
+    var streamMs = Math.max(0, ansDoneMs - ttftMs);
+    var checkMs = Math.max(0, totalMs - ansDoneMs);
+    var wTtft = Math.max(8, (ttftMs / maxLat) * 100);
+    var wStream = Math.max(8, (streamMs / maxLat) * 100);
+    var wCheck = checkMs > 30 ? Math.max(4, (checkMs / maxLat) * 100) : 0;
+
+    return '<div class="speed-stage-row">'
+      + '<div class="speed-stage-head"><span>' + htmlEsc(armTitle(s.backend_id)) + '</span>'
+      + '<span>' + (totalMs/1000).toFixed(1) + 's avg total (' + (ttftMs/1000).toFixed(1) + 's to first word' + (sl.avg_tpot_ms ? (' · ' + sl.avg_tpot_ms + ' ms/tok') : '') + ')</span></div>'
+      + '<div class="speed-bar-track">'
+      +   '<div class="speed-seg-ttft" style="width:' + wTtft.toFixed(1) + '%" title="Wait for 1st word (TTFT): ' + ttftMs + ' ms">1st word: ' + (ttftMs/1000).toFixed(1) + 's</div>'
+      +   '<div class="speed-seg-stream" style="width:' + wStream.toFixed(1) + '%" title="Streaming clinical answer: ' + streamMs + ' ms">Streaming: ' + (streamMs/1000).toFixed(1) + 's</div>'
+      +   (wCheck > 0 ? ('<div class="speed-seg-check" style="width:' + wCheck.toFixed(1) + '%" title="Deterministic checks: ' + checkMs + ' ms">' + checkMs + 'ms</div>') : '')
+      + '</div></div>';
+  }).join('');
+
+  var concHtml = '';
+  var concRuns = (run.hardware && Array.isArray(run.hardware.concurrency_runs)) ? run.hardware.concurrency_runs : [];
+  if(concRuns.length){
+    var byN = {1: [], 4: []};
+    concRuns.forEach(function(c){ if(byN[c.n_users]) byN[c.n_users].push(c); });
+    function renderNCard(nUsers, title, sub, isHighlight){
+      var rows = byN[nUsers] || [];
+      if(!rows.length) return '';
+      var body = rows.map(function(c){
+        var sloPct = Math.round((c.goodput_rate || 0) * 100);
+        return '<div style="padding:10px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px">'
+          + '<div><b>' + htmlEsc(armShort(c.backend_id)) + '</b>'
+          + '<div style="font-size:11.5px;color:var(--mut)">1st word (p50): <b>' + ((c.ttft_p50_ms||0)/1000).toFixed(2) + 's</b> · Full answer (p50): <b>' + ((c.answer_done_p50_ms||0)/1000).toFixed(2) + 's</b></div></div>'
+          + '<div style="text-align:right"><div style="font:800 15px ui-monospace,monospace;color:var(--fg)">' + c.throughput_turns_per_min + ' turns/min</div>'
+          + '<span class="ov-hero-pill ' + (sloPct >= 80 ? 'ok' : 'warn') + '">' + sloPct + '% meet fast-response goal</span></div>'
+          + '</div>';
+      }).join('');
+      return '<div class="speed-conc-card' + (isHighlight ? ' highlight' : '') + '">'
+        + '<div class="ov-kicker">' + htmlEsc(title) + '</div>'
+        + '<div style="font-size:12.5px;color:var(--mut);margin-bottom:8px">' + htmlEsc(sub) + '</div>'
+        + body + '</div>';
+    }
+    concHtml = '<div class="ov-block">'
+      + '<div class="ov-sec-head"><div><h3 class="ov-sec-title">What Happens When Multiple Clinicians Use It at Once?</h3>'
+      + '<div class="ov-sec-sub">Tested on ' + htmlEsc((run.hardware && run.hardware.gpu) || 'the shared GPU server') + ' (' + htmlEsc((run.hardware && run.hardware.serving_engine) || 'parallel slots') + '). Fast-response goal (SLO Goodput): 1st word ≤ 3.0s, Full answer ≤ 10.0s, Streaming ≤ 50ms/tok.</div></div></div>'
+      + '<div class="speed-conc-grid">'
+      +   renderNCard(1, '1 Solo Clinician (N = 1)', 'Baseline speed when one clinician has the GPU server to themselves.', false)
+      +   renderNCard(4, '4 Simultaneous Clinicians (N = 4)', '4 clinicians asking multi-turn chart questions at the exact same time.', true)
+      + '</div></div>';
+  }
+
+  sec.innerHTML = '<div class="ov-block">'
+    + '<div class="ov-sec-head"><div><h3 class="ov-sec-title">Where Does the Wait Time Go? (Single-Turn Pipeline Breakdown)</h3>'
+    + '<div class="ov-sec-sub">Blue = waiting for the first word to appear (TTFT) · Green = streaming the clinical answer text · Slate = deterministic date &amp; citation verification.</div></div></div>'
+    + stageBars
+    + '</div>'
+    + concHtml;
+
   return sec;
 }
 
@@ -934,10 +1711,14 @@ function judgeHeatmap(run){
       var jump='<a href="#sec-answers" class="jh-jump" data-jump-sid="'+htmlEsc(td.dataset.sid)+'">Jump to side-by-side answers for '+htmlEsc(td.dataset.sid)+' ↓</a>';
       var noteEl=wrap.querySelector('#jh-note');
       noteEl.innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b>'+qLine+'<div>'+htmlEsc(td.dataset.det)+'</div><div>'+htmlEsc(td.dataset.note||'(no note)')+'</div>'+judgePassLines(run, td.dataset.sid, td.dataset.arm)+jump;
-      var jLink=noteEl.querySelector('.jh-jump');
+      var jLink=noteEl.querySelector ? noteEl.querySelector('.jh-jump') : null;
       if(jLink){
         jLink.onclick=function(ev){
           ev.preventDefault();
+          var mEl=document.getElementById('report');
+          if(mEl && mEl.dataset.activeTab && mEl.dataset.activeTab !== 'all' && mEl.dataset.activeTab !== 'questions'){
+            switchReportTab('questions');
+          }
           var sf=document.getElementById('scenario-filter');
           if(sf){ sf.value=''; applyScenarioFilter(); }
           var target=document.querySelector('#report .scenario[data-scenario="'+cssEsc(td.dataset.sid)+'"]');
@@ -1331,7 +2112,28 @@ function wrapSection(node, id, navLabel, heading, note){
 // top and last-section edge cases trivial. Rebuilt each render (#report re-renders on run
 // switch). _spyScroll is kept so a prior listener is removed before re-wiring.
 let _spyScroll = null;
-function buildNav(){
+function switchReportTab(tabId, filterCat){
+  const main = document.getElementById('report');
+  if(!main) return;
+  main.dataset.activeTab = tabId;
+  document.querySelectorAll('#toc .rtab').forEach(btn => {
+    const isAct = btn.dataset.tab === tabId;
+    btn.classList.toggle('active', isAct);
+    btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+  });
+  const subBar = document.querySelector('#toc .toc-sub');
+  if(subBar){
+    subBar.hidden = !(tabId === 'all' || tabId === 'methodology');
+  }
+  if(filterCat && tabId === 'questions'){
+    const pill = document.querySelector('.question-explorer .qe-pill[data-qe-filter="cat:' + filterCat + '"]');
+    if(pill) pill.click();
+  }
+  syncTopbarHeight();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function buildNav(run){
   const nav = document.getElementById('toc');
   if(!nav) return;
   const secs = [...document.querySelectorAll('#report > section.rsec[data-nav]')];
@@ -1339,6 +2141,36 @@ function buildNav(){
   if(_spyScroll){ window.removeEventListener('scroll', _spyScroll); window.removeEventListener('resize', _spyScroll); _spyScroll = null; }
   if(!secs.length){ nav.style.display = 'none'; return; }
   nav.style.display = '';
+
+  const main = document.getElementById('report');
+  const activeTab = (main && main.dataset.activeTab) || 'overview';
+  const nScen = (run && run.scenarios) ? run.scenarios.length : 0;
+
+  // Primary 4-Tab Bar (Casual-First Progressive Disclosure)
+  const tabsRow = el('div', 'report-tabs');
+  tabsRow.setAttribute('role', 'tablist');
+  const tabDefs = [
+    { id: 'overview', label: 'Overview (At a Glance)' },
+    { id: 'questions', label: 'Browse All Questions', badge: nScen ? String(nScen) : '' },
+    { id: 'speed', label: 'Speed & Multi-User Scaling' },
+    { id: 'methodology', label: 'Methodology & Raw Data' },
+    { id: 'all', label: 'All Sections', cls: 'rtab-all' }
+  ];
+  tabDefs.forEach(t => {
+    const b = el('button', 'rtab' + (t.cls ? ' ' + t.cls : '') + (t.id === activeTab ? ' active' : ''));
+    b.type = 'button';
+    b.dataset.tab = t.id;
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', t.id === activeTab ? 'true' : 'false');
+    b.innerHTML = htmlEsc(t.label) + (t.badge ? (" <span class='rtab-badge'>" + htmlEsc(t.badge) + "</span>") : '');
+    b.addEventListener('click', () => switchReportTab(t.id));
+    tabsRow.appendChild(b);
+  });
+  nav.appendChild(tabsRow);
+
+  // Secondary section-anchor bar (shown when in 'All Sections' or 'Methodology & Raw Data')
+  const subRow = el('div', 'toc-sub');
+  subRow.hidden = !(activeTab === 'all' || activeTab === 'methodology');
   const byId = new Map();
   secs.forEach(s => {
     const a = el('a', 'toc-link');
@@ -1346,21 +2178,23 @@ function buildNav(){
     a.textContent = s.dataset.nav;
     a.addEventListener('click', e => {
       e.preventDefault();
+      if(main && main.dataset.activeTab !== 'all' && s.dataset.tabGroup && main.dataset.activeTab !== s.dataset.tabGroup){
+        switchReportTab(s.dataset.tabGroup);
+      }
       s.scrollIntoView({ behavior: 'smooth', block: 'start' });
       history.replaceState(null, '', '#' + s.id);
     });
-    nav.appendChild(a);
+    subRow.appendChild(a);
     byId.set(s.id, a);
   });
+  nav.appendChild(subRow);
+
   function setActive(id){ byId.forEach(l => l.removeAttribute('aria-current')); var l=byId.get(id); if(l) l.setAttribute('aria-current','location'); }
   function spy(){
-    // The trigger line = just below the live sticky header (measured, not assumed), so the
-    // active section flips as its heading clears the header.
     const header = document.querySelector('.topbar');
     const line = (header ? header.getBoundingClientRect().bottom : 0) + 12;
     let active = secs[0].id;
     for(let i=0;i<secs.length;i++){ if(secs[i].getBoundingClientRect().top <= line){ active = secs[i].id; } }
-    // bottom-of-page → the last section is "current" even if it never reached the line.
     if(window.innerHeight + window.scrollY >= document.body.scrollHeight - 4){ active = secs[secs.length-1].id; }
     setActive(active);
   }
@@ -1476,14 +2310,38 @@ function renderRun(runId){
 
   const main = document.getElementById('report');
   main.innerHTML = '';
-  const pbanner = renderPatientBanner(run);
-  if (pbanner) main.appendChild(pbanner);
+
+  const hasJudge = (run.judge || []).some(s => (s.n || 0) > 0 && s.benchmark_score != null);
+  const defaultTab = (hasJudge && (run.scenarios || []).length > 1) ? 'overview' : 'all';
+  main.dataset.activeTab = defaultTab;
+
+  // Tab 1 (Overview — At a Glance): strictly 3 Plain-English Visual Blocks
   const execSum = renderExecutiveSummary(run);
-  if (execSum) main.appendChild(execSum);
+  if (execSum){
+    execSum.dataset.tabGroup = 'overview';
+    main.appendChild(execSum);
+  }
+
+  // Tab 2 (Browse All Questions): Scannable Question Explorer Matrix + Slide-Over Drawer trigger
+  const qExplorer = renderQuestionExplorer(run);
+  if (qExplorer){
+    qExplorer.dataset.tabGroup = 'questions';
+    main.appendChild(qExplorer);
+  }
+
+  // Tab 4 (Methodology & Raw Data): Patient Cohort Banner + Full 13-Col Judge Rubric + Raw Heatmap
+  const pbanner = renderPatientBanner(run);
+  if (pbanner){
+    pbanner.dataset.tabGroup = 'methodology';
+    main.appendChild(pbanner);
+  }
 
   // 1) Quality — the headline judge scores (results first!)
   const judge = wrapSection(renderJudge(run), 'sec-quality', 'Quality', 'Quality — reviewer judgment (Scout rubric)');
-  if (judge) main.appendChild(judge);
+  if (judge){
+    judge.dataset.tabGroup = 'methodology';
+    main.appendChild(judge);
+  }
 
   // 2) Per-scenario heatmap — the scenario × setup colour grid, its own navigable section
   const hm = judgeHeatmap(run);
@@ -1493,7 +2351,9 @@ function renderRun(runId){
     hmIntro.textContent = 'Every scenario × setup at a glance (green = accurate, amber, red) — click a cell to read the reviewer’s note and jump straight to the side-by-side answers.';
     hmSec.appendChild(hmIntro);
     hmSec.appendChild(hm);
-    main.appendChild(wrapSection(hmSec, 'sec-heatmap', 'Heatmap', 'Per-scenario heatmap'));
+    const hmWrapped = wrapSection(hmSec, 'sec-heatmap', 'Heatmap', 'Per-scenario heatmap');
+    hmWrapped.dataset.tabGroup = 'methodology';
+    main.appendChild(hmWrapped);
   }
 
   // 3) Per-scenario answers — the side-by-side answer tiles, its own navigable section
@@ -1541,16 +2401,33 @@ function renderRun(runId){
     });
     scenSec.appendChild(sec);
   });
-  main.appendChild(wrapSection(scenSec, 'sec-answers', 'Answers', 'Per-scenario answers'));
+  const ansWrapped = wrapSection(scenSec, 'sec-answers', 'Answers', 'Per-scenario answers');
+  ansWrapped.dataset.tabGroup = 'questions';
+  main.appendChild(ansWrapped);
 
   // 4) In-Depth — its own co-equal Benchmark
   const indepth = wrapSection(renderInDepth(run), 'sec-indepth', 'In-Depth', 'In-Depth — its own parity Benchmark');
-  if (indepth) main.appendChild(indepth);
+  if (indepth){
+    indepth.dataset.tabGroup = 'methodology';
+    main.appendChild(indepth);
+  }
   // 5) The product's checks against the judge (present once the run is judged and scored).
   const checks = wrapSection(renderCheckPrecision(run), 'sec-checks', 'Checks', 'Checks against the judge');
-  if (checks) main.appendChild(checks);
+  if (checks){
+    checks.dataset.tabGroup = 'methodology';
+    main.appendChild(checks);
+  }
   // 6) Arms — what this run compares (model roles, sampling knobs, prompts)
-  main.appendChild(wrapSection(renderArms(run), 'sec-arms', 'Arms', 'What this run compares'));
+  const armsWrapped = wrapSection(renderArms(run), 'sec-arms', 'Arms', 'What this run compares');
+  armsWrapped.dataset.tabGroup = 'methodology';
+  main.appendChild(armsWrapped);
+
+  // Tab 3 (Speed & Multi-User Scaling): Visual Stage Bars + Concurrency Cards + Detailed Engineering Tables
+  const speedVisual = renderSpeedVisual(run);
+  if (speedVisual){
+    speedVisual.dataset.tabGroup = 'speed';
+    main.appendChild(speedVisual);
+  }
 
   // 7) Engineering metrics — UN-HIDDEN (was a <details> collapse). Operational, not answer
   // quality, so it lives last and reads de-emphasized, but it's always visible + in the nav.
@@ -1560,9 +2437,11 @@ function renderRun(runId){
   eng.appendChild(engIntro);
   eng.appendChild(renderSummary(run));
   eng.appendChild(renderMetrics(run));
-  main.appendChild(wrapSection(eng, 'sec-engineering', 'Engineering', 'Engineering metrics', 'operational, not answer quality'));
+  const engWrapped = wrapSection(eng, 'sec-engineering', 'Engineering', 'Engineering metrics', 'operational, not answer quality');
+  engWrapped.dataset.tabGroup = 'speed';
+  main.appendChild(engWrapped);
 
-  buildNav();
+  buildNav(run);
   applyFilters();
 }
 
