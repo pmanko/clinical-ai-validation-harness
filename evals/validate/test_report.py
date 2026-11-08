@@ -583,3 +583,49 @@ def test_report_renders_executive_summary_results_first_and_tile_judge_pills(tmp
     assert html.index("'sec-quality'") < html.index("'sec-arms'")
     assert html.index("'sec-answers'") < html.index("'sec-arms'")
 
+
+def test_report_embeds_hardware_streaming_latency_and_concurrency_runs(tmp_path):
+    run_dir = tmp_path / "run"
+    row = _result("gemma-local", "ans b", [])
+    row["metrics"]["ttft_ms"] = 1650
+    row["metrics"]["answer_done_ms"] = 5500
+    row["metrics"]["turn_done_ms"] = 5520
+    row["metrics"]["tpot_ms"] = 11.3
+    _write_run(run_dir, [row])
+    (run_dir / "run_meta.json").write_text(
+        json.dumps(
+            {
+                "hardware": {
+                    "tier": "gpu_server",
+                    "gpu": "Shared 24 GB Cloud GPU Server (24 GB VRAM)",
+                    "vram_gb": 24,
+                    "serving_engine": "Ollama (gemma4:12b Q4_K_M, 16k–24k context)",
+                    "parallel_slots": 4,
+                    "concurrency_runs": [
+                        {
+                            "backend_id": "gemma-local",
+                            "n_users": 4,
+                            "throughput_turns_per_min": 12.96,
+                            "goodput_rate": 0.5,
+                            "goodput_turns_per_min": 6.48,
+                            "ttft_p50_ms": 4259.0,
+                            "turn_1_ttft_p50_ms": 5268.0,
+                            "turn_2plus_ttft_p50_ms": 3170.5,
+                            "answer_done_p50_ms": 10600.0,
+                            "tpot_p50_ms": 7.5,
+                            "error_rate": 0.0,
+                        }
+                    ],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    assert "Hardware & serving configuration" in html
+    assert "Streaming latency breakdown (TTFT · Answer-Done · Turn-Done · TPOT)" in html
+    assert "Multi-clinician session concurrency (N=1, 2, 4) & SLO goodput" in html
+    assert "Shared 24 GB Cloud GPU Server (24 GB VRAM)" in html
+    assert "12.96" in html
+
+

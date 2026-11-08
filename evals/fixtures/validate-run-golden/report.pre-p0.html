@@ -540,6 +540,14 @@ function renderSummary(run){
   const sec = el('section', 'summary-section');
   sec.innerHTML =
     "<p class='intro'>One row per setup: how many questions it answered, how fast, and how often it cited the chart or fell back. These are operational counts (speed and volume), not a measure of whether the answers were right. Click any column header to sort.</p>";
+  if(run.hardware){
+    const hw=run.hardware;
+    const hh=el('h3'); hh.textContent='Hardware & serving configuration'; sec.appendChild(hh);
+    const ht=el('table','summary');
+    ht.innerHTML='<thead><tr><th>tier</th><th>hardware</th><th>VRAM</th><th>serving engine</th><th>parallel KV slots</th></tr></thead>'+
+      '<tbody><tr><td class="b">'+htmlEsc(hw.tier||'—')+'</td><td>'+htmlEsc(hw.gpu||'—')+'</td><td>'+(hw.vram_gb!=null?hw.vram_gb+' GB':'—')+'</td><td>'+htmlEsc(hw.serving_engine||'—')+'</td><td>'+(hw.parallel_slots!=null?hw.parallel_slots:'—')+'</td></tr></tbody>';
+    sec.appendChild(ht);
+  }
   const rows = run.summary.map(s =>
     "<tr><td class='b'>" + htmlEsc(armTitle(s.backend_id)) + "<span class='model'>" + htmlEsc(s.backend_id) + "</span></td>" +
     '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
@@ -554,6 +562,23 @@ function renderSummary(run){
     '<tbody>' + rows + '</tbody>';
   sec.appendChild(tbl);
   makeSortable(tbl);
+  if(run.summary.some(s=>s.streaming_latency)){
+    const slh=el('h3'); slh.textContent='Streaming latency breakdown (TTFT · Answer-Done · Turn-Done · TPOT)'; sec.appendChild(slh);
+    const slp=el('p','intro'); slp.textContent='Incremental SSE stream timings across all turns: Time to First Token (TTFT), Answer-Done (clinical answer text complete), Turn-Done (after deterministic validation / citation resolution), and Time Per Output Token (TPOT).'; sec.appendChild(slp);
+    const slt=el('table','summary');
+    slt.innerHTML='<thead><tr><th>backend</th><th>avg TTFT</th><th>p95 TTFT</th><th>avg answer-done</th><th>p95 answer-done</th><th>avg turn-done</th><th>avg TPOT</th></tr></thead>'+
+      '<tbody>'+run.summary.map(s=>{
+        const sl=s.streaming_latency||{};
+        return '<tr><td class="b">'+htmlEsc(armTitle(s.backend_id))+'<span class="model">'+htmlEsc(s.backend_id)+'</span></td>'+
+          '<td>'+(sl.avg_ttft_ms!=null?sl.avg_ttft_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.p95_ttft_ms!=null?sl.p95_ttft_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.avg_answer_done_ms!=null?sl.avg_answer_done_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.p95_answer_done_ms!=null?sl.p95_answer_done_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.avg_turn_done_ms!=null?sl.avg_turn_done_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.avg_tpot_ms!=null?sl.avg_tpot_ms+' ms/tok':'—')+'</td></tr>';
+      }).join('')+'</tbody>';
+    sec.appendChild(slt); makeSortable(slt);
+  }
   const stages=[];
   run.summary.forEach(s => Object.keys(s.stage_latency_ms||{}).forEach(k => {
     if(!stages.includes(k)) stages.push(k);
@@ -572,6 +597,26 @@ function renderSummary(run){
         return '<td>'+avg+' ('+v.observed+'/'+v.expected+(flags.length?' · '+flags.join(', '):'')+')</td>';
       }).join('')+'</tr>').join('')+'</tbody>';
     sec.appendChild(st); makeSortable(st);
+  }
+  if(run.hardware&&Array.isArray(run.hardware.concurrency_runs)&&run.hardware.concurrency_runs.length){
+    const ch=el('h3'); ch.textContent='Multi-clinician session concurrency (N=1, 2, 4) & SLO goodput'; sec.appendChild(ch);
+    const cp=el('p','intro'); cp.textContent='Concurrent multi-turn clinician sessions driven against the same hardware target. SLO goodput counts turns meeting all three interactive thresholds simultaneously (TTFT ≤ 3,000 ms, Answer-Done ≤ 10,000 ms, TPOT ≤ 50 ms/tok).'; sec.appendChild(cp);
+    const ct=el('table','summary');
+    ct.innerHTML='<thead><tr><th>backend</th><th>users (N)</th><th>throughput</th><th>SLO goodput rate</th><th>goodput</th><th>TTFT p50</th><th>Turn 1 TTFT p50</th><th>Turn 2+ TTFT p50</th><th>answer-done p50</th><th>TPOT p50</th><th>errors</th></tr></thead>'+
+      '<tbody>'+run.hardware.concurrency_runs.map(c=>
+        '<tr><td class="b">'+htmlEsc(armTitle(c.backend_id))+'<span class="model">'+htmlEsc(c.backend_id)+'</span></td>'+
+        '<td>N='+c.n_users+'</td>'+
+        '<td>'+c.throughput_turns_per_min+' turns/min</td>'+
+        '<td>'+Math.round((c.goodput_rate||0)*100)+'%</td>'+
+        '<td>'+c.goodput_turns_per_min+' turns/min</td>'+
+        '<td>'+(c.ttft_p50_ms!=null?c.ttft_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.turn_1_ttft_p50_ms!=null?c.turn_1_ttft_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.turn_2plus_ttft_p50_ms!=null?c.turn_2plus_ttft_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.answer_done_p50_ms!=null?c.answer_done_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.tpot_p50_ms!=null?c.tpot_p50_ms+' ms/tok':'—')+'</td>'+
+        '<td>'+Math.round((c.error_rate||0)*100)+'%</td></tr>'
+      ).join('')+'</tbody>';
+    sec.appendChild(ct); makeSortable(ct);
   }
   return sec;
 }
@@ -696,10 +741,13 @@ function renderExecutiveSummary(run){
   }
 
   var judgeLine = (run.judging && run.judging.sentence) ? run.judging.sentence : (scored.length ? 'LLM rubric evaluation' : 'Operational run (unjudged)');
+  var hwLine = (run.hardware && run.hardware.gpu)
+    ? (' · ' + run.hardware.gpu + (run.hardware.parallel_slots ? (' (parallel=' + run.hardware.parallel_slots + ')') : ''))
+    : '';
   cards.push(
     '<div class="kpi-card"><div class="kpi-kicker">Evaluation Scope</div>'
     + '<div class="kpi-val">' + nQ + ' question' + (nQ===1?'':'s') + ' · ' + arms.length + ' setup' + (arms.length===1?'':'s') + '</div>'
-    + '<div class="kpi-sub">' + (nP ? (nP + ' patient' + (nP===1?'':'s') + ' · ') : '') + htmlEsc(judgeLine) + '</div></div>'
+    + '<div class="kpi-sub">' + (nP ? (nP + ' patient' + (nP===1?'':'s') + ' · ') : '') + htmlEsc(judgeLine + hwLine) + '</div></div>'
   );
 
   var sec = el('section', 'exec-summary');
@@ -719,6 +767,9 @@ function renderExecutiveSummary(run){
         : '<span class="exec-safe bad">' + (harm ? ('☠ ' + harm + ' harm') : '') + (harm && fab ? ' · ' : '') + (fab ? (fab + ' fab ref') : '') + '</span>';
       var sm = sumByArm[s.backend] || {};
       var latTxt = sm.avg_latency_ms ? ((sm.avg_latency_ms / 1000).toFixed(1) + 's') : '—';
+      if(sm.streaming_latency && sm.streaming_latency.avg_ttft_ms != null){
+        latTxt = (sm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's TTFT · ' + latTxt;
+      }
       h += '<div class="exec-row' + (idx === 0 ? ' is-best' : '') + '">'
         + '<div class="exec-arm" title="' + htmlEsc(s.backend) + '">' + badge + '<span>' + htmlEsc(armTitle(s.backend)) + '</span></div>'
         + '<div class="exec-bar-wrap"><div class="exec-bar-track"><div class="exec-bar-fill ' + tierCls + '" style="width:' + bScore.toFixed(1) + '%"></div></div><span class="exec-bscore">' + fmt10(s.benchmark_score) + '</span></div>'
