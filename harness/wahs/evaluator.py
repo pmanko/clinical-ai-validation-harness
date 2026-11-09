@@ -828,7 +828,7 @@ def _evaluate_atomic_entailment(
                         uuid_ok = True
                         break
                 else:
-                    # Sentence had no inline citation of its own; check enclosing line or immediately adjacent continuation line
+                    # Check enclosing line or immediately adjacent continuation line
                     for line_idx, ln in enumerate(lines):
                         if sent in ln:
                             ln_cites = _CITATION_RE.findall(ln)
@@ -1101,8 +1101,142 @@ def _normalize_bracket_citations(text: str) -> str:
     return _MULTI_BRACKET_RE.sub(_repl, text or "")
 
 
-def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
+_NARROW_QUERY_STOPWORDS = frozenset(
+    {
+        "patient",
+        "chart",
+        "record",
+        "records",
+        "active",
+        "medication",
+        "medications",
+        "prescription",
+        "prescriptions",
+        "clinical",
+        "medical",
+        "center",
+        "hospital",
+        "inpatient",
+        "outpatient",
+        "admission",
+        "admissions",
+        "documented",
+        "look",
+        "looking",
+        "across",
+        "state",
+        "report",
+        "please",
+        "exact",
+        "result",
+        "results",
+        "value",
+        "values",
+        "dates",
+        "date",
+        "history",
+        "disease",
+        "disorder",
+        "diagnosis",
+        "diagnoses",
+        "daily",
+        "strengths",
+        "names",
+        "drug",
+        "from",
+        "what",
+        "were",
+        "during",
+        "stays",
+        "stay",
+        "health",
+        "year",
+        "years",
+        "subject",
+        "mimic",
+        "israel",
+        "deaconess",
+        "beth",
+        "bidmc",
+        "maurice",
+        "auer",
+        "marcus",
+        "vance",
+        "major",
+        "prior",
+        "recent",
+        "blood",
+        "pressure",
+    }
+)
+
+
+def _is_reconciliation_or_broad_prompt_question(question: str) -> bool:
+    """Return True when the question asks for reconciliation, conflict auditing, safety review, or broad summary."""
+    q_low = (question or "").strip().lower()
+    if not q_low:
+        return True
+    broad_cues = (
+        "reconcil",
+        "conflict",
+        "duplicate",
+        "overlap",
+        "contradict",
+        "audit",
+        "discrepanc",
+        "anomal",
+        "safety",
+        "interaction",
+        "hold",
+        "stop",
+        "stage",
+        "staging",
+        "comprehensive",
+        "overall",
+        "all three parts",
+        "active medications",
+        "concern",
+        "dosing",
+        "spironolactone",
+        "aldactone",
+        "apixaban",
+        "eliquis",
+        "warfarin",
+        "clopidogrel",
+        "plavix",
+        "lipitor",
+        "simvastatin",
+        "sedative",
+    )
+    if any(cue in q_low for cue in broad_cues):
+        return True
+    return any(
+        phrase in q_low
+        for phrase in (
+            "health summary",
+            "clinical summary",
+            "referral summary",
+            "immunization summary",
+            "summarize my active",
+            "overall summary",
+            "chart summary",
+            "focused summary",
+        )
+    )
+
+
+def _format_kb_findings_for_prompt(
+    analyze_data: dict[str, Any],
+    *,
+    question: str = "",
+) -> str:
     """Format Stage 2 deterministic KB findings concisely for `-kb` profile prompts."""
+    broad_query = _is_reconciliation_or_broad_prompt_question(question)
+    q_target_tokens = {
+        tok
+        for tok in re.findall(r"[a-z0-9]{4,}", (question or "").lower())
+        if tok not in _NARROW_QUERY_STOPWORDS and not tok.isdigit()
+    }
     analyses = analyze_data.get("analyses") if isinstance(analyze_data.get("analyses"), dict) else {}
     dq = analyses.get("data_quality_and_conflicts") if isinstance(analyses.get("data_quality_and_conflicts"), dict) else {}
     reconcil = analyze_data.get("reconciliation") if isinstance(analyze_data.get("reconciliation"), dict) else {}
@@ -1123,6 +1257,10 @@ def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
         if dedup_key in seen_finding_keys:
             continue
         seen_finding_keys.add(dedup_key)
+        if not broad_query:
+            title_fid_low = f"{title} {fid}".lower()
+            if not any(tok in title_fid_low for tok in q_target_tokens):
+                continue
         summary = str(f.get("description") or f.get("summary") or f.get("patient_plain_summary") or "").strip()
         raw_ev = (
             list(f.get("evidence_indices") or [])
@@ -1141,7 +1279,7 @@ def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
         ev_str = f" (Evidence: {' '.join(ev_idx)})" if ev_idx else ""
         lines.append(f"- [{sev}] {title} (rule={fid}){ev_str}: {summary}")
 
-    if not lines:
+    if not lines and broad_query:
         skills_block = (
             (analyses.get("chart_hygiene_and_reconciliation_skills") or {}).get("formatted_findings_block")
             if isinstance(analyses.get("chart_hygiene_and_reconciliation_skills"), dict)
@@ -1153,7 +1291,7 @@ def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
 
     patterns = analyses.get("patterns_and_summaries") if isinstance(analyses.get("patterns_and_summaries"), dict) else {}
     hl = patterns.get("highlight_encounter")
-    if isinstance(hl, dict) and hl.get("narrative"):
+    if broad_query and isinstance(hl, dict) and hl.get("narrative"):
         hl_cites = " ".join(
             f"[{c['index']}]"
             for c in (hl.get("citations") or [])
@@ -1163,6 +1301,9 @@ def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
 
     for traj in patterns.get("trajectories") or []:
         if not isinstance(traj, dict):
+            continue
+        concept_str = str(traj.get("concept") or "")
+        if not broad_query and not any(tok in concept_str.lower() for tok in q_target_tokens):
             continue
         t_cites = " ".join(
             f"[{c['index']}]"
@@ -1176,12 +1317,17 @@ def _format_kb_findings_for_prompt(analyze_data: dict[str, Any]) -> str:
         min_v = (traj.get("min") or {}).get("value")
         max_v = (traj.get("max") or {}).get("value")
         lines.append(
-            f"- [TRAJECTORY] {traj.get('concept')} ({traj.get('unit') or ''}) {t_cites}: "
+            f"- [TRAJECTORY] {concept_str} ({traj.get('unit') or ''}) {t_cites}: "
             f"initial {init_v} ({init_d}) -> latest {lat_v} ({lat_d}), range [{min_v}, {max_v}], direction={traj.get('direction')}"
         )
 
     if not lines:
-        lines.append("- No active medication/immunization/problem-lab conflicts flagged by Stage 2 KB rules.")
+        if broad_query:
+            lines.append("- No active medication/immunization/problem-lab conflicts flagged by Stage 2 KB rules.")
+        else:
+            lines.append(
+                "- No Stage 2 KB conflicts apply to this specific lookup; answer all parts of the user's question directly and thoroughly using the Condensed Patient Chart above, explicitly naming each condition, procedure, admission, and lab value from its cited [N] line (if an earlier requested decade is not in the chart, state that and explicitly name the earliest documented conditions/diagnoses present in the chart with their [N] citations; or state ABSTAIN if a requested test/procedure is completely absent from the chart)."
+            )
     redaction_notice = str(analyze_data.get("redaction_notice") or "").strip()
     if redaction_notice:
         lines.append(f"- Privacy posture note: {redaction_notice}")
@@ -1225,7 +1371,7 @@ def _build_profile_prompt(
     if include_kb_findings:
         parts.append(
             "STAGE 2 CLINICAL KB & RECONCILIATION FINDINGS (deterministic 4-Layer Clinical Knowledge Base findings):\n"
-            + _format_kb_findings_for_prompt(analyze_data)
+            + _format_kb_findings_for_prompt(analyze_data, question=case.prompt)
         )
     else:
         parts.append(
@@ -1239,9 +1385,9 @@ def _build_profile_prompt(
         f"CLINICAL TASK / PATIENT QUESTION (Use Case: {case.use_case}, Sharing Posture: {case.sharing_posture}):\n"
         f"{case.prompt}\n\n"
         "GROUNDING & FORMATTING RULES:\n"
-        "1. Cite supporting records from the Condensed Patient Chart inline using [N] bracket numbers on every substantive sentence (for example, [1] or [1] [2]). Never invent citation numbers that do not appear in the chart.\n"
-        "2. If the question asks about a test, imaging study, procedure, or diagnosis that is NOT documented in the Condensed Patient Chart, explicitly state that it is not documented in the chart (grounded abstention) and do not guess or invent clinical findings.\n"
-        "3. Write in clear, patient-friendly language (6th-to-8th grade reading level) while preserving exact medication names, doses, lab values, dates, and [N] citations."
+        "1. Cite supporting records from the Condensed Patient Chart inline using [N] bracket numbers on every substantive affirmative claim taken from the chart (for example, [1] or [1] [2]). Never invent citation numbers that do not appear in the chart, and never attach [1] (Demographics) or [2] (Completeness Manifest) to a statement that a requested test, report, or timeframe is absent.\n"
+        "2. If the question asks about a test, imaging study, procedure, genetic panel, or timeframe that is NOT documented in the Condensed Patient Chart, explicitly state that it is not documented in the chart (grounded abstention), do not guess or invent clinical findings, and do not list unrelated conditions or medications that were not asked about.\n"
+        "3. Keep your response focused on the specific questions asked. Write in clear, patient-friendly language (6th-to-8th grade reading level) while preserving exact medication names, doses, lab values, dates, and [N] citations."
     )
     return "\n\n".join(parts)
 
@@ -1463,6 +1609,37 @@ class WahsHubClient:
                     entry["display"] = body_s
                 if rtype and not entry.get("resourceType"):
                     entry["resourceType"] = rtype
+
+        # Link synonymous Condition ("History of X") and Procedure ("X (procedure)") mappings
+        def _canon_cond_proc_concept(disp: str) -> str:
+            low = str(disp or "").lower().strip()
+            for pfx in ("history of ", "personal history of ", "status post ", "s/p "):
+                if low.startswith(pfx):
+                    low = low[len(pfx):].strip()
+            low = re.sub(r"\((?:procedure|disorder|finding|situation|regime/therapy)\)", "", low).strip()
+            return re.sub(r"\s+", " ", low)
+
+        concept_to_uuids: dict[str, list[str]] = {}
+        for m_obj in mapping_by_idx.values():
+            rt = str(m_obj.get("resourceType") or "")
+            if rt in ("Condition", "Procedure"):
+                c_key = _canon_cond_proc_concept(str(m_obj.get("display") or ""))
+                u_val = str(m_obj.get("resourceUuid") or "").replace("urn:uuid:", "")
+                if len(c_key) >= 8 and u_val:
+                    if u_val not in concept_to_uuids.setdefault(c_key, []):
+                        concept_to_uuids[c_key].append(u_val)
+        for m_obj in mapping_by_idx.values():
+            rt = str(m_obj.get("resourceType") or "")
+            if rt in ("Condition", "Procedure"):
+                c_key = _canon_cond_proc_concept(str(m_obj.get("display") or ""))
+                syns = concept_to_uuids.get(c_key) or []
+                if len(syns) > 1:
+                    mems = list(m_obj.get("memberUuids") or [])
+                    u_self = str(m_obj.get("resourceUuid") or "").replace("urn:uuid:", "")
+                    for s_u in syns:
+                        if s_u != u_self and s_u not in mems:
+                            mems.append(s_u)
+                    m_obj["memberUuids"] = mems
 
         uuid_to_active_indices: dict[str, list[int]] = {}
         for k_idx in sorted(mapping_by_idx):
