@@ -241,9 +241,9 @@ def test_summary_label_is_escaped_not_injected(tmp_path):
     assert imgs == 0, "summary label injected a live <img> element instead of escaped text"
 
 
-def test_adjudication_radios_are_unique_per_tile(tmp_path):
-    """Each tile's pass/fail radios must be their own group — a single global name='decision'
-    makes picking pass in one tile deselect another."""
+def test_tile_renders_readonly_eval_footer_without_legacy_radios(tmp_path):
+    """Each tile renders a read-only .tile-eval-footer with deterministic/judge/human pills
+    and no legacy pass/fail radio inputs."""
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, ["a", "b"])
@@ -252,14 +252,12 @@ def test_adjudication_radios_are_unique_per_tile(tmp_path):
         b = p.chromium.launch()
         try:
             page = _page(b, uri)
-            names = page.evaluate(
-                "[...document.querySelectorAll('.tile')]"
-                ".map(t => { const r = t.querySelector('input[type=radio]'); return r ? r.name : null; })"
-                ".filter(Boolean)")
+            footers = page.evaluate("document.querySelectorAll('.tile .tile-eval-footer').length")
+            radios = page.evaluate("document.querySelectorAll('.tile input[type=radio]').length")
         finally:
             b.close()
-    assert len(names) >= 2 and len(set(names)) == len(names), (
-        f"decision radios share a name across tiles (one global group): {names}")
+    assert footers >= 2
+    assert radios == 0
 
 
 def test_progressive_disclosure_tabs_and_scenario_drawer(tmp_path):

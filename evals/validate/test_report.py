@@ -73,12 +73,7 @@ def test_report_has_pdf_button_print_styles_and_feedback_seam(tmp_path):
     assert "id='print-pdf'" in html            # the PDF button
     assert "window.print()" in html            # wired to browser print/save-as-PDF
     assert "@media print" in html              # print stylesheet
-    assert "FEEDBACK_ENDPOINT" in html         # feedback seam: optional endpoint
-    assert "function submit(" in html          # POST-or-download helper
-    assert "function download(" in html        # download kept as the fallback
-    # the exports route THROUGH submit (so a configured endpoint actually captures them)
-    assert "submit(out.join" in html                # collectFeedback -> submit
-    assert "submit(JSON.stringify(payload" in html  # exportRankings -> submit
+    assert "id='theme-toggle'" in html         # theme toggle remains accessible
 
 
 def test_report_renders_markdown_answer_headings_as_html(tmp_path):
@@ -389,34 +384,20 @@ def test_report_topbar_has_data_derived_identity_not_generic_h1(tmp_path):
     # the header identity reflects the actual run rather than a constant string.
     assert "function buildTitle(" in html
     assert "dataset_id" in html  # already present for run-meta; title reuses it
-    # The export/feedback actions are relocated into a single subdued overflow menu
-    # (progressive disclosure) — a labelled disclosure, not three top-row buttons.
-    assert "id='export-menu'" in html
+    assert "id='print-pdf'" in html
+    assert "id='theme-toggle'" in html
 
 
 def test_report_export_actions_live_in_overflow_menu_and_stay_wired(tmp_path):
-    # De-emphasis: the rarely-used rankings/feedback exports + the reviewer-email input
-    # move OUT of the prominent control row into one overflow menu, but the wired ids
-    # (and their JS handlers) are preserved so the adjudication/ranking machinery works.
+    # Read-only publication report keeps print-pdf and theme-toggle in topbar and removes
+    # legacy client-side adjudication/ranking export forms.
     run_dir = tmp_path / "run"
     _write_run(run_dir, [_result("gemma-local", "ans", [])])
     html = build_report(run_dir).read_text(encoding="utf-8")
 
-    # The overflow menu container wraps the three secondary actions + the email input.
-    menu = re.search(r"id='export-menu'.*?</details>", html, re.DOTALL)
-    assert menu is not None, "expected an <details id='export-menu'> overflow menu"
-    menu_html = menu.group(0)
-    for wired in ("id='reset-rank'", "id='export-rankings'", "id='export-feedback'", "id='rev'"):
-        assert wired in menu_html, f"{wired} must live inside the overflow menu"
-    # The handlers are still wired (ids unchanged) — machinery intact.
-    assert "getElementById('reset-rank').addEventListener" in html
-    assert "getElementById('export-rankings').addEventListener" in html
-    assert "getElementById('export-feedback').addEventListener" in html
-    # Download PDF + theme toggle remain readily accessible (NOT inside the overflow menu).
+    assert "id='export-menu'" not in html
     assert "id='print-pdf'" in html
-    assert "id='print-pdf'" not in menu_html
     assert "id='theme-toggle'" in html
-    assert "id='theme-toggle'" not in menu_html
 
 
 def test_report_dense_legends_are_structured_definition_lists(tmp_path):

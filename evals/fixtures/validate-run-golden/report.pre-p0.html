@@ -19,20 +19,6 @@ body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); ma
 .btn-ghost:hover { background: var(--surface2); border-color: var(--accent-bd); }
 .btn-ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .btn-icon { padding: 5px 9px; }
-/* Overflow menu: subdued summary trigger + an anchored disclosure panel (the rarely-used
-   reviewer exports live here, grouped, so they don't dominate the header). */
-.overflow { position: relative; }
-.overflow > summary { list-style: none; display: inline-block; }
-.overflow > summary::-webkit-details-marker { display: none; }
-.overflow > summary::marker { content: ''; }
-.overflow[open] > summary { background: var(--surface2); border-color: var(--accent-bd); }
-.overflow-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 230px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.16); padding: 8px; display: flex; flex-direction: column; gap: 4px; }
-.overflow-h { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--mut); margin: 2px 6px 4px; }
-.menu-item { font: inherit; font-size: 12px; text-align: left; padding: 6px 8px; cursor: pointer; color: var(--fg); background: none; border: 0; border-radius: 5px; }
-.menu-item:hover { background: var(--accent-bg); color: var(--accent); }
-.menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.menu-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--mut); padding: 4px 8px 2px; border-top: 1px solid var(--line); margin-top: 2px; }
-.menu-field input { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--fg); }
 .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
 .controls:empty { display: none; }
 .controls label { font-size: 12px; color: var(--mut); }
@@ -388,8 +374,15 @@ th { background: var(--surface2); font-weight: 600; font-size: 12px; }
 .bp-out { fill: none; stroke: #d9730d; stroke-width: 1; opacity: .85; }
 .bp-clip { fill: #d9730d; }
 .bp-clipnote { font-size: 8.5px; fill: #d9730d; }
-.judge-section { margin-top: 18px; }
+.judge-section, .det-section, .adj-section { margin-top: 18px; }
 .th-sub { font-weight: 400; color: var(--mut); font-size: 10px; }
+.vtiers-banner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
+.vtiers-label { font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin-right: 4px; }
+.vtier-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface2); color: var(--mut); text-decoration: none; }
+.vtier-pill .vt-k { font-weight: 700; color: var(--fg); }
+.vtier-pill.det { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
+.vtier-pill.judge { background: #fff3d6; color: #8a5a00; border-color: #f1c21b; }
+.vtier-pill.human { background: #d6f0d8; color: #103d1a; border-color: #2f9e44; }
 .cal { margin-top: 5px; font-size: 11px; line-height: 1.5; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; justify-content: center; }
 .cal-pt { font-weight: 700; font-variant-numeric: tabular-nums; }
 .cal .ci { color: var(--mut); font-variant-numeric: tabular-nums; }
@@ -401,6 +394,15 @@ th { background: var(--surface2); font-weight: 600; font-size: 12px; }
 .tier-badge.clinical { background: #d6f0d8; color: #103d1a; border-color: #2f9e44; }
 .cal-run { margin: 10px 0 0; padding: 8px 12px; background: var(--note-bg); border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
 .cal-run .ci { color: var(--mut); }
+.cal-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 10px 0 16px; }
+.cal-stat-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
+.cal-stat-card .cs-k { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); }
+.cal-stat-card .cs-v { font-size: 18px; font-weight: 700; margin: 3px 0 2px; font-variant-numeric: tabular-nums; }
+.cal-stat-card .cs-sub { font-size: 11.5px; color: var(--mut); }
+.adj-overrides { margin-top: 16px; }
+.adj-overrides h3 { font-size: 14px; margin: 0 0 6px; }
+.adj-delta.pos { color: #196c2e; font-weight: 700; }
+.adj-delta.neg { color: #a2191f; font-weight: 700; }
 .jb-faith { fill: var(--accent); }
 .jb-corr { fill: #d9730d; }
 .jb-acc { fill: var(--accent); }
@@ -422,11 +424,9 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .qhead .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
 .qhead .q { margin-top: 2px; }
 .tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(340px, 1fr); gap: 12px; align-items: stretch; overflow-x: auto; min-height: 60px; scroll-behavior: smooth; }
-.tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 10px 12px; cursor: grab; user-select: none; }
-.tile.dragging { opacity: .4; cursor: grabbing; }
+.tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 10px 12px; }
 .tile.empty { color: var(--mut); align-items: center; justify-content: center; cursor: default; }
 .tile-head { display: flex; gap: 6px; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; padding-right: 28px; }
-.rank-badge { font: 11px ui-monospace, monospace; background: var(--accent-bg); color: var(--accent); border-radius: 4px; padding: 0 5px; }
 .tile-head .backend { font-weight: 700; font-size: 12px; }
 .tile-head .label { color: var(--mut); font-size: 11px; font-family: ui-monospace, monospace; }
 .tile-jscore { font: 700 10.5px/1.3 ui-monospace, monospace; padding: 1px 6px; border-radius: 6px; margin-left: auto; white-space: nowrap; }
@@ -534,15 +534,21 @@ table.claims { border-collapse: collapse; font-size: 11px; width: 100%; margin-t
 .chip.warm { background: #fff3d6; color: #8a5a00; }
 .chip.none { background: #fde8e8; color: #a01; }
 .chip.bad { background: #a01; color: #fff; }
-.adj { margin-top: 8px; font-size: 12px; }
-.adj summary { cursor: pointer; color: var(--accent); font-size: 11px; }
-.cell-form { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
-.cell-form .scores { display: flex; gap: 6px; }
-.cell-form label { font-size: 11px; color: var(--mut); }
-.cell-form input[type=number] { width: 38px; }
-.cell-form select { font-size: 11px; }
-.cell-form textarea { width: 100%; height: 36px; font: inherit; font-size: 11px; }
-.cell-form .decision { display: flex; gap: 10px; }
+.tile-eval-footer { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 11.5px; }
+.tile-eval-pills { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.ev-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; font-family: ui-monospace, monospace; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface2); color: var(--fg); }
+.ev-pill.pass, .ev-pill.ok { background: #e6f5ea; color: #196c2e; border-color: #a7d7b4; }
+.ev-pill.warn { background: #fff3d6; color: #8a5a00; border-color: #f1c21b; }
+.ev-pill.fail, .ev-pill.bad { background: #fde8e8; color: #a2191f; border-color: #f5b5b5; }
+.ev-pill.human { background: #d6f0d8; color: #103d1a; border-color: #2f9e44; }
+.tile-eval-drawer { margin-top: 6px; }
+.tile-eval-drawer > summary { cursor: pointer; color: var(--accent); font-size: 11px; font-weight: 600; }
+.tile-eval-body { margin-top: 6px; padding: 8px 10px; background: var(--note-bg); border: 1px solid var(--line); border-radius: 6px; font-size: 11.5px; line-height: 1.45; }
+.tile-eval-body .ev-row + .ev-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.tile-eval-body .ev-k { font-weight: 700; color: var(--fg); }
+.tile-eval-body .ev-note { color: var(--fg); margin-top: 4px; font-style: italic; }
+table.ev-actors-tbl { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
+table.ev-actors-tbl th, table.ev-actors-tbl td { border: 1px solid var(--line); padding: 3px 6px; text-align: left; }
 .block { margin-top: 8px; }
 .block-title { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
 .block-tbl th, .block-tbl td { font-size: 12px; padding: 4px 6px; }
@@ -584,7 +590,7 @@ html { scroll-behavior: smooth; }
   .controls, .id-actions, .answers-filters, .sdrawer-backdrop { display: none !important; }
   #toc, .skip-link { display: none !important; }
   #report[data-active-tab] > [data-tab-group] { display: block !important; }
-  .adj, .expand { display: none !important; }
+  .expand { display: none !important; }
   .topbar { position: static; }
   .answers-filters { position: static; }
   #report > section.rsec { scroll-margin-top: 0; break-inside: avoid-page; }
@@ -593,13 +599,8 @@ html { scroll-behavior: smooth; }
   .ans { max-height: none !important; overflow: visible !important; }
   body { background: #fff; }
 }
-</style><script>(function(){try{var t=localStorage.getItem('oc-theme-report');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body><header class='topbar'><div class='topbar-id'><div class='id-main'><div class='breadcrumb'><a href='../index.html' title='Back to all published validation reports'>← All Reports</a><span class='bc-sep'>·</span><a href='https://openclinai.org/validation-harness/' target='_blank' rel='noopener'>Validation Harness</a></div><h1 id='report-title'>Validation report</h1><div id='run-meta' class='meta'></div></div><div class='id-actions'><span id='run-switcher' class='run-switcher'><label for='run-switcher-sel'>view run</label><select id='run-switcher-sel' aria-label='Switch to another published run'></select></span><button id='print-pdf' class='btn-ghost' title='print / save as PDF'>Download PDF</button><button id='theme-toggle' class='btn-ghost btn-icon' type='button' title='Toggle light / dark' aria-label='Toggle light or dark mode'></button><details id='export-menu' class='overflow'><summary class='btn-ghost' title='Reviewer exports — rankings & adjudication feedback'>Export <span aria-hidden='true'>▾</span></summary><div class='overflow-panel' role='menu'><p class='overflow-h'>Reviewer exports</p><button id='export-rankings' class='menu-item'>Export rankings.json</button><button id='export-feedback' class='menu-item'>Download feedback.jsonl</button><button id='reset-rank' class='menu-item' title='restore default backend order'>Reset ranking</button><label class='menu-field'>Reviewer <input id='rev' placeholder='you@example.org'></label></div></details></div></div><div class='controls'><label id='run-select-wrap' hidden>run <select id='run-select'></select></label></div><nav id='toc' aria-label='On this page'></nav></header><a class='skip-link' href='#report'>Skip to report</a><main id='report'></main><div id='sort-live' class='sr-only' aria-live='polite'></div><template id='rubric-template'><details class='adj'><summary>adjudicate</summary><div class='cell-form'><div class='scores'><label>acc<input type='number' min='0' max='10' step='1' name='accuracy'></label><label>com<input type='number' min='0' max='10' step='1' name='completeness'></label><label>rel<input type='number' min='0' max='10' step='1' name='relevance'></label></div><label>abstention<select name='abstention_outcome'><option value='n-a'>n/a</option><option value='correct'>correct</option><option value='over-abstained'>over-abstained</option><option value='failed-to-abstain'>failed-to-abstain</option></select></label><label>citations<select name='citation_groundedness'><option value='n-a'>n/a</option><option value='supported'>supported</option><option value='partly'>partly</option><option value='unsupported'>unsupported</option></select></label><label class='harm'><input type='checkbox' name='harm_fail'> harm hard-fail</label><div class='decision'><label><input type='radio' name='decision' value='pass'> pass</label><label><input type='radio' name='decision' value='fail'> fail</label></div><textarea name='free_text' placeholder='notes'></textarea></div></details></template><div class='legend'><p class='legend-group-h'>Per-tile deterministic chips · no LLM judge</p><dl class='legend-key'><dt>⏱ latency</dt><dd>end-to-end response time; <b>orange</b> = first turn per backend (carries model warmup).</dd><dt>chart refs</dt><dd>count of chart records cited — a COUNT, not a grounding/quality signal; the authoritative call is the human adjudication on each tile.</dd><dt>not surfaced</dt><dd>tokens / finish_reasons / response model — not returned by <code>/chat</code> (OTel-deferred).</dd><dt>ranking</dt><dd>drag tiles within a question to rank backends; rank + adjudication export to separate files.</dd></dl></div><script type='application/json' id='report-data'>{"generated_at": "2026-07-21T12:00:00+00:00", "runs": [{"run_id": "validate-golden-v1", "meta": {"run_id": "validate-golden-v1", "component": "validate", "git_sha": "deadbeef01", "dataset_id": "demo", "provider": "fixture", "generated_at": "2026-07-21T00:00:00Z", "reference_date": null}, "backends": ["gemma-local", "med-agent-team"], "labels": {"gemma-local": "Gemma fixture", "med-agent-team": "Team fixture"}, "scenarios": [{"scenario_id": "s-vitals", "turns": [{"turn": 1, "question": "Summarize vital signs.", "cells": {"gemma-local": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Blood pressure is 120/80 [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "Observation", "resource_uuid": null, "date": null, "title": "Observation record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Blood pressure is 120/80 [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] Observation record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · Observation \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] Observation\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}, "med-agent-team": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Blood pressure is 120/80 [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "Observation", "resource_uuid": null, "date": null, "title": "Observation record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Blood pressure is 120/80 [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] Observation record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · Observation \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] Observation\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}}}]}, {"scenario_id": "s-meds", "turns": [{"turn": 1, "question": "List current medications.", "cells": {"gemma-local": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Lisinopril 10 mg daily [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "MedicationRequest", "resource_uuid": null, "date": null, "title": "MedicationRequest record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Lisinopril 10 mg daily [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] MedicationRequest record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · MedicationRequest \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] MedicationRequest\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}, "med-agent-team": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Lisinopril 10 mg daily [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "MedicationRequest", "resource_uuid": null, "date": null, "title": "MedicationRequest record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Lisinopril 10 mg daily [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] MedicationRequest record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · MedicationRequest \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] MedicationRequest\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}}}]}], "summary": [{"backend_id": "gemma-local", "label": "Gemma fixture", "turns": 2, "avg_latency_ms": 42, "max_latency_ms": 42, "total_chart_refs": 2, "degraded": 0, "errors": 0, "temporal_gate_warn": 0, "temporal_gate_fail": 0, "temporal_gate_applied": 0, "stage_latency_ms": {}}, {"backend_id": "med-agent-team", "label": "Team fixture", "turns": 2, "avg_latency_ms": 42, "max_latency_ms": 42, "total_chart_refs": 2, "degraded": 0, "errors": 0, "temporal_gate_warn": 0, "temporal_gate_fail": 0, "temporal_gate_applied": 0, "stage_latency_ms": {}}], "metrics": {"latency_ms": {"label": "latency (ms)", "series": [{"backend": "gemma-local", "n": 2, "min": 42, "max": 42, "q1": 42.0, "median": 42.0, "q3": 42.0, "whisker_lo": 42, "whisker_hi": 42, "outliers": [], "mean": 42.0}, {"backend": "med-agent-team", "n": 2, "min": 42, "max": 42, "q1": 42.0, "median": 42.0, "q3": 42.0, "whisker_lo": 42, "whisker_hi": 42, "outliers": [], "mean": 42.0}], "axis_max": 42.0}, "citation_count": {"label": "chart references", "series": [{"backend": "gemma-local", "n": 2, "min": 1, "max": 1, "q1": 1.0, "median": 1.0, "q3": 1.0, "whisker_lo": 1, "whisker_hi": 1, "outliers": [], "mean": 1.0}, {"backend": "med-agent-team", "n": 2, "min": 1, "max": 1, "q1": 1.0, "median": 1.0, "q3": 1.0, "whisker_lo": 1, "whisker_hi": 1, "outliers": [], "mean": 1.0}], "axis_max": 1.0}, "answer_chars": {"label": "answer length (chars)", "series": [{"backend": "gemma-local", "n": 2, "min": 27, "max": 29, "q1": 27.5, "median": 28.0, "q3": 28.5, "whisker_lo": 27, "whisker_hi": 29, "outliers": [], "mean": 28.0}, {"backend": "med-agent-team", "n": 2, "min": 27, "max": 29, "q1": 27.5, "median": 28.0, "q3": 28.5, "whisker_lo": 27, "whisker_hi": 29, "outliers": [], "mean": 28.0}], "axis_max": 29.0}}, "judge": [{"backend": "gemma-local", "n": 2, "accuracy_mean": 8.0, "completeness_mean": 7.0, "relevance_mean": 8.0, "harm_count": 0, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "confabulation_count": 0, "fabricated_citation_count": 0, "abstention": {"n-a": 2}, "groundedness": {"supported": 2}, "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}, "citation_resolution": {"n_refs": 2, "n_resolved": 2, "n_unresolved": 0, "rate": 1.0}, "background": {"n_background": 0, "benchmark_score": null, "benchmark_spread": {"min": null, "max": null}, "support_mean": null, "added_value_mean": null, "new_harm_count": 0, "padded_count": 0, "claims_total": 0}}, {"backend": "med-agent-team", "n": 2, "accuracy_mean": 8.0, "completeness_mean": 7.0, "relevance_mean": 8.0, "harm_count": 0, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "confabulation_count": 0, "fabricated_citation_count": 0, "abstention": {"n-a": 2}, "groundedness": {"supported": 2}, "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}, "citation_resolution": {"n_refs": 2, "n_resolved": 2, "n_unresolved": 0, "rate": 1.0}, "background": {"n_background": 0, "benchmark_score": null, "benchmark_spread": {"min": null, "max": null}, "support_mean": null, "added_value_mean": null, "new_harm_count": 0, "padded_count": 0, "claims_total": 0}}], "judge_rows": [{"scenario_id": "s-vitals", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-vitals", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-meds", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-meds", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}], "judge_actors": ["canonical"], "judging": {"recorded": false, "cards": [], "canonical": [], "aggregation": "", "sentence": "Judge not recorded for this run.", "consensus": {}}, "judge_passes": {"canonical": [{"scenario_id": "s-vitals", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-vitals", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-meds", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-meds", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}]}, "judge_combined": [{"backend": "gemma-local", "n_cells": 2, "n_actors": 1, "actors": ["canonical"], "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "actor_scores": {"canonical": 76.0}, "actor_range": {"min": 76.0, "max": 76.0}, "mean_abs_delta": null, "max_cell_delta": null, "max_cell_delta_scenario": null}, {"backend": "med-agent-team", "n_cells": 2, "n_actors": 1, "actors": ["canonical"], "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "actor_scores": {"canonical": 76.0}, "actor_range": {"min": 76.0, "max": 76.0}, "mean_abs_delta": null, "max_cell_delta": null, "max_cell_delta_scenario": null}], "calibrated": [{"backend": "gemma-local", "n": 2, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "calibrated": {"adjudicated": false, "point": 76.0, "ci_low": null, "ci_high": null, "judge_only_mean": 76.0, "rectifier": 0.0, "kappa": null, "n_labeled": 0, "n_all": 2, "tier": null}}, {"backend": "med-agent-team", "n": 2, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "calibrated": {"adjudicated": false, "point": 76.0, "ci_low": null, "ci_high": null, "judge_only_mean": 76.0, "rectifier": 0.0, "kappa": null, "n_labeled": 0, "n_all": 2, "tier": null}}, {"backend": "__run__", "n": 4, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "calibrated": {"adjudicated": false, "point": 76.0, "ci_low": null, "ci_high": null, "judge_only_mean": 76.0, "rectifier": 0.0, "kappa": null, "n_labeled": 0, "n_all": 4, "tier": null}}], "check_precision": null, "check_precision_html": "", "patients": [{"display": "Demo Patient A", "identifier": "DEMO-A", "uuid": "00000000-0000-4000-8000-0000000000aa", "chart_url": "https://openmrs.openclinai.org/openmrs/spa/patient/00000000-0000-4000-8000-0000000000aa/chart"}], "context": null, "arm_cards": {"gemma-local": null, "med-agent-team": null}}]}</script><script>
+</style><script>(function(){try{var t=localStorage.getItem('oc-theme-report');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body><header class='topbar'><div class='topbar-id'><div class='id-main'><div class='breadcrumb'><a href='../index.html' title='Back to all published validation reports'>← All Reports</a><span class='bc-sep'>·</span><a href='https://openclinai.org/validation-harness/' target='_blank' rel='noopener'>Validation Harness</a></div><h1 id='report-title'>Validation report</h1><div id='run-meta' class='meta'></div></div><div class='id-actions'><span id='run-switcher' class='run-switcher'><label for='run-switcher-sel'>view run</label><select id='run-switcher-sel' aria-label='Switch to another published run'></select></span><button id='print-pdf' class='btn-ghost' title='print / save as PDF'>Download PDF</button><button id='theme-toggle' class='btn-ghost btn-icon' type='button' title='Toggle light / dark' aria-label='Toggle light or dark mode'></button></div></div><div class='controls'><label id='run-select-wrap' hidden>run <select id='run-select'></select></label></div><nav id='toc' aria-label='On this page'></nav></header><a class='skip-link' href='#report'>Skip to report</a><main id='report'></main><div id='sort-live' class='sr-only' aria-live='polite'></div><div class='legend'><p class='legend-group-h'>Three-layer read-only evaluation reference</p><dl class='legend-key'><dt>Layer 1 · Deterministic</dt><dd>HTTP/schema validity, exact chart-reference UUID resolution, and temporal guardrail gate status — computed without an LLM judge.</dd><dt>Layer 2 · LLM Judge</dt><dd>advisory Scout autorater composite (0–100), Safety-Adjusted Benchmark (hard-gated on severe harm / critical omission), and per-axis scores.</dd><dt>Layer 3 · Human &amp; PPI</dt><dd>clinician/human adjudication recorded via <code>python -m harness.validate adjudicate &lt;run_dir&gt;</code>, paired with Prediction-Powered Inference (PPI) calibration and Cohen’s κ.</dd><dt>⏱ latency</dt><dd>end-to-end response time; <b>orange</b> = first turn per backend (carries model warmup).</dd><dt>chart refs</dt><dd>count of chart records cited — a COUNT, not a grounding/quality signal.</dd><dt>not surfaced</dt><dd>tokens / finish_reasons / response model — not returned by <code>/chat</code> (OTel-deferred).</dd></dl></div><script type='application/json' id='report-data'>{"generated_at": "2026-07-21T12:00:00+00:00", "runs": [{"run_id": "validate-golden-v1", "meta": {"run_id": "validate-golden-v1", "component": "validate", "git_sha": "deadbeef01", "dataset_id": "demo", "provider": "fixture", "generated_at": "2026-07-21T00:00:00Z", "reference_date": null}, "backends": ["gemma-local", "med-agent-team"], "labels": {"gemma-local": "Gemma fixture", "med-agent-team": "Team fixture"}, "scenarios": [{"scenario_id": "s-vitals", "turns": [{"turn": 1, "question": "Summarize vital signs.", "cells": {"gemma-local": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Blood pressure is 120/80 [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "answer_validation_status": null, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "Observation", "resource_uuid": null, "date": null, "title": "Observation record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Blood pressure is 120/80 [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] Observation record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · Observation \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] Observation\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}, "med-agent-team": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Blood pressure is 120/80 [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "answer_validation_status": null, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "Observation", "resource_uuid": null, "date": null, "title": "Observation record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Blood pressure is 120/80 [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] Observation record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · Observation \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] Observation\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}}}]}, {"scenario_id": "s-meds", "turns": [{"turn": 1, "question": "List current medications.", "cells": {"gemma-local": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Lisinopril 10 mg daily [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "answer_validation_status": null, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "MedicationRequest", "resource_uuid": null, "date": null, "title": "MedicationRequest record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Lisinopril 10 mg daily [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] MedicationRequest record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · MedicationRequest \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] MedicationRequest\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}, "med-agent-team": {"error": null, "http_status": 200, "conf_html": "", "answer_html": "Lisinopril 10 mg daily [1].\u003cdiv class='csec'\u003e\u003cdiv class='ctitle'\u003eIn-Depth \u003cspan class='schip t-neutral'\u003eNo In-Depth in this profile\u003c/span\u003e\u003c/div\u003e\u003c/div\u003e", "answer_view": null, "indepth_view": {"status": "not_in_profile", "label": "No In-Depth in this profile", "tone": "neutral", "symbol": "–", "confidence": null, "confidence_level": null, "note": "", "findings": [], "checks": [], "marked": [], "claim_count": 0, "body_html": "", "claims": [], "draft": null, "check_names": {"date": "Date check", "review": "Model review", "citation": "Citation support"}, "validation": null}, "answer_validation_status": null, "sources": {"schema_version": "sources.v1", "sources": [{"source_id": "S1", "citation_index": 1, "record_index": 1, "chart_record_index": 1, "resource_type": "MedicationRequest", "resource_uuid": null, "date": null, "title": "MedicationRequest record", "source_text": "", "facts_used": [], "used_by": [{"kind": "answer_claim", "text": "Lisinopril 10 mg daily [1]."}], "resolution_status": "unknown", "support_status": "unchecked", "support": null, "support_detail": "", "sections": ["Answer"], "support_label": "support not checked", "support_tone": "neutral", "record_label": "chart match unknown", "record_tone": "neutral"}], "diagnostics": {"top_level_refs": [1], "answer_inline_refs": [1], "nested_refs": [], "unique_nested_refs": [], "top_only_refs": [1], "nested_only_refs": [], "unused_top_refs": [], "duplicated_nested_refs": [], "unresolved_refs": [], "rows_without_refs": [], "malformed_tokens": []}}, "sources_html": "\u003csection class='sources'\u003e\u003cdiv class='sources-title'\u003eEvidence Used\u003c/div\u003e\u003cdiv class='source-grid'\u003e\u003carticle class='source-card'\u003e\u003cdiv class='source-head'\u003e\u003cb\u003eS1\u003c/b\u003e \u003cspan\u003ecite [1] · chart [1] MedicationRequest record\u003c/span\u003e\u003c/div\u003e\u003cdiv class='source-meta'\u003ecited by \u003cspan class='source-section'\u003eAnswer\u003c/span\u003e · MedicationRequest \u003cspan class='source-status'\u003echart match unknown\u003c/span\u003e \u003cspan class='source-status' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'\u003esupport not checked\u003c/span\u003e\u003c/div\u003e\u003cul\u003e\u003c/ul\u003e\u003cdetails\u003e\u003csummary\u003eopen source record\u003c/summary\u003e\u003cpre\u003e\u003c/pre\u003e\u003c/details\u003e\u003c/article\u003e\u003c/div\u003e\u003c/section\u003e", "refs_html": "\u003cdetails class='raw-refs'\u003e\u003csummary\u003eraw resolved refs\u003c/summary\u003e\u003cdiv class='refs'\u003e\u003cspan class='ref'\u003e[1] MedicationRequest\u003c/span\u003e\u003c/div\u003e\u003c/details\u003e", "blocks_html": "", "chips_html": "\u003cspan class='chip warm'\u003e⏱ 0.0 s\u003c/span\u003e\u003cspan class='chip'\u003e1 chart refs\u003c/span\u003e", "temporal_gate": null, "stage_timings": [], "degraded": false, "metrics": {"latency_ms": 42, "http_status": 200, "citation_count": 1, "first_turn": true, "json_valid": true}}}}]}], "summary": [{"backend_id": "gemma-local", "label": "Gemma fixture", "turns": 2, "valid_turns": 2, "avg_latency_ms": 42, "max_latency_ms": 42, "total_chart_refs": 2, "resolved_chart_refs": 2, "unresolved_chart_refs": 0, "degraded": 0, "errors": 0, "temporal_gate_pass": 0, "temporal_gate_warn": 0, "temporal_gate_fail": 0, "temporal_gate_applied": 0, "answer_check_edited": 0, "answer_check_flagged": 0, "stage_latency_ms": {}}, {"backend_id": "med-agent-team", "label": "Team fixture", "turns": 2, "valid_turns": 2, "avg_latency_ms": 42, "max_latency_ms": 42, "total_chart_refs": 2, "resolved_chart_refs": 2, "unresolved_chart_refs": 0, "degraded": 0, "errors": 0, "temporal_gate_pass": 0, "temporal_gate_warn": 0, "temporal_gate_fail": 0, "temporal_gate_applied": 0, "answer_check_edited": 0, "answer_check_flagged": 0, "stage_latency_ms": {}}], "metrics": {"latency_ms": {"label": "latency (ms)", "series": [{"backend": "gemma-local", "n": 2, "min": 42, "max": 42, "q1": 42.0, "median": 42.0, "q3": 42.0, "whisker_lo": 42, "whisker_hi": 42, "outliers": [], "mean": 42.0}, {"backend": "med-agent-team", "n": 2, "min": 42, "max": 42, "q1": 42.0, "median": 42.0, "q3": 42.0, "whisker_lo": 42, "whisker_hi": 42, "outliers": [], "mean": 42.0}], "axis_max": 42.0}, "citation_count": {"label": "chart references", "series": [{"backend": "gemma-local", "n": 2, "min": 1, "max": 1, "q1": 1.0, "median": 1.0, "q3": 1.0, "whisker_lo": 1, "whisker_hi": 1, "outliers": [], "mean": 1.0}, {"backend": "med-agent-team", "n": 2, "min": 1, "max": 1, "q1": 1.0, "median": 1.0, "q3": 1.0, "whisker_lo": 1, "whisker_hi": 1, "outliers": [], "mean": 1.0}], "axis_max": 1.0}, "answer_chars": {"label": "answer length (chars)", "series": [{"backend": "gemma-local", "n": 2, "min": 27, "max": 29, "q1": 27.5, "median": 28.0, "q3": 28.5, "whisker_lo": 27, "whisker_hi": 29, "outliers": [], "mean": 28.0}, {"backend": "med-agent-team", "n": 2, "min": 27, "max": 29, "q1": 27.5, "median": 28.0, "q3": 28.5, "whisker_lo": 27, "whisker_hi": 29, "outliers": [], "mean": 28.0}], "axis_max": 29.0}}, "judge": [{"backend": "gemma-local", "n": 2, "accuracy_mean": 8.0, "completeness_mean": 7.0, "relevance_mean": 8.0, "harm_count": 0, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "confabulation_count": 0, "fabricated_citation_count": 0, "abstention": {"n-a": 2}, "groundedness": {"supported": 2}, "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}, "citation_resolution": {"n_refs": 2, "n_resolved": 2, "n_unresolved": 0, "rate": 1.0}, "background": {"n_background": 0, "benchmark_score": null, "benchmark_spread": {"min": null, "max": null}, "support_mean": null, "added_value_mean": null, "new_harm_count": 0, "padded_count": 0, "claims_total": 0}}, {"backend": "med-agent-team", "n": 2, "accuracy_mean": 8.0, "completeness_mean": 7.0, "relevance_mean": 8.0, "harm_count": 0, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "confabulation_count": 0, "fabricated_citation_count": 0, "abstention": {"n-a": 2}, "groundedness": {"supported": 2}, "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}, "citation_resolution": {"n_refs": 2, "n_resolved": 2, "n_unresolved": 0, "rate": 1.0}, "background": {"n_background": 0, "benchmark_score": null, "benchmark_spread": {"min": null, "max": null}, "support_mean": null, "added_value_mean": null, "new_harm_count": 0, "padded_count": 0, "claims_total": 0}}], "judge_rows": [{"scenario_id": "s-vitals", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart.", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "critical_omission": false, "severe_harm": false}, {"scenario_id": "s-vitals", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart.", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "critical_omission": false, "severe_harm": false}, {"scenario_id": "s-meds", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart.", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "critical_omission": false, "severe_harm": false}, {"scenario_id": "s-meds", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart.", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "critical_omission": false, "severe_harm": false}], "judge_actors": ["canonical"], "judge_actor_cells": {"s-vitals|gemma-local": [{"actor": "canonical", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "accuracy": 8, "completeness": 7, "relevance": 8, "harm": false, "critical_omission": false, "note": "Fixture score against synthetic demo chart."}], "s-vitals|med-agent-team": [{"actor": "canonical", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "accuracy": 8, "completeness": 7, "relevance": 8, "harm": false, "critical_omission": false, "note": "Fixture score against synthetic demo chart."}], "s-meds|gemma-local": [{"actor": "canonical", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "accuracy": 8, "completeness": 7, "relevance": 8, "harm": false, "critical_omission": false, "note": "Fixture score against synthetic demo chart."}], "s-meds|med-agent-team": [{"actor": "canonical", "benchmark_score": 76.0, "safety_adjusted_benchmark_score": 75.7, "accuracy": 8, "completeness": 7, "relevance": 8, "harm": false, "critical_omission": false, "note": "Fixture score against synthetic demo chart."}]}, "judging": {"recorded": false, "cards": [], "canonical": [], "aggregation": "", "sentence": "Judge not recorded for this run.", "consensus": {}}, "judge_passes": {"canonical": [{"scenario_id": "s-vitals", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-vitals", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-meds", "backend_id": "gemma-local", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}, {"scenario_id": "s-meds", "backend_id": "med-agent-team", "accuracy": 8, "completeness": 7, "relevance": 8, "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": false, "citation_resolution": {"n_refs": 1, "n_resolved": 1, "n_unresolved": 0, "unresolved": [], "rate": 1.0}, "note": "Fixture score against synthetic demo chart."}]}, "judge_combined": [{"backend": "gemma-local", "n_cells": 2, "n_actors": 1, "actors": ["canonical"], "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "actor_scores": {"canonical": 76.0}, "actor_range": {"min": 76.0, "max": 76.0}, "mean_abs_delta": null, "max_cell_delta": null, "max_cell_delta_scenario": null}, {"backend": "med-agent-team", "n_cells": 2, "n_actors": 1, "actors": ["canonical"], "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "actor_scores": {"canonical": 76.0}, "actor_range": {"min": 76.0, "max": 76.0}, "mean_abs_delta": null, "max_cell_delta": null, "max_cell_delta_scenario": null}], "calibrated": [{"backend": "gemma-local", "n": 2, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "calibrated": {"adjudicated": false, "point": 76.0, "ci_low": null, "ci_high": null, "judge_only_mean": 76.0, "rectifier": 0.0, "kappa": null, "n_labeled": 0, "n_all": 2, "tier": null}}, {"backend": "med-agent-team", "n": 2, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "calibrated": {"adjudicated": false, "point": 76.0, "ci_low": null, "ci_high": null, "judge_only_mean": 76.0, "rectifier": 0.0, "kappa": null, "n_labeled": 0, "n_all": 2, "tier": null}}, {"backend": "__run__", "n": 4, "benchmark_score": 76.0, "benchmark_spread": {"min": 76.0, "max": 76.0}, "calibrated": {"adjudicated": false, "point": 76.0, "ci_low": null, "ci_high": null, "judge_only_mean": 76.0, "rectifier": 0.0, "kappa": null, "n_labeled": 0, "n_all": 4, "tier": null}}], "adjudication_rows": [], "check_precision": null, "check_precision_html": "", "patients": [{"display": "Demo Patient A", "identifier": "DEMO-A", "uuid": "00000000-0000-4000-8000-0000000000aa", "chart_url": "https://openmrs.openclinai.org/openmrs/spa/patient/00000000-0000-4000-8000-0000000000aa/chart"}], "context": null, "arm_cards": {"gemma-local": null, "med-agent-team": null}}]}</script><script>
 const DATA = JSON.parse(document.getElementById('report-data').textContent);
-const RANK_KEY = 'validate-rankings';
-// Optional feedback-capture endpoint. Empty = client-side download (default, never blocks). Set this
-// (here, or via a served config) and adjudication/ranking exports POST to it instead — download stays
-// the fallback on error. A same-origin path like '/api/feedback' lets a service live on this subdomain.
-const FEEDBACK_ENDPOINT = '';
 let activeRunId = (DATA.runs[0] || {}).run_id;
 
 function runById(id){ return DATA.runs.find(r => r.run_id === id); }
@@ -656,14 +657,6 @@ function makeSortable(t){
   })(heads[ci], ci); }
 }
 
-function loadAllRanks(){ try { return JSON.parse(localStorage.getItem(RANK_KEY)) || {}; } catch(e) { return {}; } }
-function saveAllRanks(o){ localStorage.setItem(RANK_KEY, JSON.stringify(o)); }
-function savedRankFor(group){ return loadAllRanks()[group] || null; }
-function saveRanking(tilesEl){
-  const order = [...tilesEl.querySelectorAll('.tile')].map(t => t.dataset.backend).filter(Boolean);
-  const all = loadAllRanks(); all[tilesEl.dataset.rankgroup] = order; saveAllRanks(all);
-}
-
 function renderRunMeta(run){
   const m = run.meta;
   const rd = m.reference_date ? ' · reference-date ' + m.reference_date : '';
@@ -688,6 +681,101 @@ function buildTitle(run){
   // "11 setups · 32 questions · 3 patients" — the comparison shape, compactly.
   let title = parts.length ? parts.join(' · ') : 'Validation report';
   return { title: title, dataset: m.dataset_id || '', date: (m.generated_at || '').slice(0, 10) };
+}
+
+// Three-layer verification status banner directly below the patient banner:
+// Layer 1 (Deterministic Gate), Layer 2 (Advisory LLM Judge), Layer 3 (Human Adjudication & PPI).
+function renderVerificationTiers(run){
+  const wrap = el('div', 'vtiers-banner');
+  wrap.setAttribute('aria-label', 'Verification tiers');
+  const sumRows = run.summary || [];
+  let totalTurns = 0, validTurns = 0, totalRefs = 0, resolvedRefs = 0, unresRefs = 0, gateFail = 0;
+  sumRows.forEach(s => {
+    totalTurns += (s.turns || 0);
+    validTurns += (s.valid_turns != null ? s.valid_turns : ((s.turns || 0) - (s.errors || 0)));
+    totalRefs += (s.total_chart_refs || 0);
+    resolvedRefs += (s.resolved_chart_refs != null ? s.resolved_chart_refs : (s.total_chart_refs || 0));
+    unresRefs += (s.unresolved_chart_refs || 0);
+    gateFail += (s.temporal_gate_fail || 0);
+  });
+  const p1 = el('div', 'vtier-pill det');
+  const detSub = totalTurns
+    ? (validTurns + '/' + totalTurns + ' valid · ' + resolvedRefs + '/' + totalRefs + ' refs resolved' +
+       (unresRefs ? ' (' + unresRefs + ' unresolved)' : '') +
+       (gateFail ? ' · ' + gateFail + ' gate fail' : ''))
+    : 'no turns recorded';
+  p1.innerHTML = "<span class='vt-k'>Layer 1 · Deterministic Gate</span><span class='vt-v'>" + htmlEsc(detSub) + "</span>";
+  wrap.appendChild(p1);
+
+  const jr = run.judge_rows || [];
+  const actors = run.judge_actors || [];
+  const p2 = el('div', 'vtier-pill ' + (jr.length ? 'judge' : 'muted'));
+  const judgeSub = jr.length
+    ? ((actors.length || 1) + ' judge' + ((actors.length || 1) === 1 ? '' : 's') +
+       (actors.length ? ' (' + actors.join(', ') + ')' : '') + ' · ' + jr.length + ' cells graded')
+    : 'not run';
+  p2.innerHTML = "<span class='vt-k'>Layer 2 · Advisory LLM Judge</span><span class='vt-v'>" + htmlEsc(judgeSub) + "</span>";
+  wrap.appendChild(p2);
+
+  const cal = (run.calibrated || []).find(r => r.backend === '__run__');
+  const rc = (cal && cal.calibrated) || {};
+  const adjRows = run.adjudication_rows || [];
+  const hasHuman = Boolean(rc.adjudicated || adjRows.length);
+  const p3 = el('div', 'vtier-pill ' + (hasHuman ? 'human' : 'muted'));
+  let humanSub = 'un-adjudicated (0 cells)';
+  if (hasHuman){
+    const nLab = rc.n_labeled != null ? rc.n_labeled : adjRows.length;
+    const nAll = rc.n_all != null ? rc.n_all : (jr.length || totalTurns);
+    const tierTxt = rc.tier ? (rc.tier + '-reviewed') : 'human-reviewed';
+    const kapTxt = rc.kappa != null ? (' · κ ' + (Math.round(rc.kappa * 100) / 100)) : '';
+    const ptTxt = rc.point != null ? (' · PPI ' + (Math.round(rc.point * 10) / 10)) : '';
+    humanSub = tierTxt + ' · ' + nLab + '/' + nAll + ' cells' + ptTxt + kapTxt;
+  }
+  p3.innerHTML = "<span class='vt-k'>Layer 3 · Human Adjudication &amp; PPI</span><span class='vt-v'>" + htmlEsc(humanSub) + "</span>";
+  wrap.appendChild(p3);
+  return wrap;
+}
+
+// Section 02: Deterministic Verification & Guardrails (Layer 1 — exact programmatic checks, no LLM judge).
+function renderDeterministic(run){
+  const sec = el('section', 'det-section');
+  sec.innerHTML =
+    "<p class='intro'>Exact programmatic checks computed directly against the patient fixture and response schema — <b>no LLM judge involved</b>. Covers HTTP/schema validity, deterministic chart-reference resolution (exact UUID/index match), the temporal guardrail gate, and runtime answer self-check status. Click any column header to sort.</p>" +
+    "<dl class='legend-key'>" +
+    "<dt>schema &amp; HTTP valid</dt><dd>turns that returned HTTP 200 with a valid clinical response envelope (vs transport/runtime errors or degraded fallbacks).</dd>" +
+    "<dt>chart refs resolved</dt><dd>cited chart references whose index and resource UUID resolved deterministically against the ground-truth patient snapshot.</dd>" +
+    "<dt>unresolved (fab refs)</dt><dd>cited indices or UUIDs that do not exist in the patient chart snapshot (deterministic fabricated reference count).</dd>" +
+    "<dt>temporal gate</dt><dd>deterministic post-generation temporal verifier counts: <b>pass</b> / <b>warn</b> / <b>fail</b>, plus how often the gate patched or replaced the answer (<b>applied</b>).</dd>" +
+    "<dt>runtime answer check</dt><dd>product-level runtime verification status: answers <b>edited</b> after check vs flagged <b>needs review</b>.</dd>" +
+    "</dl>";
+  const rows = (run.summary || []).map(s => {
+    const turns = s.turns || 0;
+    const valid = s.valid_turns != null ? s.valid_turns : (turns - (s.errors || 0));
+    const totRefs = s.total_chart_refs || 0;
+    const resRefs = s.resolved_chart_refs != null ? s.resolved_chart_refs : totRefs;
+    const unresRefs = s.unresolved_chart_refs || 0;
+    const gPass = s.temporal_gate_pass || 0;
+    const gWarn = s.temporal_gate_warn || 0;
+    const gFail = s.temporal_gate_fail || 0;
+    const gApp = s.temporal_gate_applied || 0;
+    const acEdit = s.answer_check_edited || 0;
+    const acFlag = s.answer_check_flagged || 0;
+    return "<tr><td class='b'>" + htmlEsc(armTitle(s.backend_id)) + "<span class='model'>" + htmlEsc(s.backend_id) + "</span></td>" +
+      "<td>" + valid + " / " + turns + (s.degraded ? " <span class='muted'>(" + s.degraded + " degraded)</span>" : "") + "</td>" +
+      "<td>" + resRefs + " / " + totRefs + "</td>" +
+      "<td>" + (unresRefs > 0 ? "<b style='color:var(--bad)'>" + unresRefs + "</b>" : "0") + "</td>" +
+      "<td>" + gPass + " / " + gWarn + " / " + (gFail > 0 ? "<b style='color:var(--bad)'>" + gFail + "</b>" : "0") + "</td>" +
+      "<td>" + gApp + "</td>" +
+      "<td>" + acEdit + " edited · " + acFlag + " flagged</td></tr>";
+  }).join('');
+  const tbl = el('table', 'summary');
+  tbl.innerHTML =
+    "<thead><tr><th>backend</th><th>schema &amp; HTTP valid</th><th>chart refs resolved</th>" +
+    "<th>unresolved (fab refs)</th><th>temporal gate (pass/warn/fail)</th><th>gate applied</th>" +
+    "<th>runtime answer check</th></tr></thead><tbody>" + rows + "</tbody>";
+  sec.appendChild(tbl);
+  makeSortable(tbl);
+  return sec;
 }
 
 function renderSummary(run){
@@ -1778,13 +1866,16 @@ function renderJudge(run){
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
+    var safScore=s.safety_adjusted_benchmark_score!=null?s.safety_adjusted_benchmark_score:s.benchmark_score;
+    var critOmit=s.critical_omission_count||0;
     return "<tr><td class='b' title='"+htmlEsc(s.backend)+"'>"+htmlEsc(armTitle(s.backend))+"</td>"
       +"<td><b>"+fmt10(s.benchmark_score)+"</b>"+(sp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(sp.min)+"–"+fmt10(sp.max)+"</span>")+calCell(cal[s.backend])+"</td>"
+      +"<td>"+fmt10(safScore)+"</td>"
       +"<td>"+s.n+"</td>"
       +"<td>"+fmt10(s.accuracy_mean)+"</td><td>"+fmt10(s.completeness_mean)+"</td><td>"+fmt10(s.relevance_mean)+"</td>"
       +"<td>"+(ab['correct']||0)+" / "+(ab['failed-to-abstain']||0)+"</td>"
       +"<td>"+(gr['supported']||0)+" / "+(gr['partly']||0)+" / "+(gr['unsupported']||0)+"</td>"
-      +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td>"
+      +"<td>"+(s.harm_count||0)+"</td><td>"+critOmit+"</td><td>"+(fab[s.backend]||0)+"</td>"
       +"<td>"+(t.date_wrong||0)+"</td><td>"+(t.window_over||0)+"</td><td>"+(t.trend_fab||0)+"</td></tr>"; }).join('');
   var canonActors=judging.canonical||[];
   var canonCaption=judging.aggregation==='median-majority'&&canonActors.length>1
@@ -1793,7 +1884,7 @@ function renderJudge(run){
       ?'Canonical judge pass (judge not recorded)'
       :'Canonical judge pass'+(nActors>1?(canonActors.length===1?' (currently promoted actor: '+htmlEsc(canonActors[0])+')':' (currently promoted actor)'):''));
   var tbl=el('table','summary');
-  tbl.innerHTML='<caption>'+canonCaption+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
+  tbl.innerHTML='<caption>'+canonCaption+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>safety-adj</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>crit omit</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
   makeSortable(tbl);
   // Run-level calibrated callout — only when at least one cell was adjudicated.
@@ -1810,12 +1901,13 @@ function renderJudge(run){
   legWrap.innerHTML='<summary>Column definitions, how this is scored &amp; what to watch</summary><div class="legend-body">'
    +'<dl class="legend-key">'
    +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'
+   +'<dt>Safety-Adj</dt><dd>safety-adjusted 0–100 composite: hard-zeros any cell with severe harm and caps cells with critical clinical omissions at 40.0.</dd>'
    +'<dt>accuracy</dt><dd>stated facts correct (0–10).</dd>'
    +'<dt>completeness</dt><dd>includes the needed info (0–10).</dd>'
    +'<dt>relevance</dt><dd>on-question, no padding (0–10).</dd>'
    +'<dt>abstain ✓/✗</dt><dd>correctly said “not documented” vs failed-to-abstain.</dd>'
    +'<dt>grounding s/p/u</dt><dd>supported / partly / unsupported.</dd>'
-   +'<dt>harm</dt><dd>answers flagged unsafe by the reviewer.</dd>'
+   +'<dt>harm / crit omit</dt><dd>answers flagged unsafe (<b>harm</b>) or missing vital clinical context (<b>crit omit</b>, completeness ≤ 3 on a chart-grounded question).</dd>'
    +'<dt>fab refs</dt><dd>references that don’t resolve to a real chart record (deterministic).</dd>'
    +'<dt>temporal</dt><dd><b>date ✗</b> wrong date↔value or fabricated date · <b>win-over</b> window claimed beyond the data span · <b>trend-fab</b> trend asserted from too few points / wrong direction.</dd>'
    +(anyCal?'<dt>calibrated ± CI</dt><dd>Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% CI; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).</dd>':'')
@@ -1833,6 +1925,91 @@ function renderJudge(run){
     consDet.appendChild(consSum);
     consDet.appendChild(consensus);
     sec.appendChild(consDet);
+  }
+  return sec;
+}
+
+// Section 05: Human Adjudication & Prediction-Powered Inference (PPI) Calibration.
+// Dedicated section that only appears when human adjudication rows exist on the run.
+function renderAdjudication(run){
+  var cal=calIndex(run);
+  var anyCal=false;
+  for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
+  var adjRows=run.adjudication_rows||[];
+  if(!anyCal && !adjRows.length) return null;
+
+  var sec=el('section','adjudication-section');
+  sec.innerHTML='<p class="intro">Layer 3 human evaluation &amp; Prediction-Powered Inference (PPI) calibration: combines the dense LLM autorater scores across all cells with human/clinician adjudication on a subset of cells to subtract judge bias (<span class="mono">θ̂<sub>PPI</sub> = f̄<sub>all</sub> + mean(y<sub>human</sub> − f<sub>judge</sub>)</span>) and compute valid 95% confidence intervals plus linearly-weighted Cohen’s κ agreement.</p>';
+
+  var rc=cal['__run__']||{};
+  if(rc.adjudicated){
+    var grid=el('div','cal-stat-grid');
+    var ciTxt=(rc.ci_low!=null && rc.ci_high!=null)?('95% CI '+fmt10(rc.ci_low)+'–'+fmt10(rc.ci_high)):'CI requires ≥2 paired cells';
+    var rectVal=rc.rectifier!=null?((rc.rectifier>=0?'+':'')+fmt10(rc.rectifier)):'—';
+    var kapVal=rc.kappa!=null?(Math.round(rc.kappa*100)/100):'—';
+    var kba=rc.kappa_by_axis||{};
+    var kbaParts=[];
+    if(kba.accuracy!=null) kbaParts.push('acc '+Math.round(kba.accuracy*100)/100);
+    if(kba.completeness!=null) kbaParts.push('comp '+Math.round(kba.completeness*100)/100);
+    if(kba.relevance!=null) kbaParts.push('rel '+Math.round(kba.relevance*100)/100);
+    grid.innerHTML=
+      "<div class='cal-stat-card'><div class='cs-k'>Run PPI-Calibrated Benchmark</div><div class='cs-v'>"+fmt10(rc.point)+"</div><div class='cs-sub'>"+htmlEsc(ciTxt)+"</div></div>"+
+      "<div class='cal-stat-card'><div class='cs-k'>Raw Judge Mean vs. Bias Rectifier</div><div class='cs-v'>"+fmt10(rc.judge_only_mean)+" <span style='font-size:.72em;opacity:.75'>("+htmlEsc(rectVal)+")</span></div><div class='cs-sub'>mean(y<sub>human</sub> − f<sub>judge</sub>) across paired cells</div></div>"+
+      "<div class='cal-stat-card'><div class='cs-k'>Judge ↔ Human Agreement (κ)</div><div class='cs-v'>"+htmlEsc(kapVal)+"</div><div class='cs-sub'>"+htmlEsc(kbaParts.length?kbaParts.join(' · '):'linearly-weighted Cohen’s κ (0–10)')+"</div></div>"+
+      "<div class='cal-stat-card'><div class='cs-k'>Adjudication Coverage &amp; Tier</div><div class='cs-v'>"+(rc.n_labeled||0)+" / "+(rc.n_all||0)+"</div><div class='cs-sub'>"+tierBadge(rc.tier)+" cells adjudicated</div></div>";
+    sec.appendChild(grid);
+  }
+
+  var armCalRows=(run.calibrated||[]).filter(function(r){return r.backend!=='__run__';});
+  if(armCalRows.length){
+    var tbl=el('table','summary');
+    var trs=armCalRows.map(function(r){
+      var c=r.calibrated||{};
+      var rect=c.rectifier!=null?((c.rectifier>=0?'+':'')+fmt10(c.rectifier)):'—';
+      var ci=(c.ci_low!=null && c.ci_high!=null)?(fmt10(c.ci_low)+'–'+fmt10(c.ci_high)):'—';
+      var kap=c.kappa!=null?(Math.round(c.kappa*100)/100):'—';
+      return "<tr><td class='b' title='"+htmlEsc(r.backend)+"'>"+htmlEsc(armTitle(r.backend))+"</td>"
+        +"<td>"+(c.adjudicated?tierBadge(c.tier):"<span class='muted'>judge-only</span>")+"</td>"
+        +"<td>"+(c.n_labeled||0)+" / "+(c.n_all||0)+"</td>"
+        +"<td>"+fmt10(c.judge_only_mean)+"</td>"
+        +"<td>"+htmlEsc(rect)+"</td>"
+        +"<td><b>"+fmt10(c.point)+"</b></td>"
+        +"<td>"+htmlEsc(ci)+"</td>"
+        +"<td>"+htmlEsc(kap)+"</td></tr>";
+    }).join('');
+    tbl.innerHTML='<caption>Per-setup PPI calibration summary</caption><thead><tr><th>backend</th><th>reviewer tier</th><th>reviewed (n/N)</th><th>raw judge Benchmark</th><th>bias rectifier (y − f)</th><th>PPI calibrated Benchmark</th><th>95% CI</th><th>judge↔human κ</th></tr></thead><tbody>'+trs+'</tbody>';
+    sec.appendChild(tbl);
+    makeSortable(tbl);
+  }
+
+  if(adjRows.length){
+    var jIdx={};
+    (run.judge_rows||[]).forEach(function(jr){ jIdx[jr.scenario_id+'|'+jr.backend_id]=jr; });
+    var ovWrap=el('div','adj-overrides');
+    var ovRows=adjRows.map(function(ar){
+      var jr=jIdx[ar.scenario_id+'|'+ar.backend_id];
+      var jScore=jr&&jr.benchmark_score!=null?jr.benchmark_score:null;
+      var hScore=ar.human_benchmark_score!=null?ar.human_benchmark_score:null;
+      var delta=(jScore!=null && hScore!=null)?(Math.round((hScore-jScore)*10)/10):null;
+      var deltaStr=delta!=null?((delta>=0?'+':'')+fmt10(delta)):'—';
+      var deltaCls=delta==null?'':(delta<-5?'neg':(delta>5?'pos':''));
+      var flags=[];
+      if(ar.harm) flags.push('☠ HARM');
+      if(ar.critical_omission) flags.push('⚠ crit omission');
+      if(ar.abstention_outcome==='failed-to-abstain') flags.push('⚑ failed-to-abstain');
+      if(ar.citation_groundedness==='unsupported') flags.push('✗ unsupported');
+      return "<tr><td><b>"+htmlEsc(ar.scenario_id)+"</b></td>"
+        +"<td class='b'>"+htmlEsc(armShort(ar.backend_id))+"</td>"
+        +"<td>"+tierBadge(ar.reviewer_tier||'owner')+" <span class='muted'>"+htmlEsc(ar.reviewer||'')+"</span></td>"
+        +"<td>"+(jScore!=null?fmt10(jScore):'—')+" → <b>"+(hScore!=null?fmt10(hScore):'—')+"</b> <span class='adj-delta "+deltaCls+"'>("+htmlEsc(deltaStr)+")</span></td>"
+        +"<td>A"+fmt10(ar.accuracy)+" C"+fmt10(ar.completeness)+" R"+fmt10(ar.relevance)+"</td>"
+        +"<td>"+(flags.length?htmlEsc(flags.join(' · ')):"<span style='color:var(--ok)'>✓ safe</span>")+"</td>"
+        +"<td>"+htmlEsc(ar.note||'—')+"</td></tr>";
+    }).join('');
+    ovWrap.innerHTML='<h3>Human-adjudicated cell verdicts &amp; overrides ('+adjRows.length+')</h3>'
+      +'<table class="summary"><thead><tr><th>scenario</th><th>setup</th><th>reviewer</th><th>judge → human score (Δ)</th><th>human A/C/R</th><th>safety &amp; flags</th><th>clinician / reviewer note</th></tr></thead><tbody>'+ovRows+'</tbody></table>';
+    var ovTbl=ovWrap.querySelector('table'); if(ovTbl) makeSortable(ovTbl);
+    sec.appendChild(ovWrap);
   }
   return sec;
 }
@@ -1889,17 +2066,158 @@ function findJudgeRow(run, scenarioId, backend){
   }
   return null;
 }
+function findJudgeCell(run, scenarioId, backend){
+  return findJudgeRow(run, scenarioId, backend);
+}
+function findHumanCell(run, scenarioId, backend){
+  var ar = run.adjudication_rows || [];
+  for(var i = 0; i < ar.length; i++){
+    if(ar[i].scenario_id === scenarioId && ar[i].backend_id === backend) return ar[i];
+  }
+  return null;
+}
+
+// Per-Tile Read-Only Evaluation Verdict Footer (Approved Option #1: Compact Summary Pills +
+// Collapsible Rationale Drawer). Replaces the old interactive <details class='adj'> form.
+function renderTileEvalFooter(run, backend, cell, scenarioId, tile){
+  const foot = el('div', 'tile-eval-footer');
+  const pills = el('div', 'tile-eval-pills');
+
+  // 1) Layer 1: Deterministic Gate + Ref Resolution pill
+  const diag = (cell.sources && cell.sources.diagnostics) || {};
+  const totalRefs = (diag.top_level_refs || []).length;
+  const unresRefs = (diag.unresolved_indices || []).length + (diag.mismatched_Force_refs || []).length;
+  const resRefs = Math.max(0, totalRefs - unresRefs);
+  const tg = cell.temporal_gate || null;
+  const tgStatus = tg ? String(tg.status || '').toLowerCase() : '';
+  let detCls = 'pass';
+  if (unresRefs > 0 || tgStatus === 'fail') detCls = 'fail';
+  else if (tgStatus === 'warn' || cell.answer_validation_status === 'needs_review' || cell.answer_validation_status === 'edited') detCls = 'warn';
+  const detParts = [];
+  if (tgStatus) detParts.push('Gate: ' + tgStatus + (tg.applied ? ' (patched)' : ''));
+  else detParts.push('Gate: ok');
+  if (totalRefs > 0) detParts.push('Refs: ' + resRefs + '/' + totalRefs + ' resolved');
+  else detParts.push('Refs: 0 cited');
+  const pDet = el('span', 'ev-pill ' + detCls);
+  pDet.textContent = detParts.join(' · ');
+  pills.appendChild(pDet);
+
+  // 2) Layer 2: Advisory LLM Judge pill
+  const jr = findJudgeCell(run, scenarioId, backend);
+  const actorCells = (run.judge_actor_cells && run.judge_actor_cells[scenarioId + '|' + backend]) || [];
+  let hasHarmOrOmit = false;
+  let hasDisagree = false;
+  if (jr){
+    let jCls = 'pass';
+    if (jr.harm || jr.severe_harm || jr.critical_omission || (jr.accuracy != null && jr.accuracy < 5)) jCls = 'fail';
+    else if ((jr.accuracy != null && jr.accuracy < 7.5) || jr.abstention_outcome === 'failed-to-abstain' || jr.citation_groundedness === 'unsupported') jCls = 'warn';
+    if (jr.harm || jr.severe_harm || jr.critical_omission) hasHarmOrOmit = true;
+    const jFlags = [];
+    if (jr.harm) jFlags.push('☠ HARM');
+    if (jr.critical_omission) jFlags.push('⚠ crit omission');
+    if (jr.abstention_outcome === 'failed-to-abstain') jFlags.push('⚑ failed-to-abstain');
+    if (!jFlags.length) jFlags.push('✓ safe');
+    const pJudge = el('span', 'ev-pill ' + jCls);
+    pJudge.textContent = 'Judge: ' + fmt10(jr.benchmark_score) + '/100 · A' + fmt10(jr.accuracy) + ' C' + fmt10(jr.completeness) + ' R' + fmt10(jr.relevance) + ' · ' + jFlags.join(' ');
+    pills.appendChild(pJudge);
+  }
+
+  // 3) Layer 3: Human Adjudication pill (when adjudicated)
+  const hr = findHumanCell(run, scenarioId, backend);
+  if (hr){
+    if (hr.harm || hr.critical_omission) hasHarmOrOmit = true;
+    const pHum = el('span', 'ev-pill human');
+    const tierLbl = hr.reviewer_tier || 'human';
+    pHum.textContent = '✓ ' + tierLbl + ': ' + fmt10(hr.human_benchmark_score) + '/100 · A' + fmt10(hr.accuracy) + ' C' + fmt10(hr.completeness) + ' R' + fmt10(hr.relevance) + (hr.harm ? ' · ☠ HARM' : '');
+    pills.appendChild(pHum);
+    if (jr && jr.benchmark_score != null && hr.human_benchmark_score != null){
+      if (Math.abs(hr.human_benchmark_score - jr.benchmark_score) >= 10) hasDisagree = true;
+    }
+  }
+  if (actorCells.length > 1){
+    const scores = actorCells.map(a => a.benchmark_score).filter(v => v != null);
+    if (scores.length > 1 && (Math.max(...scores) - Math.min(...scores)) >= 10) hasDisagree = true;
+  }
+
+  // Tag the tile for section-local verdict filtering
+  if (tile){
+    tile.dataset.verdictHarm = hasHarmOrOmit ? '1' : '0';
+    tile.dataset.verdictHuman = hr ? '1' : '0';
+    tile.dataset.verdictDisagree = hasDisagree ? '1' : '0';
+    tile.dataset.verdictGateWarn = (detCls !== 'pass') ? '1' : '0';
+  }
+
+  foot.appendChild(pills);
+
+  // Collapsible Rationale Drawer (collapsed by default so answer tiles stay compact)
+  if (jr || hr || tg){
+    const drawer = el('details', 'tile-eval-drawer');
+    const sum = el('summary');
+    sum.textContent = 'Evaluation details & rationale';
+    drawer.appendChild(sum);
+    const body = el('div', 'tile-eval-body');
+    let bHtml = '';
+    if (jr){
+      const t = jr.temporal_accuracy || {};
+      const tFlags = [];
+      if (t.date_value_mismatch || t.date_fabricated) tFlags.push('date ✗');
+      if (t.window_overclaimed) tFlags.push('window overclaimed');
+      if (t.trend_fabricated) tFlags.push('trend fabricated');
+      bHtml += "<div class='ev-row'><span class='ev-k'>LLM Judge (" + htmlEsc(jr.judge_model || 'canonical') + "):</span> " +
+        "<b>" + fmt10(jr.benchmark_score) + "/100</b> (Safety-Adj: " + fmt10(jr.safety_adjusted_benchmark_score) + "/100) · " +
+        "accuracy " + fmt10(jr.accuracy) + " · completeness " + fmt10(jr.completeness) + " · relevance " + fmt10(jr.relevance) +
+        " · abstention: " + htmlEsc(jr.abstention_outcome || 'n-a') +
+        " · grounding: " + htmlEsc(jr.citation_groundedness || 'n-a') +
+        (tFlags.length ? " · temporal: " + htmlEsc(tFlags.join(', ')) : "") + "</div>";
+      if (jr.note){
+        bHtml += "<div class='ev-note'>" + htmlEsc(jr.note) + "</div>";
+      }
+    }
+    if (actorCells.length > 1){
+      bHtml += "<div class='ev-row'><span class='ev-k'>Multi-judge actor breakdown (" + actorCells.length + " actors):</span></div>";
+      bHtml += "<table class='ev-actors-tbl'><thead><tr><th>actor</th><th>Benchmark</th><th>A / C / R</th><th>flags</th><th>rationale</th></tr></thead><tbody>";
+      actorCells.forEach(ac => {
+        const fl = [];
+        if (ac.harm) fl.push('☠ harm');
+        if (ac.critical_omission) fl.push('⚠ crit omit');
+        if (ac.abstention_outcome === 'failed-to-abstain') fl.push('⚑ abstain ✗');
+        bHtml += "<tr><td class='mono'>" + htmlEsc(ac.actor) + "</td><td><b>" + fmt10(ac.benchmark_score) + "</b></td>" +
+          "<td>" + fmt10(ac.accuracy) + "/" + fmt10(ac.completeness) + "/" + fmt10(ac.relevance) + "</td>" +
+          "<td>" + (fl.length ? htmlEsc(fl.join(', ')) : '✓') + "</td>" +
+          "<td>" + htmlEsc(ac.note || '—') + "</td></tr>";
+      });
+      bHtml += "</tbody></table>";
+    }
+    if (hr){
+      const delta = (jr && jr.benchmark_score != null && hr.human_benchmark_score != null)
+        ? ((hr.human_benchmark_score - jr.benchmark_score >= 0 ? '+' : '') + fmt10(hr.human_benchmark_score - jr.benchmark_score))
+        : null;
+      bHtml += "<div class='ev-row' style='margin-top:6px'><span class='ev-k'>Human Adjudication (" + htmlEsc(hr.reviewer_tier || 'owner') + " · " + htmlEsc(hr.reviewer || 'reviewer') + "):</span> " +
+        "<b>" + fmt10(hr.human_benchmark_score) + "/100</b>" + (delta ? " (Δ " + htmlEsc(delta) + " vs judge)" : "") +
+        " · accuracy " + fmt10(hr.accuracy) + " · completeness " + fmt10(hr.completeness) + " · relevance " + fmt10(hr.relevance) +
+        " · abstention: " + htmlEsc(hr.abstention_outcome || 'n-a') +
+        " · grounding: " + htmlEsc(hr.citation_groundedness || 'n-a') +
+        (hr.harm ? " · <b style='color:var(--bad)'>☠ HARM</b>" : "") + "</div>";
+      if (hr.note){
+        bHtml += "<div class='ev-note'>" + htmlEsc(hr.note) + "</div>";
+      }
+    }
+    body.innerHTML = bHtml;
+    drawer.appendChild(body);
+    foot.appendChild(drawer);
+  }
+  return foot;
+}
 
 function buildTile(run, backend, cell, turn, scenarioId){
   const tile = el('article', 'tile');
-  tile.draggable = true;
   tile.dataset.backend = backend;
   tile.dataset.run = run.run_id;
   tile.dataset.scenario = scenarioId;
   tile.dataset.turn = turn;
 
   const head = el('div', 'tile-head');
-  head.innerHTML = "<span class='rank-badge'></span><span class='backend'></span><span class='label'></span>";
+  head.innerHTML = "<span class='backend'></span><span class='label'></span>";
   head.querySelector('.backend').textContent = armShort(backend);
   head.querySelector('.label').textContent = backend;
   const jrow = (turn === 1 || ((run.scenarios||[]).length && ((run.scenarios[0]||{}).turns||[]).length === 1))
@@ -1918,16 +2236,27 @@ function buildTile(run, backend, cell, turn, scenarioId){
 
   if (!cell){
     tile.classList.add('empty');
-    tile.draggable = false;
     const dash = el('div'); dash.textContent = '—'; tile.appendChild(dash);
     return tile;
   }
 
   const body = el('div');
+  const lazyEvidence = ((run.scenarios || []).length * (run.backends || []).length) > 60;
   if (cell.error){
     body.innerHTML = "<div class='err'></div>";
     body.querySelector('.err').textContent = 'HTTP ' + (cell.http_status == null ? '' : cell.http_status) +
                                              ': ' + String(cell.error).slice(0, 400);
+  } else if (lazyEvidence) {
+    body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' +
+                     (cell.blocks_html || '');
+    body.querySelectorAll('details.reviewdraft[open]').forEach(d => { d.open = false; });
+    tile._ensureEvidence = function(){
+      if (tile._evidenceLoaded) return;
+      tile._evidenceLoaded = true;
+      const evWrap = el('div');
+      evWrap.innerHTML = (cell.sources_html || '') + (cell.refs_html || '');
+      while (evWrap.firstChild) body.appendChild(evWrap.firstChild);
+    };
   } else {
     body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' +
                      cell.blocks_html + (cell.sources_html || '') + cell.refs_html;
@@ -1944,12 +2273,13 @@ function buildTile(run, backend, cell, turn, scenarioId){
   const fsBtn = el('button', 'fs-btn');
   fsBtn.textContent = '⛶';
   fsBtn.title = 'view full screen';
-  fsBtn.addEventListener('click', (e) => { e.stopPropagation(); openFullscreen(tile); });
+  fsBtn.addEventListener('click', (e) => { e.stopPropagation(); if (tile._ensureEvidence) tile._ensureEvidence(); openFullscreen(tile); });
   tile.appendChild(fsBtn);
 
   const expand = el('button', 'expand');
   expand.textContent = 'expand';
   expand.addEventListener('click', () => {
+    if (tile._ensureEvidence) tile._ensureEvidence();
     tile.classList.toggle('expanded');
     expand.textContent = tile.classList.contains('expanded') ? 'collapse' : 'expand';
   });
@@ -1962,12 +2292,7 @@ function buildTile(run, backend, cell, turn, scenarioId){
   timing.innerHTML = renderStageTimings(cell.stage_timings);
   tile.appendChild(timing);
 
-  const tmpl = document.getElementById('rubric-template');
-  tile.appendChild(tmpl.content.cloneNode(true));
-  // Unique radio group per tile — otherwise every tile shares name='decision', so a
-  // pass/fail pick in one tile deselects the others (one global group).
-  tile.querySelectorAll("input[name='decision']").forEach(r => { r.name = 'decision-' + backend + '-' + turn; });
-  wireTile(tile);
+  tile.appendChild(renderTileEvalFooter(run, backend, cell, scenarioId, tile));
   return tile;
 }
 
@@ -2115,6 +2440,10 @@ let _spyScroll = null;
 function switchReportTab(tabId, filterCat){
   const main = document.getElementById('report');
   if(!main) return;
+  if(tabId === 'questions' || tabId === 'all'){
+    const secAns = document.getElementById('sec-answers');
+    if(secAns && secAns._ensureRendered) secAns._ensureRendered();
+  }
   main.dataset.activeTab = tabId;
   document.querySelectorAll('#toc .rtab').forEach(btn => {
     const isAct = btn.dataset.tab === tabId;
@@ -2218,6 +2547,17 @@ function buildAnswersFilters(run){
   run.scenarios.forEach((s, i) => { const o = sf.options[i + 1]; o.value = s.scenario_id; o.textContent = s.scenario_id; });
   sf.addEventListener('change', applyScenarioFilter);
   bar.appendChild(sLab); bar.appendChild(sf);
+  // verdict filter <select>
+  const vLab = el('label'); vLab.htmlFor = 'verdict-filter'; vLab.textContent = 'verdict';
+  const vf = el('select'); vf.id = 'verdict-filter';
+  vf.innerHTML =
+    "<option value=''>all verdicts</option>" +
+    "<option value='harm'>harm or critical omission</option>" +
+    "<option value='human'>human adjudicated</option>" +
+    "<option value='disagree'>judge/human disagreement (Δ≥10)</option>" +
+    "<option value='gate_warn'>deterministic gate / ref warning</option>";
+  vf.addEventListener('change', applyVerdictFilter);
+  bar.appendChild(vLab); bar.appendChild(vf);
   // question search
   const search = el('input'); search.id = 'q-search'; search.type = 'search';
   search.placeholder = 'filter questions… (Esc clears)';
@@ -2238,6 +2578,9 @@ function buildAnswersFilters(run){
     const wrap = bar.closest('.scenario-wrap');
     if (!wrap) return;
     const isCompact = wrap.classList.toggle('compact-tiles');
+    if (!isCompact){
+      wrap.querySelectorAll('.tile').forEach(t => { if (t._ensureEvidence) t._ensureEvidence(); });
+    }
     detailBtn.setAttribute('aria-pressed', isCompact ? 'false' : 'true');
     detailBtn.textContent = isCompact ? 'Show evidence & audit tables' : 'Hide evidence & audit tables';
   });
@@ -2315,6 +2658,13 @@ function renderRun(runId){
   const defaultTab = (hasJudge && (run.scenarios || []).length > 1) ? 'overview' : 'all';
   main.dataset.activeTab = defaultTab;
 
+  // Three-layer verification status banner (visible in Overview and Methodology)
+  const vtBanner = renderVerificationTiers(run);
+  if (vtBanner){
+    vtBanner.dataset.tabGroup = 'overview methodology';
+    main.appendChild(vtBanner);
+  }
+
   // Tab 1 (Overview — At a Glance): strictly 3 Plain-English Visual Blocks
   const execSum = renderExecutiveSummary(run);
   if (execSum){
@@ -2329,11 +2679,18 @@ function renderRun(runId){
     main.appendChild(qExplorer);
   }
 
-  // Tab 4 (Methodology & Raw Data): Patient Cohort Banner + Full 13-Col Judge Rubric + Raw Heatmap
+  // Tab 4 (Methodology & Raw Data): Patient Cohort Banner + Deterministic Guardrails + Full Judge Rubric + Human Adjudication + Raw Heatmap
   const pbanner = renderPatientBanner(run);
   if (pbanner){
     pbanner.dataset.tabGroup = 'methodology';
     main.appendChild(pbanner);
+  }
+
+  // 0) Deterministic Verification & Guardrails (Layer 1)
+  const detSec = wrapSection(renderDeterministic(run), 'sec-deterministic', 'Guardrails', 'Deterministic verification & guardrails', 'exact programmatic checks, no LLM judge');
+  if (detSec){
+    detSec.dataset.tabGroup = 'methodology';
+    main.appendChild(detSec);
   }
 
   // 1) Quality — the headline judge scores (results first!)
@@ -2341,6 +2698,13 @@ function renderRun(runId){
   if (judge){
     judge.dataset.tabGroup = 'methodology';
     main.appendChild(judge);
+  }
+
+  // 1b) Human Adjudication & PPI Calibration (Layer 3 — only rendered when adjudication exists)
+  const adjSec = wrapSection(renderAdjudication(run), 'sec-adjudication', 'Human & PPI', 'Human adjudication & PPI calibration', 'clinician / human calibrated');
+  if (adjSec){
+    adjSec.dataset.tabGroup = 'methodology';
+    main.appendChild(adjSec);
   }
 
   // 2) Per-scenario heatmap — the scenario × setup colour grid, its own navigable section
@@ -2357,51 +2721,52 @@ function renderRun(runId){
   }
 
   // 3) Per-scenario answers — the side-by-side answer tiles, its own navigable section
-  // with a SECTION-LOCAL filter bar (scenario / question / setups) adjacent to the data
+  // with a SECTION-LOCAL filter bar (scenario / verdict / question / setups) adjacent to the data
   // it filters (UX research: component-level filters belong next to discrepant sections).
   const scenSec = el('section', 'scenario-wrap compact-tiles');
   const scenIntro = el('p', 'intro');
-  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read them side by side. Drag a tile to rank the setups; click expand or ⛶ to inspect full evidence and claim tables, or use the filter bar below.';
+  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read and copy them side by side. Each tile shows compact read-only verification pills at the bottom; click expand or ⛶ to inspect full evidence and claim tables, or use the filter bar below.';
   scenSec.appendChild(scenIntro);
   scenSec.appendChild(buildAnswersFilters(run));
-  run.scenarios.forEach(sc => {
-    const sec = el('section', 'scenario');
-    sec.dataset.scenario = sc.scenario_id;
-    const h = el('h3', 'scenario-h'); h.textContent = sc.scenario_id; sec.appendChild(h);
+  let _scenariosRendered = false;
+  function renderScenarioBands(){
+    if (_scenariosRendered) return;
+    _scenariosRendered = true;
+    run.scenarios.forEach(sc => {
+      const sec = el('section', 'scenario');
+      sec.dataset.scenario = sc.scenario_id;
+      const h = el('h3', 'scenario-h'); h.textContent = sc.scenario_id; sec.appendChild(h);
 
-    sc.turns.forEach(tn => {
-      const band = el('div', 'qband');
-      band.dataset.run = run.run_id; band.dataset.scenario = sc.scenario_id; band.dataset.turn = tn.turn;
+      sc.turns.forEach(tn => {
+        const band = el('div', 'qband');
+        band.dataset.run = run.run_id; band.dataset.scenario = sc.scenario_id; band.dataset.turn = tn.turn;
 
-      const qhead = el('div', 'qhead');
-      qhead.innerHTML = "<span class='n'></span><div class='q'></div>";
-      qhead.querySelector('.n').textContent = 'T' + tn.turn;
-      qhead.querySelector('.q').textContent = tn.question || '';
-      band.appendChild(qhead);
+        const qhead = el('div', 'qhead');
+        qhead.innerHTML = "<span class='n'></span><div class='q'></div>";
+        qhead.querySelector('.n').textContent = 'T' + tn.turn;
+        qhead.querySelector('.q').textContent = tn.question || '';
+        band.appendChild(qhead);
 
-      const tilesEl = el('div', 'tiles');
-      const group = run.run_id + '|' + sc.scenario_id + '|' + tn.turn;
-      tilesEl.dataset.rankgroup = group;
+        const tilesEl = el('div', 'tiles');
+        run.backends.forEach(b => tilesEl.appendChild(buildTile(run, b, tn.cells[b], tn.turn, sc.scenario_id)));
 
-      const saved = savedRankFor(group);
-      const ordered = saved
-        ? saved.filter(b => run.backends.includes(b)).concat(run.backends.filter(b => !saved.includes(b)))
-        : run.backends.slice();
-      ordered.forEach(b => tilesEl.appendChild(buildTile(run, b, tn.cells[b], tn.turn, sc.scenario_id)));
-
-      wireGroup(tilesEl);
-      renumber(tilesEl);
-      const wrap = el('div', 'tiles-wrap');
-      const aL = el('button', 'scroll-arrow left'); aL.textContent = '◀'; aL.setAttribute('aria-label', 'scroll left');
-      const aR = el('button', 'scroll-arrow right'); aR.textContent = '▶'; aR.setAttribute('aria-label', 'scroll right');
-      wrap.appendChild(aL); wrap.appendChild(tilesEl); wrap.appendChild(aR);
-      wireScroll(tilesEl, aL, aR);
-      band.appendChild(wrap);
-      sec.appendChild(band);
+        const wrap = el('div', 'tiles-wrap');
+        const aL = el('button', 'scroll-arrow left'); aL.textContent = '◀'; aL.setAttribute('aria-label', 'scroll left');
+        const aR = el('button', 'scroll-arrow right'); aR.textContent = '▶'; aR.setAttribute('aria-label', 'scroll right');
+        wrap.appendChild(aL); wrap.appendChild(tilesEl); wrap.appendChild(aR);
+        wireScroll(tilesEl, aL, aR);
+        band.appendChild(wrap);
+        sec.appendChild(band);
+      });
+      scenSec.appendChild(sec);
     });
-    scenSec.appendChild(sec);
-  });
+    applyFilters();
+  }
   const ansWrapped = wrapSection(scenSec, 'sec-answers', 'Answers', 'Per-scenario answers');
+  ansWrapped._ensureRendered = renderScenarioBands;
+  if (defaultTab !== 'overview' || ((run.scenarios || []).length * (run.backends || []).length) <= 20){
+    renderScenarioBands();
+  }
   ansWrapped.dataset.tabGroup = 'questions';
   main.appendChild(ansWrapped);
 
@@ -2456,18 +2821,33 @@ function applyScenarioFilter(){
   });
 }
 function applyQuestionSearch(){
-  const inp = document.getElementById('q-search'); if (!inp) return;
-  const raw = inp.value.trim();
+  const inp = document.getElementById('q-search');
+  const vf = document.getElementById('verdict-filter');
+  const raw = inp ? inp.value.trim() : '';
+  const vMode = vf ? vf.value : '';
   let re = null;
   if (raw){ try { re = new RegExp(raw, 'i'); } catch(e) { re = null; } }
   document.querySelectorAll('#report .qband').forEach(band => {
-    if (!raw){ band.dataset.hidden = '0'; return; }
-    const q = band.querySelector('.qhead .q').textContent || '';
-    const tiles = [...band.querySelectorAll('.tile')].map(t => t.textContent).join(' ');
-    const hay = q + ' ' + tiles;
-    const hit = re ? re.test(hay) : hay.toLowerCase().includes(raw.toLowerCase());
-    band.dataset.hidden = hit ? '0' : '1';
+    let textHit = true;
+    if (raw){
+      const q = band.querySelector('.qhead .q').textContent || '';
+      const tiles = [...band.querySelectorAll('.tile')].map(t => t.textContent).join(' ');
+      const hay = q + ' ' + tiles;
+      textHit = re ? re.test(hay) : hay.toLowerCase().includes(raw.toLowerCase());
+    }
+    let verdictHit = true;
+    if (vMode){
+      const tiles = [...band.querySelectorAll('.tile:not(.empty)')];
+      if (vMode === 'harm') verdictHit = tiles.some(t => t.dataset.verdictHarm === '1');
+      else if (vMode === 'human') verdictHit = tiles.some(t => t.dataset.verdictHuman === '1');
+      else if (vMode === 'disagree') verdictHit = tiles.some(t => t.dataset.verdictDisagree === '1');
+      else if (vMode === 'gate_warn') verdictHit = tiles.some(t => t.dataset.verdictGateWarn === '1');
+    }
+    band.dataset.hidden = (textHit && verdictHit) ? '0' : '1';
   });
+}
+function applyVerdictFilter(){
+  applyQuestionSearch();
 }
 function applyBackendToggle(backend, on){
   document.querySelectorAll("#report .tile[data-backend='" + cssEsc(backend) + "']").forEach(t => {
@@ -2481,37 +2861,6 @@ function applyFilters(){
   applyQuestionSearch();
   // Setup show/hide now driven by the section-local multi-select checkboxes.
   document.querySelectorAll('.setup-filter input.setup-cb').forEach(cb => applyBackendToggle(cb.value, cb.checked));
-}
-
-/* ---- drag-rank (native DnD, constrained within one band) ---- */
-let dragged = null;
-function wireTile(tile){
-  tile.addEventListener('dragstart', () => { dragged = tile; requestAnimationFrame(() => tile.classList.add('dragging')); });
-  tile.addEventListener('dragend', () => {
-    tile.classList.remove('dragging'); const g = tile.closest('.tiles'); dragged = null;
-    if (g){ renumber(g); saveRanking(g); }
-  });
-}
-function wireGroup(tilesEl){
-  tilesEl.addEventListener('dragover', e => {
-    e.preventDefault();
-    if (!dragged || dragged.closest('.tiles') !== tilesEl) return;
-    const after = getDragAfterElementX(tilesEl, e.clientX);
-    if (after == null) tilesEl.appendChild(dragged); else tilesEl.insertBefore(dragged, after);
-  });
-}
-function getDragAfterElementX(container, x){
-  const tiles = [...container.querySelectorAll('.tile:not(.dragging)')];
-  return tiles.reduce((closest, child) => {
-    const box = child.getBoundingClientRect();
-    const offset = x - box.left - box.width / 2;
-    return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
-  }, { offset: -Infinity, element: null }).element;
-}
-function renumber(tilesEl){
-  [...tilesEl.querySelectorAll('.tile')].forEach((t, i) => {
-    const b = t.querySelector('.rank-badge'); if (b) b.textContent = (i + 1);
-  });
 }
 
 /* ---- patient grounding banner (links to the live OpenMRS chart) ---- */
@@ -2587,65 +2936,11 @@ function openFullscreen(tile){
   body.innerHTML = '';
   const clone = tile.cloneNode(true);
   clone.classList.add('expanded');
-  clone.querySelectorAll('.fs-btn, .adj, .expand, .rank-badge').forEach(x => x.remove());
+  clone.querySelectorAll('.fs-btn, .expand').forEach(x => x.remove());
   body.appendChild(clone);
   ov.classList.add('open');
 }
 function closeFullscreen(){ const ov = document.querySelector('.fs-overlay'); if (ov) ov.classList.remove('open'); }
-
-/* ---- exports: two files, two grains ---- */
-function n(v){ v = (v || '').trim(); return v === '' ? null : Number(v); }
-function collectFeedback(){
-  const out = [];
-  const reviewer = document.getElementById('rev').value || 'unknown';
-  document.querySelectorAll("#report .tile:not(.empty)").forEach(tile => {
-    const f = tile.querySelector('.cell-form'); if (!f) return;
-    const g = s => f.querySelector(s);
-    const acc = g('[name=accuracy]').value, comp = g('[name=completeness]').value, rel = g('[name=relevance]').value;
-    const abst = g('[name=abstention_outcome]').value, grnd = g('[name=citation_groundedness]').value;
-    const harm = g('[name=harm_fail]').checked;
-    const dec = f.querySelector('input[name^="decision"]:checked');
-    const txt = g('[name=free_text]').value.trim();
-    const touched = acc || comp || rel || txt || harm || dec || abst !== 'n-a' || grnd !== 'n-a';
-    if (!touched) return;
-    out.push(JSON.stringify({
-      run_id: activeRunId, scenario_id: tile.dataset.scenario, turn: Number(tile.dataset.turn),
-      backend_id: tile.dataset.backend, reviewer: reviewer,
-      scores: { accuracy: n(acc), completeness: n(comp), relevance: n(rel) },
-      abstention_outcome: abst, citation_groundedness: grnd, harm_fail: harm,
-      decision: dec ? dec.value : null, free_text: txt, created_at: new Date().toISOString()
-    }));
-  });
-  if (!out.length){ alert('No adjudications filled in yet.'); return; }
-  submit(out.join('\n') + '\n', 'feedback.jsonl', 'application/x-ndjson');
-}
-function exportRankings(){
-  const payload = {
-    run_set: DATA.runs.map(r => r.run_id),
-    exported_at: new Date().toISOString(),
-    rankings: loadAllRanks()
-  };
-  submit(JSON.stringify(payload, null, 2), 'rankings.json', 'application/json');
-}
-function resetRanking(){
-  const all = loadAllRanks();
-  Object.keys(all).forEach(k => { if (k.startsWith(activeRunId + '|')) delete all[k]; });
-  saveAllRanks(all);
-  renderRun(activeRunId);
-}
-function download(text, name, mime){
-  const b = new Blob([text], { type: mime });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(b); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
-}
-function submit(text, name, mime){
-  // Feedback-capture seam: POST to the configured endpoint if set, else fall back to the download.
-  if (!FEEDBACK_ENDPOINT){ download(text, name, mime); return; }
-  fetch(FEEDBACK_ENDPOINT, { method: 'POST', headers: { 'Content-Type': mime, 'X-Report-Artifact': name }, body: text })
-    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); alert(name + ' submitted'); })
-    .catch(e => { alert('submit failed (' + e + ') — downloading instead'); download(text, name, mime); });
-}
 
 /* ---- cross-run switcher ----
    Swaps between PUBLISHED runs. A published report lives at <reports>/<slug>/index.html,
@@ -2709,19 +3004,7 @@ function boot(){
     if (rsWrap && DATA.runs.length > 1) rsWrap.hidden = false;
   }
 
-  document.getElementById('reset-rank').addEventListener('click', resetRanking);
-  document.getElementById('export-rankings').addEventListener('click', exportRankings);
-  document.getElementById('export-feedback').addEventListener('click', collectFeedback);
   document.getElementById('print-pdf').addEventListener('click', () => window.print());
-
-  // Overflow menu: dismiss on outside-click / Escape, and collapse after a menu action
-  // fires (standard menu affordance — the panel is a <details>, so toggling `open` works).
-  const exMenu = document.getElementById('export-menu');
-  if (exMenu){
-    document.addEventListener('click', e => { if (exMenu.open && !exMenu.contains(e.target)) exMenu.open = false; });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && exMenu.open) exMenu.open = false; });
-    exMenu.querySelectorAll('.menu-item').forEach(b => b.addEventListener('click', () => { exMenu.open = false; }));
-  }
 
   loadRunSwitcher();
   if (activeRunId) renderRun(activeRunId);
