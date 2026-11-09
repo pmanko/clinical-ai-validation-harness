@@ -1323,8 +1323,9 @@ table.qe-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .exec-board { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .exec-board-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin-bottom: 2px; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
 .exec-board-h span { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11.5px; }
-.exec-row { display: grid; grid-template-columns: minmax(190px, 1.4fr) minmax(160px, 2fr) auto auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 7px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; }
-.exec-row.is-best { border-color: var(--accent-bd); background: var(--accent-bg); }
+div.exec-row { display: grid; grid-template-columns: minmax(190px, 1.4fr) minmax(160px, 2fr) auto auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 7px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; }
+div.exec-row.is-best { border-color: var(--accent-bd); background: var(--accent-bg); }
+tr.exec-row.is-leader td { background: var(--accent-bg); }
 .exec-arm { font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .exec-bar-wrap { display: flex; align-items: center; gap: 8px; }
 .exec-bar-track { flex: 1; height: 8px; background: var(--surface2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; min-width: 70px; }
@@ -1692,13 +1693,18 @@ function renderVerificationTiers(run){
   const wrap = el('div', 'vtiers-banner');
   wrap.setAttribute('aria-label', 'Verification tiers');
   const sumRows = run.summary || [];
+  const jByB = {}; (run.judge || []).forEach(j => { jByB[j.backend] = j; });
   let totalTurns = 0, validTurns = 0, totalRefs = 0, resolvedRefs = 0, unresRefs = 0, gateFail = 0;
   sumRows.forEach(s => {
     totalTurns += (s.turns || 0);
     validTurns += (s.valid_turns != null ? s.valid_turns : ((s.turns || 0) - (s.errors || 0)));
-    totalRefs += (s.total_chart_refs || 0);
-    resolvedRefs += (s.resolved_chart_refs != null ? s.resolved_chart_refs : (s.total_chart_refs || 0));
-    unresRefs += (s.unresolved_chart_refs || 0);
+    const cr = (jByB[s.backend_id] && jByB[s.backend_id].citation_resolution) || {};
+    const tRefs = (s.total_chart_refs || 0) || (cr.n_refs || 0);
+    const rRefs = (s.resolved_chart_refs != null && s.total_chart_refs) ? s.resolved_chart_refs : (cr.n_resolved != null ? cr.n_resolved : tRefs);
+    const uRefs = (s.unresolved_chart_refs || 0) || (cr.n_unresolved || 0);
+    totalRefs += tRefs;
+    resolvedRefs += rRefs;
+    unresRefs += uRefs;
     gateFail += (s.temporal_gate_fail || 0);
   });
   const p1 = el('div', 'vtier-pill det');
@@ -1904,22 +1910,22 @@ _SCRIPT_REST = r"""function cellBenchScore(r){
 }
 
 var CLINICAL_CATEGORIES = [
-  { id: 'convo', title: 'Multi-Question Clinical Conversations', short: 'Multi-Question Convo', order: 1,
-    desc: '3–5 back-and-forth follow-up questions in one session (medications, diagnosis evidence, safety escalation, vitals).' },
-  { id: 'window', title: 'Time Windows & Visit Summaries', short: 'Time Windows & Visits', order: 2,
-    desc: 'Questions asking for records from a specific timeframe (past 6 months, earliest vs. latest weight, last visit purpose).' },
-  { id: 'trends', title: 'Longitudinal Trends & Pediatric Growth', short: 'Trends & Growth', order: 3,
-    desc: 'Tracking how weight, CD4 count, or pediatric growth changed across all clinic visits.' },
-  { id: 'grounding', title: 'Chart Grounding & Safe Abstention', short: 'Chart Grounding & Abstention', order: 4,
-    desc: 'Verifying facts directly against chart citations and honestly stating when a record (e.g. blood type) is not in the chart.' }
+  { id: 'convo', title: 'Multi-Turn & Conversational Privacy', short: 'Convo & Privacy', order: 1,
+    desc: 'Multi-turn follow-up dialogs and role-scoped privacy/sharing checks across clinical encounters.' },
+  { id: 'window', title: 'Medication Reconciliation & Time Windows', short: 'Reconciliation & Windows', order: 2,
+    desc: 'Reconciling active vs. held medications, discharge contradictions, and timeframe-scoped records.' },
+  { id: 'trends', title: 'Longitudinal History & Trends', short: 'Longitudinal & Trends', order: 3,
+    desc: 'Tracking labs, vitals, inpatient history, and disease progression across multiple visits.' },
+  { id: 'grounding', title: 'Chart Grounding & Safe Abstention', short: 'Grounding & Abstention', order: 4,
+    desc: 'Verifying facts directly against chart citations and honestly abstaining when a record is absent.' }
 ];
 
 function classifyScenario(sid, turns){
   var s = String(sid || '').toLowerCase();
   var nTurns = (turns && turns.length) || 1;
-  if(s.indexOf('convo') === 0 || nTurns > 1) return CLINICAL_CATEGORIES[0];
-  if(/trend|series|history|growth|pediatric|numeric|milestone|care-gap/.test(s)) return CLINICAL_CATEGORIES[2];
-  if(/date-|window|temporal|last-visit|orders|upcoming|appointment|visit|cross-encounter|provenance/.test(s)) return CLINICAL_CATEGORIES[1];
+  if(s.indexOf('convo') === 0 || nTurns > 1 || /^b\d+_|\bprivacy\b|_p\d+__/.test(s)) return CLINICAL_CATEGORIES[0];
+  if(/^a(09|1[0-5])_|\binpatient|\blookup|\btrend|series|history|growth|pediatric|numeric|milestone|care-gap/.test(s)) return CLINICAL_CATEGORIES[2];
+  if(/^a0[1-8]_|\breconcil|\bmed_staging|date-|window|temporal|last-visit|orders|upcoming|appointment|visit|cross-encounter|provenance/.test(s)) return CLINICAL_CATEGORIES[1];
   return CLINICAL_CATEGORIES[3];
 }
 
@@ -1986,27 +1992,34 @@ function renderExecutiveSummary(run){
 
   var topSm = sumByArm[top.backend] || {};
   var secSm = second ? (sumByArm[second.backend] || {}) : {};
+  var hasAnyLatency = (run.summary || []).some(function(s){ return (s.avg_latency_ms || 0) > 0; });
   var topSec = topSm.avg_latency_ms ? (topSm.avg_latency_ms / 1000).toFixed(1) + 's' : '—';
   var secSec = secSm.avg_latency_ms ? (secSm.avg_latency_ms / 1000).toFixed(1) + 's' : '—';
 
   // ---- BLOCK 1: Executive Takeaway Banner + 3 Hero Callouts ----
   var headlineTxt = second
-    ? (armShort(top.backend) + ' delivers higher clinical answer quality (' + fmt10(top.benchmark_score) + ' vs ' + fmt10(second.benchmark_score) + ' / 100)'
+    ? (armShort(top.backend) + ' leads ' + scored.length + ' evaluated setups (' + fmt10(top.benchmark_score) + ' vs ' + fmt10(second.benchmark_score) + ' / 100 runner-up)'
        + (topSm.avg_latency_ms && secSm.avg_latency_ms && topSm.avg_latency_ms < secSm.avg_latency_ms
           ? (' and responds in ' + topSec + ' vs ' + secSec + '.')
           : '.'))
     : (armShort(top.backend) + ' scored ' + fmt10(top.benchmark_score) + ' / 100 across ' + nQ + ' clinical questions.');
 
-  var leadNarrative = 'Evaluated across <b>' + nQ + ' clinical turns (' + nScen + ' scenarios)</b> on <b>'
-    + (nP ? (nP + ' synthetic HIV patient chart' + (nP===1?'':'s')) : 'patient charts') + '</b>'
+  var leadNarrative = 'Evaluated across <b>' + nQ + ' clinical turns (' + nScen + ' scenarios)</b>'
+    + (nP ? (' on <b>' + nP + ' patient chart' + (nP===1?'':'s') + '</b>') : '')
     + (run.hardware && run.hardware.gpu ? (' on a <b>' + htmlEsc(run.hardware.gpu) + '</b>') : '') + '. ';
   if(second){
-    leadNarrative += '<b>' + htmlEsc(armShort(top.backend)) + '</b> leads by <b>+' + fmt10(leadDelta) + ' points</b>, driven by higher completeness (<b>'
-      + fmt10(top.completeness_mean) + ' vs ' + fmt10(second.completeness_mean) + '/10</b>) and clarity (<b>'
-      + fmt10(top.relevance_mean) + ' vs ' + fmt10(second.relevance_mean) + '/10</b>) while avoiding multi-turn over-abstentions.';
+    leadNarrative += '<b>' + htmlEsc(armShort(top.backend)) + '</b> leads by <b>+' + fmt10(leadDelta) + ' points</b> over <b>' + htmlEsc(armShort(second.backend)) + '</b> (and <b>+' + fmt10((top.benchmark_score||0) - (lowest.benchmark_score||0)) + ' points</b> across all ' + scored.length + ' setups), with accuracy <b>'
+      + fmt10(top.accuracy_mean) + '/10</b>, completeness <b>' + fmt10(top.completeness_mean) + '/10</b>, and relevance <b>' + fmt10(top.relevance_mean) + '/10</b>.';
+  }
+  var ctxBoxHtml = '';
+  if(run.context && (run.context.text || run.context.url)){
+    ctxBoxHtml = '<div style="margin:0 0 14px;padding:11px 14px;background:var(--surface2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;font-size:13px;line-height:1.55;color:var(--fg)">'
+      + (run.context.text ? htmlEsc(run.context.text) + ' ' : '')
+      + (run.context.url ? ('<a href="' + htmlEsc(run.context.url) + '" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;text-decoration:none">' + htmlEsc(run.context.label || 'Learn more →') + '</a>') : '')
+      + '</div>';
   }
 
-  // Hero Card 3: Multi-user scaling (when concurrency_runs present) or single-user response speed
+  // Hero Card 3: Multi-user scaling (when concurrency_runs present), single-user response speed (when latency recorded), or Safety-Adjusted Score & Spread
   var hero3Html = '';
   if(topN1 && topN4){
     var scaleFactor = (topN1.throughput_turns_per_min > 0) ? (topN4.throughput_turns_per_min / topN1.throughput_turns_per_min).toFixed(1) : '—';
@@ -2021,7 +2034,7 @@ function renderExecutiveSummary(run){
       + '). Under 4 simultaneous clinicians, <b>' + htmlEsc(armShort(top.backend)) + '</b> maintains <b>' + sloPct4 + '%</b> fast-response goodput'
       + (secN4 ? (' vs <b>' + secSloPct4 + '%</b> (' + secN4.throughput_turns_per_min + ' turns/min) for ' + htmlEsc(armShort(second.backend)) + '.') : '.')
       + '</div></div>';
-  } else {
+  } else if(hasAnyLatency) {
     var ttftStr = (topSm.streaming_latency && topSm.streaming_latency.avg_ttft_ms != null)
       ? ((topSm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's first word · ') : '';
     hero3Html = '<div class="ov-hero-card">'
@@ -2029,12 +2042,22 @@ function renderExecutiveSummary(run){
       + '<div class="ov-hero-big">' + topSec + ' <small>avg total wait</small></div>'
       + '<span class="ov-hero-pill">' + htmlEsc(ttftStr + armShort(top.backend)) + '</span>'
       + '<div class="ov-hero-desc">' + (second ? ('Compare with <b>' + secSec + '</b> avg wait for ' + htmlEsc(armShort(second.backend)) + '.') : ('Max turn latency: ' + ((topSm.max_latency_ms||0)/1000).toFixed(1) + 's.')) + '</div></div>';
+  } else {
+    var topSadj = top.safety_adjusted_benchmark_score != null ? top.safety_adjusted_benchmark_score : top.benchmark_score;
+    var secSadj = second ? (second.safety_adjusted_benchmark_score != null ? second.safety_adjusted_benchmark_score : second.benchmark_score) : null;
+    hero3Html = '<div class="ov-hero-card">'
+      + '<div class="ov-hero-label">3 · Safety-Adjusted Score &amp; Spread</div>'
+      + '<div class="ov-hero-big accent">' + fmt10(topSadj) + ' <small>/ 100 safety-adj</small></div>'
+      + '<span class="ov-hero-pill">' + scored.length + ' Setups · Range ' + fmt10(lowest.benchmark_score) + '–' + fmt10(top.benchmark_score) + '</span>'
+      + '<div class="ov-hero-desc">Penalizes any turn with severe clinical harm or critical omission to 0 ('
+      + (secSadj != null ? ('runner-up: <b>' + fmt10(secSadj) + '/100</b> for ' + htmlEsc(armShort(second.backend))) : htmlEsc(armShort(top.backend))) + ').</div></div>';
   }
 
   var block1 = '<div class="ov-block ov-banner-card">'
     + '<div class="ov-kicker"><span>Executive Summary · At a Glance</span></div>'
     + '<h2 class="ov-headline">' + htmlEsc(headlineTxt) + '</h2>'
     + '<p class="ov-lead">' + leadNarrative + '</p>'
+    + ctxBoxHtml
     + '<div class="ov-hero-grid exec-kpis">'
     + '<div class="ov-hero-card kpi-card">'
     +   '<div class="ov-hero-label kpi-kicker">1 · Overall Answer Quality</div>'
@@ -2048,7 +2071,7 @@ function renderExecutiveSummary(run){
     +     (safeAllOk ? '✓ 0 Unsafe · 0 Fab Refs' : ('⚠ ' + totalHarm + ' Unsafe · ' + totalFab + ' Fab Refs')) + '</span></div>'
     +   '<span class="ov-hero-pill ' + (safeAllOk && totalDateWrong === 0 ? 'ok' : 'warn') + '">'
     +     (totalDateWrong === 0 ? '100% Grounded Chart Citations · 0 Date Errors' : (totalDateWrong + ' Date Error(s) Flagged')) + '</span>'
-    +   '<div class="ov-hero-desc kpi-sub">Every <code>[ref]</code> citation was verified deterministically against the patient’s OpenMRS chart UUIDs before scoring.</div>'
+    +   '<div class="ov-hero-desc kpi-sub">Every <code>[ref]</code> citation was verified deterministically against the ground-truth patient chart snapshot before scoring.</div>'
     + '</div>'
     + hero3Html
     + '</div></div>';
@@ -2056,6 +2079,7 @@ function renderExecutiveSummary(run){
   // ---- BLOCK 2: Head-to-Head Comparison Table (At-a-Glance Setup Leaderboard) ----
   var tableRows = scored.map(function(s, idx){
     var bScore = Math.max(0, Math.min(100, Number(s.benchmark_score || 0)));
+    var sadjScore = s.safety_adjusted_benchmark_score != null ? s.safety_adjusted_benchmark_score : s.benchmark_score;
     var tierCls = bScore >= 75 ? 'tier-good' : (bScore >= 55 ? 'tier-mid' : 'tier-bad');
     var card = armCardFor(s.backend) || {};
     var badge = card.kind === 'team' ? '<span class="badge team">TEAM</span>' : (card.kind === 'single' ? '<span class="badge single">SINGLE</span>' : '');
@@ -2067,7 +2091,8 @@ function renderExecutiveSummary(run){
       safeBadge += ' <div style="font-size:11px;color:var(--mut);margin-top:3px">' + wo + ' window overreach flag' + (wo===1?'':'s') + '</div>';
     }
     var sm = sumByArm[s.backend] || {};
-    var totalWait = sm.avg_latency_ms ? ((sm.avg_latency_ms / 1000).toFixed(1) + 's total') : '—';
+    var cr = s.citation_resolution || {};
+    var totalWait = sm.avg_latency_ms ? ((sm.avg_latency_ms / 1000).toFixed(1) + 's total') : (cr.n_refs ? (cr.n_resolved + '/' + cr.n_refs + ' refs') : '—');
     var ttftWait = (sm.streaming_latency && sm.streaming_latency.avg_ttft_ms != null)
       ? ((sm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's first word') : '';
     var cN4 = concRuns.find(function(c){ return c.backend_id === s.backend && c.n_users === 4; });
@@ -2078,6 +2103,7 @@ function renderExecutiveSummary(run){
       + '<div class="ov-setup-desc">' + htmlEsc(plainArmRoleDesc(s.backend)) + '</div></td>'
       + '<td><div class="ov-score-cell exec-bar-wrap"><span class="ov-score-num exec-bscore">' + fmt10(s.benchmark_score) + '</span>'
       + '<div class="ov-score-bar exec-bar-track"><div class="ov-score-fill exec-bar-fill ' + tierCls + '" style="width:' + bScore.toFixed(1) + '%"></div></div></div></td>'
+      + '<td class="ov-dim-val">' + fmt10(sadjScore) + '<small>/100</small></td>'
       + '<td class="ov-dim-val">' + fmt10(s.accuracy_mean) + '<small>/10</small></td>'
       + '<td class="ov-dim-val">' + fmt10(s.completeness_mean) + '<small>/10</small></td>'
       + '<td class="ov-dim-val exec-axes" title="Accuracy ' + fmt10(s.accuracy_mean) + ' · Completeness ' + fmt10(s.completeness_mean) + ' · Relevance ' + fmt10(s.relevance_mean) + '">' + fmt10(s.relevance_mean) + '<small>/10</small></td>'
@@ -2089,10 +2115,10 @@ function renderExecutiveSummary(run){
 
   var block2 = '<div class="ov-block ov-table-card exec-board">'
     + '<div class="ov-sec-head exec-board-h">'
-    +   '<div><h3 class="ov-sec-title">Head-to-Head Comparison</h3><div class="ov-sec-sub">At-a-Glance Setup Leaderboard · Higher is better on quality scores (0–100 overall, 0–10 per dimension); lower is better on wait time.</div></div>'
+    +   '<div><h3 class="ov-sec-title">Head-to-Head Comparison (' + scored.length + ' Setups)</h3><div class="ov-sec-sub">At-a-Glance Setup Leaderboard · Higher is better on quality &amp; safety-adjusted scores (0–100 overall, 0–10 per dimension).</div></div>'
     + '</div>'
     + '<div class="ov-comp-wrap"><table class="ov-comp-table">'
-    + '<thead><tr><th>Setup</th><th>Overall Score (0–100)</th><th>Fact Accuracy</th><th>Completeness</th><th>Clarity</th><th>Safety &amp; Date Checks</th><th>Typical Wait Time</th></tr></thead>'
+    + '<thead><tr><th>Setup</th><th>Overall Score (0–100)</th><th>Safety-Adj</th><th>Fact Accuracy</th><th>Completeness</th><th>Clarity</th><th>Safety &amp; Date Checks</th><th>' + (hasAnyLatency ? 'Typical Wait Time' : 'Resolved Refs') + '</th></tr></thead>'
     + '<tbody>' + tableRows + '</tbody></table></div></div>';
 
   // ---- BLOCK 3: Why Did [Leading Setup] Score Higher? (Clinical Task Categories + Top 3 Differentiators) ----
