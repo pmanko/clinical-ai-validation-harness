@@ -49,7 +49,7 @@ jobs:
           uv venv
 
       - name: Install harness + test/coverage tooling
-        run: uv pip install -e ".[dev]" pytest-cov diff-cover
+        run: uv pip install -e ".[dev]" playwright pytest-cov diff-cover
 
       - name: Install Playwright browser (for the report layout test)
         run: uv run --no-sync playwright install --with-deps chromium
