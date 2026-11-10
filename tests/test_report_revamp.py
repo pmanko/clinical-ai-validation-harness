@@ -287,3 +287,29 @@ def test_report_script_passes_node_syntax_check(tmp_path: Path) -> None:
     js_file.write_text(report._SCRIPT, encoding="utf-8")
     proc = subprocess.run(["node", "--check", str(js_file)], capture_output=True, text=True, check=False)
     assert proc.returncode == 0, proc.stderr
+
+
+def test_build_report_emits_standalone_report_data_json_and_external_shell(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    _write_stage1_fixture(run_dir)
+    _write_stage2_judge_fixture(run_dir)
+    _write_stage3_adjudication_fixture(run_dir)
+
+    out = report.build_report(
+        run_dir,
+        deduplicate=True,
+        write_data_json=True,
+        external_shell_prefix="../assets",
+    )
+    html = out.read_text(encoding="utf-8")
+    data_path = run_dir / "report-data.json"
+    assert data_path.is_file()
+    payload = json.loads(data_path.read_text(encoding="utf-8"))
+    run0 = payload["runs"][0]
+    assert "source_card_pool" in run0
+    assert "../assets/report-shell.css?v=" in html
+    assert "../assets/report-shell.js?v=" in html
+    shell_dir = Path(report.__file__).resolve().parents[1] / "report_shell"
+    assert (shell_dir / "report-shell.css").is_file()
+    assert (shell_dir / "report-shell.js").is_file()
+

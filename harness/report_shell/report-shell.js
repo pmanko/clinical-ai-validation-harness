@@ -1,0 +1,2613 @@
+
+let DATA = (function(){
+  const el = document.getElementById('report-data');
+  if (el && el.textContent && el.textContent.trim()) {
+    try { return JSON.parse(el.textContent); } catch (e) {}
+  }
+  return { runs: [] };
+})();
+let activeRunId = ((DATA.runs && DATA.runs[0]) || {}).run_id;
+
+function runById(id){ return DATA.runs.find(r => r.run_id === id); }
+function el(tag, cls){ const e = document.createElement(tag); if(cls) e.className = cls; return e; }
+
+/* ---- sortable tables (every data table) ----
+   UX research (W3C APG sortable-table, Adrian Roselli, NN/g): each header label
+   wraps a real <button> (free keyboard + focus), aria-sort sits ONLY on the active
+   <th> (omit "none" — inconsistently announced), the ▲/▼ glyph is aria-hidden (state
+   lives in aria-sort), columns auto-detect numeric vs text, missing/"—"/"n/a" cells
+   always sink to the bottom regardless of direction, and a polite live-region
+   announces the new sort for the screen readers that don't auto-read aria-sort. */
+function sortAnnounce(msg){
+  var lr=document.getElementById('sort-live'); if(!lr) return;
+  lr.textContent=''; setTimeout(function(){ lr.textContent=msg; }, 30);
+}
+function cellSortVal(td){
+  var raw=((td&&td.textContent)||'').trim();
+  if(raw===''||raw==='—'||raw==='-'||raw==='n/a'||raw==='N/A') return {missing:true, num:NaN, txt:''};
+  // a leading number (handles "123 ms", "89.8", "1.2k" via the k-suffix) drives numeric sort
+  var m=raw.replace(/,/g,'').match(/^[+-]?\d*\.?\d+/);
+  var num=m?parseFloat(m[0])*(/\dk\b/i.test(raw)?1000:1):NaN;
+  return {missing:false, num:num, txt:raw.toLowerCase()};
+}
+function makeSortable(t){
+  var heads=t.querySelectorAll('thead th');
+  // Detect, per column, whether the body cells are predominantly numeric.
+  var bodyRows=Array.prototype.slice.call(t.querySelectorAll('tbody tr'));
+  for(var ci=0;ci<heads.length;ci++){ (function(th, col){
+    var label=th.textContent; th.innerHTML='';
+    var btn=document.createElement('button'); btn.type='button'; btn.className='th-sort';
+    btn.innerHTML=htmlEsc(label)+" <span class='sort-ind' aria-hidden='true'></span>";
+    th.appendChild(btn);
+    btn.addEventListener('click', function(){
+      var tb=t.querySelector('tbody'), rows=Array.prototype.slice.call(tb.querySelectorAll('tr'));
+      var asc=th.getAttribute('aria-sort')==='ascending' ? false : true;   // toggle; new column -> ascending
+      // numeric column if every present cell parses to a number
+      var numeric=rows.length>0 && rows.every(function(r){ var v=cellSortVal(r.children[col]); return v.missing||!isNaN(v.num); });
+      rows.sort(function(a,b){
+        var x=cellSortVal(a.children[col]), y=cellSortVal(b.children[col]);
+        if(x.missing&&y.missing) return 0;
+        if(x.missing) return 1;   // missing always sinks to the bottom...
+        if(y.missing) return -1;  // ...regardless of asc/desc
+        var r = numeric ? (x.num-y.num) : x.txt.localeCompare(y.txt, undefined, {numeric:true});
+        return asc?r:-r;
+      });
+      rows.forEach(function(r){ tb.appendChild(r); });
+      // clear every header's sort state, then mark only this one
+      for(var h=0;h<heads.length;h++){ heads[h].removeAttribute('aria-sort'); var si=heads[h].querySelector('.sort-ind'); if(si) si.textContent=''; }
+      th.setAttribute('aria-sort', asc?'ascending':'descending');
+      var ind=th.querySelector('.sort-ind'); if(ind) ind.textContent=asc?'▲':'▼';
+      sortAnnounce(label.trim()+', sorted '+(asc?'ascending':'descending'));
+    });
+  })(heads[ci], ci); }
+}
+
+function renderRunMeta(run){
+  const m = run.meta;
+  const rd = m.reference_date ? ' · reference-date ' + m.reference_date : '';
+  return 'run ' + m.run_id + ' · ' + m.component + ' · git ' + m.git_sha +
+         ' · ' + m.dataset_id + ' · provider ' + m.provider + ' · ' + m.generated_at + rd;
+}
+
+// A real run identity for the header, built from the embedded run data instead of a
+// constant "Validation report". Leads with the comparison shape (N setups over M
+// question sets), then the dataset + patient cohort + date — so the header says what
+// THIS run actually was. Counts are derived from the blob; missing pieces are skipped.
+function buildTitle(run){
+  const m = run.meta || {};
+  const nArms = (run.backends || []).length;
+  let nQ = 0;
+  (run.scenarios || []).forEach(s => { nQ += (s.turns || []).length; });
+  const nP = (run.patients || []).length;
+  const parts = [];
+  if (nArms) parts.push(nArms + ' setup' + (nArms === 1 ? '' : 's'));
+  if (nQ) parts.push(nQ + ' question' + (nQ === 1 ? '' : 's'));
+  if (nP) parts.push(nP + ' patient' + (nP === 1 ? '' : 's'));
+  // "11 setups · 32 questions · 3 patients" — the comparison shape, compactly.
+  let title = parts.length ? parts.join(' · ') : 'Validation report';
+  return { title: title, dataset: m.dataset_id || '', date: (m.generated_at || '').slice(0, 10) };
+}
+
+// Three-layer verification status banner directly below the patient banner:
+// Layer 1 (Deterministic Gate), Layer 2 (Advisory LLM Judge), Layer 3 (Human Adjudication & PPI).
+function renderVerificationTiers(run){
+  const wrap = el('div', 'vtiers-banner');
+  wrap.setAttribute('aria-label', 'Verification tiers');
+  const sumRows = run.summary || [];
+  const jByB = {}; (run.judge || []).forEach(j => { jByB[j.backend] = j; });
+  let totalTurns = 0, validTurns = 0, totalRefs = 0, resolvedRefs = 0, unresRefs = 0, gateFail = 0;
+  sumRows.forEach(s => {
+    totalTurns += (s.turns || 0);
+    validTurns += (s.valid_turns != null ? s.valid_turns : ((s.turns || 0) - (s.errors || 0)));
+    const cr = (jByB[s.backend_id] && jByB[s.backend_id].citation_resolution) || {};
+    const tRefs = (s.total_chart_refs || 0) || (cr.n_refs || 0);
+    const rRefs = (s.resolved_chart_refs != null && s.total_chart_refs) ? s.resolved_chart_refs : (cr.n_resolved != null ? cr.n_resolved : tRefs);
+    const uRefs = (s.unresolved_chart_refs || 0) || (cr.n_unresolved || 0);
+    totalRefs += tRefs;
+    resolvedRefs += rRefs;
+    unresRefs += uRefs;
+    gateFail += (s.temporal_gate_fail || 0);
+  });
+  const p1 = el('div', 'vtier-pill det');
+  const detSub = totalTurns
+    ? (validTurns + '/' + totalTurns + ' valid · ' + resolvedRefs + '/' + totalRefs + ' refs resolved' +
+       (unresRefs ? ' (' + unresRefs + ' unresolved)' : '') +
+       (gateFail ? ' · ' + gateFail + ' gate fail' : ''))
+    : 'no turns recorded';
+  p1.innerHTML = "<span class='vt-k'>Layer 1 · Deterministic Gate</span><span class='vt-v'>" + htmlEsc(detSub) + "</span>";
+  wrap.appendChild(p1);
+
+  const jr = run.judge_rows || [];
+  const actors = run.judge_actors || [];
+  const p2 = el('div', 'vtier-pill ' + (jr.length ? 'judge' : 'muted'));
+  const judgeSub = jr.length
+    ? ((actors.length || 1) + ' judge' + ((actors.length || 1) === 1 ? '' : 's') +
+       (actors.length ? ' (' + actors.join(', ') + ')' : '') + ' · ' + jr.length + ' cells graded')
+    : 'not run';
+  p2.innerHTML = "<span class='vt-k'>Layer 2 · Advisory LLM Judge</span><span class='vt-v'>" + htmlEsc(judgeSub) + "</span>";
+  wrap.appendChild(p2);
+
+  const cal = (run.calibrated || []).find(r => r.backend === '__run__');
+  const rc = (cal && cal.calibrated) || {};
+  const adjRows = run.adjudication_rows || [];
+  const hasHuman = Boolean(rc.adjudicated || adjRows.length);
+  const p3 = el('div', 'vtier-pill ' + (hasHuman ? 'human' : 'muted'));
+  let humanSub = 'un-adjudicated (0 cells)';
+  if (hasHuman){
+    const nLab = rc.n_labeled != null ? rc.n_labeled : adjRows.length;
+    const nAll = rc.n_all != null ? rc.n_all : (jr.length || totalTurns);
+    const tierTxt = rc.tier ? (rc.tier + '-reviewed') : 'human-reviewed';
+    const kapTxt = rc.kappa != null ? (' · κ ' + (Math.round(rc.kappa * 100) / 100)) : '';
+    const ptTxt = rc.point != null ? (' · PPI ' + (Math.round(rc.point * 10) / 10)) : '';
+    humanSub = tierTxt + ' · ' + nLab + '/' + nAll + ' cells' + ptTxt + kapTxt;
+  }
+  p3.innerHTML = "<span class='vt-k'>Layer 3 · Human Adjudication &amp; PPI</span><span class='vt-v'>" + htmlEsc(humanSub) + "</span>";
+  wrap.appendChild(p3);
+  return wrap;
+}
+
+// Section 02: Deterministic Verification & Guardrails (Layer 1 — exact programmatic checks, no LLM judge).
+function renderDeterministic(run){
+  const sec = el('section', 'det-section');
+  sec.innerHTML =
+    "<p class='intro'>Exact programmatic checks computed directly against the patient fixture and response schema — <b>no LLM judge involved</b>. Covers HTTP/schema validity, deterministic chart-reference resolution (exact UUID/index match), the temporal guardrail gate, and runtime answer self-check status. Click any column header to sort.</p>" +
+    "<dl class='legend-key'>" +
+    "<dt>schema &amp; HTTP valid</dt><dd>turns that returned HTTP 200 with a valid clinical response envelope (vs transport/runtime errors or degraded fallbacks).</dd>" +
+    "<dt>chart refs resolved</dt><dd>cited chart references whose index and resource UUID resolved deterministically against the ground-truth patient snapshot.</dd>" +
+    "<dt>unresolved (fab refs)</dt><dd>cited indices or UUIDs that do not exist in the patient chart snapshot (deterministic fabricated reference count).</dd>" +
+    "<dt>temporal gate</dt><dd>deterministic post-generation temporal verifier counts: <b>pass</b> / <b>warn</b> / <b>fail</b>, plus how often the gate patched or replaced the answer (<b>applied</b>).</dd>" +
+    "<dt>runtime answer check</dt><dd>product-level runtime verification status: answers <b>edited</b> after check vs flagged <b>needs review</b>.</dd>" +
+    "</dl>";
+  const rows = (run.summary || []).map(s => {
+    const turns = s.turns || 0;
+    const valid = s.valid_turns != null ? s.valid_turns : (turns - (s.errors || 0));
+    const totRefs = s.total_chart_refs || 0;
+    const resRefs = s.resolved_chart_refs != null ? s.resolved_chart_refs : totRefs;
+    const unresRefs = s.unresolved_chart_refs || 0;
+    const gPass = s.temporal_gate_pass || 0;
+    const gWarn = s.temporal_gate_warn || 0;
+    const gFail = s.temporal_gate_fail || 0;
+    const gApp = s.temporal_gate_applied || 0;
+    const acEdit = s.answer_check_edited || 0;
+    const acFlag = s.answer_check_flagged || 0;
+    return "<tr><td class='b'>" + htmlEsc(armTitle(s.backend_id)) + "<span class='model'>" + htmlEsc(s.backend_id) + "</span></td>" +
+      "<td>" + valid + " / " + turns + (s.degraded ? " <span class='muted'>(" + s.degraded + " degraded)</span>" : "") + "</td>" +
+      "<td>" + resRefs + " / " + totRefs + "</td>" +
+      "<td>" + (unresRefs > 0 ? "<b style='color:var(--bad)'>" + unresRefs + "</b>" : "0") + "</td>" +
+      "<td>" + gPass + " / " + gWarn + " / " + (gFail > 0 ? "<b style='color:var(--bad)'>" + gFail + "</b>" : "0") + "</td>" +
+      "<td>" + gApp + "</td>" +
+      "<td>" + acEdit + " edited · " + acFlag + " flagged</td></tr>";
+  }).join('');
+  const tbl = el('table', 'summary');
+  tbl.innerHTML =
+    "<thead><tr><th>backend</th><th>schema &amp; HTTP valid</th><th>chart refs resolved</th>" +
+    "<th>unresolved (fab refs)</th><th>temporal gate (pass/warn/fail)</th><th>gate applied</th>" +
+    "<th>runtime answer check</th></tr></thead><tbody>" + rows + "</tbody>";
+  sec.appendChild(tbl);
+  makeSortable(tbl);
+  return sec;
+}
+
+function renderSummary(run){
+  const sec = el('section', 'summary-section');
+  sec.innerHTML =
+    "<p class='intro'>One row per setup: how many questions it answered, how fast, and how often it cited the chart or fell back. These are operational counts (speed and volume), not a measure of whether the answers were right. Click any column header to sort.</p>";
+  if(run.hardware){
+    const hw=run.hardware;
+    const hh=el('h3'); hh.textContent='Hardware & serving configuration'; sec.appendChild(hh);
+    const ht=el('table','summary');
+    ht.innerHTML='<thead><tr><th>tier</th><th>hardware</th><th>VRAM</th><th>serving engine</th><th>parallel KV slots</th></tr></thead>'+
+      '<tbody><tr><td class="b">'+htmlEsc(hw.tier||'—')+'</td><td>'+htmlEsc(hw.gpu||'—')+'</td><td>'+(hw.vram_gb!=null?hw.vram_gb+' GB':'—')+'</td><td>'+htmlEsc(hw.serving_engine||'—')+'</td><td>'+(hw.parallel_slots!=null?hw.parallel_slots:'—')+'</td></tr></tbody>';
+    sec.appendChild(ht);
+  }
+  const rows = run.summary.map(s =>
+    "<tr><td class='b'>" + htmlEsc(armTitle(s.backend_id)) + "<span class='model'>" + htmlEsc(s.backend_id) + "</span></td>" +
+    '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
+    '<td>' + s.total_chart_refs + '</td><td>' + s.degraded + '</td><td>' + s.errors + '</td>' +
+    '<td>' + (s.temporal_gate_warn || 0) + '</td><td>' + (s.temporal_gate_fail || 0) + '</td>' +
+    '<td>' + (s.temporal_gate_applied || 0) + '</td></tr>'
+  ).join('');
+  const tbl = el('table', 'summary');
+  tbl.innerHTML = '<thead><tr><th>backend</th><th>turns</th><th>avg latency</th>' +
+    '<th>max latency</th><th>total chart refs</th><th>degraded</th><th>errors</th>' +
+    '<th>gate warn</th><th>gate fail</th><th>gate applied</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody>';
+  sec.appendChild(tbl);
+  makeSortable(tbl);
+  if(run.summary.some(s=>s.streaming_latency)){
+    const slh=el('h3'); slh.textContent='Streaming latency breakdown (TTFT · Answer-Done · Turn-Done · TPOT)'; sec.appendChild(slh);
+    const slp=el('p','intro'); slp.textContent='Incremental SSE stream timings across all turns: Time to First Token (TTFT), Answer-Done (clinical answer text complete), Turn-Done (after deterministic validation / citation resolution), and Time Per Output Token (TPOT).'; sec.appendChild(slp);
+    const slt=el('table','summary');
+    slt.innerHTML='<thead><tr><th>backend</th><th>avg TTFT</th><th>p95 TTFT</th><th>avg answer-done</th><th>p95 answer-done</th><th>avg turn-done</th><th>avg TPOT</th></tr></thead>'+
+      '<tbody>'+run.summary.map(s=>{
+        const sl=s.streaming_latency||{};
+        return '<tr><td class="b">'+htmlEsc(armTitle(s.backend_id))+'<span class="model">'+htmlEsc(s.backend_id)+'</span></td>'+
+          '<td>'+(sl.avg_ttft_ms!=null?sl.avg_ttft_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.p95_ttft_ms!=null?sl.p95_ttft_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.avg_answer_done_ms!=null?sl.avg_answer_done_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.p95_answer_done_ms!=null?sl.p95_answer_done_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.avg_turn_done_ms!=null?sl.avg_turn_done_ms+' ms':'—')+'</td>'+
+          '<td>'+(sl.avg_tpot_ms!=null?sl.avg_tpot_ms+' ms/tok':'—')+'</td></tr>';
+      }).join('')+'</tbody>';
+    sec.appendChild(slt); makeSortable(slt);
+  }
+  const stages=[];
+  run.summary.forEach(s => Object.keys(s.stage_latency_ms||{}).forEach(k => {
+    if(!stages.includes(k)) stages.push(k);
+  }));
+  if(stages.length){
+    const sh=el('h3'); sh.textContent='Average latency by stage'; sec.appendChild(sh);
+    const st=el('table','summary');
+    st.innerHTML='<thead><tr><th>backend</th>'+stages.map(k=>'<th>'+htmlEsc(k)+'</th>').join('')+'</tr></thead>'+
+      '<tbody>'+run.summary.map(s=>'<tr><td class="b">'+htmlEsc(armTitle(s.backend_id))+'</td>'+stages.map(k=>{
+        const v=(s.stage_latency_ms||{})[k];
+        if(!v) return '<td>—</td>';
+        const flags=[];
+        if(v.failed) flags.push(v.failed+' failed @ '+v.avg_failed_ms+' ms');
+        if(v.cancelled) flags.push(v.cancelled+' cancelled @ '+v.avg_cancelled_ms+' ms');
+        const avg=v.avg_ms==null?'—':v.avg_ms+' ms';
+        return '<td>'+avg+' ('+v.observed+'/'+v.expected+(flags.length?' · '+flags.join(', '):'')+')</td>';
+      }).join('')+'</tr>').join('')+'</tbody>';
+    sec.appendChild(st); makeSortable(st);
+  }
+  if(run.hardware&&Array.isArray(run.hardware.concurrency_runs)&&run.hardware.concurrency_runs.length){
+    const ch=el('h3'); ch.textContent='Multi-clinician session concurrency (N=1, 2, 4) & SLO goodput'; sec.appendChild(ch);
+    const cp=el('p','intro'); cp.textContent='Concurrent multi-turn clinician sessions driven against the same hardware target. SLO goodput counts turns meeting all three interactive thresholds simultaneously (TTFT ≤ 3,000 ms, Answer-Done ≤ 10,000 ms, TPOT ≤ 50 ms/tok).'; sec.appendChild(cp);
+    const ct=el('table','summary');
+    ct.innerHTML='<thead><tr><th>backend</th><th>users (N)</th><th>throughput</th><th>SLO goodput rate</th><th>goodput</th><th>TTFT p50</th><th>Turn 1 TTFT p50</th><th>Turn 2+ TTFT p50</th><th>answer-done p50</th><th>TPOT p50</th><th>errors</th></tr></thead>'+
+      '<tbody>'+run.hardware.concurrency_runs.map(c=>
+        '<tr><td class="b">'+htmlEsc(armTitle(c.backend_id))+'<span class="model">'+htmlEsc(c.backend_id)+'</span></td>'+
+        '<td>N='+c.n_users+'</td>'+
+        '<td>'+c.throughput_turns_per_min+' turns/min</td>'+
+        '<td>'+Math.round((c.goodput_rate||0)*100)+'%</td>'+
+        '<td>'+c.goodput_turns_per_min+' turns/min</td>'+
+        '<td>'+(c.ttft_p50_ms!=null?c.ttft_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.turn_1_ttft_p50_ms!=null?c.turn_1_ttft_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.turn_2plus_ttft_p50_ms!=null?c.turn_2plus_ttft_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.answer_done_p50_ms!=null?c.answer_done_p50_ms+' ms':'—')+'</td>'+
+        '<td>'+(c.tpot_p50_ms!=null?c.tpot_p50_ms+' ms/tok':'—')+'</td>'+
+        '<td>'+Math.round((c.error_rate||0)*100)+'%</td></tr>'
+      ).join('')+'</tbody>';
+    sec.appendChild(ct); makeSortable(ct);
+  }
+  return sec;
+}
+
+function renderStageTimings(rows){
+  if(!rows||!rows.length) return '';
+  const body=rows.map(r=>'<tr><td>'+htmlEsc(String(r.stage||'').replaceAll('_',' ')+(r.occurrence>1?' '+r.occurrence:''))+'</td><td>'+r.duration_ms+' ms</td><td>'+htmlEsc(r.status||'completed')+'</td></tr>').join('');
+  return '<details class="stage-timings"><summary>stage timing</summary><table class="summary"><thead><tr><th>stage</th><th>elapsed</th><th>status</th></tr></thead><tbody>'+body+'</tbody></table></details>';
+}
+
+// Human-readable arm titles for headers/labels — resolved from the active run's arm_cards
+// (the model_registry resolver), never the raw dashed backend id. `armTitle` = full title
+// ("Liquid coord · Qwen writer · validated"); `armShort` = the tight grid/SVG variant
+// (drops " · validated"/" · single"). Fall back to the raw id only if a card is missing.
+function armCardFor(b){ const r = runById(activeRunId); return (r && r.arm_cards && r.arm_cards[b]) || null; }
+function armTitle(b){ const c = armCardFor(b); return (c && c.title) || b; }
+function armShort(b){ const c = armCardFor(b); return (c && (c.short_title || c.title)) || b; }
+function bpShort(b){ return armShort(b); }
+function resolveCellSourcesHtml(run, cell){
+  if(!cell) return '';
+  if(cell.sources_html) return cell.sources_html;
+  var refs = cell.source_card_refs;
+  var pool = (run && run.source_card_pool) || [];
+  var diag = ((cell.sources || {}).diagnostics) || {};
+  var diagBits = [];
+  var diagMap = [['unresolved_refs','unresolved'],['unused_top_refs','unused top-level'],['nested_only_refs','nested only'],['malformed_tokens','malformed tokens']];
+  for(var d=0; d<diagMap.length; d++){
+    var k=diagMap[d][0], lbl=diagMap[d][1], vals=diag[k]||[];
+    if(vals.length){ diagBits.push(lbl+': '+vals.map(htmlEsc).join(', ')); }
+  }
+  if((!refs || !refs.length) && !diagBits.length) return '';
+  function buildCard(entry){
+    var idx = entry[0], sid = entry[1] || 'S1', cite = entry[2] || '?', chart = entry[3] || cite;
+    var tpl = pool[idx] || '';
+    return tpl.replace('<b>__SID__</b>', '<b>'+htmlEsc(sid)+'</b>')
+              .replace('__CITE_CHART__', 'cite ['+htmlEsc(cite)+'] · chart ['+htmlEsc(chart)+'] ');
+  }
+  var shown = (refs || []).slice(0, 5).map(buildCard).join('');
+  var more = '';
+  if(refs && refs.length > 5){
+    more = "<details class='source-more'><summary>show all sources</summary>" + refs.slice(5).map(buildCard).join('') + "</details>";
+  }
+  var diagHtml = diagBits.length ? ("<div class='source-diag'>" + diagBits.join(' · ') + "</div>") : "";
+  return "<section class='sources'><div class='sources-title'>Evidence Used</div><div class='source-grid'>" + shown + "</div>" + more + diagHtml + "</section>";
+}
+function resolveCellRefsHtml(run, cell){
+  if(!cell) return '';
+  if(cell.refs_html) return cell.refs_html;
+  if(cell.refs_pool_id != null && run && run.refs_pool && run.refs_pool[cell.refs_pool_id]){
+    return run.refs_pool[cell.refs_pool_id];
+  }
+  return '';
+}
+function bpNiceCeil(v){ if(v<=0) return 1; var p=Math.pow(10,Math.floor(Math.log10(v))); var f=v/p; var nf=f<=1?1:(f<=2?2:(f<=5?5:10)); return nf*p; }
+function bpFmt(v){ v=Math.round(v); return v>=1000?((v/1000).toFixed(v>=10000?0:1)+'k'):String(v); }
+// Box plot with a ROBUST, outlier-clipped y-axis (UX research: clip to the Tukey
+// fence / p95 so one extreme value can't squish every box — Observable/Datawrapper/
+// ggplot2). axisMax (precomputed server-side as the max upper-whisker, ≥ global p95)
+// is the clip ceiling; any point above it is CLAMPED to the top edge as a ▲ caret
+// (visually distinct from the in-range ○ outlier dots) and counted into a "N beyond X
+// not shown" footnote — clipped honestly, never silently dropped.
+function boxPlotSVG(label, md){
+  var series=md.series||[];
+  var H=232, padL=46, padR=12, padT=22, padB=52, plotH=H-padT-padB;
+  var W=Math.max(320, 70+series.length*92);
+  var i, s, o;
+  // Robust ceiling from the server, with safe fallbacks; round up to a nice tick value.
+  var rawMax=md.axis_max||0;
+  if(rawMax<=0){ for(i=0;i<series.length;i++){ s=series[i]; rawMax=Math.max(rawMax, s.whisker_hi||0, s.median||0); } }
+  var nm=bpNiceCeil(rawMax||1);
+  function Y(v){ var c=Math.min(v, nm); return padT + plotH - (c/nm)*plotH; }
+  var step=(W-padL-padR)/series.length;
+  var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="'+htmlEsc(label)+'">';
+  g+='<text x="'+padL+'" y="13" class="bp-title">'+htmlEsc(label)+'</text>';
+  var ticks=[0,0.25,0.5,0.75,1], t, yy, val;
+  for(t=0;t<ticks.length;t++){ val=nm*ticks[t]; yy=Y(val); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-5)+'" y="'+(yy+3)+'" class="bp-ytick">'+bpFmt(val)+'</text>'; }
+  var clipN=0, clipMax=0;   // count + furthest value clamped above the axis ceiling
+  for(i=0;i<series.length;i++){
+    s=series[i];
+    var cx=padL+step*i+step/2, bw=Math.min(42, step*0.52), x0=cx-bw/2, x1=cx+bw/2;
+    g+='<line x1="'+cx+'" y1="'+Y(s.whisker_lo)+'" x2="'+cx+'" y2="'+Y(s.whisker_hi)+'" class="bp-whisker"/>';
+    g+='<line x1="'+(x0+7)+'" y1="'+Y(s.whisker_hi)+'" x2="'+(x1-7)+'" y2="'+Y(s.whisker_hi)+'" class="bp-cap"/>';
+    g+='<line x1="'+(x0+7)+'" y1="'+Y(s.whisker_lo)+'" x2="'+(x1-7)+'" y2="'+Y(s.whisker_lo)+'" class="bp-cap"/>';
+    g+='<rect x="'+x0+'" y="'+Y(s.q3)+'" width="'+bw+'" height="'+Math.max(1,Y(s.q1)-Y(s.q3))+'" class="bp-box"/>';
+    g+='<line x1="'+x0+'" y1="'+Y(s.median)+'" x2="'+x1+'" y2="'+Y(s.median)+'" class="bp-median"/>';
+    g+='<line x1="'+x0+'" y1="'+Y(s.mean)+'" x2="'+x1+'" y2="'+Y(s.mean)+'" class="bp-mean"/>';
+    for(o=0;o<(s.outliers||[]).length;o++){
+      var ov=s.outliers[o];
+      if(ov>nm){ clipN++; clipMax=Math.max(clipMax, ov);
+        // off-scale: a ▲ caret pinned just inside the top edge, distinct from the in-range dot
+        g+='<path d="M'+(cx-3.4)+' '+(padT+5)+' L'+(cx+3.4)+' '+(padT+5)+' L'+cx+' '+(padT-0.5)+' Z" class="bp-clip"><title>'+htmlEsc(bpShort(s.backend)+': '+bpFmt(ov)+' (off scale)')+'</title></path>';
+      } else {
+        g+='<circle cx="'+cx+'" cy="'+Y(ov)+'" r="2.1" class="bp-out"/>';
+      }
+    }
+    g+='<text x="'+cx+'" y="'+(H-26)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
+    g+='<text x="'+cx+'" y="'+(H-15)+'" class="bp-xn">n'+s.n+' · md '+bpFmt(s.median)+'</text>';
+  }
+  if(clipN>0){
+    g+='<text x="'+padL+'" y="'+(H-3)+'" class="bp-clipnote">▲ '+clipN+' outlier'+(clipN>1?'s':'')+' beyond '+bpFmt(nm)+' (max '+bpFmt(clipMax)+') — axis clipped, not shown to scale</text>';
+  }
+  g+='</svg>';
+  var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
+}
+function cellBenchScore(r){
+  if(!r) return null;
+  var w = {accuracy: 0.4, completeness: 0.4, relevance: 0.2};
+  var num = 0, den = 0;
+  ['accuracy','completeness','relevance'].forEach(function(k){
+    if(typeof r[k] === 'number' && !isNaN(r[k])){ num += w[k] * r[k]; den += w[k]; }
+  });
+  if(!den) return null;
+  var core = 10.0 * num / den;
+  var pen = 0;
+  if(r.harm) pen += 12;
+  if(r.abstention_outcome === 'failed-to-abstain') pen += 12;
+  else if(r.abstention_outcome === 'over-abstained') pen += 5;
+  if(r.citation_groundedness === 'unsupported') pen += 10;
+  else if(r.citation_groundedness === 'partly') pen += 3;
+  if(r.temporal_date_accuracy === 'wrong') pen += 6;
+  else if(r.temporal_date_accuracy === 'minor') pen += 2;
+  if(r.temporal_window === 'over-claimed') pen += 4;
+  if(r.temporal_trend === 'fabricated') pen += 8;
+  return Math.round(Math.max(0, core - pen) * 10) / 10;
+}
+
+var CLINICAL_CATEGORIES = [
+  { id: 'convo', title: 'Multi-Turn & Conversational Privacy', short: 'Convo & Privacy', order: 1,
+    desc: 'Multi-turn follow-up dialogs and role-scoped privacy/sharing checks across clinical encounters.' },
+  { id: 'window', title: 'Medication Reconciliation & Time Windows', short: 'Reconciliation & Windows', order: 2,
+    desc: 'Reconciling active vs. held medications, discharge contradictions, and timeframe-scoped records.' },
+  { id: 'trends', title: 'Longitudinal History & Trends', short: 'Longitudinal & Trends', order: 3,
+    desc: 'Tracking labs, vitals, inpatient history, and disease progression across multiple visits.' },
+  { id: 'grounding', title: 'Chart Grounding & Safe Abstention', short: 'Grounding & Abstention', order: 4,
+    desc: 'Verifying facts directly against chart citations and honestly abstaining when a record is absent.' }
+];
+
+function classifyScenario(sid, turns){
+  var s = String(sid || '').toLowerCase();
+  var nTurns = (turns && turns.length) || 1;
+  if(s.indexOf('convo') === 0 || nTurns > 1 || /^b\d+_|\bprivacy\b|_p\d+__/.test(s)) return CLINICAL_CATEGORIES[0];
+  if(/^a(09|1[0-5])_|\binpatient|\blookup|\btrend|series|history|growth|pediatric|numeric|milestone|care-gap/.test(s)) return CLINICAL_CATEGORIES[2];
+  if(/^a0[1-8]_|\breconcil|\bmed_staging|date-|window|temporal|last-visit|orders|upcoming|appointment|visit|cross-encounter|provenance/.test(s)) return CLINICAL_CATEGORIES[1];
+  return CLINICAL_CATEGORIES[3];
+}
+
+function plainArmRoleDesc(b){
+  var c = armCardFor(b) || {};
+  if(c.path && c.path !== c.title && c.path !== b) return c.path;
+  if(c.kind === 'single'){
+    var m0 = (c.models || [])[0] || {};
+    var mq = [m0.family, m0.params, m0.quant].filter(Boolean).join(' ');
+    return 'Single-model profile (' + (mq || 'direct writer') + ') with deterministic date & citation checks';
+  }
+  if(c.kind === 'team'){
+    return 'Multi-agent team profile (orchestrator + specialist gather stage before answer synthesis)';
+  }
+  return c.label || c.title || b;
+}
+
+function renderExecutiveSummary(run){
+  var arms = run.backends || [];
+  if(!arms.length) return null;
+  var scored = (run.judge || []).slice().filter(function(s){ return (s.n||0) > 0 && s.benchmark_score != null; })
+               .sort(function(a,b){ return (b.benchmark_score||0) - (a.benchmark_score||0); });
+  var sumByArm = {}; (run.summary || []).forEach(function(s){ sumByArm[s.backend_id] = s; });
+  var fabByArm = {}; (run.judge_rows || []).forEach(function(r){
+    var cr = r.citation_resolution || {};
+    fabByArm[r.backend_id] = (fabByArm[r.backend_id] || 0) + (cr.n_unresolved || 0);
+  });
+  var nScen = (run.scenarios || []).length;
+  var nQ = 0; (run.scenarios || []).forEach(function(s){ nQ += (s.turns || []).length; });
+  var nP = (run.patients || []).length;
+
+  var sec = el('section', 'exec-summary');
+  sec.setAttribute('aria-label', 'Executive summary');
+
+  // Unjudged operational run fallback: show clean operational KPI cards.
+  if(!scored.length){
+    var latsU = (run.summary || []).filter(function(s){ return (s.turns||0) > 0 && (s.avg_latency_ms||0) > 0; })
+               .slice().sort(function(a,b){ return a.avg_latency_ms - b.avg_latency_ms; });
+    var fastU = latsU[0];
+    sec.innerHTML = '<div class="ov-block ov-banner-card">'
+      + '<div class="ov-kicker">Operational Run Summary</div>'
+      + '<h2 class="ov-headline">' + nQ + ' clinical question' + (nQ===1?'':'s') + ' evaluated across ' + arms.length + ' setup' + (arms.length===1?'':'s') + '</h2>'
+      + '<div class="exec-kpis">'
+      + '<div class="kpi-card"><div class="kpi-kicker">Evaluation Scope</div><div class="kpi-val">' + nQ + ' question' + (nQ===1?'':'s') + ' · ' + arms.length + ' setup' + (arms.length===1?'':'s') + '</div><div class="kpi-sub">' + (nP ? (nP + ' patient' + (nP===1?'':'s')) : 'Operational smoke run') + '</div></div>'
+      + (fastU ? ('<div class="kpi-card"><div class="kpi-kicker">Response Speed</div><div class="kpi-val">' + (fastU.avg_latency_ms/1000).toFixed(1) + 's avg</div><div class="kpi-sub">' + htmlEsc(armShort(fastU.backend_id)) + '</div></div>') : '')
+      + '</div></div>';
+    return sec;
+  }
+
+  var top = scored[0], second = scored[1], lowest = scored[scored.length - 1];
+  var leadDelta = second ? ((top.benchmark_score || 0) - (second.benchmark_score || 0)) : 0;
+  var totalHarm = 0, totalFab = 0, totalDateWrong = 0;
+  scored.forEach(function(s){
+    totalHarm += (s.harm_count || 0);
+    totalFab += (fabByArm[s.backend] || 0);
+    totalDateWrong += ((s.temporal || {}).date_wrong || 0);
+  });
+  var safeAllOk = (totalHarm === 0 && totalFab === 0);
+
+  // Check multi-user concurrency data if present
+  var concRuns = (run.hardware && Array.isArray(run.hardware.concurrency_runs)) ? run.hardware.concurrency_runs : [];
+  var topN1 = concRuns.find(function(c){ return c.backend_id === top.backend && c.n_users === 1; });
+  var topN4 = concRuns.find(function(c){ return c.backend_id === top.backend && c.n_users === 4; });
+  var secN4 = second ? concRuns.find(function(c){ return c.backend_id === second.backend && c.n_users === 4; }) : null;
+
+  var topSm = sumByArm[top.backend] || {};
+  var secSm = second ? (sumByArm[second.backend] || {}) : {};
+  var hasAnyLatency = (run.summary || []).some(function(s){ return (s.avg_latency_ms || 0) > 0; });
+  var topSec = topSm.avg_latency_ms ? (topSm.avg_latency_ms / 1000).toFixed(1) + 's' : '—';
+  var secSec = secSm.avg_latency_ms ? (secSm.avg_latency_ms / 1000).toFixed(1) + 's' : '—';
+
+  // ---- BLOCK 1: Executive Takeaway Banner + 3 Hero Callouts ----
+  var headlineTxt = second
+    ? (armShort(top.backend) + ' leads ' + scored.length + ' evaluated setups (' + fmt10(top.benchmark_score) + ' vs ' + fmt10(second.benchmark_score) + ' / 100 runner-up)'
+       + (topSm.avg_latency_ms && secSm.avg_latency_ms && topSm.avg_latency_ms < secSm.avg_latency_ms
+          ? (' and responds in ' + topSec + ' vs ' + secSec + '.')
+          : '.'))
+    : (armShort(top.backend) + ' scored ' + fmt10(top.benchmark_score) + ' / 100 across ' + nQ + ' clinical questions.');
+
+  var leadNarrative = 'Evaluated across <b>' + nQ + ' clinical turns (' + nScen + ' scenarios)</b>'
+    + (nP ? (' on <b>' + nP + ' patient chart' + (nP===1?'':'s') + '</b>') : '')
+    + (run.hardware && run.hardware.gpu ? (' on a <b>' + htmlEsc(run.hardware.gpu) + '</b>') : '') + '. ';
+  if(second){
+    leadNarrative += '<b>' + htmlEsc(armShort(top.backend)) + '</b> leads by <b>+' + fmt10(leadDelta) + ' points</b> over <b>' + htmlEsc(armShort(second.backend)) + '</b> (and <b>+' + fmt10((top.benchmark_score||0) - (lowest.benchmark_score||0)) + ' points</b> across all ' + scored.length + ' setups), with accuracy <b>'
+      + fmt10(top.accuracy_mean) + '/10</b>, completeness <b>' + fmt10(top.completeness_mean) + '/10</b>, and relevance <b>' + fmt10(top.relevance_mean) + '/10</b>.';
+  }
+  var ctxBoxHtml = '';
+  if(run.context && (run.context.text || run.context.url)){
+    var cTxt = String(run.context.text || '');
+    var cLink = run.context.url ? (' <a href="' + htmlEsc(run.context.url) + '" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;text-decoration:none">' + htmlEsc(run.context.label || 'Learn more →') + '</a>') : '';
+    if(cTxt.length > 260){
+      var mSent = cTxt.slice(140, 340).match(/([a-z0-9\)\]])\.\s+/i);
+      var cutIdx = mSent ? (140 + mSent.index + 2) : cTxt.lastIndexOf(' ', 250);
+      if(cutIdx <= 80) cutIdx = 240;
+      var cShort = cTxt.slice(0, cutIdx).trim();
+      var cRest = cTxt.slice(cutIdx).trim();
+      ctxBoxHtml = '<div style="margin:0 0 14px;padding:10px 14px;background:var(--surface2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;font-size:13px;line-height:1.5;color:var(--fg)">'
+        + htmlEsc(cShort)
+        + '<details style="margin-top:4px"><summary style="cursor:pointer;color:var(--accent);font-weight:700;font-size:12px">Read full study context ▾</summary><div style="margin-top:6px;color:var(--mut)">' + htmlEsc(cRest) + cLink + '</div></details>'
+        + '</div>';
+    } else {
+      ctxBoxHtml = '<div style="margin:0 0 14px;padding:11px 14px;background:var(--surface2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;font-size:13px;line-height:1.55;color:var(--fg)">'
+        + (cTxt ? htmlEsc(cTxt) + ' ' : '') + cLink
+        + '</div>';
+    }
+  }
+
+  // Hero Card 3: Multi-user scaling (when concurrency_runs present), single-user response speed (when latency recorded), or Safety-Adjusted Score & Spread
+  var hero3Html = '';
+  if(topN1 && topN4){
+    var scaleFactor = (topN1.throughput_turns_per_min > 0) ? (topN4.throughput_turns_per_min / topN1.throughput_turns_per_min).toFixed(1) : '—';
+    var sloPct4 = Math.round((topN4.goodput_rate || 0) * 100);
+    var secSloPct4 = secN4 ? Math.round((secN4.goodput_rate || 0) * 100) : null;
+    hero3Html = '<div class="ov-hero-card">'
+      + '<div class="ov-hero-label">3 · Speed &amp; Multi-User Scaling</div>'
+      + '<div class="ov-hero-big accent">' + scaleFactor + '× <small>throughput at 4 users</small></div>'
+      + '<span class="ov-hero-pill ok">' + topN4.throughput_turns_per_min + ' turns/min · ' + sloPct4 + '% meet speed goal</span>'
+      + '<div class="ov-hero-desc">Single-user wait is <b>' + topSec + '</b> ('
+      + (topSm.streaming_latency && topSm.streaming_latency.avg_ttft_ms != null ? ((topSm.streaming_latency.avg_ttft_ms/1000).toFixed(1) + 's first word') : 'avg')
+      + '). Under 4 simultaneous clinicians, <b>' + htmlEsc(armShort(top.backend)) + '</b> maintains <b>' + sloPct4 + '%</b> fast-response goodput'
+      + (secN4 ? (' vs <b>' + secSloPct4 + '%</b> (' + secN4.throughput_turns_per_min + ' turns/min) for ' + htmlEsc(armShort(second.backend)) + '.') : '.')
+      + '</div></div>';
+  } else if(hasAnyLatency) {
+    var ttftStr = (topSm.streaming_latency && topSm.streaming_latency.avg_ttft_ms != null)
+      ? ((topSm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's first word · ') : '';
+    hero3Html = '<div class="ov-hero-card">'
+      + '<div class="ov-hero-label">3 · Response Speed</div>'
+      + '<div class="ov-hero-big">' + topSec + ' <small>avg total wait</small></div>'
+      + '<span class="ov-hero-pill">' + htmlEsc(ttftStr + armShort(top.backend)) + '</span>'
+      + '<div class="ov-hero-desc">' + (second ? ('Compare with <b>' + secSec + '</b> avg wait for ' + htmlEsc(armShort(second.backend)) + '.') : ('Max turn latency: ' + ((topSm.max_latency_ms||0)/1000).toFixed(1) + 's.')) + '</div></div>';
+  } else {
+    var topSadj = top.safety_adjusted_benchmark_score != null ? top.safety_adjusted_benchmark_score : top.benchmark_score;
+    var secSadj = second ? (second.safety_adjusted_benchmark_score != null ? second.safety_adjusted_benchmark_score : second.benchmark_score) : null;
+    hero3Html = '<div class="ov-hero-card">'
+      + '<div class="ov-hero-label">3 · Safety-Adjusted Score &amp; Spread</div>'
+      + '<div class="ov-hero-big accent">' + fmt10(topSadj) + ' <small>/ 100 safety-adj</small></div>'
+      + '<span class="ov-hero-pill">' + scored.length + ' Setups · Range ' + fmt10(lowest.benchmark_score) + '–' + fmt10(top.benchmark_score) + '</span>'
+      + '<div class="ov-hero-desc">Penalizes any turn with severe clinical harm or critical omission to 0 ('
+      + (secSadj != null ? ('runner-up: <b>' + fmt10(secSadj) + '/100</b> for ' + htmlEsc(armShort(second.backend))) : htmlEsc(armShort(top.backend))) + ').</div></div>';
+  }
+
+  var block1 = '<div class="ov-block ov-banner-card">'
+    + '<div class="ov-kicker"><span>Executive Summary · At a Glance</span></div>'
+    + '<h2 class="ov-headline">' + htmlEsc(headlineTxt) + '</h2>'
+    + '<p class="ov-lead">' + leadNarrative + '</p>'
+    + ctxBoxHtml
+    + '<div class="ov-hero-grid exec-kpis">'
+    + '<div class="ov-hero-card kpi-card">'
+    +   '<div class="ov-hero-label kpi-kicker">1 · Overall Answer Quality</div>'
+    +   '<div class="ov-hero-big accent kpi-val"><span class="kpi-score">' + fmt10(top.benchmark_score) + (second ? (' <small>vs ' + fmt10(second.benchmark_score) + ' / 100</small>') : '<small>/100</small>') + '</span></div>'
+    +   '<span class="ov-hero-pill">' + (second ? ('+' + fmt10(leadDelta) + ' Point Quality Lead (' + htmlEsc(armShort(top.backend)) + ')') : htmlEsc(armShort(top.backend))) + '</span>'
+    +   '<div class="ov-hero-desc kpi-sub">Scored by independent clinical rubric pass(es) on Fact Accuracy (<b>' + fmt10(top.accuracy_mean) + '/10</b>), Completeness (<b>' + fmt10(top.completeness_mean) + '/10</b>), and Clarity (<b>' + fmt10(top.relevance_mean) + '/10</b>).</div>'
+    + '</div>'
+    + '<div class="ov-hero-card kpi-card">'
+    +   '<div class="ov-hero-label kpi-kicker">2 · Clinical Safety &amp; Citations</div>'
+    +   '<div class="ov-hero-big ' + (safeAllOk ? 'ok' : '') + ' kpi-val"><span class="' + (safeAllOk ? 'kpi-ok' : 'kpi-warn') + '">'
+    +     (safeAllOk ? '✓ 0 Unsafe · 0 Fab Refs' : ('⚠ ' + totalHarm + ' Unsafe · ' + totalFab + ' Fab Refs')) + '</span></div>'
+    +   '<span class="ov-hero-pill ' + (safeAllOk && totalDateWrong === 0 ? 'ok' : 'warn') + '">'
+    +     (totalDateWrong === 0 ? '100% Grounded Chart Citations · 0 Date Errors' : (totalDateWrong + ' Date Error(s) Flagged')) + '</span>'
+    +   '<div class="ov-hero-desc kpi-sub">Every <code>[ref]</code> citation was verified deterministically against the ground-truth patient chart snapshot before scoring.</div>'
+    + '</div>'
+    + hero3Html
+    + '</div></div>';
+
+  // ---- BLOCK 2: Head-to-Head Comparison Table (At-a-Glance Setup Leaderboard) ----
+  var tableRows = scored.map(function(s, idx){
+    var bScore = Math.max(0, Math.min(100, Number(s.benchmark_score || 0)));
+    var sadjScore = s.safety_adjusted_benchmark_score != null ? s.safety_adjusted_benchmark_score : s.benchmark_score;
+    var tierCls = bScore >= 75 ? 'tier-good' : (bScore >= 55 ? 'tier-mid' : 'tier-bad');
+    var card = armCardFor(s.backend) || {};
+    var badge = card.kind === 'team' ? '<span class="badge team">TEAM</span>' : (card.kind === 'single' ? '<span class="badge single">SINGLE</span>' : '');
+    var harm = s.harm_count || 0, fab = fabByArm[s.backend] || 0, dw = ((s.temporal || {}).date_wrong || 0), wo = ((s.temporal || {}).window_over || 0);
+    var safeBadge = (harm === 0 && fab === 0 && dw === 0)
+      ? '<span class="exec-safe ok">✓ 0 Unsafe · 0 Date Err</span>'
+      : '<span class="exec-safe bad">' + [harm ? (harm + ' unsafe') : '', fab ? (fab + ' fab ref') : '', dw ? (dw + ' date err') : ''].filter(Boolean).join(' · ') + '</span>';
+    if(wo > 0){
+      safeBadge += ' <div style="font-size:11px;color:var(--mut);margin-top:3px">' + wo + ' window overreach flag' + (wo===1?'':'s') + '</div>';
+    }
+    var sm = sumByArm[s.backend] || {};
+    var cr = s.citation_resolution || {};
+    var totalWait = sm.avg_latency_ms ? ((sm.avg_latency_ms / 1000).toFixed(1) + 's total') : (cr.n_refs ? (cr.n_resolved + '/' + cr.n_refs + ' refs') : '—');
+    var ttftWait = (sm.streaming_latency && sm.streaming_latency.avg_ttft_ms != null)
+      ? ((sm.streaming_latency.avg_ttft_ms / 1000).toFixed(1) + 's first word') : '';
+    var cN4 = concRuns.find(function(c){ return c.backend_id === s.backend && c.n_users === 4; });
+    var concSub = cN4 ? (' · ' + cN4.throughput_turns_per_min + ' turns/min @ N=4') : '';
+
+    return '<tr class="exec-row' + (idx === 0 ? ' is-leader is-best' : '') + (idx >= 6 ? ' exec-row-extra' : '') + '">'
+      + '<td><div class="ov-setup-name exec-arm" title="' + htmlEsc(s.backend) + '">' + badge + '<span>' + htmlEsc(armTitle(s.backend)) + '</span></div>'
+      + '<div class="ov-setup-desc">' + htmlEsc(plainArmRoleDesc(s.backend)) + '</div></td>'
+      + '<td><div class="ov-score-cell exec-bar-wrap"><span class="ov-score-num exec-bscore">' + fmt10(s.benchmark_score) + '</span>'
+      + '<div class="ov-score-bar exec-bar-track"><div class="ov-score-fill exec-bar-fill ' + tierCls + '" style="width:' + bScore.toFixed(1) + '%"></div></div></div></td>'
+      + '<td class="ov-dim-val">' + fmt10(sadjScore) + '<small>/100</small></td>'
+      + '<td class="ov-dim-val">' + fmt10(s.accuracy_mean) + '<small>/10</small></td>'
+      + '<td class="ov-dim-val">' + fmt10(s.completeness_mean) + '<small>/10</small></td>'
+      + '<td class="ov-dim-val exec-axes" title="Accuracy ' + fmt10(s.accuracy_mean) + ' · Completeness ' + fmt10(s.completeness_mean) + ' · Relevance ' + fmt10(s.relevance_mean) + '">' + fmt10(s.relevance_mean) + '<small>/10</small></td>'
+      + '<td>' + safeBadge + '</td>'
+      + '<td class="exec-lat"><div class="ov-wait-main">' + (ttftWait ? (ttftWait + ' · ' + totalWait) : totalWait) + '</div>'
+      + (concSub ? ('<div class="ov-wait-sub">' + htmlEsc(concSub.slice(3)) + '</div>') : '') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var hasExtraSetups = scored.length > 6;
+  var tableToggleHtml = hasExtraSetups
+    ? ('<div class="ov-table-toggle-wrap"><button type="button" class="btn-ghost ov-table-toggle" id="ov-table-toggle" data-collapsed="1">'
+       + 'Show all ' + scored.length + ' setups (+' + (scored.length - 6) + ' more) ▾</button></div>')
+    : '';
+
+  var block2 = '<div class="ov-block ov-table-card exec-board">'
+    + '<div class="ov-sec-head exec-board-h">'
+    +   '<div><h3 class="ov-sec-title">Head-to-Head Comparison (' + (hasExtraSetups ? ('Top 6 of ' + scored.length + ' Setups') : (scored.length + ' Setups')) + ')</h3><div class="ov-sec-sub">At-a-Glance Setup Leaderboard · Higher is better on quality &amp; safety-adjusted scores (0–100 overall, 0–10 per dimension).</div></div>'
+    + '</div>'
+    + '<div class="ov-comp-wrap"><table class="ov-comp-table"' + (hasExtraSetups ? ' data-collapsed="1"' : '') + '>'
+    + '<thead><tr><th>Setup</th><th>Overall Score (0–100)</th><th>Safety-Adj</th><th>Fact Accuracy</th><th>Completeness</th><th>Clarity</th><th>Safety &amp; Date Checks</th><th>' + (hasAnyLatency ? 'Typical Wait Time' : 'Resolved Refs') + '</th></tr></thead>'
+    + '<tbody>' + tableRows + '</tbody></table></div>'
+    + tableToggleHtml
+    + '</div>';
+
+  // ---- BLOCK 3: Why Did [Leading Setup] Score Higher? (Clinical Task Categories + Top 3 Differentiators) ----
+  var scenMap = {}; (run.scenarios || []).forEach(function(sc){ scenMap[sc.scenario_id] = sc; });
+  var jByScenArm = {};
+  (run.judge_rows || []).forEach(function(r){
+    if(!jByScenArm[r.scenario_id]) jByScenArm[r.scenario_id] = {};
+    jByScenArm[r.scenario_id][r.backend_id] = r;
+  });
+
+  // Group scenarios by clinical category & compute per-setup mean cellBenchScore
+  var catStats = {};
+  CLINICAL_CATEGORIES.forEach(function(c){ catStats[c.id] = { meta: c, sids: [], byArm: {} }; });
+  (run.scenarios || []).forEach(function(sc){
+    var cat = classifyScenario(sc.scenario_id, sc.turns);
+    var bucket = catStats[cat.id];
+    bucket.sids.push(sc.scenario_id);
+    scored.forEach(function(s){
+      var jr = (jByScenArm[sc.scenario_id] || {})[s.backend];
+      var bs = cellBenchScore(jr);
+      if(bs != null){
+        if(!bucket.byArm[s.backend]) bucket.byArm[s.backend] = [];
+        bucket.byArm[s.backend].push(bs);
+      }
+    });
+  });
+
+  var catCardsHtml = CLINICAL_CATEGORIES.map(function(cat){
+    var b = catStats[cat.id];
+    if(!b.sids.length) return '';
+    var showArms = scored.slice(0, 3);
+    var armMeans = showArms.map(function(s){
+      var vals = b.byArm[s.backend] || [];
+      var mean = vals.length ? (vals.reduce(function(a,x){return a+x;},0) / vals.length) : null;
+      return { backend: s.backend, mean: mean };
+    });
+    var deltaBadge = '';
+    if(armMeans.length >= 2 && armMeans[0].mean != null && armMeans[1].mean != null){
+      var d = armMeans[0].mean - armMeans[1].mean;
+      var dSign = d > 0.05 ? ('+' + d.toFixed(1) + ' pts') : (d < -0.05 ? (d.toFixed(1) + ' pts') : 'Tie');
+      deltaBadge = '<span class="ov-cat-cnt">' + dSign + '</span>';
+    }
+    var barsHtml = armMeans.map(function(am, idx){
+      var val = am.mean != null ? am.mean : 0;
+      var cls = idx === 0 ? 'tier-good' : 'tier-mid';
+      return '<div class="ov-cat-row">'
+        + '<span class="ov-cat-arm" title="' + htmlEsc(armShort(am.backend)) + '">' + htmlEsc(armShort(am.backend)) + '</span>'
+        + '<div class="ov-score-bar"><div class="ov-score-fill ' + cls + '" style="width:' + Math.min(100, Math.max(0, val)).toFixed(1) + '%"></div></div>'
+        + '<span class="ov-cat-val">' + (am.mean != null ? am.mean.toFixed(1) : '—') + '</span>'
+        + '</div>';
+    }).join('');
+    return '<div class="ov-cat-card" data-cat-jump="' + htmlEsc(cat.id) + '" title="Click to browse all ' + b.sids.length + ' questions in this category">'
+      + '<div class="ov-cat-top"><div class="ov-cat-name">' + htmlEsc(cat.title) + '</div><span class="ov-cat-cnt">' + b.sids.length + ' scenario' + (b.sids.length===1?'':'s') + '</span></div>'
+      + '<div class="ov-cat-desc">' + htmlEsc(cat.desc) + '</div>'
+      + '<div class="ov-cat-bars">' + barsHtml + '</div>'
+      + '</div>';
+  }).join('');
+
+  // Compute Top 3 Differentiator Scenarios (between top setup and runner-up, or across setups)
+  var scenDiffs = [];
+  (run.scenarios || []).forEach(function(sc){
+    var m = jByScenArm[sc.scenario_id] || {};
+    var rTop = m[top.backend];
+    var rSec = second ? m[second.backend] : null;
+    var sTop = cellBenchScore(rTop);
+    var sSec = rSec ? cellBenchScore(rSec) : null;
+    if(sTop == null && sSec == null) return;
+    var gap = (sTop != null && sSec != null) ? Math.abs(sTop - sSec) : 0;
+    var signed = (sTop != null && sSec != null) ? (sTop - sSec) : 0;
+    scenDiffs.push({
+      sid: sc.scenario_id,
+      sc: sc,
+      cat: classifyScenario(sc.scenario_id, sc.turns),
+      sTop: sTop,
+      sSec: sSec,
+      rTop: rTop,
+      rSec: rSec,
+      gap: gap,
+      signed: signed
+    });
+  });
+  scenDiffs.sort(function(a,b){ return b.gap - a.gap; });
+  var topDiffs = scenDiffs.slice(0, 3);
+
+  var diffCardsHtml = topDiffs.map(function(d, idx){
+    var turns = d.sc.turns || [];
+    var qPreview = turns.length === 1
+      ? ('“' + (turns[0].question || '') + '”')
+      : turns.map(function(t){ return 'T' + t.turn + ': “' + (t.question || '') + '”'; }).join(' · ');
+    var winnerArm = (d.signed >= 0 || !second) ? top.backend : second.backend;
+    var gapLabel = second
+      ? (Math.abs(d.signed) < 0.1 ? 'Tied score' : ('+' + Math.abs(d.signed).toFixed(1) + ' pt lead for ' + armShort(winnerArm)))
+      : ('Score: ' + (d.sTop != null ? d.sTop.toFixed(1) : '—') + '/100');
+
+    var whyNote = '';
+    if(d.rSec && d.rTop){
+      var trailRow = d.signed >= 0 ? d.rSec : d.rTop;
+      var trailArm = d.signed >= 0 ? second.backend : top.backend;
+      var winRow = d.signed >= 0 ? d.rTop : d.rSec;
+      var winArm = d.signed >= 0 ? top.backend : second.backend;
+      whyNote = '<b>' + htmlEsc(armShort(winArm)) + ' (' + (cellBenchScore(winRow)||0).toFixed(1) + '/100):</b> ' + htmlEsc(winRow.note || 'Answered accurately and completely.')
+        + '<br><b>' + htmlEsc(armShort(trailArm)) + ' (' + (cellBenchScore(trailRow)||0).toFixed(1) + '/100):</b> ' + htmlEsc(trailRow.note || 'Scored lower on this scenario.');
+    } else if(d.rTop && d.rTop.note){
+      whyNote = htmlEsc(d.rTop.note);
+    }
+
+    var scoreBoxes = [top].concat(second ? [second] : []).map(function(s){
+      var jr = (jByScenArm[d.sid] || {})[s.backend] || {};
+      var bs = cellBenchScore(jr);
+      var isWin = (second && bs != null && ((s.backend === top.backend && d.signed >= 0) || (s.backend === second.backend && d.signed < 0)));
+      var flags = [];
+      if(jr.abstention_outcome === 'over-abstained') flags.push('⚑ Over-abstained');
+      if(jr.abstention_outcome === 'failed-to-abstain') flags.push('⚑ Failed to abstain');
+      if(jr.temporal_window === 'over-claimed') flags.push('⚠ Window overreach');
+      if(jr.temporal_date_accuracy === 'wrong') flags.push('⚠ Wrong date');
+      return '<div class="ov-diff-sc ' + (isWin ? 'win' : (second ? 'lose' : '')) + '">'
+        + '<div><b>' + htmlEsc(armShort(s.backend)) + '</b>'
+        + '<div style="font-size:11px;color:var(--mut)">Accuracy ' + fmt10(jr.accuracy) + ' · Completeness ' + fmt10(jr.completeness) + ' · Clarity ' + fmt10(jr.relevance)
+        + (flags.length ? (' · <span style="color:#a2191f;font-weight:700">' + htmlEsc(flags.join(', ')) + '</span>') : '') + '</div></div>'
+        + '<div class="ov-score-num">' + (bs != null ? bs.toFixed(1) : '—') + '<small style="font-size:11px;color:var(--mut)">/100</small></div>'
+        + '</div>';
+    }).join('');
+
+    // Build inline Q&A side-by-side preview for Turn 1 (or the first turn)
+    var previewTurn = turns[0] || { turn: 1, question: '', cells: {} };
+    var previewCols = [top].concat(second ? [second] : []).map(function(s){
+      var cell = (previewTurn.cells || {})[s.backend];
+      var ansHtml = cell ? (cell.answer_html || '') : '<em>No response</em>';
+      return '<div class="diff-qa-col">'
+        + '<div class="diff-qa-head"><span>' + htmlEsc(armShort(s.backend)) + '</span><span style="font-size:11px;color:var(--mut)">Turn ' + previewTurn.turn + '</span></div>'
+        + '<div class="diff-qa-body">' + ansHtml + '</div>'
+        + '</div>';
+    }).join('');
+
+    return '<div class="ov-diff-card">'
+      + '<div class="ov-diff-meta">'
+      +   '<div class="ov-diff-badges"><span class="ov-cat-pill">' + htmlEsc(d.cat.short) + '</span><span class="ov-sid-muted">' + htmlEsc(d.sid) + ' (' + turns.length + ' turn' + (turns.length===1?'':'s') + ')</span></div>'
+      +   '<span class="ov-delta-pill">' + htmlEsc(gapLabel) + '</span>'
+      + '</div>'
+      + '<div class="ov-diff-q">' + htmlEsc(qPreview) + '</div>'
+      + (whyNote ? ('<div class="ov-diff-why">' + whyNote + '</div>') : '')
+      + '<div class="ov-diff-scores">' + scoreBoxes + '</div>'
+      + '<div class="ov-diff-actions">'
+      +   '<details class="diff-example"><summary>See real example (Side-by-side Q&amp;A preview)</summary>'
+      +     '<div class="diff-qa-grid">' + previewCols + '</div>'
+      +     '<div style="margin-top:10px;display:flex;justify-content:flex-end"><button type="button" class="btn-drawer-open" data-open-sid="' + htmlEsc(d.sid) + '">Inspect full conversation, chart evidence &amp; judge notes →</button></div>'
+      +   '</details>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  var block3 = '<div class="ov-block ov-why-card">'
+    + '<div class="ov-sec-head">'
+    +   '<div><h3 class="ov-sec-title">Why Did ' + htmlEsc(armShort(top.backend)) + ' Score Higher?</h3>'
+    +   '<div class="ov-sec-sub">Performance broken down by clinical task type, followed by the top 3 questions with the biggest score difference.</div></div>'
+    + '</div>'
+    + '<div class="ov-sub-kicker">Part A · Score by Clinical Question Type (click any card to filter all questions)</div>'
+    + '<div class="ov-cat-grid">' + catCardsHtml + '</div>'
+    + '<div class="ov-sub-kicker">Part B · Top 3 Specific Questions That Drove the Score Difference</div>'
+    + '<div class="ov-diff-list">' + diffCardsHtml + '</div>'
+    + '<div class="ov-cta-bar">'
+    +   '<span style="font-size:12.5px;color:var(--mut)">Want to inspect all <b>' + nScen + ' clinical scenarios (' + nQ + ' turns)</b> or check multi-user GPU scaling?</span>'
+    +   '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +     '<button type="button" class="btn-drawer-open" data-switch-tab="questions">Browse All ' + nScen + ' Scenarios →</button>'
+    +     '<button type="button" class="btn-ghost" data-switch-tab="speed">See Speed &amp; Multi-User Scaling →</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+
+  sec.innerHTML = block1 + block2 + block3;
+
+  // Wire interactive buttons inside Overview
+  var tblToggle = sec.querySelector('#ov-table-toggle');
+  if(tblToggle){
+    tblToggle.addEventListener('click', function(){
+      var compTbl = sec.querySelector('table.ov-comp-table');
+      if(!compTbl) return;
+      var isCol = compTbl.getAttribute('data-collapsed') === '1';
+      compTbl.setAttribute('data-collapsed', isCol ? '0' : '1');
+      tblToggle.setAttribute('data-collapsed', isCol ? '0' : '1');
+      tblToggle.textContent = isCol
+        ? 'Show Top 6 setups only ▴'
+        : ('Show all ' + scored.length + ' setups (+' + (scored.length - 6) + ' more) ▾');
+    });
+  }
+  sec.querySelectorAll('[data-open-sid]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openScenarioDrawer(run, btn.getAttribute('data-open-sid')); });
+  });
+  sec.querySelectorAll('[data-switch-tab]').forEach(function(btn){
+    btn.addEventListener('click', function(){ switchReportTab(btn.getAttribute('data-switch-tab')); });
+  });
+  sec.querySelectorAll('[data-cat-jump]').forEach(function(card){
+    card.addEventListener('click', function(){
+      switchReportTab('questions', card.getAttribute('data-cat-jump'));
+    });
+  });
+
+  return sec;
+}
+
+function renderQuestionExplorer(run){
+  var scens = run.scenarios || [];
+  if(!scens.length) return null;
+  var scored = (run.judge || []).slice().filter(function(s){ return (s.n||0) > 0 && s.benchmark_score != null; })
+               .sort(function(a,b){ return (b.benchmark_score||0) - (a.benchmark_score||0); });
+  var showArms = scored.length ? scored.map(function(s){return s.backend;}).slice(0, 4) : (run.backends || []).slice(0, 4);
+  var jByScenArm = {};
+  (run.judge_rows || []).forEach(function(r){
+    if(!jByScenArm[r.scenario_id]) jByScenArm[r.scenario_id] = {};
+    jByScenArm[r.scenario_id][r.backend_id] = r;
+  });
+
+  var sec = el('section', 'question-explorer');
+  sec.setAttribute('aria-label', 'Question Explorer');
+
+  var catButtons = CLINICAL_CATEGORIES.map(function(c){
+    return '<button type="button" class="qe-pill" data-qe-filter="cat:' + htmlEsc(c.id) + '">' + htmlEsc(c.short) + '</button>';
+  }).join('');
+
+  var armHeaders = showArms.map(function(b){
+    return '<th>' + htmlEsc(armShort(b)) + '</th>';
+  }).join('');
+
+  var rowsHtml = scens.map(function(sc){
+    var turns = sc.turns || [];
+    var cat = classifyScenario(sc.scenario_id, turns);
+    var qMain = (turns[0] && turns[0].question) || sc.scenario_id;
+    var qExtra = turns.length > 1 ? (' (+' + (turns.length - 1) + ' follow-up turn' + (turns.length===2?'':'s') + ')') : '';
+    var m = jByScenArm[sc.scenario_id] || {};
+    var scores = [];
+    var hasFlag = false;
+    var flagsList = [];
+    showArms.forEach(function(b){
+      var jr = m[b];
+      var bs = cellBenchScore(jr);
+      if(bs != null) scores.push(bs);
+      if(jr){
+        if(jr.harm){ hasFlag = true; flagsList.push('☠ Unsafe (' + armShort(b) + ')'); }
+        if(jr.abstention_outcome === 'failed-to-abstain'){ hasFlag = true; flagsList.push('⚑ Failed to abstain (' + armShort(b) + ')'); }
+        if(jr.abstention_outcome === 'over-abstained'){ hasFlag = true; flagsList.push('⚑ Over-abstained (' + armShort(b) + ')'); }
+        if(jr.temporal_date_accuracy === 'wrong'){ hasFlag = true; flagsList.push('⚠ Wrong date (' + armShort(b) + ')'); }
+        if(jr.temporal_window === 'over-claimed'){ hasFlag = true; flagsList.push('⚠ Window overreach (' + armShort(b) + ')'); }
+      }
+    });
+    var delta = scores.length >= 2 ? (Math.max.apply(null, scores) - Math.min.apply(null, scores)) : 0;
+    var signed = (showArms.length >= 2 && cellBenchScore(m[showArms[0]]) != null && cellBenchScore(m[showArms[1]]) != null)
+      ? (cellBenchScore(m[showArms[0]]) - cellBenchScore(m[showArms[1]])) : delta;
+
+    var armCells = showArms.map(function(b){
+      var jr = m[b];
+      var bs = cellBenchScore(jr);
+      if(bs == null) return '<td><span class="mut">—</span></td>';
+      var cls = bs >= 75 ? 'good' : (bs >= 55 ? 'mid' : 'bad');
+      return '<td><span class="qe-score-badge ' + cls + '">' + bs.toFixed(1) + '</span>'
+        + '<div class="qe-axes-sub">A' + fmt10(jr.accuracy) + ' C' + fmt10(jr.completeness) + ' R' + fmt10(jr.relevance) + '</div></td>';
+    }).join('');
+
+    // Pick the most informative reviewer note (if there is a gap, show the trailing arm's issue or leading arm's note)
+    var noteRow = (showArms.length >= 2 && signed > 5 && m[showArms[1]]) ? m[showArms[1]] : (m[showArms[0]] || {});
+    var noteTxt = noteRow.note || '';
+
+    return '<tr class="qe-row" data-qe-sid="' + htmlEsc(sc.scenario_id) + '" data-qe-cat="' + htmlEsc(cat.id) + '" data-qe-delta="' + delta.toFixed(1) + '" data-qe-flag="' + (hasFlag ? '1' : '0') + '">'
+      + '<td><div class="qe-q-main">“' + htmlEsc(qMain) + '”<span style="font-weight:500;color:var(--mut)">' + htmlEsc(qExtra) + '</span></div>'
+      +   '<div class="qe-q-sub"><span class="ov-cat-pill">' + htmlEsc(cat.short) + '</span><span class="ov-sid-muted">' + htmlEsc(sc.scenario_id) + '</span><span>· ' + turns.length + ' turn' + (turns.length===1?'':'s') + '</span></div></td>'
+      + armCells
+      + '<td class="qe-delta ' + (delta >= 10 ? 'big' : '') + '">' + (scores.length >= 2 ? (Math.abs(signed) < 0.1 ? '0.0 (Tie)' : ((signed > 0 ? '+' : '') + signed.toFixed(1) + ' pts')) : '—') + '</td>'
+      + '<td><div class="qe-note">'
+      +   (flagsList.length ? ('<div style="color:#a2191f;font-weight:700;font-size:11.5px;margin-bottom:2px">' + htmlEsc(flagsList.join(' · ')) + '</div>') : '')
+      +   htmlEsc(noteTxt.slice(0, 160) + (noteTxt.length > 160 ? '…' : ''))
+      + '</div></td>'
+      + '<td><button type="button" class="btn-drawer-open" data-qe-open="' + htmlEsc(sc.scenario_id) + '">Inspect →</button></td>'
+      + '</tr>';
+  }).join('');
+
+  sec.innerHTML = '<div class="ov-sec-head">'
+    + '<div><h2 class="ov-sec-title">Browse All Clinical Questions (' + scens.length + ' scenarios)</h2>'
+    + '<div class="ov-sec-sub">Click any question row to open the clean Side-by-Side Answer Reader with judge notes and chart evidence, or scroll down for the full tile workspace.</div></div>'
+    + '</div>'
+    + '<div class="qe-filter-bar">'
+    +   '<button type="button" class="qe-pill active" data-qe-filter="all">All Questions (' + scens.length + ')</button>'
+    +   '<button type="button" class="qe-pill" data-qe-filter="diff">Biggest Score Differences (Δ ≥ 10)</button>'
+    +   '<button type="button" class="qe-pill" data-qe-filter="flag">Safety / Date / Abstention Flags</button>'
+    +   catButtons
+    +   '<input type="search" class="qe-search" id="explorer-search" placeholder="Search clinical questions or notes…" aria-label="Search clinical questions">'
+    + '</div>'
+    + '<div class="ov-comp-wrap"><table class="qe-table">'
+    +   '<thead><tr><th>Clinical Question &amp; Category</th>' + armHeaders + '<th>Δ Difference</th><th>Reviewer Takeaway &amp; Flags</th><th>Inspect</th></tr></thead>'
+    +   '<tbody>' + rowsHtml + '</tbody>'
+    + '</table></div>';
+
+  var tbl = sec.querySelector('table.qe-table');
+  if(tbl) makeSortable(tbl);
+
+  var activeFilter = 'all';
+  function filterExplorer(){
+    var q = (sec.querySelector('#explorer-search').value || '').trim().toLowerCase();
+    sec.querySelectorAll('tbody tr.qe-row').forEach(function(tr){
+      var matchPill = true;
+      if(activeFilter === 'diff') matchPill = parseFloat(tr.getAttribute('data-qe-delta') || '0') >= 10;
+      else if(activeFilter === 'flag') matchPill = tr.getAttribute('data-qe-flag') === '1';
+      else if(activeFilter.indexOf('cat:') === 0) matchPill = tr.getAttribute('data-qe-cat') === activeFilter.slice(4);
+      var matchSearch = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
+      tr.dataset.hidden = (matchPill && matchSearch) ? '0' : '1';
+    });
+  }
+
+  sec.querySelectorAll('.qe-pill').forEach(function(pill){
+    pill.addEventListener('click', function(){
+      sec.querySelectorAll('.qe-pill').forEach(function(p){ p.classList.remove('active'); });
+      pill.classList.add('active');
+      activeFilter = pill.getAttribute('data-qe-filter') || 'all';
+      filterExplorer();
+    });
+  });
+  sec.querySelector('#explorer-search').addEventListener('input', filterExplorer);
+
+  sec.querySelectorAll('tbody tr.qe-row').forEach(function(tr){
+    tr.addEventListener('click', function(ev){
+      if(ev.target && ev.target.closest('a')) return;
+      openScenarioDrawer(run, tr.getAttribute('data-qe-sid'));
+    });
+  });
+
+  return sec;
+}
+
+function openScenarioDrawer(run, sid, initialTab){
+  if(!run || !sid) return;
+  var scens = run.scenarios || [];
+  var sIdx = scens.findIndex(function(s){ return s.scenario_id === sid; });
+  if(sIdx === -1) return;
+  var sc = scens[sIdx];
+  var cat = classifyScenario(sc.scenario_id, sc.turns);
+  var subTab = initialTab || 'answers';
+  var scoredArms = (run.judge || []).slice().filter(function(s){ return (s.n||0) > 0 && s.benchmark_score != null; })
+                     .sort(function(a,b){ return (b.benchmark_score||0) - (a.benchmark_score||0); })
+                     .map(function(s){ return s.backend; });
+  var allArms = scoredArms.length ? scoredArms : (run.backends || []);
+  var showAllDrawerArms = false;
+
+  var backdrop = document.getElementById('scenario-drawer-backdrop');
+  if(!backdrop){
+    backdrop = el('div', 'sdrawer-backdrop');
+    backdrop.id = 'scenario-drawer-backdrop';
+    backdrop.addEventListener('click', function(ev){ if(ev.target === backdrop) closeScenarioDrawer(); });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape') closeScenarioDrawer(); });
+    document.body.appendChild(backdrop);
+  }
+
+  function renderDrawerContent(){
+    var turns = sc.turns || [];
+    var arms = (allArms.length > 4 && !showAllDrawerArms) ? allArms.slice(0, 4) : allArms;
+    var jRows = (run.judge_rows || []).filter(function(r){ return r.scenario_id === sc.scenario_id; });
+    var jByArm = {}; jRows.forEach(function(r){ jByArm[r.backend_id] = r; });
+
+    var prevSid = sIdx > 0 ? scens[sIdx - 1].scenario_id : null;
+    var nextSid = sIdx < scens.length - 1 ? scens[sIdx + 1].scenario_id : null;
+    var armsToggleBtn = allArms.length > 4
+      ? ('<button type="button" class="btn-ghost" id="sd-arms-toggle" style="margin-left:auto">'
+         + (showAllDrawerArms ? ('Showing all ' + allArms.length + ' setups · Show Top 4 ▴') : ('Showing Top 4 setups · Show all ' + allArms.length + ' ▾'))
+         + '</button>')
+      : '';
+
+    var tabPaneHtml = '';
+    if(subTab === 'answers'){
+      tabPaneHtml = turns.map(function(tn){
+        var cols = arms.map(function(b){
+          var cell = (tn.cells || {})[b];
+          var jr = jByArm[b];
+          var bs = cellBenchScore(jr);
+          var scorePill = (tn.turn === 1 && bs != null)
+            ? ('<span class="qe-score-badge ' + (bs>=75?'good':(bs>=55?'mid':'bad')) + '">' + bs.toFixed(1) + '/100</span>') : '';
+          var latSec = (cell && cell.metrics && cell.metrics.latency_ms != null)
+            ? ((cell.metrics.latency_ms / 1000).toFixed(1) + 's') : '';
+          var bodyHtml = !cell ? '<em>No response</em>'
+            : (cell.error ? ('<div class="err">HTTP ' + htmlEsc(cell.http_status) + ': ' + htmlEsc(cell.error) + '</div>')
+                          : ('<div class="sd-col-body">' + (cell.answer_html || '') + (cell.blocks_html || '') + '</div>'));
+          return '<div class="sd-col">'
+            + '<div class="sd-col-head"><div><b>' + htmlEsc(armShort(b)) + '</b> <span style="font-size:11px;color:var(--mut)">' + htmlEsc(latSec) + '</span></div>' + scorePill + '</div>'
+            + bodyHtml
+            + '</div>';
+        }).join('');
+        return '<div class="sd-turn-block">'
+          + '<div class="sd-turn-q">Turn ' + tn.turn + ' · “' + htmlEsc(tn.question || '') + '”</div>'
+          + '<div class="sd-cols">' + cols + '</div>'
+          + '</div>';
+      }).join('');
+    } else if(subTab === 'judge'){
+      var jCols = arms.map(function(b){
+        var jr = jByArm[b];
+        if(!jr) return '<div class="sd-col"><div class="sd-col-head"><b>' + htmlEsc(armShort(b)) + '</b></div><p class="mut">No judge evaluation recorded for this setup.</p></div>';
+        var bs = cellBenchScore(jr);
+        var cls = bs >= 75 ? 'good' : (bs >= 55 ? 'mid' : 'bad');
+        return '<div class="sd-col">'
+          + '<div class="sd-col-head"><b>' + htmlEsc(armTitle(b)) + '</b><span class="qe-score-badge ' + cls + '">' + (bs != null ? bs.toFixed(1) : '—') + ' / 100</span></div>'
+          + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;text-align:center">'
+          +   '<div style="background:var(--surface2);padding:6px;border-radius:6px"><div style="font-size:10.5px;color:var(--mut)">Fact Accuracy</div><div style="font-weight:800;font-size:15px">' + fmt10(jr.accuracy) + '/10</div></div>'
+          +   '<div style="background:var(--surface2);padding:6px;border-radius:6px"><div style="font-size:10.5px;color:var(--mut)">Completeness</div><div style="font-weight:800;font-size:15px">' + fmt10(jr.completeness) + '/10</div></div>'
+          +   '<div style="background:var(--surface2);padding:6px;border-radius:6px"><div style="font-size:10.5px;color:var(--mut)">Clarity</div><div style="font-weight:800;font-size:15px">' + fmt10(jr.relevance) + '/10</div></div>'
+          + '</div>'
+          + '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">Abstention: <b>' + htmlEsc(jr.abstention_outcome || 'n-a') + '</b> · Citations: <b>' + htmlEsc(jr.citation_groundedness || 'n-a') + '</b> · Safety: <b>' + (jr.harm ? '☠ HARM' : '✓ Safe') + '</b></div>'
+          + '<div style="background:var(--note-bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5"><b>Reviewer Note:</b> ' + htmlEsc(jr.note || '(no note)') + '</div>'
+          + judgePassLines(run, sc.scenario_id, b)
+          + '</div>';
+      }).join('');
+      tabPaneHtml = '<div class="sd-cols">' + jCols + '</div>';
+    } else {
+      tabPaneHtml = turns.map(function(tn){
+        var eCols = arms.map(function(b){
+          var cell = (tn.cells || {})[b] || {};
+          var sh = resolveCellSourcesHtml(run, cell);
+          var rh = resolveCellRefsHtml(run, cell);
+          return '<div class="sd-col">'
+            + '<div class="sd-col-head"><b>' + htmlEsc(armShort(b)) + '</b></div>'
+            + '<div class="chips" style="margin-bottom:8px">' + (cell.chips_html || '') + '</div>'
+            + renderStageTimings(cell.stage_timings)
+            + (sh || '<p class="mut" style="font-size:12px">No chart citations in this turn.</p>')
+            + rh
+            + '</div>';
+        }).join('');
+        return '<div class="sd-turn-block">'
+          + '<div class="sd-turn-q">Turn ' + tn.turn + ' · “' + htmlEsc(tn.question || '') + '”</div>'
+          + '<div class="sd-cols">' + eCols + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    backdrop.innerHTML = '<aside class="sdrawer" role="dialog" aria-label="Scenario Answer Reader">'
+      + '<div class="sdrawer-head">'
+      +   '<div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="ov-cat-pill">' + htmlEsc(cat.short) + '</span><span class="ov-sid-muted">' + htmlEsc(sc.scenario_id) + ' (' + (sIdx+1) + ' of ' + scens.length + ')</span></div>'
+      +   '<div class="sdrawer-title">“' + htmlEsc((turns[0] && turns[0].question) || sc.scenario_id) + '”</div></div>'
+      +   '<div class="sdrawer-nav">'
+      +     '<button type="button" class="btn-ghost" id="sd-prev"' + (prevSid ? '' : ' disabled') + '>◀ Prev</button>'
+      +     '<button type="button" class="btn-ghost" id="sd-next"' + (nextSid ? '' : ' disabled') + '>Next ▶</button>'
+      +     '<button type="button" class="btn-ghost" id="sd-close">✕ Close</button>'
+      +   '</div>'
+      + '</div>'
+      + '<div class="sdrawer-tabs">'
+      +   '<button type="button" class="sd-tab' + (subTab==='answers'?' active':'') + '" data-sd-tab="answers">1. Side-by-Side Answers (Clean View)</button>'
+      +   '<button type="button" class="sd-tab' + (subTab==='judge'?' active':'') + '" data-sd-tab="judge">2. Why It Scored This Way (Judge Notes)</button>'
+      +   '<button type="button" class="sd-tab' + (subTab==='evidence'?' active':'') + '" data-sd-tab="evidence">3. Chart Evidence &amp; Technical Timings</button>'
+      +   armsToggleBtn
+      + '</div>'
+      + '<div class="sdrawer-body">' + tabPaneHtml + '</div>'
+      + '</aside>';
+
+    backdrop.querySelector('#sd-close').addEventListener('click', closeScenarioDrawer);
+    if(prevSid) backdrop.querySelector('#sd-prev').addEventListener('click', function(){ openScenarioDrawer(run, prevSid, subTab); });
+    if(nextSid) backdrop.querySelector('#sd-next').addEventListener('click', function(){ openScenarioDrawer(run, nextSid, subTab); });
+    var armsTgl = backdrop.querySelector('#sd-arms-toggle');
+    if(armsTgl) armsTgl.addEventListener('click', function(){ showAllDrawerArms = !showAllDrawerArms; renderDrawerContent(); });
+    backdrop.querySelectorAll('[data-sd-tab]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        subTab = btn.getAttribute('data-sd-tab');
+        renderDrawerContent();
+      });
+    });
+  }
+
+  renderDrawerContent();
+  backdrop.classList.add('open');
+}
+
+function closeScenarioDrawer(){
+  var backdrop = document.getElementById('scenario-drawer-backdrop');
+  if(backdrop) backdrop.classList.remove('open');
+}
+
+function renderSpeedVisual(run){
+  var summaries = run.summary || [];
+  if(!summaries.length) return null;
+  var sec = el('section', 'speed-visual');
+  sec.setAttribute('aria-label', 'Speed and Multi-User Scaling Visual Summary');
+
+  var hasTiming = summaries.some(function(s){ return (s.avg_latency_ms || 0) > 0; });
+  var concRuns = (run.hardware && Array.isArray(run.hardware.concurrency_runs)) ? run.hardware.concurrency_runs : [];
+  if(!hasTiming && !concRuns.length){
+    sec.innerHTML = '<div class="ov-block">'
+      + '<div class="ov-sec-head"><div><h3 class="ov-sec-title">Response Speed &amp; Operational Metrics</h3>'
+      + '<div class="ov-sec-sub">Live streaming latency (TTFT / total wait) was not captured for this run (e.g., offline batch or pre-generated evaluation). See the operational tables below for turn counts, chart reference volume, and answer length distributions across all ' + summaries.length + ' setups.</div></div></div>'
+      + '</div>';
+    return sec;
+  }
+
+  var maxLat = Math.max.apply(null, summaries.map(function(s){ return s.avg_latency_ms || 1; }).concat([1000]));
+  var stageBars = summaries.map(function(s, idx){
+    var totalMs = s.avg_latency_ms || 0;
+    var sl = s.streaming_latency || {};
+    var ttftMs = sl.avg_ttft_ms != null ? sl.avg_ttft_ms : Math.round(totalMs * 0.35);
+    var ansDoneMs = sl.avg_answer_done_ms != null ? sl.avg_answer_done_ms : totalMs;
+    var streamMs = Math.max(0, ansDoneMs - ttftMs);
+    var checkMs = Math.max(0, totalMs - ansDoneMs);
+    var wTtft = Math.max(8, (ttftMs / maxLat) * 100);
+    var wStream = Math.max(8, (streamMs / maxLat) * 100);
+    var wCheck = checkMs > 30 ? Math.max(4, (checkMs / maxLat) * 100) : 0;
+
+    return '<div class="speed-stage-row' + (idx >= 8 ? ' speed-row-extra' : '') + '"' + (idx >= 8 ? ' data-hidden="1"' : '') + '>'
+      + '<div class="speed-stage-head"><span>' + htmlEsc(armTitle(s.backend_id)) + '</span>'
+      + '<span>' + (totalMs/1000).toFixed(1) + 's avg total (' + (ttftMs/1000).toFixed(1) + 's to first word' + (sl.avg_tpot_ms ? (' · ' + sl.avg_tpot_ms + ' ms/tok') : '') + ')</span></div>'
+      + '<div class="speed-bar-track">'
+      +   '<div class="speed-seg-ttft" style="width:' + wTtft.toFixed(1) + '%" title="Wait for 1st word (TTFT): ' + ttftMs + ' ms">1st word: ' + (ttftMs/1000).toFixed(1) + 's</div>'
+      +   '<div class="speed-seg-stream" style="width:' + wStream.toFixed(1) + '%" title="Streaming clinical answer: ' + streamMs + ' ms">Streaming: ' + (streamMs/1000).toFixed(1) + 's</div>'
+      +   (wCheck > 0 ? ('<div class="speed-seg-check" style="width:' + wCheck.toFixed(1) + '%" title="Deterministic checks: ' + checkMs + ' ms">' + checkMs + 'ms</div>') : '')
+      + '</div></div>';
+  }).join('');
+  var speedToggleHtml = summaries.length > 8
+    ? ('<div class="ov-table-toggle-wrap"><button type="button" class="btn-ghost ov-table-toggle" id="speed-bars-toggle" data-collapsed="1">Show all ' + summaries.length + ' setups (+' + (summaries.length - 8) + ' more) ▾</button></div>')
+    : '';
+
+  var concHtml = '';
+  if(concRuns.length){
+    var byN = {1: [], 4: []};
+    concRuns.forEach(function(c){ if(byN[c.n_users]) byN[c.n_users].push(c); });
+    function renderNCard(nUsers, title, sub, isHighlight){
+      var rows = byN[nUsers] || [];
+      if(!rows.length) return '';
+      var body = rows.map(function(c){
+        var sloPct = Math.round((c.goodput_rate || 0) * 100);
+        return '<div style="padding:10px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px">'
+          + '<div><b>' + htmlEsc(armShort(c.backend_id)) + '</b>'
+          + '<div style="font-size:11.5px;color:var(--mut)">1st word (p50): <b>' + ((c.ttft_p50_ms||0)/1000).toFixed(2) + 's</b> · Full answer (p50): <b>' + ((c.answer_done_p50_ms||0)/1000).toFixed(2) + 's</b></div></div>'
+          + '<div style="text-align:right"><div style="font:800 15px ui-monospace,monospace;color:var(--fg)">' + c.throughput_turns_per_min + ' turns/min</div>'
+          + '<span class="ov-hero-pill ' + (sloPct >= 80 ? 'ok' : 'warn') + '">' + sloPct + '% meet fast-response goal</span></div>'
+          + '</div>';
+      }).join('');
+      return '<div class="speed-conc-card' + (isHighlight ? ' highlight' : '') + '">'
+        + '<div class="ov-kicker">' + htmlEsc(title) + '</div>'
+        + '<div style="font-size:12.5px;color:var(--mut);margin-bottom:8px">' + htmlEsc(sub) + '</div>'
+        + body + '</div>';
+    }
+    concHtml = '<div class="ov-block">'
+      + '<div class="ov-sec-head"><div><h3 class="ov-sec-title">What Happens When Multiple Clinicians Use It at Once?</h3>'
+      + '<div class="ov-sec-sub">Tested on ' + htmlEsc((run.hardware && run.hardware.gpu) || 'the shared GPU server') + ' (' + htmlEsc((run.hardware && run.hardware.serving_engine) || 'parallel slots') + '). Fast-response goal (SLO Goodput): 1st word ≤ 3.0s, Full answer ≤ 10.0s, Streaming ≤ 50ms/tok.</div></div></div>'
+      + '<div class="speed-conc-grid">'
+      +   renderNCard(1, '1 Solo Clinician (N = 1)', 'Baseline speed when one clinician has the GPU server to themselves.', false)
+      +   renderNCard(4, '4 Simultaneous Clinicians (N = 4)', '4 clinicians asking multi-turn chart questions at the exact same time.', true)
+      + '</div></div>';
+  }
+
+  sec.innerHTML = '<div class="ov-block">'
+    + '<div class="ov-sec-head"><div><h3 class="ov-sec-title">Where Does the Wait Time Go? (Single-Turn Pipeline Breakdown)</h3>'
+    + '<div class="ov-sec-sub">Blue = waiting for the first word to appear (TTFT) · Green = streaming the clinical answer text · Slate = deterministic date &amp; citation verification.</div></div></div>'
+    + stageBars
+    + speedToggleHtml
+    + '</div>'
+    + concHtml;
+
+  var spdTgl = sec.querySelector('#speed-bars-toggle');
+  if(spdTgl){
+    spdTgl.addEventListener('click', function(){
+      var isCol = spdTgl.getAttribute('data-collapsed') === '1';
+      sec.querySelectorAll('.speed-row-extra').forEach(function(r){ r.setAttribute('data-hidden', isCol ? '0' : '1'); });
+      spdTgl.setAttribute('data-collapsed', isCol ? '0' : '1');
+      spdTgl.textContent = isCol
+        ? 'Show Top 8 setups only ▴'
+        : ('Show all ' + summaries.length + ' setups (+' + (summaries.length - 8) + ' more) ▾');
+    });
+  }
+
+  return sec;
+}
+
+function renderMetrics(run){
+  var sec=el('section','metrics-section');
+  sec.innerHTML='<p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p>'
+   +'<div class="legend-chips" aria-label="how to read a box plot">'
+   +'<span class="lk"><b>box</b> middle 50% (q1–q3)</span>'
+   +'<span class="lk"><b>solid line</b> median</span>'
+   +'<span class="lk"><b>dashed line</b> mean</span>'
+   +'<span class="lk"><b>whiskers</b> reach 1.5×IQR</span>'
+   +'<span class="lk"><b>○</b> outliers</span>'
+   +'<span class="lk"><b>▲</b> clipped, above-axis</span>'
+   +'</div>'
+   +'<details class="legend-detail"><summary>Metric definitions &amp; about the robust axis</summary><div class="legend-body">'
+   +'<dl class="legend-key">'
+   +'<dt>latency</dt><dd>end-to-end response time, in ms.</dd>'
+   +'<dt>chart references</dt><dd>resolved chart-reference count per answer — volume metadata, not a quality score.</dd>'
+   +'<dt>answer length</dt><dd>characters.</dd>'
+   +'</dl>'
+   +'<p>The y-axis is clipped to a robust ceiling (the upper Tukey fence, ≥ the 95th percentile) so one extreme value can\'t squash every box. Points above it are pinned to the top edge as ▲ carets and counted in a footnote, never dropped.</p>'
+   +'<p>Successful turns only.</p>'
+   +'</div></details>';
+  var m=run.metrics||{}, keys=['latency_ms','citation_count','answer_chars'], k, md;
+  var grid=el('div','metrics-grid'), any=false;
+  for(k=0;k<keys.length;k++){ md=m[keys[k]]; if(md&&md.series&&md.series.length){ grid.appendChild(boxPlotSVG(md.label, md)); any=true; } }
+  if(!any){ sec.innerHTML+='<p class="muted">no successful turns to chart yet.</p>'; }
+  sec.appendChild(grid);
+  return sec;
+}
+
+function fmt10(v){ return v==null ? '—' : (Math.round(v*10)/10); }
+function judgeCardLine(c){
+  if(!c) return 'judge not recorded';
+  if(c.actor_type==='human') return 'human review by '+(c.model||c.reviewer||'human reviewer');
+  if(!c.model) return 'judge not recorded';
+  var names={codex:'Codex CLI',claude:'Claude Code CLI',gemini:'Gemini CLI'};
+  var bits=[String(c.model)];
+  if(c.reasoning_effort) bits.push('reasoning '+c.reasoning_effort);
+  if(c.agent){ var a=names[c.agent]||c.agent; bits.push(c.agent_version?a+' '+c.agent_version:a); }
+  if(c.pass_index&&c.passes) bits.push('pass '+c.pass_index+' of '+c.passes); else if(c.pass_index) bits.push('pass '+c.pass_index);
+  if(c.brief_sha256) bits.push('brief '+String(c.brief_sha256).slice(0,7));
+  return bits.join(', ');
+}
+function renderJudgeCombined(run){
+  var rows=(run.judge_combined||[]).slice().filter(function(s){return (s.n_actors||0)>1 && s.benchmark_score!=null;});
+  if(!rows.length) return null;
+  rows.sort(function(a,b){return (b.benchmark_score||0)-(a.benchmark_score||0);});
+  var cards=((run.judging||{}).cards||[]);
+  var actorNames=cards.length?cards.map(function(c){return c.actor_id+': '+judgeCardLine(c);}).join(' · '):(run.judge_actors||[]).join(', ');
+  var h='<div class="judge-consensus"><h3>Reviewer consensus</h3>'
+    +'<p class="intro">Combined score averages each scenario × setup across independent judge actors, then averages those cell means per setup. The range shows how far the actor-level arm scores spread; max Δ points to the cell with the largest judge disagreement.</p>'
+    +(cards.length?'<ul class="judge-cards">'+cards.map(function(c){return '<li><code>'+htmlEsc(c.actor_id)+'</code> '+htmlEsc(judgeCardLine(c))+(c.canonical?' <span class="muted">(headline)</span>':'')+'</li>';}).join('')+'</ul>':'')
+    +'<table class="summary"><thead><tr><th>backend</th><th>combined Benchmark</th><th>actors</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
+  h+=rows.map(function(s){
+    var ar=s.actor_range||{}, sp=s.benchmark_spread||{};
+    var maxCell=s.max_cell_delta_scenario?htmlEsc(s.max_cell_delta_scenario)+' · '+fmt10(s.max_cell_delta):'—';
+    return "<tr><td class='b' title='"+htmlEsc(s.backend)+"'>"+htmlEsc(armTitle(s.backend))+"</td>"
+      +"<td><b>"+fmt10(s.benchmark_score)+"</b>"+(sp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(sp.min)+"–"+fmt10(sp.max)+"</span>")+"</td>"
+      +"<td title='"+htmlEsc(actorNames)+"'>"+(s.n_actors||0)+"</td>"
+      +"<td>"+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+"</td>"
+      +"<td>"+fmt10(s.mean_abs_delta)+"</td>"
+      +"<td>"+maxCell+"</td></tr>";
+  }).join('');
+  h+='</tbody></table>'+renderPassAgreement((run.judging||{}).consensus)+'</div>';
+  var wrap=el('div'); wrap.innerHTML=h;
+  var tbl=wrap.querySelector('table'); if(tbl) makeSortable(tbl);
+  return wrap;
+}
+function renderPassAgreement(c){
+  if(!c||!c.alpha) return '';
+  var th=c.thresholds||{acceptable:0.667,good:0.8};
+  var h='<h4>Agreement between the passes</h4>'
+    +'<p class="intro">Krippendorff’s alpha across the '+(c.actors||[]).length+' passes, per axis: 1 is perfect agreement, 0 is chance. Ordinal for the 0–10 axes, nominal for the labels. Thresholds applied: '+th.acceptable+' acceptable, '+th.good+' good.</p>'
+    +'<table class="summary"><thead><tr><th>axis</th><th>alpha</th><th>verdict</th></tr></thead><tbody>';
+  Object.keys(c.alpha).forEach(function(k){ var a=c.alpha[k]||{};
+    h+='<tr><td class="b">'+htmlEsc(k)+'</td><td>'+(a.alpha==null?'—':a.alpha.toFixed(3))+'</td><td>'+htmlEsc(a.verdict||'')+'</td></tr>'; });
+  h+='</tbody></table>';
+  var sp=(c.spread_cells||[]).slice(0,5);
+  if(sp.length){ h+='<p class="intro">Cells the passes disagree on most (Benchmark per pass):</p><ul class="judge-cards">'
+    +sp.map(function(s){ var parts=Object.keys(s.scores||{}).map(function(a){return htmlEsc(a)+' '+fmt10(s.scores[a]);}).join(' · ');
+      return '<li><code>'+htmlEsc(s.scenario_id)+'</code> × '+htmlEsc(armTitle(s.backend_id))+': range '+fmt10(s.range)+' ('+parts+')</li>'; }).join('')+'</ul>'; }
+  return h+renderJudgePanel(c.judges);
+}
+function renderJudgePanel(j){
+  if(!j||!j.per_judge) return '';
+  var judges=Object.keys(j.per_judge), arms={};
+  judges.forEach(function(id){ (j.per_judge[id].scout||[]).forEach(function(s){ arms[s.backend]=arms[s.backend]||{}; arms[s.backend][id]=s; }); });
+  var h='<h4>Judges side by side</h4><p class="intro">Each judge’s passes combined into one rating (median per axis, majority per label), then its Benchmark per setup; alpha between the judges says how far they agree.</p>'
+    +'<table class="summary"><thead><tr><th>setup</th>'+judges.map(function(id){return '<th>'+htmlEsc(id)+'</th>';}).join('')+'</tr></thead><tbody>';
+  Object.keys(arms).forEach(function(b){ h+='<tr><td class="b" title="'+htmlEsc(b)+'">'+htmlEsc(armTitle(b))+'</td>'
+    +judges.map(function(id){ var s=arms[b][id]; return '<td>'+(s&&s.benchmark_score!=null?fmt10(s.benchmark_score)+(s.harm_count?' <span title="harm">☠'+s.harm_count+'</span>':''):'—')+'</td>'; }).join('')+'</tr>'; });
+  h+='</tbody></table>';
+  var th=j.thresholds||{acceptable:0.667,good:0.8};
+  h+='<p class="intro">Agreement between the judges (Krippendorff’s alpha; '+th.acceptable+' acceptable, '+th.good+' good): '
+    +Object.keys(j.alpha||{}).map(function(k){ var a=j.alpha[k]||{}; return htmlEsc(k)+' '+(a.alpha==null?'—':a.alpha.toFixed(3))+' ('+htmlEsc(a.verdict||'')+')'; }).join(' · ')+'</p>';
+  return h;
+}
+function judgeBarsSVG(series){
+  var arms=[]; for(var k=0;k<series.length;k++){ if(series[k].n>0) arms.push(series[k]); }
+  var W=Math.max(380, 60+arms.length*112), H=212, padL=30, padR=12, padT=20, padB=46, plotH=H-padT-padB;
+  function Y(v){ return padT+plotH-(v/10)*plotH; }
+  var step=(W-padL-padR)/Math.max(1,arms.length);
+  var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="Scout quality by arm">';
+  g+='<text x="'+padL+'" y="13" class="bp-title">accuracy (blue) · completeness (green) · relevance (orange) — 0–10</text>';
+  var ticks=[0,2.5,5,7.5,10], t, yy;
+  for(t=0;t<ticks.length;t++){ yy=Y(ticks[t]); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-4)+'" y="'+(yy+3)+'" class="bp-ytick">'+ticks[t]+'</text>'; }
+  for(var i=0;i<arms.length;i++){
+    var s=arms[i], cx=padL+step*i+step/2, bw=Math.min(13, step*0.17);
+    var vals=[[s.accuracy_mean||0,'jb-acc'],[s.completeness_mean||0,'jb-comp'],[s.relevance_mean||0,'jb-rel']];
+    for(var v=0;v<3;v++){ var x=cx+(v-1)*(bw+2)-bw/2; g+='<rect x="'+x+'" y="'+Y(vals[v][0])+'" width="'+bw+'" height="'+((vals[v][0]/10)*plotH)+'" class="'+vals[v][1]+'"/>'; }
+    g+='<text x="'+cx+'" y="'+(H-26)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
+    g+='<text x="'+cx+'" y="'+(H-14)+'" class="bp-xn">A'+fmt10(s.accuracy_mean)+' C'+fmt10(s.completeness_mean)+' R'+fmt10(s.relevance_mean)+'</text>';
+  }
+  g+='</svg>';
+  var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
+}
+function judgeHeatmap(run){
+  var jr=run.judge_rows||[]; if(!jr.length) return null;
+  var idx={}; for(var i=0;i<jr.length;i++){ idx[jr[i].scenario_id+'|'+jr[i].backend_id]=jr[i]; }
+  var qByScen={}; (run.scenarios||[]).forEach(function(s){
+    var t0=(s.turns||[])[0]; qByScen[s.scenario_id]=(t0&&t0.question)||'';
+  });
+  var arms=run.backends||[];
+  var h='<h3 class="jh-title">per-scenario evaluation — accuracy/completeness/relevance (click a cell for the note)</h3>';
+  h+='<table class="jheat"><thead><tr><th>scenario</th>';
+  for(var a=0;a<arms.length;a++){ h+='<th title="'+htmlEsc(arms[a])+'">'+htmlEsc(armTitle(arms[a]))+'</th>'; }
+  h+='</tr></thead><tbody>';
+  var scen=(run.scenarios||[]).map(function(s){return s.scenario_id;});
+  for(var sI=0;sI<scen.length;sI++){
+    var sid=scen[sI];
+    var qTxt=qByScen[sid]||'';
+    h+='<tr><th class="jh-scen" title="'+htmlEsc(qTxt)+'">'+htmlEsc(sid)+'</th>';
+    for(var aI=0;aI<arms.length;aI++){
+      var r=idx[sid+'|'+arms[aI]];
+      if(!r){ h+='<td class="jh-na">·</td>'; continue; }
+      var acc=(r.accuracy==null?0:r.accuracy);
+      var cls=acc>=7.5?'jh-good':(acc>=5?'jh-mid':'jh-bad');
+      var flag=(r.abstention_outcome==='failed-to-abstain'?' ⚑':'')+(r.citation_groundedness==='unsupported'?' ✗':'')+(r.harm?' ☠':'');
+      var det='accuracy '+r.accuracy+' · completeness '+r.completeness+' · relevance '+r.relevance+' · abstention '+r.abstention_outcome+' · citations '+r.citation_groundedness+(r.harm?' · HARM':'');
+      h+='<td class="jh '+cls+'" title="'+htmlEsc(det+(r.note?' — '+r.note:''))+'" data-det="'+htmlEsc(det)+'" data-note="'+htmlEsc(r.note||'')+'" data-q="'+htmlEsc(qTxt)+'" data-sid="'+htmlEsc(sid)+'" data-arm="'+htmlEsc(arms[aI])+'">'+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+flag+'</td>';
+    }
+    h+='</tr>';
+  }
+  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note, and each pass’s scores where the run was judged more than once. ⚑ = failed to abstain · ✗ = unsupported citation · ☠ = harm</div>';
+  var wrap=el('div','judge-heatmap-wrap'); wrap.innerHTML=h;
+  var cells=wrap.querySelectorAll('td.jh');
+  for(var c=0;c<cells.length;c++){
+    cells[c].onclick=(function(td){ return function(){
+      var qLine=td.dataset.q?('<div style="color:var(--fg);margin:2px 0"><i>“'+htmlEsc(td.dataset.q)+'”</i></div>'):'';
+      var jump='<a href="#sec-answers" class="jh-jump" data-jump-sid="'+htmlEsc(td.dataset.sid)+'">Jump to side-by-side answers for '+htmlEsc(td.dataset.sid)+' ↓</a>';
+      var noteEl=wrap.querySelector('#jh-note');
+      noteEl.innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b>'+qLine+'<div>'+htmlEsc(td.dataset.det)+'</div><div>'+htmlEsc(td.dataset.note||'(no note)')+'</div>'+judgePassLines(run, td.dataset.sid, td.dataset.arm)+jump;
+      var jLink=noteEl.querySelector ? noteEl.querySelector('.jh-jump') : null;
+      if(jLink){
+        jLink.onclick=function(ev){
+          ev.preventDefault();
+          var mEl=document.getElementById('report');
+          if(mEl && mEl.dataset.activeTab && mEl.dataset.activeTab !== 'all' && mEl.dataset.activeTab !== 'questions'){
+            switchReportTab('questions');
+          }
+          var secAns=document.getElementById('sec-answers');
+          if(secAns && secAns._expandWorkspace) secAns._expandWorkspace();
+          var sf=document.getElementById('scenario-filter');
+          if(sf){ sf.value=''; applyScenarioFilter(); }
+          var target=document.querySelector('#report .scenario[data-scenario="'+cssEsc(td.dataset.sid)+'"]');
+          if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+        };
+      }
+    }; })(cells[c]);
+  }
+  return wrap;
+}
+function judgePassLines(run, sid, arm){
+  var passes=run.judge_passes||{}, ids=Object.keys(passes); if(ids.length<2) return '';
+  var cards={}; (((run.judging||{}).cards)||[]).forEach(function(c){ cards[c.actor_id]=c; });
+  var recRow=((run.judge_rows||[]).filter(function(x){return x.scenario_id===sid&&x.backend_id===arm;})[0])||{};
+  var out='<div class="jh-passes"><b>Each pass:</b><ul>';
+  ids.forEach(function(a){
+    var r=(passes[a]||[]).filter(function(x){return x.scenario_id===sid&&x.backend_id===arm;})[0]; if(!r) return;
+    var who=cards[a]?judgeCardLine(cards[a]):a;
+    var noteTxt=(r.note!==undefined)?r.note:(recRow.note||'');
+    out+='<li><code>'+htmlEsc(a)+'</code> ('+htmlEsc(who)+'): '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+' · '+htmlEsc(r.abstention_outcome||'')+' · '+htmlEsc(r.citation_groundedness||'')+(r.harm?' · HARM':'')+(noteTxt?' — '+htmlEsc(noteTxt):'')+'</li>';
+  });
+  return out+'</ul></div>';
+}
+// WS4 calibrated benchmark: map run.calibrated (per-arm + a "__run__" row) by backend.
+function calIndex(run){ var m={}, c=run.calibrated||[]; for(var i=0;i<c.length;i++){ m[c[i].backend]=c[i].calibrated||{}; } return m; }
+// The reviewer-tier badge: a clinician sign-off outranks a domain review outranks an owner spot-check.
+var TIER_BADGE={owner:{cls:'owner',txt:'owner-reviewed'}, domain:{cls:'domain',txt:'domain-reviewed'}, clinical:{cls:'clinical',txt:'✓ clinician-certified'}};
+function tierBadge(tier){ var t=TIER_BADGE[tier]; return t?("<span class='tier-badge "+t.cls+"'>"+htmlEsc(t.txt)+"</span>"):''; }
+// Per-cell calibrated render: judge-only -> nothing extra (default path, unchanged headline);
+// adjudicated -> the human-anchored point ± 95% CI, the agreement κ, and the tier badge.
+function calCell(cal){
+  if(!cal || !cal.adjudicated) return '';
+  var ci=(cal.ci_low==null||cal.ci_high==null)?'':(" <span class='ci'>95% CI "+fmt10(cal.ci_low)+"–"+fmt10(cal.ci_high)+"</span>");
+  var kap=(cal.kappa==null)?'':(" <span class='kap' title='judge↔human agreement (linearly-weighted κ)'>κ "+(Math.round(cal.kappa*100)/100)+"</span>");
+  return "<div class='cal'>"+tierBadge(cal.tier)+"<span class='cal-pt'>"+fmt10(cal.point)+"</span>"+ci+kap
+    +"<span class='cal-n'> · n="+(cal.n_labeled||0)+" reviewed</span></div>";
+}
+function renderJudge(run){
+  var sec=el('section','judge-section'), j=(run.judge||[]).slice().sort(function(a,b){return (b.benchmark_score||0)-(a.benchmark_score||0);}), has=false;
+  for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
+  if(!has){ return null; }
+  var cal=calIndex(run);
+  var anyCal=false; for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
+  var nActors=(run.judge_actors||[]).length;
+  var nPatients=(run.patients||[]).length;
+  var patientScope=nPatients===1?'one patient':nPatients+' patients';
+  var judging=run.judging||{};
+  var judgeCards=judging.cards||[];
+  var judgeGroups={};
+  judgeCards.forEach(function(c){
+    var g=[c.agent||'',c.model||'',c.reasoning_effort||''].filter(Boolean).join('-').toLowerCase()||c.actor_id||'judge';
+    judgeGroups[g]=1;
+  });
+  var nJudges=Object.keys((((judging.consensus||{}).judges||{}).per_judge)||{}).length||Object.keys(judgeGroups).length||nActors;
+  var judgeScope=nActors<=1?'one judge':(nJudges<=1?'one judge across '+nActors+' passes':(nActors>nJudges?nJudges+' judges across '+nActors+' passes':nJudges+' judges'));
+  var judgedBy=htmlEsc(judging.sentence||'Judge not recorded for this run.');
+  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. <b>'+judgedBy+'</b> The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
+   +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>';
+  var fab={}, jr=run.judge_rows||[];
+  for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
+  var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
+    var safScore=s.safety_adjusted_benchmark_score!=null?s.safety_adjusted_benchmark_score:s.benchmark_score;
+    var critOmit=s.critical_omission_count||0;
+    return "<tr><td class='b' title='"+htmlEsc(s.backend)+"'>"+htmlEsc(armTitle(s.backend))+"</td>"
+      +"<td><b>"+fmt10(s.benchmark_score)+"</b>"+(sp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(sp.min)+"–"+fmt10(sp.max)+"</span>")+calCell(cal[s.backend])+"</td>"
+      +"<td>"+fmt10(safScore)+"</td>"
+      +"<td>"+s.n+"</td>"
+      +"<td>"+fmt10(s.accuracy_mean)+"</td><td>"+fmt10(s.completeness_mean)+"</td><td>"+fmt10(s.relevance_mean)+"</td>"
+      +"<td>"+(ab['correct']||0)+" / "+(ab['failed-to-abstain']||0)+"</td>"
+      +"<td>"+(gr['supported']||0)+" / "+(gr['partly']||0)+" / "+(gr['unsupported']||0)+"</td>"
+      +"<td>"+(s.harm_count||0)+"</td><td>"+critOmit+"</td><td>"+(fab[s.backend]||0)+"</td>"
+      +"<td>"+(t.date_wrong||0)+"</td><td>"+(t.window_over||0)+"</td><td>"+(t.trend_fab||0)+"</td></tr>"; }).join('');
+  var canonActors=judging.canonical||[];
+  var canonCaption=judging.aggregation==='median-majority'&&canonActors.length>1
+    ?'Canonical judgment (median/majority across '+canonActors.length+' passes)'
+    :(judging.aggregation==='not-recorded'&&nActors>0
+      ?'Canonical judge pass (judge not recorded)'
+      :'Canonical judge pass'+(nActors>1?(canonActors.length===1?' (currently promoted actor: '+htmlEsc(canonActors[0])+')':' (currently promoted actor)'):''));
+  var tbl=el('table','summary');
+  tbl.innerHTML='<caption>'+canonCaption+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>safety-adj</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>crit omit</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
+  sec.appendChild(tbl);
+  makeSortable(tbl);
+  // Run-level calibrated callout — only when at least one cell was adjudicated.
+  var rc=cal['__run__'];
+  if(rc && rc.adjudicated){
+    var note=el('p','cal-run');
+    note.innerHTML='<b>Run calibrated Benchmark:</b> '+fmt10(rc.point)
+      +(rc.ci_low==null?'':' <span class="ci">(95% CI '+fmt10(rc.ci_low)+'–'+fmt10(rc.ci_high)+')</span>')
+      +' '+tierBadge(rc.tier)+' <span class="cal-n">over '+(rc.n_labeled||0)+' human-reviewed cells of '+(rc.n_all||0)+'</span>';
+    sec.appendChild(note);
+  }
+  sec.appendChild(judgeBarsSVG(j));
+  var legWrap=el('details','legend-detail');
+  legWrap.innerHTML='<summary>Column definitions, how this is scored &amp; what to watch</summary><div class="legend-body">'
+   +'<dl class="legend-key">'
+   +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'
+   +'<dt>Safety-Adj</dt><dd>safety-adjusted 0–100 composite: hard-zeros any cell with severe harm and caps cells with critical clinical omissions at 40.0.</dd>'
+   +'<dt>accuracy</dt><dd>stated facts correct (0–10).</dd>'
+   +'<dt>completeness</dt><dd>includes the needed info (0–10).</dd>'
+   +'<dt>relevance</dt><dd>on-question, no padding (0–10).</dd>'
+   +'<dt>abstain ✓/✗</dt><dd>correctly said “not documented” vs failed-to-abstain.</dd>'
+   +'<dt>grounding s/p/u</dt><dd>supported / partly / unsupported.</dd>'
+   +'<dt>harm / crit omit</dt><dd>answers flagged unsafe (<b>harm</b>) or missing vital clinical context (<b>crit omit</b>, completeness ≤ 3 on a chart-grounded question).</dd>'
+   +'<dt>fab refs</dt><dd>references that don’t resolve to a real chart record (deterministic).</dd>'
+   +'<dt>temporal</dt><dd><b>date ✗</b> wrong date↔value or fabricated date · <b>win-over</b> window claimed beyond the data span · <b>trend-fab</b> trend asserted from too few points / wrong direction.</dd>'
+   +(anyCal?'<dt>calibrated ± CI</dt><dd>Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% CI; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).</dd>':'')
+   +'</dl>'
+   +'<p style="margin-top:8px">Each answer is scored against the patient’s chart by a strong LLM reviewer (advisory). The Benchmark is a soft composite — no single axis hard-gates it.</p>'
+   +'<p><b>Caveat:</b> small N, '+patientScope+', '+judgeScope+' — directional, not a benchmark.</p>'
+   +'<p><b>Note:</b> product arms are complete med-agent-hub profiles. Differences may include model roles and whether a gather stage is configured; inspect each arm’s configuration before attributing score changes to one factor.</p>'
+   +'</div>';
+  sec.appendChild(legWrap);
+  var consensus=renderJudgeCombined(run);
+  if(consensus){
+    var consDet=el('details','legend-detail consensus-detail');
+    var consSum=el('summary');
+    consSum.textContent='Multi-pass / multi-judge consensus & inter-rater reliability (Krippendorff’s α)';
+    consDet.appendChild(consSum);
+    consDet.appendChild(consensus);
+    sec.appendChild(consDet);
+  }
+  return sec;
+}
+
+// Section 05: Human Adjudication & Prediction-Powered Inference (PPI) Calibration.
+// Dedicated section that only appears when human adjudication rows exist on the run.
+function renderAdjudication(run){
+  var cal=calIndex(run);
+  var anyCal=false;
+  for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
+  var adjRows=run.adjudication_rows||[];
+  if(!anyCal && !adjRows.length) return null;
+
+  var sec=el('section','adjudication-section');
+  sec.innerHTML='<p class="intro">Layer 3 human evaluation &amp; Prediction-Powered Inference (PPI) calibration: combines the dense LLM autorater scores across all cells with human/clinician adjudication on a subset of cells to subtract judge bias (<span class="mono">θ̂<sub>PPI</sub> = f̄<sub>all</sub> + mean(y<sub>human</sub> − f<sub>judge</sub>)</span>) and compute valid 95% confidence intervals plus linearly-weighted Cohen’s κ agreement.</p>';
+
+  var rc=cal['__run__']||{};
+  if(rc.adjudicated){
+    var grid=el('div','cal-stat-grid');
+    var ciTxt=(rc.ci_low!=null && rc.ci_high!=null)?('95% CI '+fmt10(rc.ci_low)+'–'+fmt10(rc.ci_high)):'CI requires ≥2 paired cells';
+    var rectVal=rc.rectifier!=null?((rc.rectifier>=0?'+':'')+fmt10(rc.rectifier)):'—';
+    var kapVal=rc.kappa!=null?(Math.round(rc.kappa*100)/100):'—';
+    var kba=rc.kappa_by_axis||{};
+    var kbaParts=[];
+    if(kba.accuracy!=null) kbaParts.push('acc '+Math.round(kba.accuracy*100)/100);
+    if(kba.completeness!=null) kbaParts.push('comp '+Math.round(kba.completeness*100)/100);
+    if(kba.relevance!=null) kbaParts.push('rel '+Math.round(kba.relevance*100)/100);
+    grid.innerHTML=
+      "<div class='cal-stat-card'><div class='cs-k'>Run PPI-Calibrated Benchmark</div><div class='cs-v'>"+fmt10(rc.point)+"</div><div class='cs-sub'>"+htmlEsc(ciTxt)+"</div></div>"+
+      "<div class='cal-stat-card'><div class='cs-k'>Raw Judge Mean vs. Bias Rectifier</div><div class='cs-v'>"+fmt10(rc.judge_only_mean)+" <span style='font-size:.72em;opacity:.75'>("+htmlEsc(rectVal)+")</span></div><div class='cs-sub'>mean(y<sub>human</sub> − f<sub>judge</sub>) across paired cells</div></div>"+
+      "<div class='cal-stat-card'><div class='cs-k'>Judge ↔ Human Agreement (κ)</div><div class='cs-v'>"+htmlEsc(kapVal)+"</div><div class='cs-sub'>"+htmlEsc(kbaParts.length?kbaParts.join(' · '):'linearly-weighted Cohen’s κ (0–10)')+"</div></div>"+
+      "<div class='cal-stat-card'><div class='cs-k'>Adjudication Coverage &amp; Tier</div><div class='cs-v'>"+(rc.n_labeled||0)+" / "+(rc.n_all||0)+"</div><div class='cs-sub'>"+tierBadge(rc.tier)+" cells adjudicated</div></div>";
+    sec.appendChild(grid);
+  }
+
+  var armCalRows=(run.calibrated||[]).filter(function(r){return r.backend!=='__run__';});
+  if(armCalRows.length){
+    var tbl=el('table','summary');
+    var trs=armCalRows.map(function(r){
+      var c=r.calibrated||{};
+      var rect=c.rectifier!=null?((c.rectifier>=0?'+':'')+fmt10(c.rectifier)):'—';
+      var ci=(c.ci_low!=null && c.ci_high!=null)?(fmt10(c.ci_low)+'–'+fmt10(c.ci_high)):'—';
+      var kap=c.kappa!=null?(Math.round(c.kappa*100)/100):'—';
+      return "<tr><td class='b' title='"+htmlEsc(r.backend)+"'>"+htmlEsc(armTitle(r.backend))+"</td>"
+        +"<td>"+(c.adjudicated?tierBadge(c.tier):"<span class='muted'>judge-only</span>")+"</td>"
+        +"<td>"+(c.n_labeled||0)+" / "+(c.n_all||0)+"</td>"
+        +"<td>"+fmt10(c.judge_only_mean)+"</td>"
+        +"<td>"+htmlEsc(rect)+"</td>"
+        +"<td><b>"+fmt10(c.point)+"</b></td>"
+        +"<td>"+htmlEsc(ci)+"</td>"
+        +"<td>"+htmlEsc(kap)+"</td></tr>";
+    }).join('');
+    tbl.innerHTML='<caption>Per-setup PPI calibration summary</caption><thead><tr><th>backend</th><th>reviewer tier</th><th>reviewed (n/N)</th><th>raw judge Benchmark</th><th>bias rectifier (y − f)</th><th>PPI calibrated Benchmark</th><th>95% CI</th><th>judge↔human κ</th></tr></thead><tbody>'+trs+'</tbody>';
+    sec.appendChild(tbl);
+    makeSortable(tbl);
+  }
+
+  if(adjRows.length){
+    var jIdx={};
+    (run.judge_rows||[]).forEach(function(jr){ jIdx[jr.scenario_id+'|'+jr.backend_id]=jr; });
+    var ovWrap=el('div','adj-overrides');
+    var ovRows=adjRows.map(function(ar){
+      var jr=jIdx[ar.scenario_id+'|'+ar.backend_id];
+      var jScore=jr&&jr.benchmark_score!=null?jr.benchmark_score:null;
+      var hScore=ar.human_benchmark_score!=null?ar.human_benchmark_score:null;
+      var delta=(jScore!=null && hScore!=null)?(Math.round((hScore-jScore)*10)/10):null;
+      var deltaStr=delta!=null?((delta>=0?'+':'')+fmt10(delta)):'—';
+      var deltaCls=delta==null?'':(delta<-5?'neg':(delta>5?'pos':''));
+      var flags=[];
+      if(ar.harm) flags.push('☠ HARM');
+      if(ar.critical_omission) flags.push('⚠ crit omission');
+      if(ar.abstention_outcome==='failed-to-abstain') flags.push('⚑ failed-to-abstain');
+      if(ar.citation_groundedness==='unsupported') flags.push('✗ unsupported');
+      return "<tr><td><b>"+htmlEsc(ar.scenario_id)+"</b></td>"
+        +"<td class='b'>"+htmlEsc(armShort(ar.backend_id))+"</td>"
+        +"<td>"+tierBadge(ar.reviewer_tier||'owner')+" <span class='muted'>"+htmlEsc(ar.reviewer||'')+"</span></td>"
+        +"<td>"+(jScore!=null?fmt10(jScore):'—')+" → <b>"+(hScore!=null?fmt10(hScore):'—')+"</b> <span class='adj-delta "+deltaCls+"'>("+htmlEsc(deltaStr)+")</span></td>"
+        +"<td>A"+fmt10(ar.accuracy)+" C"+fmt10(ar.completeness)+" R"+fmt10(ar.relevance)+"</td>"
+        +"<td>"+(flags.length?htmlEsc(flags.join(' · ')):"<span style='color:var(--ok)'>✓ safe</span>")+"</td>"
+        +"<td>"+htmlEsc(ar.note||'—')+"</td></tr>";
+    }).join('');
+    ovWrap.innerHTML='<h3>Human-adjudicated cell verdicts &amp; overrides ('+adjRows.length+')</h3>'
+      +'<table class="summary"><thead><tr><th>scenario</th><th>setup</th><th>reviewer</th><th>judge → human score (Δ)</th><th>human A/C/R</th><th>safety &amp; flags</th><th>clinician / reviewer note</th></tr></thead><tbody>'+ovRows+'</tbody></table>';
+    var ovTbl=ovWrap.querySelector('table'); if(ovTbl) makeSortable(ovTbl);
+    sec.appendChild(ovWrap);
+  }
+  return sec;
+}
+
+function renderCheckPrecision(run){
+  // The table is rendered in Python (check_precision.table_html) so the report and the
+  // live dashboard show the same numbers with the same words; the JS only places it.
+  if(!run.check_precision_html) return null;
+  var sec=el('section','checks-section');
+  var intro=el('p','intro');
+  intro.textContent='How often each product check (date check, record check, citation support, model review, and the section status the clinician sees) agreed with the judge. Under the confidence-labels target policy, a check earns a place in the clinician view only after its precision clears the calibration bar; this table measures each check against that bar.';
+  sec.appendChild(intro);
+  var wrap=el('div'); wrap.innerHTML=run.check_precision_html; sec.appendChild(wrap);
+  wrap.querySelectorAll('table').forEach(function(t){ makeSortable(t); });
+  return sec;
+}
+// In-Depth — its own parity Benchmark, scored separately from the Answer. Split into
+// its own navigable section so the In-Depth axis is co-equal with the Answer headline,
+// not buried inside the Quality table. Returns null when no arm shipped an In-Depth.
+function renderInDepth(run){
+  var j=(run.judge||[]).slice();
+  var anyBg=false; for(var b=0;b<j.length;b++){ if((j[b].background||{}).n_background>0){ anyBg=true; break; } }
+  if(!anyBg) return null;
+  var sec=el('section','indepth-section');
+  var bgRows=j.slice().sort(function(a,b){return ((b.background||{}).benchmark_score||0)-((a.background||{}).benchmark_score||0);}).map(function(s){ var bg=s.background||{}, bsp=bg.benchmark_spread||{};
+    if(!bg.n_background){ return "<tr><td class='b'>"+htmlEsc(armTitle(s.backend))+"</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"; }
+    return "<tr><td class='b'>"+htmlEsc(armTitle(s.backend))+"</td>"
+      +"<td><b>"+fmt10(bg.benchmark_score)+"</b>"+(bsp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(bsp.min)+"–"+fmt10(bsp.max)+"</span>")+"</td>"
+      +"<td>"+bg.n_background+"</td>"
+      +"<td>"+fmt10(bg.support_mean)+"</td><td>"+fmt10(bg.added_value_mean)+"</td>"
+      +"<td>"+(bg.new_harm_count||0)+"</td><td>"+(bg.padded_count||0)+"</td><td>"+(bg.claims_total||0)+"</td></tr>"; }).join('');
+  var bgIntro=el('p','intro');
+  bgIntro.innerHTML='Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores in the Quality section. An arm with no In-Depth shows “—”. Click any column header to sort.';
+  sec.appendChild(bgIntro);
+  var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
+  sec.appendChild(bgtbl); makeSortable(bgtbl);
+  var bgleg=el('details','legend-detail');
+  bgleg.innerHTML='<summary>In-Depth column definitions &amp; scoring formula</summary><div class="legend-body">'
+   +'<dl class="legend-key">'
+   +'<dt>In-Depth Benchmark</dt><dd>(support·0.5 + added-value·0.5)·10, minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline.</dd>'
+   +'<dt>support</dt><dd>substantiates the answer &amp; chart-grounded (0–10).</dd>'
+   +'<dt>added value</dt><dd>useful context beyond the answer (0–10).</dd>'
+   +'<dt>unsafe</dt><dd>In-Depth introduced a harm absent from the answer.</dd>'
+   +'<dt>padded</dt><dd>bloated, low-signal elaboration.</dd>'
+   +'</dl></div>';
+  sec.appendChild(bgleg);
+  return sec;
+}
+
+function findJudgeRow(run, scenarioId, backend){
+  var rows = run.judge_rows || [];
+  for(var i = 0; i < rows.length; i++){
+    if(rows[i].scenario_id === scenarioId && rows[i].backend_id === backend) return rows[i];
+  }
+  return null;
+}
+function findJudgeCell(run, scenarioId, backend){
+  return findJudgeRow(run, scenarioId, backend);
+}
+function findHumanCell(run, scenarioId, backend){
+  var ar = run.adjudication_rows || [];
+  for(var i = 0; i < ar.length; i++){
+    if(ar[i].scenario_id === scenarioId && ar[i].backend_id === backend) return ar[i];
+  }
+  return null;
+}
+
+// Per-Tile Read-Only Evaluation Verdict Footer (Approved Option #1: Compact Summary Pills +
+// Collapsible Rationale Drawer). Replaces the old interactive <details class='adj'> form.
+function renderTileEvalFooter(run, backend, cell, scenarioId, tile){
+  const foot = el('div', 'tile-eval-footer');
+  const pills = el('div', 'tile-eval-pills');
+
+  // 1) Layer 1: Deterministic Gate + Ref Resolution pill
+  const diag = (cell.sources && cell.sources.diagnostics) || {};
+  const totalRefs = (diag.top_level_refs || []).length;
+  const unresRefs = (diag.unresolved_indices || []).length + (diag.mismatched_Force_refs || []).length;
+  const resRefs = Math.max(0, totalRefs - unresRefs);
+  const tg = cell.temporal_gate || null;
+  const tgStatus = tg ? String(tg.status || '').toLowerCase() : '';
+  let detCls = 'pass';
+  if (unresRefs > 0 || tgStatus === 'fail') detCls = 'fail';
+  else if (tgStatus === 'warn' || cell.answer_validation_status === 'needs_review' || cell.answer_validation_status === 'edited') detCls = 'warn';
+  const detParts = [];
+  if (tgStatus) detParts.push('Gate: ' + tgStatus + (tg.applied ? ' (patched)' : ''));
+  else detParts.push('Gate: ok');
+  if (totalRefs > 0) detParts.push('Refs: ' + resRefs + '/' + totalRefs + ' resolved');
+  else detParts.push('Refs: 0 cited');
+  const pDet = el('span', 'ev-pill ' + detCls);
+  pDet.textContent = detParts.join(' · ');
+  pills.appendChild(pDet);
+
+  // 2) Layer 2: Advisory LLM Judge pill
+  const jr = findJudgeCell(run, scenarioId, backend);
+  const actorCells = (run.judge_actor_cells && run.judge_actor_cells[scenarioId + '|' + backend]) || [];
+  let hasHarmOrOmit = false;
+  let hasDisagree = false;
+  if (jr){
+    let jCls = 'pass';
+    if (jr.harm || jr.severe_harm || jr.critical_omission || (jr.accuracy != null && jr.accuracy < 5)) jCls = 'fail';
+    else if ((jr.accuracy != null && jr.accuracy < 7.5) || jr.abstention_outcome === 'failed-to-abstain' || jr.citation_groundedness === 'unsupported') jCls = 'warn';
+    if (jr.harm || jr.severe_harm || jr.critical_omission) hasHarmOrOmit = true;
+    const jFlags = [];
+    if (jr.harm) jFlags.push('☠ HARM');
+    if (jr.critical_omission) jFlags.push('⚠ crit omission');
+    if (jr.abstention_outcome === 'failed-to-abstain') jFlags.push('⚑ failed-to-abstain');
+    if (!jFlags.length) jFlags.push('✓ safe');
+    const pJudge = el('span', 'ev-pill ' + jCls);
+    pJudge.textContent = 'Judge: ' + fmt10(jr.benchmark_score) + '/100 · A' + fmt10(jr.accuracy) + ' C' + fmt10(jr.completeness) + ' R' + fmt10(jr.relevance) + ' · ' + jFlags.join(' ');
+    pills.appendChild(pJudge);
+  }
+
+  // 3) Layer 3: Human Adjudication pill (when adjudicated)
+  const hr = findHumanCell(run, scenarioId, backend);
+  if (hr){
+    if (hr.harm || hr.critical_omission) hasHarmOrOmit = true;
+    const pHum = el('span', 'ev-pill human');
+    const tierLbl = hr.reviewer_tier || 'human';
+    pHum.textContent = '✓ ' + tierLbl + ': ' + fmt10(hr.human_benchmark_score) + '/100 · A' + fmt10(hr.accuracy) + ' C' + fmt10(hr.completeness) + ' R' + fmt10(hr.relevance) + (hr.harm ? ' · ☠ HARM' : '');
+    pills.appendChild(pHum);
+    if (jr && jr.benchmark_score != null && hr.human_benchmark_score != null){
+      if (Math.abs(hr.human_benchmark_score - jr.benchmark_score) >= 10) hasDisagree = true;
+    }
+  }
+  if (actorCells.length > 1){
+    const scores = actorCells.map(a => a.benchmark_score).filter(v => v != null);
+    if (scores.length > 1 && (Math.max(...scores) - Math.min(...scores)) >= 10) hasDisagree = true;
+  }
+
+  // Tag the tile for section-local verdict filtering
+  if (tile){
+    tile.dataset.verdictHarm = hasHarmOrOmit ? '1' : '0';
+    tile.dataset.verdictHuman = hr ? '1' : '0';
+    tile.dataset.verdictDisagree = hasDisagree ? '1' : '0';
+    tile.dataset.verdictGateWarn = (detCls !== 'pass') ? '1' : '0';
+  }
+
+  foot.appendChild(pills);
+
+  // Collapsible Rationale Drawer (collapsed by default so answer tiles stay compact)
+  if (jr || hr || tg){
+    const drawer = el('details', 'tile-eval-drawer');
+    const sum = el('summary');
+    sum.textContent = 'Evaluation details & rationale';
+    drawer.appendChild(sum);
+    const body = el('div', 'tile-eval-body');
+    let bHtml = '';
+    if (jr){
+      const t = jr.temporal_accuracy || {};
+      const tFlags = [];
+      if (t.date_value_mismatch || t.date_fabricated) tFlags.push('date ✗');
+      if (t.window_overclaimed) tFlags.push('window overclaimed');
+      if (t.trend_fabricated) tFlags.push('trend fabricated');
+      bHtml += "<div class='ev-row'><span class='ev-k'>LLM Judge (" + htmlEsc(jr.judge_model || 'canonical') + "):</span> " +
+        "<b>" + fmt10(jr.benchmark_score) + "/100</b> (Safety-Adj: " + fmt10(jr.safety_adjusted_benchmark_score) + "/100) · " +
+        "accuracy " + fmt10(jr.accuracy) + " · completeness " + fmt10(jr.completeness) + " · relevance " + fmt10(jr.relevance) +
+        " · abstention: " + htmlEsc(jr.abstention_outcome || 'n-a') +
+        " · grounding: " + htmlEsc(jr.citation_groundedness || 'n-a') +
+        (tFlags.length ? " · temporal: " + htmlEsc(tFlags.join(', ')) : "") + "</div>";
+      if (jr.note){
+        bHtml += "<div class='ev-note'>" + htmlEsc(jr.note) + "</div>";
+      }
+    }
+    if (actorCells.length > 1){
+      bHtml += "<div class='ev-row'><span class='ev-k'>Multi-judge actor breakdown (" + actorCells.length + " actors):</span></div>";
+      bHtml += "<table class='ev-actors-tbl'><thead><tr><th>actor</th><th>Benchmark</th><th>A / C / R</th><th>flags</th><th>rationale</th></tr></thead><tbody>";
+      actorCells.forEach(ac => {
+        const fl = [];
+        if (ac.harm) fl.push('☠ harm');
+        if (ac.critical_omission) fl.push('⚠ crit omit');
+        if (ac.abstention_outcome === 'failed-to-abstain') fl.push('⚑ abstain ✗');
+        bHtml += "<tr><td class='mono'>" + htmlEsc(ac.actor) + "</td><td><b>" + fmt10(ac.benchmark_score) + "</b></td>" +
+          "<td>" + fmt10(ac.accuracy) + "/" + fmt10(ac.completeness) + "/" + fmt10(ac.relevance) + "</td>" +
+          "<td>" + (fl.length ? htmlEsc(fl.join(', ')) : '✓') + "</td>" +
+          "<td>" + htmlEsc(ac.note || '—') + "</td></tr>";
+      });
+      bHtml += "</tbody></table>";
+    }
+    if (hr){
+      const delta = (jr && jr.benchmark_score != null && hr.human_benchmark_score != null)
+        ? ((hr.human_benchmark_score - jr.benchmark_score >= 0 ? '+' : '') + fmt10(hr.human_benchmark_score - jr.benchmark_score))
+        : null;
+      bHtml += "<div class='ev-row' style='margin-top:6px'><span class='ev-k'>Human Adjudication (" + htmlEsc(hr.reviewer_tier || 'owner') + " · " + htmlEsc(hr.reviewer || 'reviewer') + "):</span> " +
+        "<b>" + fmt10(hr.human_benchmark_score) + "/100</b>" + (delta ? " (Δ " + htmlEsc(delta) + " vs judge)" : "") +
+        " · accuracy " + fmt10(hr.accuracy) + " · completeness " + fmt10(hr.completeness) + " · relevance " + fmt10(hr.relevance) +
+        " · abstention: " + htmlEsc(hr.abstention_outcome || 'n-a') +
+        " · grounding: " + htmlEsc(hr.citation_groundedness || 'n-a') +
+        (hr.harm ? " · <b style='color:var(--bad)'>☠ HARM</b>" : "") + "</div>";
+      if (hr.note){
+        bHtml += "<div class='ev-note'>" + htmlEsc(hr.note) + "</div>";
+      }
+    }
+    body.innerHTML = bHtml;
+    drawer.appendChild(body);
+    foot.appendChild(drawer);
+  }
+  return foot;
+}
+
+function buildTile(run, backend, cell, turn, scenarioId){
+  const tile = el('article', 'tile');
+  tile.dataset.backend = backend;
+  tile.dataset.run = run.run_id;
+  tile.dataset.scenario = scenarioId;
+  tile.dataset.turn = turn;
+
+  const head = el('div', 'tile-head');
+  head.innerHTML = "<span class='backend'></span><span class='label'></span>";
+  head.querySelector('.backend').textContent = armShort(backend);
+  head.querySelector('.label').textContent = backend;
+  const jrow = (turn === 1 || ((run.scenarios||[]).length && ((run.scenarios[0]||{}).turns||[]).length === 1))
+    ? findJudgeRow(run, scenarioId, backend) : null;
+  if (jrow && jrow.accuracy != null){
+    const jpill = el('span', 'tile-jscore');
+    const acc = Number(jrow.accuracy || 0);
+    const cls = (jrow.harm || acc < 5) ? 'j-bad' : (acc >= 7.5 ? 'j-good' : 'j-mid');
+    jpill.classList.add(cls);
+    const flags = (jrow.harm ? ' ☠' : '') + (jrow.abstention_outcome === 'failed-to-abstain' ? ' ⚑' : '') + (jrow.citation_groundedness === 'unsupported' ? ' ✗' : '');
+    jpill.textContent = '★ A' + fmt10(jrow.accuracy) + ' C' + fmt10(jrow.completeness) + ' R' + fmt10(jrow.relevance) + flags;
+    jpill.title = 'Judge score — accuracy ' + jrow.accuracy + ' · completeness ' + jrow.completeness + ' · relevance ' + jrow.relevance + (jrow.note ? (' — ' + jrow.note) : '');
+    head.appendChild(jpill);
+  }
+  tile.appendChild(head);
+
+  if (!cell){
+    tile.classList.add('empty');
+    const dash = el('div'); dash.textContent = '—'; tile.appendChild(dash);
+    return tile;
+  }
+
+  const body = el('div');
+  const lazyEvidence = ((run.scenarios || []).length * (run.backends || []).length) > 60;
+  if (cell.error){
+    body.innerHTML = "<div class='err'></div>";
+    body.querySelector('.err').textContent = 'HTTP ' + (cell.http_status == null ? '' : cell.http_status) +
+                                             ': ' + String(cell.error).slice(0, 400);
+  } else if (lazyEvidence) {
+    body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' +
+                     (cell.blocks_html || '');
+    body.querySelectorAll('details.reviewdraft[open]').forEach(d => { d.open = false; });
+    tile._ensureEvidence = function(){
+      if (tile._evidenceLoaded) return;
+      tile._evidenceLoaded = true;
+      const evWrap = el('div');
+      evWrap.innerHTML = resolveCellSourcesHtml(run, cell) + resolveCellRefsHtml(run, cell);
+      while (evWrap.firstChild) body.appendChild(evWrap.firstChild);
+    };
+  } else {
+    body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' +
+                     (cell.blocks_html || '') + resolveCellSourcesHtml(run, cell) + resolveCellRefsHtml(run, cell);
+    body.querySelectorAll('details.reviewdraft[open]').forEach(d => { d.open = false; });
+  }
+  tile.appendChild(body);
+
+  if (jrow && jrow.note){
+    const jn = el('details', 'tile-jnote');
+    jn.innerHTML = '<summary>Reviewer note</summary><div class="tile-jnote-body">' + htmlEsc(jrow.note) + '</div>';
+    tile.appendChild(jn);
+  }
+
+  const fsBtn = el('button', 'fs-btn');
+  fsBtn.textContent = '⛶';
+  fsBtn.title = 'view full screen';
+  fsBtn.addEventListener('click', (e) => { e.stopPropagation(); if (tile._ensureEvidence) tile._ensureEvidence(); openFullscreen(tile); });
+  tile.appendChild(fsBtn);
+
+  const expand = el('button', 'expand');
+  expand.textContent = 'expand';
+  expand.addEventListener('click', () => {
+    if (tile._ensureEvidence) tile._ensureEvidence();
+    tile.classList.toggle('expanded');
+    expand.textContent = tile.classList.contains('expanded') ? 'collapse' : 'expand';
+  });
+  tile.appendChild(expand);
+
+  const chips = el('div', 'chips');
+  chips.innerHTML = cell.chips_html;
+  tile.appendChild(chips);
+  const timing = el('div');
+  timing.innerHTML = renderStageTimings(cell.stage_timings);
+  tile.appendChild(timing);
+
+  tile.appendChild(renderTileEvalFooter(run, backend, cell, scenarioId, tile));
+  return tile;
+}
+
+// The "how this arm is configured" panel: sampler knobs (per model), the system
+// prompt(s) (visible plain-language summary, full text behind a nested reveal), and the
+// retrieval line. All values come from the resolver's c.config (llama-router.ini knobs +
+// med-agent-hub prompt files / chartsearchai DEFAULT_SYSTEM_PROMPT + the chartsearchai
+// retrieval GPs) — nothing is computed here.
+const KNOB_LABELS = {temp:'temp', top_p:'top-p', top_k:'top-k', ctx_size:'ctx', seed:'seed',
+                     max_tokens:'max-tokens', reasoning_budget:'reasoning-budget', dry:'dry'};
+const KNOB_ORDER = ['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
+function renderArmConfig(cfg){
+  if(!cfg) return '';
+  const knobs = cfg.knobs || {};
+  const models = Object.keys(knobs);
+  // The summary names what's inside AND surfaces the headline knobs (temp/seed/dry/ctx) +
+  // the prompt count, so the panel reads at a glance while collapsed (and the keywords are
+  // visible even before expanding). Values are pulled from the first model's resolved knobs.
+  const k0 = (models.length ? knobs[models[0]] : {}) || {};
+  const tease = [];
+  if(k0.temp != null) tease.push('temp ' + k0.temp);
+  if(k0.seed != null) tease.push('seed ' + k0.seed);
+  if(k0.dry != null) tease.push('DRY on');
+  if(k0.ctx_size != null) tease.push('ctx ' + k0.ctx_size);
+  const np = (cfg.prompts || []).length;
+  if(np) tease.push(np + ' system prompt' + (np>1?'s':''));
+  const teaseTxt = tease.length ? (' — ' + tease.join(' · ')) : '';
+  let h = "<details class='arm-config'><summary>how this arm is configured" +
+          "<span class='ac-tease'>" + htmlEsc(teaseTxt) + "</span></summary><div class='ac-body'>";
+
+  // 1) sampler knobs — one column per model, one row per knob (only knobs that exist).
+  if(models.length){
+    const present = KNOB_ORDER.filter(k => models.some(m => (knobs[m]||{})[k] != null));
+    h += "<div class='ac-h'>sampling knobs <span class='ac-sub'>(llama-router.ini)</span></div>";
+    h += "<table class='ac-knobs'><thead><tr><th>knob</th>";
+    models.forEach(m => { h += "<th>" + htmlEsc(m) + "</th>"; });
+    h += "</tr></thead><tbody>";
+    present.forEach(k => {
+      h += "<tr><td class='ac-k'>" + htmlEsc(KNOB_LABELS[k] || k) + "</td>";
+      models.forEach(m => { const v = (knobs[m]||{})[k]; h += "<td>" + (v==null?'—':htmlEsc(v)) + "</td>"; });
+      h += "</tr>";
+    });
+    h += "</tbody></table>";
+  }
+
+  // 2) system prompt(s) — digestible summary visible, full text behind a reveal.
+  const prompts = cfg.prompts || [];
+  if(prompts.length){
+    h += "<div class='ac-h'>system prompt" + (prompts.length>1?'s':'') + "</div>";
+    prompts.forEach(p => {
+      h += "<div class='ac-prompt'>";
+      h += "<div class='ac-plabel'>" + htmlEsc(p.label) + " <span class='ac-src'>" + htmlEsc(p.source) + "</span></div>";
+      if(p.summary) h += "<div class='ac-psum'>" + htmlEsc(p.summary) + "</div>";
+      h += "<details class='ac-pfull'><summary>full prompt</summary><pre class='ac-pre'>" + htmlEsc(p.text) + "</pre></details>";
+      h += "</div>";
+    });
+  }
+
+  // 3) context/retrieval ownership and policy.
+  const r = cfg.retrieval;
+  if(r){
+    const owner = r.owner || 'historical ChartSearchAI path';
+    const fields = Object.entries(r).filter(([key]) => key !== 'owner').map(([key, value]) =>
+      key.replaceAll('_', ' ') + ' ' + value
+    );
+    h += "<div class='ac-h'>context <span class='ac-sub'>(" + htmlEsc(owner) + ")</span></div>";
+    h += "<div class='ac-retr'>" + fields.map(htmlEsc).join(' · ') + "</div>";
+  }
+  h += "</div></details>";
+  return h;
+}
+
+function renderArms(run){
+  const sec = el('section', 'arms-section');
+  const cards = run.arm_cards || {};
+  let h = "";
+  if (run.context && run.context.url){
+    h += "<p class='intro context-link'>" + (run.context.text ? htmlEsc(run.context.text) + " " : "") +
+         "<a href='" + htmlEsc(run.context.url) + "' rel='noopener'>" + htmlEsc(run.context.label) + "</a></p>";
+  }
+  h += "<p class='intro'>Every setup answers the same questions, graded against the patient's chart. " +
+       "A <b>single profile</b> uses one writer with configured checks, review, grounding, and In-Depth stages. " +
+       "A <b>team profile</b> adds an orchestrator/expert gather stage before the same checked answer path. " +
+       "Historical direct-router arms are labeled separately.</p>";
+  h += "<div class='arm-cards'>";
+  run.backends.forEach(b => {
+    const c = cards[b] || {kind:'unknown', path:'', models:[], roles:{}};
+    const team = c.kind === 'team';
+    const badge = team
+      ? "<span class='badge team'>TEAM</span>"
+      : (c.kind === 'single' ? "<span class='badge single'>SINGLE</span>" : "<span class='badge'>?</span>");
+    // Headline = the human-readable title (resolver); the raw backend_id survives only as a
+    // tiny muted monospace sub-label under it, never as the headline.
+    const title = c.title || b;
+    h += "<div class='arm-card'>";
+    h += "<div class='arm-head'>" + badge + "<span class='arm-name'>" + htmlEsc(title) + "</span></div>";
+    h += "<div class='arm-id'>" + htmlEsc(b) + "</div>";
+    if (c.path) h += "<div class='arm-path'>" + htmlEsc(c.path) + "</div>";
+    if (team){
+      // Makeup = role → readable family·params·quant; the raw dashed model id column is dropped.
+      h += "<table class='makeup'><tbody>";
+      Object.keys(c.roles || {}).forEach(role => {
+        const m = c.roles[role] || {};
+        const mq = [m.family, m.params, m.quant].filter(Boolean).join(' · ');
+        h += "<tr><td class='role'>" + htmlEsc(role) + "</td><td class='mq'>" + htmlEsc(mq) + "</td></tr>";
+      });
+      h += "</tbody></table>";
+    } else {
+      const m = (c.models || [])[0] || {};
+      const mq = [m.family, m.params, m.quant].filter(Boolean).join(' · ');
+      h += "<div class='makeup-single'>" + htmlEsc(mq) + "</div>";
+    }
+    h += renderArmConfig(c.config);
+    h += "</div>";
+  });
+  h += "</div>";
+  sec.innerHTML = h;
+  return sec;
+}
+
+// Wrap a render fn's <section> in the consistent, navigable shell: a stable id (the
+// scroll-anchor + scrollspy target), a data-nav label (the TOC builds itself from these,
+// so an absent section silently drops from the nav), and one consistent numbered <h2> at
+// the top. `note` = an optional small de-emphasis tag (e.g. engineering = "operational").
+function wrapSection(node, id, navLabel, heading, note){
+  if(!node) return null;
+  node.id = id;
+  node.dataset.nav = navLabel;
+  node.classList.add('rsec');
+  const h = el('h2');
+  h.innerHTML = "<span class='sec-h'>" + htmlEsc(heading) + "</span>" +
+    (note ? " <span class='sec-note'>" + htmlEsc(note) + "</span>" : "");
+  node.insertBefore(h, node.firstChild);
+  return node;
+}
+
+// Build the sticky in-page table of contents from the sections actually present, then
+// wire a scrollspy that highlights the active section (aria-current='location'). UX
+// research favours IntersectionObserver, but a thin trigger band can't account for this
+// report's VARIABLE sticky-header height (patient banner + per-run backend toggles), so we
+// use a deterministic header-aware position check (rAF-throttled), which also makes the
+// top and last-section edge cases trivial. Rebuilt each render (#report re-renders on run
+// switch). _spyScroll is kept so a prior listener is removed before re-wiring.
+let _spyScroll = null;
+function switchReportTab(tabId, filterCat){
+  const main = document.getElementById('report');
+  if(!main) return;
+  if(tabId === 'all'){
+    const secAns = document.getElementById('sec-answers');
+    if(secAns && secAns._expandWorkspace) secAns._expandWorkspace();
+    else if(secAns && secAns._ensureRendered) secAns._ensureRendered();
+  }
+  main.dataset.activeTab = tabId;
+  document.querySelectorAll('#toc .rtab').forEach(btn => {
+    const isAct = btn.dataset.tab === tabId;
+    btn.classList.toggle('active', isAct);
+    btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+  });
+  const subBar = document.querySelector('#toc .toc-sub');
+  if(subBar){
+    subBar.hidden = !(tabId === 'all' || tabId === 'methodology');
+  }
+  if(filterCat && tabId === 'questions'){
+    const pill = document.querySelector('.question-explorer .qe-pill[data-qe-filter="cat:' + filterCat + '"]');
+    if(pill) pill.click();
+  }
+  syncTopbarHeight();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function buildNav(run){
+  const nav = document.getElementById('toc');
+  if(!nav) return;
+  const secs = [...document.querySelectorAll('#report > section.rsec[data-nav]')];
+  nav.innerHTML = '';
+  if(_spyScroll){ window.removeEventListener('scroll', _spyScroll); window.removeEventListener('resize', _spyScroll); _spyScroll = null; }
+  if(!secs.length){ nav.style.display = 'none'; return; }
+  nav.style.display = '';
+
+  const main = document.getElementById('report');
+  const activeTab = (main && main.dataset.activeTab) || 'overview';
+  const nScen = (run && run.scenarios) ? run.scenarios.length : 0;
+
+  // Primary 4-Tab Bar (Casual-First Progressive Disclosure)
+  const tabsRow = el('div', 'report-tabs');
+  tabsRow.setAttribute('role', 'tablist');
+  const tabDefs = [
+    { id: 'overview', label: 'Overview (At a Glance)' },
+    { id: 'questions', label: 'Browse All Questions', badge: nScen ? String(nScen) : '' },
+    { id: 'speed', label: 'Speed & Multi-User Scaling' },
+    { id: 'methodology', label: 'Methodology & Raw Data' },
+    { id: 'all', label: 'All Sections', cls: 'rtab-all' }
+  ];
+  tabDefs.forEach(t => {
+    const b = el('button', 'rtab' + (t.cls ? ' ' + t.cls : '') + (t.id === activeTab ? ' active' : ''));
+    b.type = 'button';
+    b.dataset.tab = t.id;
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', t.id === activeTab ? 'true' : 'false');
+    b.innerHTML = htmlEsc(t.label) + (t.badge ? (" <span class='rtab-badge'>" + htmlEsc(t.badge) + "</span>") : '');
+    b.addEventListener('click', () => switchReportTab(t.id));
+    tabsRow.appendChild(b);
+  });
+  nav.appendChild(tabsRow);
+
+  // Secondary section-anchor bar (shown when in 'All Sections' or 'Methodology & Raw Data')
+  const subRow = el('div', 'toc-sub');
+  subRow.hidden = !(activeTab === 'all' || activeTab === 'methodology');
+  const byId = new Map();
+  secs.forEach(s => {
+    const a = el('a', 'toc-link');
+    a.href = '#' + s.id;
+    a.textContent = s.dataset.nav;
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      if(main && main.dataset.activeTab !== 'all' && s.dataset.tabGroup && main.dataset.activeTab !== s.dataset.tabGroup){
+        switchReportTab(s.dataset.tabGroup);
+      }
+      s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      history.replaceState(null, '', '#' + s.id);
+    });
+    subRow.appendChild(a);
+    byId.set(s.id, a);
+  });
+  nav.appendChild(subRow);
+
+  function setActive(id){ byId.forEach(l => l.removeAttribute('aria-current')); var l=byId.get(id); if(l) l.setAttribute('aria-current','location'); }
+  function spy(){
+    const header = document.querySelector('.topbar');
+    const line = (header ? header.getBoundingClientRect().bottom : 0) + 12;
+    let active = secs[0].id;
+    for(let i=0;i<secs.length;i++){ if(secs[i].getBoundingClientRect().top <= line){ active = secs[i].id; } }
+    if(window.innerHeight + window.scrollY >= document.body.scrollHeight - 4){ active = secs[secs.length-1].id; }
+    setActive(active);
+  }
+  let ticking = false;
+  _spyScroll = function(){ if(ticking) return; ticking = true; requestAnimationFrame(function(){ spy(); ticking = false; }); };
+  window.addEventListener('scroll', _spyScroll, { passive: true });
+  window.addEventListener('resize', _spyScroll, { passive: true });
+  spy();
+}
+
+// Section-local filter bar for the Answers section (UX research: filters sit next to
+// the data they affect — Pencil&Paper / LogRocket / Aufait). Holds the scenario <select>,
+// the question search, and the multi-select setup filter. Same ids the existing handlers
+// (#scenario-filter / #q-search / applyBackendToggle) are wired to — behaviour preserved.
+function buildAnswersFilters(run){
+  const bar = el('div', 'answers-filters');
+  // scenario <select>
+  const sLab = el('label'); sLab.htmlFor = 'scenario-filter'; sLab.textContent = 'scenario';
+  const sf = el('select'); sf.id = 'scenario-filter';
+  sf.innerHTML = "<option value=''>all scenarios</option>" + run.scenarios.map(() => "<option></option>").join('');
+  run.scenarios.forEach((s, i) => { const o = sf.options[i + 1]; o.value = s.scenario_id; o.textContent = s.scenario_id; });
+  sf.addEventListener('change', applyScenarioFilter);
+  bar.appendChild(sLab); bar.appendChild(sf);
+  // verdict filter <select>
+  const vLab = el('label'); vLab.htmlFor = 'verdict-filter'; vLab.textContent = 'verdict';
+  const vf = el('select'); vf.id = 'verdict-filter';
+  vf.innerHTML =
+    "<option value=''>all verdicts</option>" +
+    "<option value='harm'>harm or critical omission</option>" +
+    "<option value='human'>human adjudicated</option>" +
+    "<option value='disagree'>judge/human disagreement (Δ≥10)</option>" +
+    "<option value='gate_warn'>deterministic gate / ref warning</option>";
+  vf.addEventListener('change', applyVerdictFilter);
+  bar.appendChild(vLab); bar.appendChild(vf);
+  // question search
+  const search = el('input'); search.id = 'q-search'; search.type = 'search';
+  search.placeholder = 'filter questions… (Esc clears)';
+  search.setAttribute('aria-label', 'filter questions');
+  search.addEventListener('input', applyQuestionSearch);
+  search.addEventListener('keydown', e => { if (e.key === 'Escape'){ search.value = ''; applyQuestionSearch(); } });
+  bar.appendChild(search);
+  // multi-select setup filter (the scalable replacement for the checkbox toggle list)
+  bar.appendChild(buildSetupFilter(run));
+  // compact vs full diagnostic view toggle (progressive disclosure for Evidence Used / claim audit tables)
+  const detailBtn = el('button', 'btn-ghost detail-toggle');
+  detailBtn.type = 'button';
+  detailBtn.id = 'toggle-tile-details';
+  detailBtn.setAttribute('aria-pressed', 'false');
+  detailBtn.textContent = 'Show evidence & audit tables';
+  detailBtn.title = 'Toggle Evidence Used cards and claim-level audit matrices across all answer tiles';
+  detailBtn.addEventListener('click', () => {
+    const wrap = bar.closest('.scenario-wrap');
+    if (!wrap) return;
+    const isCompact = wrap.classList.toggle('compact-tiles');
+    if (!isCompact){
+      wrap.querySelectorAll('.tile').forEach(t => { if (t._ensureEvidence) t._ensureEvidence(); });
+    }
+    detailBtn.setAttribute('aria-pressed', isCompact ? 'false' : 'true');
+    detailBtn.textContent = isCompact ? 'Show evidence & audit tables' : 'Hide evidence & audit tables';
+  });
+  bar.appendChild(detailBtn);
+  return bar;
+}
+
+// "Filter setups ▾" multi-select dropdown — the scalable replacement for the flat
+// horizontal checkbox list (UX research: NN/g listbox-vs-dropdown holds many options
+// compactly; UX Patterns / Baymard — select-all + clear-all + a count badge for
+// reporting filters). A <details> anchors a scrollable checkbox panel; the trigger shows
+// an "N of M" badge. Each checkbox drives the SAME applyBackendToggle show/hide as before.
+function buildSetupFilter(run){
+  const backends = run.backends || [];
+  const total = backends.length;
+  const wrap = el('details', 'setup-filter');
+  const sum = el('summary');
+  sum.innerHTML = "Filter setups <span aria-hidden='true'>▾</span> <span id='setup-count' class='setup-count count-badge'></span>";
+  wrap.appendChild(sum);
+  const panel = el('div', 'setup-panel'); panel.setAttribute('role', 'group'); panel.setAttribute('aria-label', 'Filter setups');
+  const acts = el('div', 'setup-panel-acts');
+  const allBtn = el('button'); allBtn.type = 'button'; allBtn.className = 'setup-all'; allBtn.textContent = 'Select all';
+  const clrBtn = el('button'); clrBtn.type = 'button'; clrBtn.className = 'setup-clear'; clrBtn.textContent = 'Clear all';
+  acts.appendChild(allBtn); acts.appendChild(clrBtn);
+  panel.appendChild(acts);
+  const list = el('div', 'setup-list');
+  backends.forEach(b => {
+    const lab = el('label');
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.value = b; cb.className = 'setup-cb';
+    cb.addEventListener('change', () => { applyBackendToggle(b, cb.checked); updateSetupCount(wrap, total); });
+    const txt = el('span'); txt.textContent = armShort(b);
+    lab.appendChild(cb); lab.appendChild(txt); lab.title = b;
+    list.appendChild(lab);
+  });
+  panel.appendChild(list);
+  wrap.appendChild(panel);
+  // select-all / clear-all flip every checkbox + re-apply (the count badge follows).
+  function setAll(on){
+    list.querySelectorAll('input.setup-cb').forEach(cb => { cb.checked = on; applyBackendToggle(cb.value, on); });
+    updateSetupCount(wrap, total);
+  }
+  allBtn.addEventListener('click', () => setAll(true));
+  clrBtn.addEventListener('click', () => setAll(false));
+  // dismiss on outside-click / Escape (standard disclosure affordance). The document
+  // listener no-ops once this filter is detached (run switch re-renders the bar), so a
+  // stale closure from a prior render can't act on the live one.
+  document.addEventListener('click', e => { if (wrap.isConnected && wrap.open && !wrap.contains(e.target)) wrap.open = false; });
+  wrap.addEventListener('keydown', e => { if (e.key === 'Escape' && wrap.open){ wrap.open = false; sum.focus(); } });
+  updateSetupCount(wrap, total);
+  return wrap;
+}
+function updateSetupCount(wrap, total){
+  const on = wrap.querySelectorAll('input.setup-cb:checked').length;
+  const badge = wrap.querySelector('#setup-count');
+  if (badge){ badge.textContent = on + ' of ' + total; badge.classList.toggle('partial', on < total); }
+}
+
+function renderRun(runId){
+  const run = runById(runId);
+  if (!run) return;
+  // Header identity: the data-derived comparison-shape title + a one-line run sub-label
+  // (dataset · date), with the full technical provenance kept as the element's tooltip.
+  const t = buildTitle(run);
+  const ttl = document.getElementById('report-title');
+  if (ttl) ttl.textContent = t.title;
+  const sub = [t.dataset, t.date].filter(Boolean).join('  ·  ');
+  const meta = document.getElementById('run-meta');
+  meta.textContent = sub;
+  meta.title = renderRunMeta(run);
+
+  const main = document.getElementById('report');
+  main.innerHTML = '';
+
+  const hasJudge = (run.judge || []).some(s => (s.n || 0) > 0 && s.benchmark_score != null);
+  const defaultTab = (hasJudge && (run.scenarios || []).length > 1) ? 'overview' : 'all';
+  main.dataset.activeTab = defaultTab;
+
+  // Three-layer verification status banner (visible in Overview and Methodology)
+  const vtBanner = renderVerificationTiers(run);
+  if (vtBanner){
+    vtBanner.dataset.tabGroup = 'overview methodology';
+    main.appendChild(vtBanner);
+  }
+
+  // Tab 1 (Overview — At a Glance): strictly 3 Plain-English Visual Blocks
+  const execSum = renderExecutiveSummary(run);
+  if (execSum){
+    execSum.dataset.tabGroup = 'overview';
+    main.appendChild(execSum);
+  }
+
+  // Tab 2 (Browse All Questions): Scannable Question Explorer Matrix + Slide-Over Drawer trigger
+  const qExplorer = renderQuestionExplorer(run);
+  if (qExplorer){
+    qExplorer.dataset.tabGroup = 'questions';
+    main.appendChild(qExplorer);
+  }
+
+  // Tab 4 (Methodology & Raw Data): Patient Cohort Banner + Deterministic Guardrails + Full Judge Rubric + Human Adjudication + Raw Heatmap
+  const pbanner = renderPatientBanner(run);
+  if (pbanner){
+    pbanner.dataset.tabGroup = 'methodology';
+    main.appendChild(pbanner);
+  }
+
+  // 0) Deterministic Verification & Guardrails (Layer 1)
+  const detSec = wrapSection(renderDeterministic(run), 'sec-deterministic', 'Guardrails', 'Deterministic verification & guardrails', 'exact programmatic checks, no LLM judge');
+  if (detSec){
+    detSec.dataset.tabGroup = 'methodology';
+    main.appendChild(detSec);
+  }
+
+  // 1) Quality — the headline judge scores (results first!)
+  const judge = wrapSection(renderJudge(run), 'sec-quality', 'Quality', 'Quality — reviewer judgment (Scout rubric)');
+  if (judge){
+    judge.dataset.tabGroup = 'methodology';
+    main.appendChild(judge);
+  }
+
+  // 1b) Human Adjudication & PPI Calibration (Layer 3 — only rendered when adjudication exists)
+  const adjSec = wrapSection(renderAdjudication(run), 'sec-adjudication', 'Human & PPI', 'Human adjudication & PPI calibration', 'clinician / human calibrated');
+  if (adjSec){
+    adjSec.dataset.tabGroup = 'methodology';
+    main.appendChild(adjSec);
+  }
+
+  // 2) Per-scenario heatmap — the scenario × setup colour grid, its own navigable section
+  const hm = judgeHeatmap(run);
+  if (hm){
+    const hmSec = el('section', 'heatmap-wrap');
+    const hmIntro = el('p', 'intro');
+    hmIntro.textContent = 'Every scenario × setup at a glance (green = accurate, amber, red) — click a cell to read the reviewer’s note and jump straight to the side-by-side answers.';
+    hmSec.appendChild(hmIntro);
+    hmSec.appendChild(hm);
+    const hmWrapped = wrapSection(hmSec, 'sec-heatmap', 'Heatmap', 'Per-scenario heatmap');
+    hmWrapped.dataset.tabGroup = 'methodology';
+    main.appendChild(hmWrapped);
+  }
+
+  // 3) Per-scenario answers — the side-by-side answer tiles, its own navigable section
+  // with a SECTION-LOCAL filter bar (scenario / verdict / question / setups) adjacent to the data
+  // it filters (UX research: component-level filters belong next to discrepant sections).
+  const scenSec = el('section', 'scenario-wrap compact-tiles');
+  const scenIntro = el('p', 'intro');
+  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read and copy them side by side. Each tile shows compact read-only verification pills at the bottom; click expand or ⛶ to inspect full evidence and claim tables, or use the filter bar below.';
+  scenSec.appendChild(scenIntro);
+  const filtersBar = buildAnswersFilters(run);
+  scenSec.appendChild(filtersBar);
+  const bandsWrap = el('div', 'scenario-bands-wrap');
+  let _scenariosRendered = false;
+  function renderScenarioBands(){
+    if (_scenariosRendered) return;
+    _scenariosRendered = true;
+    run.scenarios.forEach(sc => {
+      const sec = el('section', 'scenario');
+      sec.dataset.scenario = sc.scenario_id;
+      const h = el('h3', 'scenario-h'); h.textContent = sc.scenario_id; sec.appendChild(h);
+
+      sc.turns.forEach(tn => {
+        const band = el('div', 'qband');
+        band.dataset.run = run.run_id; band.dataset.scenario = sc.scenario_id; band.dataset.turn = tn.turn;
+
+        const qhead = el('div', 'qhead');
+        qhead.innerHTML = "<span class='n'></span><div class='q'></div>";
+        qhead.querySelector('.n').textContent = 'T' + tn.turn;
+        qhead.querySelector('.q').textContent = tn.question || '';
+        band.appendChild(qhead);
+
+        const tilesEl = el('div', 'tiles');
+        run.backends.forEach(b => tilesEl.appendChild(buildTile(run, b, tn.cells[b], tn.turn, sc.scenario_id)));
+
+        const wrap = el('div', 'tiles-wrap');
+        const aL = el('button', 'scroll-arrow left'); aL.textContent = '◀'; aL.setAttribute('aria-label', 'scroll left');
+        const aR = el('button', 'scroll-arrow right'); aR.textContent = '▶'; aR.setAttribute('aria-label', 'scroll right');
+        wrap.appendChild(aL); wrap.appendChild(tilesEl); wrap.appendChild(aR);
+        wireScroll(tilesEl, aL, aR);
+        band.appendChild(wrap);
+        sec.appendChild(band);
+      });
+      bandsWrap.appendChild(sec);
+    });
+    applyFilters();
+  }
+  const nScenCnt = (run.scenarios || []).length;
+  const nBackCnt = (run.backends || []).length;
+  const collapseByDefault = (defaultTab === 'overview');
+  let wsToggleBtn = null;
+  function expandTileWorkspace(){
+    renderScenarioBands();
+    bandsWrap.hidden = false;
+    if (wsToggleBtn){
+      wsToggleBtn.setAttribute('data-expanded', '1');
+      wsToggleBtn.textContent = 'Hide Full Side-by-Side Tile Grid ▴';
+    }
+  }
+  if (collapseByDefault){
+    bandsWrap.hidden = true;
+    const wsBar = el('div', 'tile-workspace-bar');
+    wsBar.innerHTML = "<span style='font-size:12.5px;color:var(--mut)'>Tip: Click any row in the <b>Browse All Clinical Questions</b> table above to open the clean Slide-Over Answer Reader, or expand the full tile grid below.</span>";
+    wsToggleBtn = el('button', 'btn-ghost ov-table-toggle');
+    wsToggleBtn.type = 'button';
+    wsToggleBtn.id = 'toggle-tile-workspace';
+    wsToggleBtn.setAttribute('data-expanded', '0');
+    wsToggleBtn.textContent = 'Show Full Side-by-Side Tile Grid (' + nScenCnt + ' scenarios × ' + nBackCnt + ' setups) ▾';
+    wsToggleBtn.addEventListener('click', () => {
+      if (bandsWrap.hidden){
+        expandTileWorkspace();
+      } else {
+        bandsWrap.hidden = true;
+        wsToggleBtn.setAttribute('data-expanded', '0');
+        wsToggleBtn.textContent = 'Show Full Side-by-Side Tile Grid (' + nScenCnt + ' scenarios × ' + nBackCnt + ' setups) ▾';
+      }
+    });
+    wsBar.appendChild(wsToggleBtn);
+    scenSec.appendChild(wsBar);
+    filtersBar.addEventListener('change', expandTileWorkspace);
+    filtersBar.addEventListener('input', expandTileWorkspace);
+  } else {
+    renderScenarioBands();
+  }
+  scenSec.appendChild(bandsWrap);
+  const ansWrapped = wrapSection(scenSec, 'sec-answers', 'Answers', 'Per-scenario answers');
+  ansWrapped._ensureRendered = renderScenarioBands;
+  ansWrapped._expandWorkspace = expandTileWorkspace;
+  ansWrapped.dataset.tabGroup = 'questions';
+  main.appendChild(ansWrapped);
+
+  // 4) In-Depth — its own co-equal Benchmark
+  const indepth = wrapSection(renderInDepth(run), 'sec-indepth', 'In-Depth', 'In-Depth — its own parity Benchmark');
+  if (indepth){
+    indepth.dataset.tabGroup = 'methodology';
+    main.appendChild(indepth);
+  }
+  // 5) The product's checks against the judge (present once the run is judged and scored).
+  const checks = wrapSection(renderCheckPrecision(run), 'sec-checks', 'Checks', 'Checks against the judge');
+  if (checks){
+    checks.dataset.tabGroup = 'methodology';
+    main.appendChild(checks);
+  }
+  // 6) Arms — what this run compares (model roles, sampling knobs, prompts)
+  const armsWrapped = wrapSection(renderArms(run), 'sec-arms', 'Arms', 'What this run compares');
+  armsWrapped.dataset.tabGroup = 'methodology';
+  main.appendChild(armsWrapped);
+
+  // Tab 3 (Speed & Multi-User Scaling): Visual Stage Bars + Concurrency Cards + Detailed Engineering Tables
+  const speedVisual = renderSpeedVisual(run);
+  if (speedVisual){
+    speedVisual.dataset.tabGroup = 'speed';
+    main.appendChild(speedVisual);
+  }
+
+  // 7) Engineering metrics — UN-HIDDEN (was a <details> collapse). Operational, not answer
+  // quality, so it lives last and reads de-emphasized, but it's always visible + in the nav.
+  const eng = el('section', 'eng-section');
+  const engIntro = el('p', 'intro');
+  engIntro.innerHTML = 'Operational behaviour, <b>not</b> answer quality: how fast each setup responded, how many chart records it cited, and how often it errored or fell back. Useful for cost/latency trade-offs, but it does not say whether the answers were right — that’s the Quality section.';
+  eng.appendChild(engIntro);
+  eng.appendChild(renderSummary(run));
+  eng.appendChild(renderMetrics(run));
+  const engWrapped = wrapSection(eng, 'sec-engineering', 'Engineering', 'Engineering metrics', 'operational, not answer quality');
+  engWrapped.dataset.tabGroup = 'speed';
+  main.appendChild(engWrapped);
+
+  buildNav(run);
+  applyFilters();
+}
+
+/* ---- filter + toggle (attribute flips, no re-render) ----
+   The scenario / question controls now live in the section-local Answers filter bar
+   (rebuilt each render), so the lookups are null-guarded for the pre-render call. */
+function applyScenarioFilter(){
+  const sel = document.getElementById('scenario-filter'); if (!sel) return;
+  const v = sel.value;
+  document.querySelectorAll('#report .scenario').forEach(sec => {
+    sec.dataset.hidden = (v && sec.dataset.scenario !== v) ? '1' : '0';
+  });
+}
+function applyQuestionSearch(){
+  const inp = document.getElementById('q-search');
+  const vf = document.getElementById('verdict-filter');
+  const raw = inp ? inp.value.trim() : '';
+  const vMode = vf ? vf.value : '';
+  let re = null;
+  if (raw){ try { re = new RegExp(raw, 'i'); } catch(e) { re = null; } }
+  document.querySelectorAll('#report .qband').forEach(band => {
+    let textHit = true;
+    if (raw){
+      const q = band.querySelector('.qhead .q').textContent || '';
+      const tiles = [...band.querySelectorAll('.tile')].map(t => t.textContent).join(' ');
+      const hay = q + ' ' + tiles;
+      textHit = re ? re.test(hay) : hay.toLowerCase().includes(raw.toLowerCase());
+    }
+    let verdictHit = true;
+    if (vMode){
+      const tiles = [...band.querySelectorAll('.tile:not(.empty)')];
+      if (vMode === 'harm') verdictHit = tiles.some(t => t.dataset.verdictHarm === '1');
+      else if (vMode === 'human') verdictHit = tiles.some(t => t.dataset.verdictHuman === '1');
+      else if (vMode === 'disagree') verdictHit = tiles.some(t => t.dataset.verdictDisagree === '1');
+      else if (vMode === 'gate_warn') verdictHit = tiles.some(t => t.dataset.verdictGateWarn === '1');
+    }
+    band.dataset.hidden = (textHit && verdictHit) ? '0' : '1';
+  });
+}
+function applyVerdictFilter(){
+  applyQuestionSearch();
+}
+function applyBackendToggle(backend, on){
+  document.querySelectorAll("#report .tile[data-backend='" + cssEsc(backend) + "']").forEach(t => {
+    t.dataset.hidden = on ? '0' : '1';
+  });
+}
+function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/'/g, "\\'"); }
+function htmlEsc(s){ const d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
+function applyFilters(){
+  applyScenarioFilter();
+  applyQuestionSearch();
+  // Setup show/hide now driven by the section-local multi-select checkboxes.
+  document.querySelectorAll('.setup-filter input.setup-cb').forEach(cb => applyBackendToggle(cb.value, cb.checked));
+}
+
+/* ---- patient grounding banner (links to the live OpenMRS chart) ---- */
+function renderPatientBanner(run){
+  const pts = run.patients || [];
+  if (!pts.length) return null;
+  const card = el('div', 'patient-banner');
+  pts.forEach(pt => {
+    const blk = el('div', 'pt-block');
+    const head = el('div', 'pt-head');
+    head.appendChild(document.createTextNode('Patient — '));
+    const id = el('span', 'pt-id');
+    id.textContent = pt.identifier ? ('OpenMRS ID ' + pt.identifier) : ('UUID ' + (pt.uuid || '').slice(0, 8));
+    head.appendChild(id);
+    if (pt.display){ const nm = el('span', 'pt-name'); nm.textContent = ' ' + pt.display; head.appendChild(nm); }
+    const demo = [pt.gender, (pt.age != null ? pt.age + 'y' : ''), (pt.birthdate ? 'b.' + pt.birthdate : '')].filter(Boolean).join(', ');
+    if (demo){ const d = el('span', 'pt-demo'); d.textContent = ' (' + demo + ')'; head.appendChild(d); }
+    if (pt.chart_url){ const a = el('a'); a.href = pt.chart_url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'open chart ↗'; head.appendChild(a); }
+    blk.appendChild(head);
+
+    if (pt.medications && pt.medications.length){
+      const ln = el('div', 'pt-line');
+      const lab = el('span', 'pt-lab'); lab.textContent = 'Active regimen: '; ln.appendChild(lab);
+      ln.appendChild(document.createTextNode(pt.medications.join('  ·  ')));
+      blk.appendChild(ln);
+    }
+    if (pt.vitals && Object.keys(pt.vitals).length){
+      const ln = el('div', 'pt-line');
+      const lab = el('span', 'pt-lab'); lab.textContent = 'Recent vitals: '; ln.appendChild(lab);
+      ln.appendChild(document.createTextNode(Object.keys(pt.vitals).map(k => k + ' ' + pt.vitals[k]).join('  ·  ')));
+      blk.appendChild(ln);
+    }
+    const counts = [];
+    if (pt.encounter_count != null) counts.push(pt.encounter_count + ' encounters');
+    if (pt.observation_count != null) counts.push(pt.observation_count + ' observations');
+    if (counts.length){
+      const ln = el('div', 'pt-line pt-counts');
+      ln.textContent = 'Chart: ' + counts.join('  ·  ');
+      blk.appendChild(ln);
+    }
+    card.appendChild(blk);
+  });
+  return card;
+}
+
+/* ---- horizontal scroll affordance: greyed ◀▶ arrows show when tiles run off-screen ---- */
+function wireScroll(tilesEl, aL, aR){
+  function update(){
+    const max = tilesEl.scrollWidth - tilesEl.clientWidth;
+    aL.classList.toggle('disabled', tilesEl.scrollLeft <= 1);
+    aR.classList.toggle('disabled', max <= 1 || tilesEl.scrollLeft >= max - 1);
+  }
+  aL.addEventListener('click', () => tilesEl.scrollBy({ left: -tilesEl.clientWidth * 0.85, behavior: 'smooth' }));
+  aR.addEventListener('click', () => tilesEl.scrollBy({ left: tilesEl.clientWidth * 0.85, behavior: 'smooth' }));
+  tilesEl.addEventListener('scroll', update);
+  window.addEventListener('resize', update);
+  update();
+  requestAnimationFrame(update);
+}
+
+/* ---- per-tile fullscreen: read one backend's answer full-screen ---- */
+function openFullscreen(tile){
+  let ov = document.querySelector('.fs-overlay');
+  if (!ov){
+    ov = el('div', 'fs-overlay');
+    ov.innerHTML = "<div class='fs-modal'><button class='fs-close'>✕ close</button><div class='fs-body'></div></div>";
+    ov.addEventListener('click', e => { if (e.target === ov) closeFullscreen(); });
+    ov.querySelector('.fs-close').addEventListener('click', closeFullscreen);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFullscreen(); });
+    document.body.appendChild(ov);
+  }
+  const body = ov.querySelector('.fs-body');
+  body.innerHTML = '';
+  const clone = tile.cloneNode(true);
+  clone.classList.add('expanded');
+  clone.querySelectorAll('.fs-btn, .expand').forEach(x => x.remove());
+  body.appendChild(clone);
+  ov.classList.add('open');
+}
+function closeFullscreen(){ const ov = document.querySelector('.fs-overlay'); if (ov) ov.classList.remove('open'); }
+
+/* ---- cross-run switcher ----
+   Swaps between PUBLISHED runs. A published report lives at <reports>/<slug>/index.html,
+   so its siblings + the curated reports-index.json are one level up. Fetch ../reports-index.json
+   at runtime, list each run (slug → title), mark the current one (its slug = this report's
+   parent dir), and navigate to ../<slug>/ on select. Graceful degradation: any fetch failure
+   (a local file:// open, or the index absent — e.g. an un-published render) leaves the control
+   hidden, so it is never a dead single-option select. */
+function currentSlug(){
+  // .../<slug>/  or  .../<slug>/index.html  → the slug is the parent dir of index.html
+  var parts = location.pathname.split('/').filter(Boolean);
+  if (!parts.length) return '';
+  var last = parts[parts.length - 1];
+  return (/\.html?$/i.test(last) || last === '') ? (parts[parts.length - 2] || '') : last;
+}
+function loadRunSwitcher(){
+  var box = document.getElementById('run-switcher');
+  var sel = document.getElementById('run-switcher-sel');
+  if (!box || !sel) return;
+  fetch('../reports-index.json', { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(idx){
+      var runs = (idx && idx.runs) || [];
+      if (!runs.length) throw new Error('no runs');
+      var here = currentSlug();
+      sel.innerHTML = '';
+      runs.forEach(function(run){
+        if (!run || !run.slug) return;
+        var o = document.createElement('option');
+        o.value = run.slug;
+        var current = run.slug === here;
+        o.textContent = (current ? '● ' : '') + (run.title || run.slug);
+        if (current) o.selected = true;
+        sel.appendChild(o);
+      });
+      if (!sel.options.length) throw new Error('no slugs');
+      sel.addEventListener('change', function(){ if (sel.value) location.href = '../' + sel.value + '/'; });
+      box.classList.add('ready');   // reveal only once it's a real, populated switcher
+      syncTopbarHeight();
+    })
+    .catch(function(){ /* graceful degradation — leave the control hidden */ });
+}
+
+/* ---- boot ---- */
+// Keep the section-local sticky filter bar tucked just under the live topbar (its height
+// varies with the patient banner + toc), exposed as a CSS var the bar's `top` reads.
+function syncTopbarHeight(){
+  var tb = document.querySelector('.topbar');
+  if (tb) document.documentElement.style.setProperty('--topbar-h', tb.getBoundingClientRect().height + 'px');
+}
+function initWithData(d){
+  DATA = d || { runs: [] };
+  activeRunId = ((DATA.runs && DATA.runs[0]) || {}).run_id;
+  // Embedded multi-run selector: only relevant (and only shown) when this single file
+  // carries more than one run. The cross-run switcher above handles the published case.
+  const rs = document.getElementById('run-select');
+  const rsWrap = document.getElementById('run-select-wrap');
+  if (rs){
+    rs.innerHTML = DATA.runs.map(() => '<option></option>').join('');
+    DATA.runs.forEach((r, i) => { const o = rs.options[i]; o.value = r.run_id; o.textContent = r.run_id; });
+    rs.value = activeRunId;
+    rs.addEventListener('change', () => { activeRunId = rs.value; renderRun(activeRunId); syncTopbarHeight(); });
+    if (rsWrap && DATA.runs.length > 1) rsWrap.hidden = false;
+  }
+
+  const pdfBtn = document.getElementById('print-pdf');
+  if (pdfBtn) pdfBtn.addEventListener('click', () => window.print());
+
+  loadRunSwitcher();
+  if (activeRunId) renderRun(activeRunId);
+  syncTopbarHeight();
+  window.addEventListener('resize', syncTopbarHeight);
+}
+function boot(){
+  if (DATA && Array.isArray(DATA.runs) && DATA.runs.length > 0) {
+    initWithData(DATA);
+    return;
+  }
+  const el = document.getElementById('report-data');
+  const src = (el && el.getAttribute('data-src')) || './report-data.json';
+  fetch(src, { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d){ initWithData(d); })
+    .catch(function(){ initWithData({ runs: [] }); });
+}
+boot();
+(function(){var b=document.getElementById('theme-toggle');if(!b)return;function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-report',n);}catch(e){}s();});})();

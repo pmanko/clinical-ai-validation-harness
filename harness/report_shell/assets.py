@@ -203,3 +203,27 @@ function boxPlotSVG(label, md){
 
 SHARED_CSS = THEME_CSS_VARS + SORTABLE_TABLE_CSS + BOXPLOT_CSS + CHIP_CSS
 SHARED_JS = SORTABLE_TABLE_JS + BOXPLOT_JS
+
+
+def load_report_shell_css() -> str:
+    """Load the canonical standalone report shell stylesheet from `report-shell.css`."""
+    from pathlib import Path
+
+    return (Path(__file__).with_name("report-shell.css")).read_text(encoding="utf-8")
+
+
+def load_report_shell_js() -> str:
+    """Load the canonical standalone report shell script from `report-shell.js`."""
+    from pathlib import Path
+
+    return (Path(__file__).with_name("report-shell.js")).read_text(encoding="utf-8")
+
+
+def report_shell_version(css: str | None = None, js: str | None = None) -> str:
+    """Compute a 10-char SHA-256 cache-busting version hash for the report shell assets."""
+    import hashlib
+
+    css_text = css if css is not None else load_report_shell_css()
+    js_text = js if js is not None else load_report_shell_js()
+    return hashlib.sha256((css_text + "\n" + js_text).encode("utf-8")).hexdigest()[:10]
+
