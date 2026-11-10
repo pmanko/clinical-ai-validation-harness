@@ -313,3 +313,52 @@ def test_build_report_emits_standalone_report_data_json_and_external_shell(tmp_p
     assert (shell_dir / "report-shell.css").is_file()
     assert (shell_dir / "report-shell.js").is_file()
 
+
+def test_enrich_and_deduplicate_run_edge_cases() -> None:
+    from harness.validate.report_data import _esc, enrich_and_deduplicate_run
+
+    assert _esc("a<b>c") == "a&lt;b&gt;c"
+    card = (
+        "<article class='source-card'><div class='sc-head'><b>S1</b>"
+        "<span>cite [1] · chart [10] Labs</span></div>"
+        "<ul><li>Labs</li></ul><details><summary>open source record</summary><pre>Labs</pre></details></article>"
+    )
+    run_obj = {
+        "backends": ["b1"],
+        "scenarios": [
+            {
+                "id": "sc1",
+                "turns": [
+                    {
+                        "cells": {
+                            "b1": {
+                                "http_status": 200,
+                                "refs_html": "",
+                                "sources_html": card,
+                                "sources": {"sources": [1], "diagnostics": {"top_level_refs": [1], "unresolved_refs": []}},
+                                "indepth_view": {"status": "not_in_profile", "extra": 1},
+                            },
+                            "skip": "not-a-dict",
+                        }
+                    },
+                    {"cells": {"b1": {"http_status": 200, "sources_html": ""}}},
+                ],
+            }
+        ],
+        "summary": [{"backend_id": "b1", "turns": 2, "errors": 0}],
+        "judge": [{"backend": "b1"}],
+        "judge_rows": [{"scenario_id": "sc1", "backend_id": "b1", "accuracy": 8, "completeness": 8, "relevance": 8}],
+        "judge_passes": {"only_one": [{"scenario_id": "sc1", "backend_id": "b1"}]},
+    }
+    total_cells, pool_len = enrich_and_deduplicate_run(run_obj, pool_threshold=10, force_pool=False)
+    assert total_cells == 3
+    assert pool_len == 0
+
+    total_cells, pool_len = enrich_and_deduplicate_run(run_obj, force_pool=True)
+    assert pool_len == 1
+    assert run_obj["judge_passes"] == {}
+    assert run_obj["summary"][0]["valid_turns"] == 2
+    assert run_obj["judge"][0]["benchmark_score"] is not None
+    assert run_obj["calibrated"]
+
+

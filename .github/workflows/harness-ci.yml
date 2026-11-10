@@ -29,7 +29,7 @@ jobs:
         run: scripts/verify-docs-consistency.sh
 
   pytest-and-diff-coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,7 +52,7 @@ jobs:
         run: uv pip install -e ".[dev]" pytest-cov diff-cover
 
       - name: Install Playwright browser (for the report layout test)
-        run: uv run playwright install --with-deps chromium
+        run: uv run --no-sync playwright install --with-deps chromium
 
       - name: Run harness tests with coverage
         # --cov scope must match what diff-cover gates: the gate counts changed lines in
@@ -60,11 +60,11 @@ jobs:
         # scripts/*.py lines show 0% in diff-cover (they're absent from coverage.xml) and
         # drag the changed-line total below the bar even when they ARE tested.
         run: |
-          uv run pytest -m 'not slow' --ignore=targets \
+          uv run --no-sync pytest -m 'not slow' --ignore=targets \
             --cov=harness --cov=scripts --cov-report=xml --cov-report=term-missing
 
       - name: Enforce coverage on changed lines
         run: |
-          uv run diff-cover coverage.xml \
+          uv run --no-sync diff-cover coverage.xml \
             --compare-branch "origin/${{ github.base_ref || 'main' }}" \
             --fail-under 90
