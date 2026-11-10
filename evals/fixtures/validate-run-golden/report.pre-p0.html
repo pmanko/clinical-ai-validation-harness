@@ -581,6 +581,7 @@ table.ev-actors-tbl th, table.ev-actors-tbl td { border: 1px solid var(--line); 
 .fs-close { float: right; font: inherit; font-weight: 600; cursor: pointer; background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; }
 .fs-body { clear: both; }
 .fs-body .ans { max-height: none; overflow: visible; font-size: 15px; line-height: 1.6; }
+pre.sql-code { background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 11.5px; overflow-x: auto; white-space: pre-wrap; margin: 6px 0; color: var(--fg); }
 
 /* Smooth in-page jumps, but honour reduced-motion. */
 html { scroll-behavior: smooth; }
@@ -883,6 +884,41 @@ function armCardFor(b){ const r = runById(activeRunId); return (r && r.arm_cards
 function armTitle(b){ const c = armCardFor(b); return (c && c.title) || b; }
 function armShort(b){ const c = armCardFor(b); return (c && (c.short_title || c.title)) || b; }
 function bpShort(b){ return armShort(b); }
+function resolveCellSourcesHtml(run, cell){
+  if(!cell) return '';
+  if(cell.sources_html) return cell.sources_html;
+  var refs = cell.source_card_refs;
+  var pool = (run && run.source_card_pool) || [];
+  var diag = ((cell.sources || {}).diagnostics) || {};
+  var diagBits = [];
+  var diagMap = [['unresolved_refs','unresolved'],['unused_top_refs','unused top-level'],['nested_only_refs','nested only'],['malformed_tokens','malformed tokens']];
+  for(var d=0; d<diagMap.length; d++){
+    var k=diagMap[d][0], lbl=diagMap[d][1], vals=diag[k]||[];
+    if(vals.length){ diagBits.push(lbl+': '+vals.map(htmlEsc).join(', ')); }
+  }
+  if((!refs || !refs.length) && !diagBits.length) return '';
+  function buildCard(entry){
+    var idx = entry[0], sid = entry[1] || 'S1', cite = entry[2] || '?', chart = entry[3] || cite;
+    var tpl = pool[idx] || '';
+    return tpl.replace('<b>__SID__</b>', '<b>'+htmlEsc(sid)+'</b>')
+              .replace('__CITE_CHART__', 'cite ['+htmlEsc(cite)+'] · chart ['+htmlEsc(chart)+'] ');
+  }
+  var shown = (refs || []).slice(0, 5).map(buildCard).join('');
+  var more = '';
+  if(refs && refs.length > 5){
+    more = "<details class='source-more'><summary>show all sources</summary>" + refs.slice(5).map(buildCard).join('') + "</details>";
+  }
+  var diagHtml = diagBits.length ? ("<div class='source-diag'>" + diagBits.join(' · ') + "</div>") : "";
+  return "<section class='sources'><div class='sources-title'>Evidence Used</div><div class='source-grid'>" + shown + "</div>" + more + diagHtml + "</section>";
+}
+function resolveCellRefsHtml(run, cell){
+  if(!cell) return '';
+  if(cell.refs_html) return cell.refs_html;
+  if(cell.refs_pool_id != null && run && run.refs_pool && run.refs_pool[cell.refs_pool_id]){
+    return run.refs_pool[cell.refs_pool_id];
+  }
+  return '';
+}
 function bpNiceCeil(v){ if(v<=0) return 1; var p=Math.pow(10,Math.floor(Math.log10(v))); var f=v/p; var nf=f<=1?1:(f<=2?2:(f<=5?5:10)); return nf*p; }
 function bpFmt(v){ v=Math.round(v); return v>=1000?((v/1000).toFixed(v>=10000?0:1)+'k'):String(v); }
 // Box plot with a ROBUST, outlier-clipped y-axis (UX research: clip to the Tukey
@@ -978,6 +1014,7 @@ function classifyScenario(sid, turns){
 
 function plainArmRoleDesc(b){
   var c = armCardFor(b) || {};
+  if(c.path && c.path !== c.title && c.path !== b) return c.path;
   if(c.kind === 'single'){
     var m0 = (c.models || [])[0] || {};
     var mq = [m0.family, m0.params, m0.quant].filter(Boolean).join(' ');
@@ -1553,12 +1590,14 @@ function openScenarioDrawer(run, sid, initialTab){
       tabPaneHtml = turns.map(function(tn){
         var eCols = arms.map(function(b){
           var cell = (tn.cells || {})[b] || {};
+          var sh = resolveCellSourcesHtml(run, cell);
+          var rh = resolveCellRefsHtml(run, cell);
           return '<div class="sd-col">'
             + '<div class="sd-col-head"><b>' + htmlEsc(armShort(b)) + '</b></div>'
             + '<div class="chips" style="margin-bottom:8px">' + (cell.chips_html || '') + '</div>'
             + renderStageTimings(cell.stage_timings)
-            + (cell.sources_html || '<p class="mut" style="font-size:12px">No chart citations in this turn.</p>')
-            + (cell.refs_html || '')
+            + (sh || '<p class="mut" style="font-size:12px">No chart citations in this turn.</p>')
+            + rh
             + '</div>';
         }).join('');
         return '<div class="sd-turn-block">'
@@ -1846,11 +1885,13 @@ function judgeHeatmap(run){
 function judgePassLines(run, sid, arm){
   var passes=run.judge_passes||{}, ids=Object.keys(passes); if(ids.length<2) return '';
   var cards={}; (((run.judging||{}).cards)||[]).forEach(function(c){ cards[c.actor_id]=c; });
+  var recRow=((run.judge_rows||[]).filter(function(x){return x.scenario_id===sid&&x.backend_id===arm;})[0])||{};
   var out='<div class="jh-passes"><b>Each pass:</b><ul>';
   ids.forEach(function(a){
     var r=(passes[a]||[]).filter(function(x){return x.scenario_id===sid&&x.backend_id===arm;})[0]; if(!r) return;
     var who=cards[a]?judgeCardLine(cards[a]):a;
-    out+='<li><code>'+htmlEsc(a)+'</code> ('+htmlEsc(who)+'): '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+' · '+htmlEsc(r.abstention_outcome||'')+' · '+htmlEsc(r.citation_groundedness||'')+(r.harm?' · HARM':'')+(r.note?' — '+htmlEsc(r.note):'')+'</li>';
+    var noteTxt=(r.note!==undefined)?r.note:(recRow.note||'');
+    out+='<li><code>'+htmlEsc(a)+'</code> ('+htmlEsc(who)+'): '+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+' · '+htmlEsc(r.abstention_outcome||'')+' · '+htmlEsc(r.citation_groundedness||'')+(r.harm?' · HARM':'')+(noteTxt?' — '+htmlEsc(noteTxt):'')+'</li>';
   });
   return out+'</ul></div>';
 }
@@ -2280,12 +2321,12 @@ function buildTile(run, backend, cell, turn, scenarioId){
       if (tile._evidenceLoaded) return;
       tile._evidenceLoaded = true;
       const evWrap = el('div');
-      evWrap.innerHTML = (cell.sources_html || '') + (cell.refs_html || '');
+      evWrap.innerHTML = resolveCellSourcesHtml(run, cell) + resolveCellRefsHtml(run, cell);
       while (evWrap.firstChild) body.appendChild(evWrap.firstChild);
     };
   } else {
     body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' +
-                     cell.blocks_html + (cell.sources_html || '') + cell.refs_html;
+                     (cell.blocks_html || '') + resolveCellSourcesHtml(run, cell) + resolveCellRefsHtml(run, cell);
     body.querySelectorAll('details.reviewdraft[open]').forEach(d => { d.open = false; });
   }
   tile.appendChild(body);
