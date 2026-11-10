@@ -39,9 +39,12 @@ from ..metadata import utc_now_iso
 from .reconcile import cell_benchmark_score
 
 __all__ = [
+    "ERROR_SOURCES",
     "sample_cells",
     "weighted_kappa",
     "agreement",
+    "inter_rater_agreement",
+    "judge_disagreements",
     "ppi_benchmark",
     "adjudication_record",
     "run_adjudication",
@@ -52,6 +55,16 @@ __all__ = [
 # Ordinal axes scored 0-10 by both judge and human; the axes kappa is computed over.
 _ORDINAL_AXES = ("accuracy", "completeness", "relevance")
 _Z_95 = 1.959963984540054  # two-sided 95% normal quantile
+
+# 3-Party Error Taxonomy (OHS AI Evals WG: Model x Clinician/Rater x Guideline/Chart).
+ERROR_SOURCES = (
+    "none",
+    "model_error",
+    "chart_artifact",
+    "guideline_ambiguity",
+    "rater_dispute",
+    "clinician_baseline_error",
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -252,7 +265,9 @@ def weighted_kappa(a: list[int], b: list[int], max_score: int = 10) -> float:
 # 3. agreement — per-axis + overall kappa on the reviewed cells
 # --------------------------------------------------------------------------- #
 def agreement(judge_rows: list[dict[str, Any]],
-              adj_rows: list[dict[str, Any]]) -> dict[str, Any]:
+              adj_rows: list[dict[str, Any]],
+              *,
+              human_ceiling: dict[str, Any] | None = None) -> dict[str, Any]:
     """Per-axis (accuracy/completeness/relevance) + overall linearly-weighted kappa
     between the judge and the human, matched on the cells the human reviewed.
 
@@ -260,6 +275,8 @@ def agreement(judge_rows: list[dict[str, Any]],
     (scenario_id, backend_id). Only cells present in BOTH and carrying an integer score
     on a given axis contribute to that axis. `overall` pools all axes into one kappa.
     Axes with <1 paired observation are None.
+    If `human_ceiling` (from `inter_rater_agreement`) is supplied with a positive
+    overall kappa, `ceiling_normalized_overall` reports judge_kappa / human_human_kappa.
     """
     jindex = {_cell_id(r): r for r in judge_rows}
 
@@ -285,7 +302,106 @@ def agreement(judge_rows: list[dict[str, Any]],
         all_h.extend(hs)
     out["overall"] = weighted_kappa(all_j, all_h) if all_j else None
     out["n"] = len({_cell_id(a) for a in adj_rows if _cell_id(a) in jindex})
+    if human_ceiling is not None:
+        ceil_ov = human_ceiling.get("overall")
+        if isinstance(ceil_ov, (int, float)) and ceil_ov > 0 and out["overall"] is not None:
+            out["ceiling_normalized_overall"] = round(out["overall"] / float(ceil_ov), 4)
+        else:
+            out["ceiling_normalized_overall"] = None
     return out
+
+
+def inter_rater_agreement(adj_rows_a: list[dict[str, Any]],
+                          adj_rows_b: list[dict[str, Any]]) -> dict[str, Any]:
+    """Human-vs-human inter-rater linearly-weighted kappa across ordinal axes plus
+    binary harm agreement rate on co-reviewed cells.
+
+    Serves as the empirical upper bound (ceiling) for judge-vs-human agreement.
+    """
+    b_index = {_cell_id(r): r for r in adj_rows_b}
+    paired: dict[str, tuple[list[int], list[int]]] = {ax: ([], []) for ax in _ORDINAL_AXES}
+    harm_pairs: list[tuple[bool, bool]] = []
+    matched_ids: set[tuple[Any, Any]] = set()
+
+    for ra in adj_rows_a:
+        cid = _cell_id(ra)
+        rb = b_index.get(cid)
+        if rb is None:
+            continue
+        matched_ids.add(cid)
+        axes_a = ra.get("axes", {})
+        axes_b = rb.get("axes", {})
+        for ax in _ORDINAL_AXES:
+            va, vb = axes_a.get(ax), axes_b.get(ax)
+            if _is_int(va) and _is_int(vb):
+                paired[ax][0].append(int(va))
+                paired[ax][1].append(int(vb))
+        if isinstance(ra.get("harm"), bool) and isinstance(rb.get("harm"), bool):
+            harm_pairs.append((bool(ra["harm"]), bool(rb["harm"])))
+
+    out: dict[str, Any] = {}
+    all_a: list[int] = []
+    all_b: list[int] = []
+    for ax in _ORDINAL_AXES:
+        as_, bs_ = paired[ax]
+        out[ax] = weighted_kappa(as_, bs_) if as_ else None
+        all_a.extend(as_)
+        all_b.extend(bs_)
+    out["overall"] = weighted_kappa(all_a, all_b) if all_a else None
+    out["harm_agreement_rate"] = (
+        round(sum(1 for ha, hb in harm_pairs if ha == hb) / len(harm_pairs), 4)
+        if harm_pairs else None
+    )
+    out["n"] = len(matched_ids)
+    return out
+
+
+def judge_disagreements(judge_rows: list[dict[str, Any]],
+                        adj_rows: list[dict[str, Any]],
+                        *,
+                        min_score_delta: float = 15.0) -> list[dict[str, Any]]:
+    """Return cells where the LLM judge and human adjudicator diverge on safety (`harm`)
+    or by >= `min_score_delta` points on the 0-100 Benchmark composite.
+
+    Used in the Loop-2 judge calibration workflow to inspect human rationales and
+    3-party `error_source` tags where the autorater disagrees with clinical experts.
+    """
+    jindex = {_cell_id(r): r for r in judge_rows}
+    disagreements: list[dict[str, Any]] = []
+    for adj in adj_rows:
+        cid = _cell_id(adj)
+        jr = jindex.get(cid)
+        if jr is None:
+            continue
+        j_score = cell_benchmark_score(jr)
+        h_score = _human_cell_score(adj)
+        j_harm = bool(jr.get("harm"))
+        h_harm = bool(adj.get("harm")) if adj.get("harm") is not None else j_harm
+        harm_mismatch = j_harm != h_harm
+        delta = (h_score - j_score) if (j_score is not None and h_score is not None) else None
+        if harm_mismatch or (delta is not None and abs(delta) >= min_score_delta):
+            disagreements.append({
+                "scenario_id": cid[0],
+                "backend_id": cid[1],
+                "judge_score": j_score,
+                "human_score": h_score,
+                "delta": round(delta, 2) if delta is not None else None,
+                "harm_mismatch": harm_mismatch,
+                "judge_harm": j_harm,
+                "human_harm": h_harm,
+                "judge_note": jr.get("note", "") or "",
+                "human_note": adj.get("note", "") or "",
+                "error_source": adj.get("error_source"),
+            })
+    disagreements.sort(
+        key=lambda d: (
+            not d["harm_mismatch"],
+            -(abs(d["delta"]) if d["delta"] is not None else -1.0),
+            str(d["scenario_id"]),
+            str(d["backend_id"]),
+        )
+    )
+    return disagreements
 
 
 # --------------------------------------------------------------------------- #
@@ -397,6 +513,7 @@ def adjudication_record(*, scenario_id: str, backend_id: str, reviewer_id: str,
                         completeness: int | None = None, relevance: int | None = None,
                         harm: bool | None = None, note: str = "",
                         judged_at: str | None = None,
+                        error_source: str | None = None,
                         **extra_axes: Any) -> dict[str, Any]:
     """One human-reviewed cell — the row written to `adjudication.jsonl`.
 
@@ -412,6 +529,7 @@ def adjudication_record(*, scenario_id: str, backend_id: str, reviewer_id: str,
         harm,                              # the human's boolean safety call
         note,                              # free-text rationale
         judged_at,                         # ISO timestamp (None until persisted)
+        error_source?,                     # optional 3-party taxonomy tag (ERROR_SOURCES)
       }
 
     reviewer_tier is validated against the three-tier escalation ladder so a bad value
@@ -420,6 +538,9 @@ def adjudication_record(*, scenario_id: str, backend_id: str, reviewer_id: str,
     if reviewer_tier not in {"owner", "domain", "clinical"}:
         raise ValueError(
             f"reviewer_tier must be owner|domain|clinical, got {reviewer_tier!r}")
+    if error_source is not None and error_source not in ERROR_SOURCES:
+        raise ValueError(
+            f"error_source must be one of {ERROR_SOURCES}, got {error_source!r}")
 
     axes: dict[str, Any] = {}
     if accuracy is not None:
@@ -430,7 +551,7 @@ def adjudication_record(*, scenario_id: str, backend_id: str, reviewer_id: str,
         axes["relevance"] = relevance
     axes.update(extra_axes)  # re-graded categorical defects, if any
 
-    return {
+    out: dict[str, Any] = {
         "scenario_id": scenario_id,
         "backend_id": backend_id,
         "reviewer_id": reviewer_id,
@@ -440,6 +561,9 @@ def adjudication_record(*, scenario_id: str, backend_id: str, reviewer_id: str,
         "note": note,
         "judged_at": judged_at,
     }
+    if error_source is not None:
+        out["error_source"] = error_source
+    return out
 
 
 def _is_int(v: Any) -> bool:
@@ -459,10 +583,12 @@ def _resolve_snapshot(snapshot_file: Any, run_dir: Path) -> str:
     return candidate.read_text(encoding="utf-8") if candidate.is_file() else ""
 
 
-def present_cell(cell: dict[str, Any], judge: dict[str, Any], run_dir: Path) -> str:
+def present_cell(cell: dict[str, Any], judge: dict[str, Any], run_dir: Path,
+                 *, blind: bool = False) -> str:
     """The reviewer-facing rendering of one cell: the turn question(s), the model's
-    answer_section, the chart ground truth, and the judge's scores + note. Returned as
-    a single string so it can be printed (interactive) or captured (tests)."""
+    answer_section, the chart ground truth, and (unless `blind=True`) the judge's
+    scores + note. Returned as a single string so it can be printed (interactive)
+    or captured (tests)."""
     sid, bid = cell.get("scenario_id"), cell.get("backend_id")
     lines = [
         "=" * 72,
@@ -486,24 +612,64 @@ def present_cell(cell: dict[str, Any], judge: dict[str, Any], run_dir: Path) -> 
     lines.append(snap.rstrip() if snap else "  (snapshot unavailable)")
     lines.append("")
     lines.append("JUDGE:")
-    lines.append(
-        f"  accuracy={judge.get('accuracy')} completeness={judge.get('completeness')} "
-        f"relevance={judge.get('relevance')} harm={judge.get('harm')} "
-        f"benchmark={cell_benchmark_score(judge)}")
-    if judge.get("note"):
-        lines.append(f"  note: {judge['note']}")
+    if blind:
+        lines.append("  [BLIND REVIEW MODE — LLM judge scores hidden until human scores are locked]")
+    else:
+        lines.append(
+            f"  accuracy={judge.get('accuracy')} completeness={judge.get('completeness')} "
+            f"relevance={judge.get('relevance')} harm={judge.get('harm')} "
+            f"benchmark={cell_benchmark_score(judge)}")
+        if judge.get("note"):
+            lines.append(f"  note: {judge['note']}")
     lines.append("=" * 72)
     return "\n".join(lines)
 
 
 def _prompt_adjudication(judge: dict[str, Any], present: str,
                          input_fn: Callable[[str], str],
-                         print_fn: Callable[[str], None]) -> dict[str, Any]:
-    """Interactively grade one cell. Enter on the summary line ACCEPTS the judge's
-    scores wholesale; otherwise each axis is prompted with the judge's value as the
-    default (blank keeps it). Returns an answer dict in the same shape the
-    non-interactive `answers` map uses."""
+                         print_fn: Callable[[str], None],
+                         *, blind: bool = False) -> dict[str, Any]:
+    """Interactively grade one cell.
+
+    When `blind=False` (default): Enter on the summary line ACCEPTS the judge's scores
+    wholesale; otherwise each axis is prompted with the judge's value as the default.
+    When `blind=True` (prospective anti-anchoring mode): prompts each axis without
+    showing judge defaults, locks the human grade, and then reveals the LLM judge's
+    score and rationale for comparison.
+    """
     print_fn(present)
+    if blind:
+        def _ask_blind_axis(name: str) -> int:
+            raw = input_fn(f"  {name} (0-10): ").strip()
+            try:
+                return max(0, min(10, int(raw)))
+            except ValueError:
+                return 5
+
+        acc = _ask_blind_axis("accuracy")
+        comp = _ask_blind_axis("completeness")
+        rel = _ask_blind_axis("relevance")
+        harm_raw = input_fn("  harm? (y/n) [n]: ").strip().lower()
+        harm = harm_raw.startswith("y")
+        err_raw = input_fn(
+            f"  error_source ({'|'.join(ERROR_SOURCES)}) [optional]: "
+        ).strip().lower()
+        err_src = err_raw if err_raw in ERROR_SOURCES else None
+        note = input_fn("  note (optional): ").strip()
+        print_fn(
+            f"  [REVEAL JUDGE] accuracy={judge.get('accuracy')} "
+            f"completeness={judge.get('completeness')} relevance={judge.get('relevance')} "
+            f"harm={judge.get('harm')} benchmark={cell_benchmark_score(judge)}"
+            + (f" | note: {judge.get('note')}" if judge.get("note") else "")
+        )
+        out: dict[str, Any] = {
+            "accuracy": acc, "completeness": comp, "relevance": rel,
+            "harm": harm, "note": note,
+        }
+        if err_src is not None:
+            out["error_source"] = err_src
+        return out
+
     resp = input_fn(
         "ENTER to accept judge's scores, or 'e' to adjust per-axis: ").strip().lower()
     if resp not in {"e", "edit", "a", "adjust"}:
@@ -558,6 +724,7 @@ def _answer_to_record(cell: dict[str, Any], judge: dict[str, Any],
         relevance=_axis("relevance"),
         harm=bool(harm),
         note=answer.get("note", "") or "",
+        error_source=answer.get("error_source"),
         judged_at=utc_now_iso(),
     )
 
@@ -566,6 +733,7 @@ def run_adjudication(*, run_dir: Path | str, mode: str, reviewer_id: str,
                      reviewer_tier: str, n: int | None = None, seed: int = 0,
                      answers: dict[str, dict[str, Any]] | None = None,
                      judge_path: Path | str | None = None,
+                     blind: bool = False,
                      input_fn: Callable[[str], str] = input,
                      print_fn: Callable[[str], None] = print) -> int:
     """Drive a guided-adjudication review over a completed run.
@@ -581,7 +749,7 @@ def run_adjudication(*, run_dir: Path | str, mode: str, reviewer_id: str,
         defaults to the judge's value (== accept the judge). A cell with no matching
         answer entry is skipped. This is the scripted/test entry.
       - INTERACTIVE (answers is None): each not-yet-reviewed sampled cell is presented
-        and the reviewer accepts or adjusts via input_fn.
+        and the reviewer accepts or adjusts via input_fn (or grades blind when `blind=True`).
 
     Returns the count of NEW adjudication records written this call.
     """
@@ -613,8 +781,8 @@ def run_adjudication(*, run_dir: Path | str, mode: str, reviewer_id: str,
                 if answer is None:
                     continue  # no scripted grade for this cell -> skip
             else:
-                present = present_cell(cell, judge, run_dir)
-                answer = _prompt_adjudication(judge, present, input_fn, print_fn)
+                present = present_cell(cell, judge, run_dir, blind=blind)
+                answer = _prompt_adjudication(judge, present, input_fn, print_fn, blind=blind)
 
             record = _answer_to_record(cell, judge, answer, reviewer_id, reviewer_tier)
             fh.write(json.dumps(record) + "\n")

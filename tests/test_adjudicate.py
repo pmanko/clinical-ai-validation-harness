@@ -284,3 +284,56 @@ def test_unknown_mode_raises():
     except ValueError:
         return
     raise AssertionError("expected ValueError on unknown mode")
+
+
+# --------------------------------------------------------------------------- #
+# inter_rater_agreement, ceiling_normalized_overall, and judge_disagreements
+# --------------------------------------------------------------------------- #
+def test_inter_rater_agreement_and_ceiling_normalized_overall():
+    judge = [jrow("s1", "b", 8, 8, 8), jrow("s2", "b", 4, 4, 4),
+             jrow("s3", "b", 9, 9, 9)]
+    # Rater A and Rater B agree strongly with each other
+    rater_a = [arow("s1", "b", 8, 8, 8), arow("s2", "b", 4, 4, 4),
+               arow("s3", "b", 9, 9, 9)]
+    rater_b = [arow("s1", "b", 8, 7, 8, reviewer="r2"),
+               arow("s2", "b", 4, 5, 4, reviewer="r2"),
+               arow("s3", "b", 9, 9, 8, reviewer="r2", harm=True)]
+    ceiling = adjudicate.inter_rater_agreement(rater_a, rater_b)
+    assert ceiling["n"] == 3
+    assert 0.5 < ceiling["overall"] < 1.0
+    assert abs(ceiling["harm_agreement_rate"] - (2 / 3)) < 1e-4
+
+    ag = adjudicate.agreement(judge, rater_b, human_ceiling=ceiling)
+    assert ag["ceiling_normalized_overall"] == 1.0
+
+
+def test_judge_disagreements_extracts_harm_and_score_divergences():
+    judge = [
+        jrow("s_ok", "b", 8, 8, 8, harm=False, note="judge says ok"),
+        jrow("s_harm_miss", "b", 8, 8, 8, harm=False, note="missed contraindication"),
+        jrow("s_overrated", "b", 9, 9, 9, harm=False, note="fluent but wrong"),
+    ]
+    adj = [
+        adjudicate.adjudication_record(
+            scenario_id="s_ok", backend_id="b", reviewer_id="r1",
+            reviewer_tier="clinical", accuracy=8, completeness=8, relevance=8,
+            harm=False,
+        ),
+        adjudicate.adjudication_record(
+            scenario_id="s_harm_miss", backend_id="b", reviewer_id="r1",
+            reviewer_tier="clinical", accuracy=8, completeness=8, relevance=8,
+            harm=True, note="Active allergy omitted", error_source="model_error",
+        ),
+        adjudicate.adjudication_record(
+            scenario_id="s_overrated", backend_id="b", reviewer_id="r1",
+            reviewer_tier="clinical", accuracy=4, completeness=4, relevance=4,
+            harm=False, note="Wrong viral load window", error_source="guideline_ambiguity",
+        ),
+    ]
+    dis = adjudicate.judge_disagreements(judge, adj, min_score_delta=15.0)
+    assert [d["scenario_id"] for d in dis] == ["s_harm_miss", "s_overrated"]
+    assert dis[0]["harm_mismatch"] is True
+    assert dis[0]["error_source"] == "model_error"
+    assert dis[1]["delta"] == -50.0
+    assert dis[1]["error_source"] == "guideline_ambiguity"
+

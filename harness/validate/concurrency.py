@@ -5,8 +5,9 @@ enforces ``chartsearchai.rateLimitPerMinute`` per user. To measure true
 multi-session clinical concurrency (``N=1, 2, 4`` simultaneous clinicians)
 without conversation preemption or artificial single-account rate-limit
 throttling, each concurrent worker uses a distinct provisioned OpenMRS clinical
-account (``eval-doctor``, ``eval-nurse``, ``eval-pharmacy``, ``eval-clerk``,
-``eval-lab``, ``eval-researcher``, ``admin``) and scenario patient.
+account (``eval-doctor``, ``eval-nurse``, ``eval-pharmacy``,
+``eval-clinical-officer``, ``eval-counsellor``, ``eval-records``, ``eval-peer``,
+``admin``) and scenario patient.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import inspect
 import json
+import os
 from pathlib import Path
 import threading
 import time
@@ -35,12 +37,13 @@ from .resolver import resolve_backends
 from .runner import resolve_hardware_metadata
 
 DEFAULT_CLINICAL_ACCOUNTS: tuple[tuple[str, str], ...] = (
-    ("eval-doctor", "Doc123456"),
-    ("eval-nurse", "Nur123456"),
-    ("eval-pharmacy", "Pha123456"),
-    ("eval-clerk", "Clk123456"),
-    ("eval-lab", "Lab123456"),
-    ("eval-researcher", "Res123456"),
+    ("eval-doctor", "Admin123"),
+    ("eval-nurse", "Admin123"),
+    ("eval-pharmacy", "Admin123"),
+    ("eval-clinical-officer", "Admin123"),
+    ("eval-counsellor", "Admin123"),
+    ("eval-records", "Admin123"),
+    ("eval-peer", "Admin123"),
     ("admin", "Admin123"),
 )
 
@@ -67,7 +70,8 @@ def _p95(vals: list[float]) -> float | None:
 
 
 def _default_client_factory(user: str, password: str) -> ChartSearchAiClient:
-    return ChartSearchAiClient(user=user, password=password, min_interval_s=0.0)
+    eff_password = os.environ.get("EVALUATION_PASSWORD") or password
+    return ChartSearchAiClient(user=user, password=eff_password, min_interval_s=0.0)
 
 
 def _make_transport_client_factory(

@@ -353,3 +353,34 @@ def test_interactive_edit_clamps_and_ignores_garbage_axis(tmp_path):
     assert rec["axes"]["completeness"] == 7       # "abc" unpar. -> judge default
     assert rec["axes"]["relevance"] == 0          # -4 clamped up to 0
     assert rec["harm"] is False                   # blank kept the judge's value
+
+
+def test_blind_mode_hides_judge_during_grading_and_reveals_after_lock(tmp_path):
+    run_dir = _write_run(tmp_path)
+    printed: list[str] = []
+    # Blind mode prompts: accuracy, completeness, relevance, harm, error_source, note
+    inputs = iter(["6", "5", "7", "y", "model_error", "blind clinician assessment"])
+    written = adjudicate.run_adjudication(
+        run_dir=run_dir, mode="full", reviewer_id="ross", reviewer_tier="clinical",
+        answers=None, blind=True,
+        input_fn=lambda prompt: next(inputs),
+        print_fn=printed.append,
+    )
+    assert written == 1
+    assert "BLIND REVIEW MODE" in printed[0]
+    assert "accuracy=8 completeness=7" not in printed[0]
+    assert any("[REVEAL JUDGE] accuracy=8 completeness=7" in p for p in printed[1:])
+    rec = _read_adj(run_dir)[0]
+    assert rec["axes"] == {"accuracy": 6, "completeness": 5, "relevance": 7}
+    assert rec["harm"] is True
+    assert rec["error_source"] == "model_error"
+    assert rec["note"] == "blind clinician assessment"
+
+
+def test_adjudication_record_rejects_bad_error_source():
+    with pytest.raises(ValueError, match="error_source"):
+        adjudicate.adjudication_record(
+            scenario_id="s1", backend_id="b1", reviewer_id="r1",
+            reviewer_tier="clinical", accuracy=8, error_source="invalid_source",
+        )
+

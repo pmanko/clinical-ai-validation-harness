@@ -73,12 +73,7 @@ def test_report_has_pdf_button_print_styles_and_feedback_seam(tmp_path):
     assert "id='print-pdf'" in html            # the PDF button
     assert "window.print()" in html            # wired to browser print/save-as-PDF
     assert "@media print" in html              # print stylesheet
-    assert "FEEDBACK_ENDPOINT" in html         # feedback seam: optional endpoint
-    assert "function submit(" in html          # POST-or-download helper
-    assert "function download(" in html        # download kept as the fallback
-    # the exports route THROUGH submit (so a configured endpoint actually captures them)
-    assert "submit(out.join" in html                # collectFeedback -> submit
-    assert "submit(JSON.stringify(payload" in html  # exportRankings -> submit
+    assert "id='theme-toggle'" in html         # theme toggle remains accessible
 
 
 def test_report_renders_markdown_answer_headings_as_html(tmp_path):
@@ -389,34 +384,20 @@ def test_report_topbar_has_data_derived_identity_not_generic_h1(tmp_path):
     # the header identity reflects the actual run rather than a constant string.
     assert "function buildTitle(" in html
     assert "dataset_id" in html  # already present for run-meta; title reuses it
-    # The export/feedback actions are relocated into a single subdued overflow menu
-    # (progressive disclosure) — a labelled disclosure, not three top-row buttons.
-    assert "id='export-menu'" in html
+    assert "id='print-pdf'" in html
+    assert "id='theme-toggle'" in html
 
 
 def test_report_export_actions_live_in_overflow_menu_and_stay_wired(tmp_path):
-    # De-emphasis: the rarely-used rankings/feedback exports + the reviewer-email input
-    # move OUT of the prominent control row into one overflow menu, but the wired ids
-    # (and their JS handlers) are preserved so the adjudication/ranking machinery works.
+    # Read-only publication report keeps print-pdf and theme-toggle in topbar and removes
+    # legacy client-side adjudication/ranking export forms.
     run_dir = tmp_path / "run"
     _write_run(run_dir, [_result("gemma-local", "ans", [])])
     html = build_report(run_dir).read_text(encoding="utf-8")
 
-    # The overflow menu container wraps the three secondary actions + the email input.
-    menu = re.search(r"id='export-menu'.*?</details>", html, re.DOTALL)
-    assert menu is not None, "expected an <details id='export-menu'> overflow menu"
-    menu_html = menu.group(0)
-    for wired in ("id='reset-rank'", "id='export-rankings'", "id='export-feedback'", "id='rev'"):
-        assert wired in menu_html, f"{wired} must live inside the overflow menu"
-    # The handlers are still wired (ids unchanged) — machinery intact.
-    assert "getElementById('reset-rank').addEventListener" in html
-    assert "getElementById('export-rankings').addEventListener" in html
-    assert "getElementById('export-feedback').addEventListener" in html
-    # Download PDF + theme toggle remain readily accessible (NOT inside the overflow menu).
+    assert "id='export-menu'" not in html
     assert "id='print-pdf'" in html
-    assert "id='print-pdf'" not in menu_html
     assert "id='theme-toggle'" in html
-    assert "id='theme-toggle'" not in menu_html
 
 
 def test_report_dense_legends_are_structured_definition_lists(tmp_path):
@@ -582,4 +563,50 @@ def test_report_renders_executive_summary_results_first_and_tile_judge_pills(tmp
     assert "../index.html" in html
     assert html.index("'sec-quality'") < html.index("'sec-arms'")
     assert html.index("'sec-answers'") < html.index("'sec-arms'")
+
+
+def test_report_embeds_hardware_streaming_latency_and_concurrency_runs(tmp_path):
+    run_dir = tmp_path / "run"
+    row = _result("gemma-local", "ans b", [])
+    row["metrics"]["ttft_ms"] = 1650
+    row["metrics"]["answer_done_ms"] = 5500
+    row["metrics"]["turn_done_ms"] = 5520
+    row["metrics"]["tpot_ms"] = 11.3
+    _write_run(run_dir, [row])
+    (run_dir / "run_meta.json").write_text(
+        json.dumps(
+            {
+                "hardware": {
+                    "tier": "gpu_server",
+                    "gpu": "Shared 24 GB Cloud GPU Server (24 GB VRAM)",
+                    "vram_gb": 24,
+                    "serving_engine": "Ollama (gemma4:12b Q4_K_M, 16k–24k context)",
+                    "parallel_slots": 4,
+                    "concurrency_runs": [
+                        {
+                            "backend_id": "gemma-local",
+                            "n_users": 4,
+                            "throughput_turns_per_min": 12.96,
+                            "goodput_rate": 0.5,
+                            "goodput_turns_per_min": 6.48,
+                            "ttft_p50_ms": 4259.0,
+                            "turn_1_ttft_p50_ms": 5268.0,
+                            "turn_2plus_ttft_p50_ms": 3170.5,
+                            "answer_done_p50_ms": 10600.0,
+                            "tpot_p50_ms": 7.5,
+                            "error_rate": 0.0,
+                        }
+                    ],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    assert "Hardware & serving configuration" in html
+    assert "Streaming latency breakdown (TTFT · Answer-Done · Turn-Done · TPOT)" in html
+    assert "Multi-clinician session concurrency (N=1, 2, 4) & SLO goodput" in html
+    assert "Shared 24 GB Cloud GPU Server (24 GB VRAM)" in html
+    assert "12.96" in html
+
 

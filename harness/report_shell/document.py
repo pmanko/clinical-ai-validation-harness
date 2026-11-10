@@ -31,9 +31,11 @@ def render_document(
     embedded_data: dict[str, Any],
     style: str | None = None,
     script: str | None = None,
+    external_css_href: str | None = None,
+    external_js_src: str | None = None,
     theme_storage_key: str = "oc-theme-report",
 ) -> str:
-    """Return a self-contained HTML5 document.
+    """Return a self-contained HTML5 document (or external-shell document when href/src provided).
 
     Owns the doctype/html skeleton, theme CSS variables (via default ``style``),
     early theme bootstrap, the ``#report-data`` JSON island, and theme-toggle JS
@@ -50,12 +52,22 @@ def render_document(
     # (some reports place a btn-ghost toggle in their topbar).
     if "id='theme-toggle'" not in body_html and 'id="theme-toggle"' not in body_html:
         body_html = THEME_TOGGLE_BUTTON_HTML + body_html
+    style_tag = (
+        f"<link rel='stylesheet' href='{external_css_href}'>"
+        if external_css_href
+        else f"<style>{css}</style>"
+    )
+    script_tag = (
+        f"<script src='{external_js_src}'></script>"
+        if external_js_src
+        else f"<script>{js}</script>"
+    )
     return (
         "<!doctype html><html data-theme='light'><head><meta charset='utf-8'>"
-        f"<title>{title}</title><style>{css}</style>"
+        f"<title>{title}</title>{style_tag}"
         f"<script>{theme_bootstrap_js(theme_storage_key)}</script></head>"
         f"<body>{body_html}"
         f"<script type='application/json' id='report-data'>{embed_json(embedded_data)}</script>"
-        f"<script>{js}</script>"
+        f"{script_tag}"
         "</body></html>"
     )

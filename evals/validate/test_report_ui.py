@@ -241,9 +241,9 @@ def test_summary_label_is_escaped_not_injected(tmp_path):
     assert imgs == 0, "summary label injected a live <img> element instead of escaped text"
 
 
-def test_adjudication_radios_are_unique_per_tile(tmp_path):
-    """Each tile's pass/fail radios must be their own group — a single global name='decision'
-    makes picking pass in one tile deselect another."""
+def test_tile_renders_readonly_eval_footer_without_legacy_radios(tmp_path):
+    """Each tile renders a read-only .tile-eval-footer with deterministic/judge/human pills
+    and no legacy pass/fail radio inputs."""
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, ["a", "b"])
@@ -252,11 +252,92 @@ def test_adjudication_radios_are_unique_per_tile(tmp_path):
         b = p.chromium.launch()
         try:
             page = _page(b, uri)
-            names = page.evaluate(
-                "[...document.querySelectorAll('.tile')]"
-                ".map(t => { const r = t.querySelector('input[type=radio]'); return r ? r.name : null; })"
-                ".filter(Boolean)")
+            footers = page.evaluate("document.querySelectorAll('.tile .tile-eval-footer').length")
+            radios = page.evaluate("document.querySelectorAll('.tile input[type=radio]').length")
         finally:
             b.close()
-    assert len(names) >= 2 and len(set(names)) == len(names), (
-        f"decision radios share a name across tiles (one global group): {names}")
+    assert footers >= 2
+    assert radios == 0
+
+
+def test_progressive_disclosure_tabs_and_scenario_drawer(tmp_path):
+    """Multi-scenario judged evaluations open into the Casual-First Overview tab (3 plain-English
+    blocks), with progressive disclosure tabs for Browse All Questions (+ Slide-Over Answer Reader),
+    Speed & Multi-User Scaling, and Methodology & Raw Data."""
+    sync_api = pytest.importorskip("playwright.sync_api")
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, ["single-12b", "team-12b"])
+    # Add a second scenario so multi-scenario progressive disclosure activates.
+    results_path = run_dir / "results.jsonl"
+    existing = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()]
+    for row in list(existing):
+        r2 = json.loads(json.dumps(row))
+        r2["scenario_id"] = "convo-medications-adherence"
+        r2["request"]["question"] = "What HIV medications is this patient currently taking?"
+        existing.append(r2)
+    results_path.write_text("".join(json.dumps(r) + "\n" for r in existing), encoding="utf-8")
+
+    judge_rows = [
+        {"scenario_id": "single-vitals-summary", "backend_id": "single-12b",
+         "accuracy": 9.5, "completeness": 9.0, "relevance": 9.5,
+         "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False,
+         "note": "Complete and accurate vitals summary."},
+        {"scenario_id": "single-vitals-summary", "backend_id": "team-12b",
+         "accuracy": 8.0, "completeness": 6.5, "relevance": 8.0,
+         "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False,
+         "note": "Missed earliest weight measurement."},
+        {"scenario_id": "convo-medications-adherence", "backend_id": "single-12b",
+         "accuracy": 9.0, "completeness": 9.0, "relevance": 9.0,
+         "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False,
+         "note": "Answered all follow-ups accurately."},
+        {"scenario_id": "convo-medications-adherence", "backend_id": "team-12b",
+         "accuracy": 7.5, "completeness": 6.0, "relevance": 5.5,
+         "abstention_outcome": "over-abstained", "citation_groundedness": "supported", "harm": False,
+         "note": "Over-abstained on follow-up turn."},
+    ]
+    (run_dir / "judge.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in judge_rows), encoding="utf-8"
+    )
+
+    uri = build_report(run_dir).resolve().as_uri()
+    with sync_api.sync_playwright() as p:
+        b = p.chromium.launch()
+        try:
+            page = b.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(uri)
+            page.wait_for_selector(".exec-summary")
+
+            # Layer 1: Overview is active by default, showing 3 visual blocks; deep-dive sections are hidden
+            active_tab = page.get_attribute("#report", "data-active-tab")
+            assert active_tab == "overview"
+            assert page.is_visible(".ov-banner-card")
+            assert page.is_visible(".ov-table-card")
+            assert page.is_visible(".ov-why-card")
+            assert not page.is_visible("#sec-answers")
+            assert not page.is_visible("#sec-engineering")
+
+            # Layer 2: Click 'Browse All Questions' tab -> Question Explorer is visible
+            page.click("button.rtab[data-tab='questions']")
+            page.wait_for_selector(".question-explorer", state="visible")
+            assert page.is_visible("#sec-answers")
+
+            # Click a row in Question Explorer -> opens Slide-Over Answer Reader (#scenario-drawer-backdrop.open)
+            page.click(".question-explorer tbody tr.qe-row >> nth=0")
+            page.wait_for_selector("#scenario-drawer-backdrop.open", state="visible")
+            drawer_text = page.text_content("#scenario-drawer-backdrop") or ""
+            assert "1. Side-by-Side Answers" in drawer_text
+            page.click("button[data-sd-tab='judge']")
+            assert "Reviewer Note:" in (page.text_content("#scenario-drawer-backdrop") or "")
+            page.click("#sd-close")
+
+            # Layer 3: Click 'Speed & Multi-User Scaling' tab
+            page.click("button.rtab[data-tab='speed']")
+            page.wait_for_selector(".speed-visual", state="visible")
+            assert page.is_visible("#sec-engineering")
+
+            # Layer 4: Click 'Methodology & Raw Data' tab
+            page.click("button.rtab[data-tab='methodology']")
+            page.wait_for_selector("#sec-quality", state="visible")
+            assert page.is_visible("#sec-arms")
+        finally:
+            b.close()
