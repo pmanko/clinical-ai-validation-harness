@@ -377,3 +377,265 @@ def test_run_judge_command_end_to_end_with_real_prep_finalize_and_aggregate(
     )
     assert run_judge_command(args_nonblind) == 0
 
+
+def _make_minimal_run(tmp_path: Path, name: str = "human-run") -> Path:
+    run_dir = tmp_path / name
+    run_dir.mkdir()
+    patient_uuid = "pt-1"
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": name,
+                "component": "chartsearchai",
+                "git_sha": "abcdef1234",
+                "dataset_id": "hiv-cohort",
+                "provider": "llamacpp",
+                "generated_at": "2026-11-10T12:00:00Z",
+                "reference_date": "2026-06-20",
+                "backends": ["arm-a"],
+                "patients": {
+                    patient_uuid: {
+                        "uuid": patient_uuid,
+                        "identifier": "1001",
+                        "display": "Demo Patient",
+                        "gender": "F",
+                        "age": 41,
+                        "chart_snapshot": "[1] (2026-05-10) Viral Load: 40 copies/mL\n",
+                        "mappings": [{"index": 1, "resourceType": "obs", "resourceUuid": "u-1"}],
+                        "valid_uuids": ["u-1"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "inputs" / "scenarios").mkdir(parents=True)
+    (run_dir / "inputs" / "charts").mkdir(parents=True)
+    (run_dir / "inputs" / "scenarios" / "S1.json").write_text(
+        json.dumps({"id": "S1", "patient_ref": patient_uuid, "turns": [{"question": "Latest viral load?"}]}),
+        encoding="utf-8",
+    )
+    (run_dir / "inputs" / "charts" / "pt-1.json").write_text(
+        json.dumps(
+            {
+                "patient": {"uuid": patient_uuid, "slug": "pt-1", "display": "Demo Patient"},
+                "chart_snapshot": "[1] (2026-05-10) Viral Load: 40 copies/mL\n",
+                "mappings": [{"index": 1, "resourceType": "obs", "resourceUuid": "u-1"}],
+                "valid_uuids": ["u-1"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    row = {
+        "run_id": name,
+        "scenario_id": "S1",
+        "turn": 1,
+        "backend_id": "arm-a",
+        "request": {"patient": patient_uuid, "question": "Latest viral load?"},
+        "response": {
+            "answer": "Viral load is 40 copies/mL on 2026-05-10 [1].",
+            "references": [{"index": 1, "resourceType": "obs", "resourceUuid": "u-1"}],
+        },
+        "metrics": {"latency_ms": 120, "http_status": 200, "json_valid": True, "citation_count": 1, "first_turn": True},
+    }
+    (run_dir / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    return run_dir
+
+
+def test_prepare_blind_session_dir_rejects_symlinked_charts_and_nested_symlinks(tmp_path: Path) -> None:
+    secret_dir = tmp_path / "secret_ssh"
+    secret_dir.mkdir()
+    (secret_dir / "id_rsa").write_text("PRIVATE_KEY_MARKER", encoding="utf-8")
+
+    bundle = tmp_path / "bundle.jsonl"
+    bundle.write_text(json.dumps({"scenario_id": "S1", "backend_id": "arm-a"}) + "\n", encoding="utf-8")
+
+    # Case 1: charts directory itself is a symlink to secret_dir
+    run_symlink_dir = tmp_path / "run_sym_dir"
+    run_symlink_dir.mkdir()
+    (run_symlink_dir / "charts").symlink_to(secret_dir, target_is_directory=True)
+    out_dir = tmp_path / "out1"
+    with pytest.raises(SystemExit, match="symlinked charts directory"):
+        _prepare_blind_session_dir(run_symlink_dir, out_dir, "judge", bundle)
+    assert not list(out_dir.rglob("id_rsa"))
+
+    # Case 2: real charts directory containing a nested file symlink outside run_dir
+    run_nested = tmp_path / "run_nested"
+    (run_nested / "charts").mkdir(parents=True)
+    (run_nested / "charts" / "leak.txt").symlink_to(secret_dir / "id_rsa")
+    out_dir2 = tmp_path / "out2"
+    with pytest.raises(SystemExit, match="symlinked file"):
+        _prepare_blind_session_dir(run_nested, out_dir2, "judge", bundle)
+    assert not list(out_dir2.rglob("leak.txt"))
+
+    # Case 3: real charts directory containing a nested subdirectory symlink
+    run_subdir_sym = tmp_path / "run_subdir_sym"
+    (run_subdir_sym / "charts").mkdir(parents=True)
+    (run_subdir_sym / "charts" / "sub").symlink_to(secret_dir, target_is_directory=True)
+    with pytest.raises(SystemExit, match="symlinked subdirectory"):
+        _prepare_blind_session_dir(run_subdir_sym, tmp_path / "out_sub", "judge", bundle)
+
+    # Case 4: bundle itself is a symlink
+    sym_bundle = tmp_path / "sym_bundle.jsonl"
+    sym_bundle.symlink_to(bundle)
+    run_clean = tmp_path / "run_clean"
+    run_clean.mkdir()
+    with pytest.raises(SystemExit, match="symlinked bundle"):
+        _prepare_blind_session_dir(run_clean, tmp_path / "out3", "judge", sym_bundle)
+
+
+def test_human_judge_workflow_persists_and_resumes_pending_pass(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_dir = _make_minimal_run(tmp_path)
+
+    def make_args() -> Namespace:
+        return Namespace(
+            run_dir=str(run_dir),
+            output_dir=None,
+            run_id=None,
+            work_dir=None,
+            judges=None,
+            judge_passes=1,
+            agent="human",
+            blind=False,
+            add=False,
+        )
+
+    # First invocation reserves pass 1, writes prompt, and exits 3
+    with pytest.raises(SystemExit) as exc1:
+        run_judge_command(make_args())
+    assert exc1.value.code == 3
+    out1 = capsys.readouterr().out
+    assert "judge.md" in out1 and "judge-p2.md" not in out1
+
+    pending_file = run_dir / "judges" / ".pending-human.json"
+    assert pending_file.is_file()
+    pending_data = json.loads(pending_file.read_text(encoding="utf-8"))
+    saved_out_dir = Path(pending_data["out_dir"])
+    answer_path = saved_out_dir / "judge.md"
+    assert (saved_out_dir / "judge.prompt.md").is_file()
+
+    # Second invocation before supplying answer still points to judge.md (does NOT reserve p2)
+    with pytest.raises(SystemExit) as exc2:
+        run_judge_command(make_args())
+    assert exc2.value.code == 3
+    out2 = capsys.readouterr().out
+    assert str(answer_path) in out2
+    assert "judge-p2.md" not in out2
+
+    # Supply valid verdict in judge.md and re-run -> finalizes pass 1 cleanly
+    verdict = [
+        {
+            "scenario_id": "S1",
+            "backend_id": "arm-a",
+            "accuracy": 10,
+            "completeness": 9,
+            "relevance": 10,
+            "abstention_outcome": "n-a",
+            "citation_groundedness": "supported",
+            "harm": False,
+            "note": "Verified manually against [1].",
+        }
+    ]
+    answer_path.write_text("Manual review complete.\n```json\n" + json.dumps(verdict, indent=2) + "\n```\n", encoding="utf-8")
+    assert run_judge_command(make_args()) == 0
+    assert not pending_file.exists()
+    assert (run_dir / "judge.jsonl").is_file()
+    assert (run_dir / "report-data.json").is_file()
+    manifests = list((run_dir / "judges").glob("*/manifest.json"))
+    assert len(manifests) == 1
+    manifest = json.loads(manifests[0].read_text(encoding="utf-8"))
+    assert manifest["actor_type"] == "human"
+    assert manifest["pass_index"] == 1
+
+
+def test_wheel_bundles_judge_modules_and_rubric_resources_outside_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+    import sys
+    import zipfile
+    import harness.validate.resources as res_mod
+
+    # Packaged markdown resources match checkout source-of-truth byte-for-byte
+    checkout_scoring = jr.HARNESS_ROOT / ".claude" / "skills" / "clinical-answer-scoring"
+    assert res_mod.read_judge_brief_bytes() == (checkout_scoring / "judge.md").read_bytes()
+    assert res_mod.read_rubric_bytes() == (checkout_scoring / "rubric.md").read_bytes()
+
+    # Fallback to importlib.resources when checkout .claude directory is absent
+    monkeypatch.setattr(res_mod, "_CHECKOUT_SCORING_DIR", tmp_path / "nonexistent")
+    assert len(res_mod.read_judge_brief_text()) > 100
+    assert len(res_mod.read_rubric_text()) > 100
+
+    # Build wheel from an isolated source copy so pytest never dirties the repo tree
+    src_copy = tmp_path / "pkg_src"
+    src_copy.mkdir()
+    shutil.copy2(jr.HARNESS_ROOT / "pyproject.toml", src_copy / "pyproject.toml")
+    shutil.copy2(jr.HARNESS_ROOT / "README.md", src_copy / "README.md")
+    shutil.copytree(jr.HARNESS_ROOT / "harness", src_copy / "harness")
+    wheel_dir = tmp_path / "dist"
+    wheel_dir.mkdir()
+    uv_bin = shutil.which("uv")
+    if uv_bin:
+        subprocess.run(
+            [uv_bin, "build", "--wheel", "--out-dir", str(wheel_dir)],
+            cwd=src_copy,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        wheel_path = next(wheel_dir.glob("*.whl"))
+        with zipfile.ZipFile(wheel_path) as zf:
+            names = set(zf.namelist())
+            assert "harness/validate/judge_prep.py" in names
+            assert "harness/validate/judge_finalize.py" in names
+            assert "harness/validate/judge_aggregate.py" in names
+            assert "harness/validate/combine_judge_actors.py" in names
+            assert "harness/validate/resources/clinical_answer_scoring/judge.txt" in names
+            assert "harness/validate/resources/clinical_answer_scoring/rubric.txt" in names
+            extracted_site = tmp_path / "wheel_site"
+            zf.extractall(extracted_site)
+    else:
+        extracted_site = tmp_path / "wheel_site"
+        shutil.copytree(jr.HARNESS_ROOT / "harness", extracted_site / "harness")
+
+    # Execute judge pipeline from the extracted wheel site (no scripts/ and no .claude/)
+    assert not (extracted_site / "scripts").exists()
+    assert not (extracted_site / ".claude").exists()
+    run_dir = _make_minimal_run(tmp_path, name="wheel-run")
+    py_paths = [str(extracted_site)] + [
+        p for p in sys.path if p and Path(p).resolve() != jr.HARNESS_ROOT.resolve()
+    ]
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(py_paths)}
+    driver = (
+        "import json, pathlib\n"
+        "from argparse import Namespace\n"
+        "import harness.validate.judge_runner as jr\n"
+        f"assert pathlib.Path(jr.__file__).resolve().is_relative_to(pathlib.Path({str(extracted_site)!r}).resolve())\n"
+        "def fake_role(_a, workdir, _p, out, *, agent, env=None):\n"
+        "    verdict = [{'scenario_id':'S1','backend_id':'arm-a','accuracy':9,'completeness':9,'relevance':9,"
+        "'abstention_outcome':'n-a','citation_groundedness':'supported','harm':False,'note':'ok'}]\n"
+        "    body = '```json\\n' + json.dumps(verdict) + '\\n```\\n'\n"
+        "    out.write_text(body, encoding='utf-8')\n"
+        "    pathlib.Path(f'{out}.card.json').write_text(json.dumps({'agent':agent,'agent_version':'1.0',"
+        "'model':'m','reasoning_effort':'medium','sampling':'provider default','role':'judge',"
+        "'started_at':'2026-11-10T12:00:00Z','finished_at':'2026-11-10T12:01:00Z'})+'\\n', encoding='utf-8')\n"
+        "    return body\n"
+        "jr.run_judge_role = fake_role\n"
+        f"rc = jr.run_judge_command(Namespace(run_dir={str(run_dir)!r}, output_dir=None, run_id=None, work_dir=None, "
+        "judges=['claude:claude-sonnet-5-5:medium:1'], judge_passes=1, agent='claude', blind=False, add=False))\n"
+        "assert rc == 0\n"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", driver],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, f"Wheel execution failed:\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+    manifest = json.loads(next((run_dir / "judges").glob("*/manifest.json")).read_text(encoding="utf-8"))
+    assert manifest["rubric_sha256"] is not None
+
+

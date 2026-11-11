@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
 import os
+from pathlib import Path
 import re
 import shutil
 import stat
@@ -13,18 +17,17 @@ import subprocess
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from .judging import judge_summary
 from .report import build_report
+from .resources import (
+    read_judge_brief_bytes,
+    read_judge_brief_text,
+    read_rubric_bytes,
+)
 
 HARNESS_ROOT = Path(__file__).resolve().parents[2]
-JUDGE_BRIEF_PATH = HARNESS_ROOT / ".claude/skills/clinical-answer-scoring/judge.md"
-RUBRIC_PATH = HARNESS_ROOT / ".claude/skills/clinical-answer-scoring/rubric.md"
 
 DEFAULT_JUDGE_SETTINGS = {
     "claude": ("claude-sonnet-5-5", "medium"),
@@ -89,6 +92,43 @@ def _minimal_judge_env(agent: str, overrides: dict[str, str] | None = None) -> d
     return clean
 
 
+def _is_within(child: Path, parent: Path) -> bool:
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _copy_contained_dir(src_dir: Path, dst_dir: Path, root_dir: Path) -> None:
+    """Copy a directory tree into staged judge inputs, rejecting symlinks and paths outside `root_dir`."""
+    root_resolved = root_dir.resolve()
+    if src_dir.is_symlink():
+        raise SystemExit(f"Refusing symlinked directory in judge input: {src_dir}")
+    src_resolved = src_dir.resolve()
+    if not _is_within(src_resolved, root_resolved):
+        raise SystemExit(f"Refusing directory outside run_dir ({root_resolved}): {src_dir}")
+
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for dirpath, dirnames, filenames in os.walk(src_dir, followlinks=False):
+        dp = Path(dirpath)
+        if dp.is_symlink() or not _is_within(dp.resolve(), root_resolved):
+            raise SystemExit(f"Refusing symlink or escaped directory in judge input: {dp}")
+        rel_dir = dp.relative_to(src_dir)
+        target_dp = dst_dir / rel_dir
+        target_dp.mkdir(parents=True, exist_ok=True)
+        for dn in dirnames:
+            sub = dp / dn
+            if sub.is_symlink() or not _is_within(sub.resolve(), root_resolved):
+                raise SystemExit(f"Refusing symlinked subdirectory in judge input: {sub}")
+        for fn in filenames:
+            fp = dp / fn
+            if fp.is_symlink() or not _is_within(fp.resolve(), root_resolved):
+                raise SystemExit(f"Refusing symlinked file in judge input: {fp}")
+            if fp.is_file():
+                shutil.copy2(fp, target_dp / fn)
+
+
 def _chmod_tree_writable(root: Path) -> None:
     """Restore owner write permissions before cleaning up a read-only staged tree."""
     if not root.exists():
@@ -143,6 +183,48 @@ def _run_judge_lock(run_dir: Path):
                 fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
+def _pending_human_path(run_dir: Path) -> Path:
+    return run_dir / "judges" / ".pending-human.json"
+
+
+def _has_human_judge(judges: list[dict[str, Any]]) -> bool:
+    return any(str(j.get("agent")) == "human" for j in judges)
+
+
+def _load_pending_human(
+    run_dir: Path,
+    judges: list[dict[str, Any]],
+    *,
+    adding: bool | None = None,
+) -> dict[str, Any] | None:
+    p = _pending_human_path(run_dir)
+    if not p.is_file():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if data.get("judges") != judges:
+        return None
+    if adding is not None and bool(data.get("adding", False)) != bool(adding):
+        return None
+    return data
+
+
+def _save_pending_human(run_dir: Path, payload: dict[str, Any]) -> None:
+    p = _pending_human_path(run_dir)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(p)
+
+
+def _clear_pending_human(run_dir: Path) -> None:
+    _pending_human_path(run_dir).unlink(missing_ok=True)
+
+
 def last_json(text: str) -> Any:
     """The last ```json block of a judge's answer, parsed (with trailing-comma repair outside strings)."""
     blocks = re.findall(r"```json\s*(.*?)```", text, re.S)
@@ -192,7 +274,12 @@ def parse_judges(args: Any) -> list[dict[str, Any]]:
 def run_judges(run_dir: Path) -> tuple[list[str], dict[tuple[str, str, str], int], bool]:
     """Return `(built_from, highest_pass_by_judge, blinded)` for an existing run directory."""
     try:
-        built = json.loads((run_dir / "judges" / "canonical.json").read_text(encoding="utf-8")).get("built_from") or []
+        built = (
+            json.loads((run_dir / "judges" / "canonical.json").read_text(encoding="utf-8")).get(
+                "built_from"
+            )
+            or []
+        )
     except (OSError, json.JSONDecodeError):
         built = []
     last: dict[tuple[str, str, str], int] = {}
@@ -285,6 +372,12 @@ def _prepare_blind_session_dir(
     run_dir: Path, out_dir: Path, tag: str, bundle: Path
 ) -> tuple[Path, Path]:
     """Create a read-only bounded directory with only this session's bundle, rubric, and chart snapshots."""
+    if bundle.is_symlink():
+        raise SystemExit(f"Refusing symlinked bundle input: {bundle}")
+    charts_src = run_dir / "charts"
+    if charts_src.is_symlink():
+        raise SystemExit(f"Refusing symlinked charts directory in run packet: {charts_src}")
+
     session_dir = out_dir / f"{tag}-input-{bundle.stem}"
     if session_dir.exists():
         _chmod_tree_writable(session_dir)
@@ -292,11 +385,11 @@ def _prepare_blind_session_dir(
     session_dir.mkdir(parents=True, exist_ok=True)
     staged_bundle = session_dir / bundle.name
     shutil.copy2(bundle, staged_bundle)
-    if RUBRIC_PATH.is_file():
-        shutil.copy2(RUBRIC_PATH, session_dir / "rubric.md")
-    charts_src = run_dir / "charts"
-    if charts_src.is_dir():
-        shutil.copytree(charts_src, session_dir / "charts")
+    (session_dir / "rubric.md").write_bytes(read_rubric_bytes())
+    if charts_src.exists():
+        if not charts_src.is_dir():
+            raise SystemExit(f"Expected charts to be a real directory inside {run_dir}: {charts_src}")
+        _copy_contained_dir(charts_src, session_dir / "charts", run_dir)
     _chmod_tree_readonly(session_dir)
     return session_dir, staged_bundle
 
@@ -447,7 +540,7 @@ def run_judge_role(
 def judge_card(answer: Path, pass_index: int, passes: int) -> Path:
     """Attach `brief_sha256`, `brief_path`, `pass_index`, and `passes` to the session card."""
     session = json.loads(answer.with_suffix(".md.card.json").read_text(encoding="utf-8"))
-    brief_bytes = JUDGE_BRIEF_PATH.read_bytes()
+    brief_bytes = read_judge_brief_bytes()
     session.update(
         {
             "brief_sha256": hashlib.sha256(brief_bytes).hexdigest(),
@@ -473,18 +566,26 @@ def judge_sessions(
 ) -> tuple[Path, Path]:
     """Run one pass of one judge across `judge-cells.jsonl` or blinded `judge-bundles/*.jsonl`."""
     base = out_dir / f"{tag}.md"
-    brief = JUDGE_BRIEF_PATH.read_text(encoding="utf-8")
+    brief = read_judge_brief_text()
     env = {
         k: str(v)
         for k, v in (("REVIEW_MODEL", judge.get("model")), ("REVIEW_REASONING", judge.get("effort")))
         if v
     }
+    run_resolved = run_dir.resolve()
     if blind:
-        bundles = sorted((run_dir / "judge-bundles").glob("*.jsonl"))
+        bundles_dir = run_dir / "judge-bundles"
+        if bundles_dir.is_symlink() or (
+            bundles_dir.exists() and not _is_within(bundles_dir.resolve(), run_resolved)
+        ):
+            raise SystemExit(f"Refusing symlinked or escaped judge-bundles directory: {bundles_dir}")
+        bundles = sorted(bundles_dir.glob("*.jsonl"))
         if not bundles:
-            raise SystemExit(f"{run_dir}: no judge-bundles; run judge-prep.py with --blind")
+            raise SystemExit(f"{run_dir}: no judge-bundles; run judge_prep with --blind")
         sessions = []
         for b in bundles:
+            if b.is_symlink() or not _is_within(b.resolve(), run_resolved):
+                raise SystemExit(f"Refusing symlinked or escaped bundle file: {b}")
             s_dir, s_bundle = _prepare_blind_session_dir(run_dir, out_dir, tag, b)
             rubric_staged = s_dir / "rubric.md"
             s_inputs = (
@@ -497,8 +598,12 @@ def judge_sessions(
             sessions.append((out_dir / f"{tag}-{b.stem}.md", brief + s_inputs, s_dir, s_bundle))
     else:
         cells_src = run_dir / "judge-cells.jsonl"
+        if cells_src.is_symlink() or (
+            cells_src.exists() and not _is_within(cells_src.resolve(), run_resolved)
+        ):
+            raise SystemExit(f"Refusing symlinked or escaped judge-cells.jsonl: {cells_src}")
         if not cells_src.is_file():
-            raise SystemExit(f"{run_dir}: missing judge-cells.jsonl; run judge-prep.py first")
+            raise SystemExit(f"{run_dir}: missing judge-cells.jsonl; run judge_prep first")
         s_dir, s_cells = _prepare_blind_session_dir(run_dir, out_dir, tag, cells_src)
         rubric_staged = s_dir / "rubric.md"
         inputs = (
@@ -527,9 +632,24 @@ def judge_sessions(
             time.sleep(retry_delay * attempt)
         return []
 
-    parallel = max(1, int(os.environ.get("JUDGE_PARALLEL", "4")))
-    with ThreadPoolExecutor(max_workers=min(parallel, len(sessions))) as pool:
-        rows = [r for session_rows in pool.map(one, sessions) for r in session_rows]
+    if str(judge.get("agent")) == "human":
+        rows = []
+        waiting_human = False
+        for s in sessions:
+            try:
+                rows.extend(one(s))
+            except SystemExit as e:
+                if e.code == 3:
+                    waiting_human = True
+                else:
+                    raise
+        if waiting_human:
+            sys.exit(3)
+    else:
+        parallel = max(1, int(os.environ.get("JUDGE_PARALLEL", "4")))
+        with ThreadPoolExecutor(max_workers=min(parallel, len(sessions))) as pool:
+            rows = [r for session_rows in pool.map(one, sessions) for r in session_rows]
+
     rows_path = base.with_suffix(".rows.json")
     rows_path.write_text(json.dumps(rows), encoding="utf-8")
     cards = [
@@ -567,7 +687,39 @@ def judge_passes(
     keep = list(keep or [])
     judges = parse_judges(args)
     blind = bool(getattr(args, "blind", False))
-    allocations = _reserve_judge_passes(run_dir, judges)
+    adding = bool(getattr(args, "add", False))
+    has_human = _has_human_judge(judges)
+
+    pending: dict[str, Any] | None = None
+    finalized_tags: dict[str, str] = {}
+    if has_human:
+        pending = _load_pending_human(run_dir, judges, adding=adding)
+    if pending is not None:
+        allocations = [
+            (dict(item["judge"]), int(item["start"]), int(item["end"]))
+            for item in (pending.get("allocations") or [])
+        ]
+        finalized_tags = {str(k): str(v) for k, v in (pending.get("finalized_tags") or {}).items()}
+        saved_out = Path(str(pending.get("out_dir") or out_dir))
+        if saved_out.is_dir():
+            out_dir = saved_out
+    else:
+        allocations = _reserve_judge_passes(run_dir, judges)
+        if has_human:
+            pending = {
+                "adding": adding,
+                "blind": blind,
+                "keep": keep,
+                "judges": judges,
+                "allocations": [
+                    {"judge": j, "start": start, "end": end} for j, start, end in allocations
+                ],
+                "out_dir": str(out_dir.resolve()),
+                "stamp": str(getattr(args, "_judge_stamp", "") or time.strftime("%Y%m%d-%H%M%S")),
+                "finalized_tags": {},
+            }
+            _save_pending_human(run_dir, pending)
+
     total_new = sum(int(j["passes"]) for j in judges)
     actors: list[str] = []
     for k, (judge, start, end) in enumerate(allocations, 1):
@@ -577,11 +729,15 @@ def judge_passes(
                 + (f"-j{k}" if len(judges) > 1 else "")
                 + (f"-p{i}" if total_new > 1 or start else "")
             )
+            if tag in finalized_tags:
+                actors.append(finalized_tags[tag])
+                continue
             rows, card = judge_sessions(args, run_dir, out_dir, i, end, judge, blind, tag)
             with _run_judge_lock(run_dir):
                 cmd = [
                     sys.executable,
-                    str(HARNESS_ROOT / "scripts/judge-finalize.py"),
+                    "-m",
+                    "harness.validate.judge_finalize",
                     str(run_dir),
                     str(rows),
                     "--card",
@@ -593,13 +749,18 @@ def judge_passes(
             m = re.search(r"judges/([^/\s]+)/judge\.jsonl", done)
             if not m:
                 raise SystemExit(f"finalize named no actor for {tag}:\n{done}")
-            actors.append(m.group(1))
-            manifest = run_dir / "judges" / m.group(1) / "manifest.json"
+            actor_name = m.group(1)
+            actors.append(actor_name)
+            if pending is not None:
+                finalized_tags[tag] = actor_name
+                pending["finalized_tags"] = finalized_tags
+                _save_pending_human(run_dir, pending)
+            manifest = run_dir / "judges" / actor_name / "manifest.json"
             if manifest.exists() and json.loads(manifest.read_text(encoding="utf-8")).get(
                 "self_preference_risk"
             ):
                 print(
-                    f"WARNING: {m.group(1)} is from the same model family as an arm it judged "
+                    f"WARNING: {actor_name} is from the same model family as an arm it judged "
                     f"(self-preference risk); see its manifest"
                 )
     headline = keep + [a for a in actors if a not in keep]
@@ -608,7 +769,8 @@ def judge_passes(
             subprocess.run(
                 [
                     sys.executable,
-                    str(HARNESS_ROOT / "scripts/judge-aggregate.py"),
+                    "-m",
+                    "harness.validate.judge_aggregate",
                     str(run_dir),
                     *[a for actor in headline for a in ("--actor", actor)],
                 ],
@@ -616,6 +778,8 @@ def judge_passes(
                 capture_output=True,
                 text=True,
             )
+    if has_human:
+        _clear_pending_human(run_dir)
     return headline
 
 
@@ -666,20 +830,38 @@ def run_judge_command(args: Any) -> int:
     if not run_dir.is_dir():
         raise SystemExit(f"Run directory not found: {run_dir}")
 
-    keep, _, blinded = run_judges(run_dir) if adding else ([], {}, False)
-    if adding and not keep:
-        raise SystemExit(f"{run_dir} has no judged headline to add to; omit --add to rejudge")
-    args.blind = bool(getattr(args, "blind", False)) or blinded
+    judges = parse_judges(args)
+    has_human = _has_human_judge(judges)
+    pending = _load_pending_human(run_dir, judges, adding=adding) if has_human else None
 
-    stamp = time.strftime("%Y%m%d-%H%M%S")
-    work_root = Path(getattr(args, "work_dir", None) or (run_dir / "judge-work"))
-    out_dir = work_root / f"{'add-judges' if adding else 'judge'}-{stamp}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if pending is not None and Path(str(pending.get("out_dir") or "")).is_dir():
+        keep = list(pending.get("keep") or [])
+        args.blind = bool(pending.get("blind", False))
+        stamp = str(pending.get("stamp") or time.strftime("%Y%m%d-%H%M%S"))
+        out_dir = Path(str(pending["out_dir"]))
+    else:
+        keep, _, blinded = run_judges(run_dir) if adding else ([], {}, False)
+        if adding and not keep:
+            raise SystemExit(f"{run_dir} has no judged headline to add to; omit --add to rejudge")
+        args.blind = bool(getattr(args, "blind", False)) or blinded
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        explicit_work_dir = getattr(args, "work_dir", None)
+        if explicit_work_dir:
+            out_dir = Path(explicit_work_dir).resolve()
+        else:
+            out_dir = (run_dir / "judge-work") / f"{'add-judges' if adding else 'judge'}-{stamp}"
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-    prep_cmd = [sys.executable, str(HARNESS_ROOT / "scripts/judge-prep.py"), str(run_dir)]
-    if args.blind:
-        prep_cmd.append("--blind")
-    subprocess.run(prep_cmd, check=True, capture_output=True, text=True)
+    args._judge_stamp = stamp
+
+    need_prep = pending is None or not (run_dir / "judge-cells.jsonl").is_file()
+    if args.blind and not any((run_dir / "judge-bundles").glob("*.jsonl")):
+        need_prep = True
+    if need_prep:
+        prep_cmd = [sys.executable, "-m", "harness.validate.judge_prep", str(run_dir)]
+        if args.blind:
+            prep_cmd.append("--blind")
+        subprocess.run(prep_cmd, check=True, capture_output=True, text=True)
 
     actors = judge_passes(args, run_dir, out_dir, keep)
     report_path = build_report(run_dir)
