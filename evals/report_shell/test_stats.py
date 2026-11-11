@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from harness.report_shell.stats import avg, box_stats, ordered_unique, percentile, robust_axis_max
+from harness.common.stats import avg, box_stats, ordered_unique, percentile, robust_axis_max
 
 
 def test_stats_parity_basics() -> None:

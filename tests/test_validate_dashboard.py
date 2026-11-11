@@ -2,6 +2,8 @@ from pathlib import Path
 import json
 import subprocess
 
+from evals.validate._test_shell import dashboard_shell_js
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_SOURCE = (ROOT / "scripts" / "validate-dashboard.py").read_text(
@@ -10,12 +12,13 @@ DASHBOARD_SOURCE = (ROOT / "scripts" / "validate-dashboard.py").read_text(
 
 
 def test_dashboard_shows_single_and_multi_actor_judgments_honestly():
-    assert '<section><h2>Judged scores</h2><div id=judges></div></section>' in DASHBOARD_SOURCE
-    assert "no judged score yet" in DASHBOARD_SOURCE
-    assert "Score from one independent judge" in DASHBOARD_SOURCE
-    assert "Combined = each cell averaged across independent judges" in DASHBOARD_SOURCE
-    assert "(s.n_actors||0)>=1" in DASHBOARD_SOURCE
-    assert "no multi-judge score yet" not in DASHBOARD_SOURCE
+    assert '<section><h2>Judged scores</h2><div id="judges"></div></section>' in DASHBOARD_SOURCE
+    shell_js = dashboard_shell_js()
+    assert "no judged score yet" in shell_js
+    assert "Score from one independent judge" in shell_js
+    assert "Combined = each cell averaged across independent judges" in shell_js
+    assert "(s.n_actors || 0) >= 1" in shell_js
+    assert "no multi-judge score yet" not in shell_js
 
 
 FIXTURE_ROWS = json.loads(
@@ -25,19 +28,26 @@ FIXTURE_ROWS = json.loads(
 
 def _run_js(body: str) -> dict:
     """Run the dashboard's section renderers in node on the given views."""
-    esc_line = "const esc=" + DASHBOARD_SOURCE.split("const esc=", 1)[1].split("\n", 1)[0]
-    tone_lines = DASHBOARD_SOURCE[
-        DASHBOARD_SOURCE.index("const TONE_CLS=") : DASHBOARD_SOURCE.index("let LAST_STATUS=")
+    shell_js = dashboard_shell_js()
+    helpers = shell_js[
+        shell_js.index("var esc =") : shell_js.index("var KNOB_ORDER =")
     ]
-    renderers = DASHBOARD_SOURCE[
-        DASHBOARD_SOURCE.index("function statusChip") : DASHBOARD_SOURCE.index(
+    open_details = shell_js[
+        shell_js.index("function restoreOpenDetails(") : shell_js.index("function gridCell(")
+    ]
+    renderers = shell_js[
+        shell_js.index("function resolveSourcesList(") : shell_js.index(
             "function renderTrace"
         )
     ]
     script = f"""
-{esc_line}
-{tone_lines}
-const renderBlocks=()=>'';
+var STATIC_DASHBOARD = null;
+var ARM_CARDS = {{}};
+var ARM_LABELS = {{}};
+var OPEN_DETAILS = new Set();
+var armTitle = function(b) {{ return String(b); }};
+{helpers}
+{open_details}
 {renderers}
 {body}
 """
@@ -83,7 +93,7 @@ def test_section_renderers_show_one_status_the_note_and_every_claim_verdict(tmp_
     views = json.dumps({"a": turn["answer_view"], "i": turn["indepth_view"]})
     rendered = _run_js(f"""
 const v={views};
-const indepth=sectionHtml('In-Depth',v.i,v.i.body_html,renderClaims(v.i)+renderDraft(v.i,{{}})+renderRawCheck(v.i));
+const indepth=sectionHtml('In-Depth',v.i,renderMarkdown(v.i.body_text),renderClaims(v.i)+renderDraft(v.i,{{}})+renderRawCheck(v.i));
 const answer=sectionHtml('Answer',v.a,'Answer body [21].');
 process.stdout.write(JSON.stringify({{indepth,answer}}));
 """)
@@ -92,7 +102,7 @@ process.stdout.write(JSON.stringify({{indepth,answer}}));
     assert indepth.count("class=\"schip") == 1, "one status chip per section"
     assert "self-check" not in (indepth + rendered["answer"]).lower()
     # The note naming the checks precedes the visible In-Depth body.
-    assert indepth.index(turn["indepth_view"]["note"]) < indepth.index("<ul class='md-list'>")
+    assert indepth.index(turn["indepth_view"]["note"]) < indepth.index("<ul class=\"md-list\">")
     assert indepth.count("<tr") == 1 + len(turn["indepth_view"]["claims"])
     assert indepth.count("t-bad") >= 2
     # The raw check record stays available, collapsed.
@@ -350,24 +360,21 @@ def test_the_frozen_snapshot_can_open_every_cell_it_lets_you_click(
 ):
     """A published snapshot is the only interactive surface a reader gets.
 
-    The grid makes every non-pending cell clickable, so the freeze has to
+    The grid makes every non-pending cell clickable, so dashboard-data.json has to
     embed detail for exactly those; anything narrower ships a page whose
     cells open empty.
     """
     vd = _load_dashboard_module()
     run = _conformance_run(tmp_path)
-    out = tmp_path / "dashboard.html"
     vd._RUN_OVERRIDE = str(run)
     try:
         status = vd.status()
-        vd.freeze(str(out))
+        out = vd.write_dashboard_data(run)
     finally:
         vd._RUN_OVERRIDE = None
 
-    page = out.read_text(encoding="utf-8")
-    embedded = json.loads(
-        page.split("window.__DETAIL__=", 1)[1].split(";\n", 1)[0]
-    )
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    embedded = payload["details"]
     clickable = {
         f"{g['scenario']}|{g['backend']}"
         for g in status["grid"]
@@ -459,13 +466,16 @@ def test_the_checks_against_the_judge_section_appears_once_the_run_is_scored(tmp
     finally:
         vd._RUN_OVERRIDE = None
 
-    assert before["check_precision_html"] == ""
-    assert "<table" in after["check_precision_html"]
-    assert "Precision: of the items a check marked" in after["check_precision_html"]
+    assert before["check_precision"] is None
+    assert after["check_precision"] is not None
+    assert "answer" in after["check_precision"]
     rendered = _run_js(f"""
-const d={json.dumps({"check_precision_html": after["check_precision_html"]})};
+const d={json.dumps({"check_precision": after["check_precision"]})};
 const nodes={{}};
-global.document={{getElementById:id=>nodes[id]||(nodes[id]={{style:{{}},innerHTML:''}})}};
+global.document={{
+  getElementById:id=>nodes[id]||(nodes[id]={{style:{{}},innerHTML:'',querySelectorAll:()=>[]}}),
+  querySelectorAll:()=>[]
+}};
 renderCheckPrecision({{}});
 const hidden=nodes.checksec.style.display;
 renderCheckPrecision(d);
@@ -477,6 +487,7 @@ process.stdout.write(JSON.stringify({{hidden,shown:nodes.checksec.style.display,
 """)
     assert rendered["hidden"] == "none" and rendered["shown"] == ""
     assert "Citation support" in rendered["html"]
+    assert "Precision: of the items a check marked" in rendered["html"]
     assert rendered["afterPoll"] == "normalized-dom-stays-intact"
 
 
@@ -537,18 +548,20 @@ def test_dashboard_judge_scores_display_canonical_median_and_label_combined_mean
     finally:
         vd._RUN_OVERRIDE = None
 
-    fn = vd.PAGE.split("function renderJudgeScores(d){", 1)[1].split("// The background poll", 1)[0]
+    assert status["judge"][0]["benchmark_score"] == 80.0
+    assert status["judge_combined"][0]["benchmark_score"] == 66.7
+
+    shell_js = dashboard_shell_js()
+    fn = shell_js.split("function renderJudgeScores(d) {", 1)[1].split("var OPEN_DETAILS =", 1)[0]
     js = (
         "const esc=s=>String(s), fmt10=s=>Number(s).toFixed(1), armTitle=s=>s;\n"
-        "function renderJudgeScores(d){" + fn + "\n"
+        "function renderJudgeScores(d) {" + fn + "\n"
         "process.stdout.write(renderJudgeScores(" + json.dumps(status) + "));\n"
     )
     rendered = subprocess.run(
         ["node", "-e", js], check=True, capture_output=True, text=True
     ).stdout
 
-    assert status["judge"][0]["benchmark_score"] == 80.0
-    assert status["judge_combined"][0]["benchmark_score"] == 66.7
     assert "<span class=score>80.0</span>" in rendered
     assert "<span class=score>66.7</span>" not in rendered
     assert "<th>mean across actors</th>" in rendered
@@ -625,13 +638,9 @@ def test_withheld_response_indepth_is_not_repopulated_from_trace_in_depth_claims
     finally:
         vd._RUN_OVERRIDE = None
 
-    html = build_report(run).read_text(encoding="utf-8")
-    body = re.search(
-        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
-    ).group(1)
-    report_cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
+    report_cell = json.loads(build_report(run).read_text(encoding="utf-8"))["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
 
-    assert dash_turn["indepth_view"]["body_html"] == ""
+    assert dash_turn["indepth_view"]["body_text"] == ""
     assert dash_turn["indepth_view"]["draft"]["kind"] == "withheld"
     assert dash_turn["indepth_view"] == report_cell["indepth_view"]
 
@@ -712,12 +721,85 @@ def test_historical_trace_indepth_dict_is_normalized_across_dashboard_and_report
     finally:
         vd._RUN_OVERRIDE = None
 
-    html = build_report(run).read_text(encoding="utf-8")
-    body = re.search(
-        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
-    ).group(1)
-    report_cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
+    report_cell = json.loads(build_report(run).read_text(encoding="utf-8"))["runs"][0]["scenarios"][0]["turns"][0]["cells"]["b1"]
 
-    assert "Historical trace claim [1]." in dash_turn["indepth_view"]["body_html"]
-    assert "<li>text</li>" not in dash_turn["indepth_view"]["body_html"]
+    assert "Historical trace claim [1]." in dash_turn["indepth_view"]["body_text"]
+    assert "<li>text</li>" not in dash_turn["indepth_view"]["body_text"]
     assert dash_turn["indepth_view"] == report_cell["indepth_view"]
+
+
+def test_validate_dashboard_http_routes_with_and_without_viewer_assets(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import http.client
+    import threading
+
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "results.jsonl").write_text(
+        json.dumps(
+            {
+                "scenario_id": "s1",
+                "backend_id": "b1",
+                "turn": 1,
+                "request": {"question": "q1"},
+                "response": {"answer": "ok", "references": []},
+                "metrics": {"http_status": 200, "latency_ms": 50},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    vd._RUN_OVERRIDE = str(run)
+    srv = vd._Server(("127.0.0.1", 0), vd.H)
+    port = srv.server_address[1]
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        # 1) Standalone mode (no umbrella assets): `/` serves diagnostic HTML and `/api/status` works.
+        monkeypatch.setenv("OPENCLINAI_DISABLE_UMBRELLA_ASSETS", "1")
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/")
+        resp = conn.getresponse()
+        assert resp.status == 200
+        assert "OPENCLINAI_ASSETS_DIR" in resp.read().decode("utf-8")
+
+        conn.request("GET", "/assets/dashboard-shell.js")
+        resp_missing = conn.getresponse()
+        resp_missing.read()
+        assert resp_missing.status == 404
+
+        conn.request("GET", "/api/status")
+        resp_api = conn.getresponse()
+        assert resp_api.status == 200
+        assert json.loads(resp_api.read())["done"] == 1
+
+        conn.request("GET", "/api/detail?scenario=s1&backend=b1")
+        resp_det = conn.getresponse()
+        assert resp_det.status == 200
+        assert json.loads(resp_det.read())["turns"][0]["answer"] == "ok"
+
+        # 2) Explicit OPENCLINAI_ASSETS_DIR: `/` serves LIVE_SHELL_HTML and `/assets/*` serves files.
+        fake_assets = tmp_path / "assets"
+        fake_assets.mkdir()
+        (fake_assets / "dashboard-shell.css").write_text("body{}", encoding="utf-8")
+        (fake_assets / "dashboard-shell.js").write_text("console.log(1);", encoding="utf-8")
+        monkeypatch.delenv("OPENCLINAI_DISABLE_UMBRELLA_ASSETS", raising=False)
+        monkeypatch.setenv("OPENCLINAI_ASSETS_DIR", str(fake_assets))
+
+        conn.request("GET", "/")
+        resp_shell = conn.getresponse()
+        assert resp_shell.status == 200
+        html = resp_shell.read().decode("utf-8")
+        assert 'id="theme-toggle"' in html
+
+        conn.request("GET", "/assets/dashboard-shell.js")
+        resp_js = conn.getresponse()
+        assert resp_js.status == 200
+        assert resp_js.read().decode("utf-8") == "console.log(1);"
+        conn.close()
+    finally:
+        vd._RUN_OVERRIDE = None
+        srv.shutdown()
+        srv.server_close()

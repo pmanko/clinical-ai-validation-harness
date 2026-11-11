@@ -1095,30 +1095,33 @@ def test_committed_t094_suite_uses_current_profiles_and_switches_per_turn() -> N
 
 
 def test_report_labels_writer_only_profile_without_inventing_a_reviewer() -> None:
-    from harness.catalyst.report import _methods_section
+    from harness.catalyst.report import _arm_cards_from_suite, _team_labels
 
-    html = _methods_section(
-        {
-            "profiles": {
-                WRITER_ONLY_PROFILE_ID: {"writerModelId": "gemma-4-12b"},
-                PROFILE_ID: {
-                    "writerModelId": "gemma-4-12b",
-                    "reviewerModelId": "qwen2.5-14b",
-                },
-            }
-        },
-        {
-            "passedCount": 1,
-            "resultCount": 1,
-            "skippedCount": 0,
-            "results": [],
-        },
-        [],
-    )
+    suite = {
+        "profiles": {
+            WRITER_ONLY_PROFILE_ID: {"writerModelId": "gemma-4-12b"},
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            },
+        }
+    }
+    results = {
+        "passedCount": 1,
+        "resultCount": 2,
+        "skippedCount": 0,
+        "results": [
+            {"profileId": WRITER_ONLY_PROFILE_ID, "scenarioId": "A1"},
+            {"profileId": PROFILE_ID, "scenarioId": "A1"},
+        ],
+    }
+    labels = _team_labels(results, suite)
+    cards = _arm_cards_from_suite(list(labels.keys()), suite, labels)
 
-    assert "— (writer only)" in html
-    assert "reviewed profiles also invoke their configured reviewer" in html
-    assert ">None<" not in html
+    assert labels[WRITER_ONLY_PROFILE_ID] == "gemma-4-12b (writer-only)"
+    assert "reviewer" not in cards[WRITER_ONLY_PROFILE_ID]["roles"]
+    assert cards[PROFILE_ID]["roles"]["reviewer"]["id"] == "qwen2.5-14b"
+    assert "None" not in json.dumps(cards)
 
 
 def test_suite_loader_rejects_invalid_scenario_fields(tmp_path: Path) -> None:

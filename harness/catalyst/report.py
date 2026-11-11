@@ -1,81 +1,25 @@
-"""Offline Catalyst notebook validation report (report family: catalyst)."""
+"""Pure structured JSON report packet builder for Catalyst notebook validation (`openclinai.report.v2`).
+
+Produces `report-data.json`, `run-summary.json`, and `dashboard-data.json` with zero HTML/CSS/JS
+in Python or JSON. Supports single-profile, multi-team comparison, and reader-led Phase 1 runs.
+"""
 
 from __future__ import annotations
 
 import difflib
 import json
-import re
+from datetime import datetime, timezone
 from pathlib import Path
-from statistics import median
 from typing import Any
 
 from harness.common.jsonl import read_jsonl
-from harness.common.text import esc
-from harness.catalyst.notebook_validation import assertion_class
+from harness.common.stats import avg, box_stats, ordered_unique, robust_axis_max
+from harness.catalyst.attribution import blame, conformed
+from harness.catalyst.notebook_validation import assertion_class, validate_notebook_evidence
+from harness.catalyst.phase1_evidence import case_records, collection_summary
+from harness.catalyst.reader_review import prepare_reader_review, validate_reader_reviews
 from harness.catalyst.reconcile import merge_gold_and_judge
 from harness.catalyst.run_config import load_frozen
-from harness.report_shell.assets import (
-    SHARED_CSS,
-    SHARED_JS,
-    SHARED_JS_DEPS,
-    THEME_TOGGLE_BUTTON_HTML,
-    theme_toggle_js,
-)
-from harness.report_shell.document import render_document
-
-_STYLE = (
-    SHARED_CSS
-    + """
-body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--fg); }
-header.topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:18px 24px; border-bottom:1px solid var(--line); background: var(--surface); }
-header.topbar h1 { margin:0; font-size:20px; }
-.meta { color: var(--mut); font-size: 12px; margin-top: 4px; }
-main { padding: 18px 24px 48px; max-width: 1200px; }
-section { margin: 22px 0; }
-h2 { font-size: 16px; margin: 0 0 10px; }
-table.data { width:100%; border-collapse:collapse; font-size:13px; background:var(--surface); }
-table.data th, table.data td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
-table.data th { background: var(--surface2); }
-.pass { color: #0a7; font-weight: 600; }
-.fail { color: var(--err); font-weight: 700; }
-.adv { color: var(--mut); font-size: 12px; }\n.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
-.note { background: var(--note-bg); border:1px solid var(--line); padding:10px 12px; border-radius:8px; font-size:13px; }
-pre.diff, pre.sql, pre.rationale { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; background: var(--surface2); border:1px solid var(--line); padding:10px; border-radius:8px; }
-a.ev { color: var(--accent); }
-.chip-fail { display:inline-block; background:#a01; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
-.chip-invalid { display:inline-block; background:#5b2d91; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
-.chip-pass { display:inline-block; background:#0a7; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
-.abstract { font-size:14.5px; line-height:1.6; max-width:70ch; }
-.abstract p { margin: 8px 0; }
-.gate-verdict { font-size:15px; font-weight:600; margin:0 0 10px; }
-.vchips { display:flex; flex-wrap:wrap; gap:10px; margin:10px 0; }
-.vchip { border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; background:var(--surface); }
-.vchip.lead { border-color:var(--accent); }
-.vchip b { font-size:15px; }
-.vchip .sub { display:block; color:var(--mut); font-size:11px; }
-.pill-adv { display:inline-block; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--mut); border:1px solid var(--line); border-radius:999px; padding:1px 8px; vertical-align:middle; margin-left:6px; }
-td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-.flagged { color: var(--err); font-weight:700; }
-dl.legend { font-size:12px; color:var(--mut); margin:10px 0 0; }
-dl.legend dt { font-weight:600; float:left; clear:left; width:9em; color:var(--fg); }
-dl.legend dd { margin:0 0 3px 10em; }
-details.jcell { border:1px solid var(--line); border-radius:8px; background:var(--note-bg); padding:6px 10px; margin:6px 0; font-size:13px; }
-details.jcell summary { cursor:pointer; }
-a.jlink { color: var(--accent); }
-"""
-)
-
-_SCRIPT = SHARED_JS_DEPS + SHARED_JS + theme_toggle_js("oc-theme-report") + """
-document.querySelectorAll('table.data').forEach(makeSortable);
-/* A judge anchor may live on a collapsed <details>; open it when targeted. */
-function openJudgeTarget(){
-  var id = location.hash && location.hash.slice(1);
-  var el = id && document.getElementById(id);
-  if (el && el.tagName === 'DETAILS') { el.open = true; }
-}
-window.addEventListener('hashchange', openJudgeTarget);
-openJudgeTarget();
-"""
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -121,25 +65,43 @@ def _extract_sql(path: Path) -> str | None:
     return None
 
 
-def _scenario_sql_versions(run_dir: Path, scenario_id: str) -> list[tuple[str, str]]:
-    """Return ordered (label, sql) pairs discovered under the scenario evidence tree."""
-    root = run_dir / "scenarios" / scenario_id
+def _path_matches_repetition(path: Path, root: Path, repetition: int | None) -> bool:
+    if repetition is None:
+        return True
+    rel_parts = path.relative_to(root).parts
+    rep_dirs = [p for p in rel_parts if p.startswith("repetition-")]
+    if not rep_dirs:
+        return True
+    allowed = {f"repetition-{int(repetition):02d}", f"repetition-{int(repetition)}"}
+    return all(p in allowed for p in rep_dirs)
+
+
+def _scenario_sql_versions(
+    run_dir: Path,
+    scenario_key: str,
+    *,
+    repetition: int | None = None,
+) -> list[tuple[str, str]]:
+    """Return ordered `(relative_path, sql)` pairs discovered under the scenario evidence tree."""
+    root = run_dir / "scenarios" / scenario_key
     if not root.exists():
         return []
     candidates: list[tuple[int, str, str]] = []
     for path in sorted(root.rglob("*")):
-        if not path.is_file():
+        if not path.is_file() or path.suffix not in {".json", ".sql"}:
             continue
-        if path.suffix not in {".json", ".sql"}:
+        if not _path_matches_repetition(path, root, repetition):
             continue
-        if "version" not in path.name and "save-base-version" not in path.name and path.suffix != ".sql":
-            # Prefer explicit version artifacts and top-level SQL files.
-            if path.name not in {"01-base-sql.sql", "02-successor-sql.sql"}:
-                continue
+        if (
+            "version" not in path.name
+            and "save-base-version" not in path.name
+            and path.suffix != ".sql"
+            and path.name not in {"01-base-sql.sql", "02-successor-sql.sql"}
+        ):
+            continue
         sql = _extract_sql(path)
         if not sql:
             continue
-        # Ordinal hint from filename for stable ordering.
         ordinal = 50
         name = path.name
         if "base" in name or name.startswith("01-"):
@@ -151,7 +113,6 @@ def _scenario_sql_versions(run_dir: Path, scenario_id: str) -> list[tuple[str, s
         rel = path.relative_to(run_dir).as_posix()
         candidates.append((ordinal, rel, sql))
     candidates.sort(key=lambda t: (t[0], t[1]))
-    # Deduplicate identical consecutive SQL.
     out: list[tuple[str, str]] = []
     for _, rel, sql in candidates:
         if out and out[-1][1] == sql:
@@ -160,1038 +121,1004 @@ def _scenario_sql_versions(run_dir: Path, scenario_id: str) -> list[tuple[str, s
     return out
 
 
-_JUDGE_AXES = (
-    "intent_fidelity",
-    "sql_quality",
-    "schema_discipline",
-    "followup_coherence",
-)
-_AXIS_HEADS = {
-    "intent_fidelity": "intent",
-    "sql_quality": "SQL craft",
-    "schema_discipline": "schema",
-    "followup_coherence": "follow-up",
-}
-# A judged query scoring below this composite gets called out by name in the
-# judge summary; everything above it collapses into the medians.
-_FLAG_BELOW = 80
-
-
-def _judge_team(row: dict[str, Any]) -> str | None:
-    """Which team's query this judge row scored.
-
-    Judge rows are contract-frozen (catalyst-judge-v1 forbids extra fields),
-    so the team is not a field — but a comparison run nests every evidence
-    file under scenarios/<team>/<scenario>/, and the row links its evidence.
-    A single-profile run keeps the flat scenarios/<scenario>/ layout -> None.
-    """
-    stamped = row.get("team")
-    if isinstance(stamped, str) and stamped:
-        return stamped
-    for path in row.get("evidence_paths") or []:
-        parts = str(path).split("/")
-        if len(parts) >= 3 and parts[0] == "scenarios":
-            return None if parts[2].startswith("repetition-") else parts[1]
+def _extract_result_preview(
+    run_dir: Path,
+    scenario_key: str,
+    *,
+    repetition: int | None = None,
+) -> dict[str, Any] | None:
+    root = run_dir / "scenarios" / scenario_key
+    if not root.exists():
+        return None
+    exec_files = [
+        p
+        for p in sorted(root.rglob("*execute*.json"))
+        if _path_matches_repetition(p, root, repetition)
+    ]
+    for path in reversed(exec_files):
+        blob = _load_json(path)
+        body = ((blob.get("response") or {}).get("body")) or blob
+        res = (body.get("result") if isinstance(body, dict) and isinstance(body.get("result"), dict) else body)
+        if isinstance(res, dict) and ("rows" in res or "rowCount" in res):
+            rows = res.get("rows") or []
+            row_count = res.get("rowCount") if res.get("rowCount") is not None else len(rows)
+            return {
+                "columns": res.get("columns") or (list(rows[0].keys()) if rows and isinstance(rows[0], dict) else []),
+                "rows": rows[:10],
+                "row_count": row_count,
+                "returned": row_count,
+            }
     return None
 
 
-def _judge_anchor(team: str | None, scenario_id: str, turn: int) -> str:
-    raw = f"judge-{team or 'run'}-{scenario_id}-t{turn}"
-    return re.sub(r"[^A-Za-z0-9_.-]", "-", raw)
-
-
-def _judges_by_cell(
-    rows: list[dict[str, Any]],
-) -> dict[tuple[str | None, str], list[dict[str, Any]]]:
-    """Judge rows grouped per (team, scenario), each cell's rows in turn order.
-
-    Keying on the team is what keeps a comparison run's three answers to the
-    same scenario from overwriting each other.
-    """
-    cells: dict[tuple[str | None, str], list[dict[str, Any]]] = {}
-    for row in rows:
-        cells.setdefault((_judge_team(row), str(row.get("scenario_id"))), []).append(row)
-    for cell_rows in cells.values():
-        cell_rows.sort(key=lambda r: int(r.get("turn") or 0))
-    return cells
-
-
-def _row_team(row: dict[str, Any]) -> str | None:
-    team = row.get("profileId")
-    return team if isinstance(team, str) and team else None
-
-
-def _team_tallies(results: dict[str, Any]) -> list[tuple[str | None, int, int]]:
-    """(team, conversations passed, conversations run), best rate first."""
-    tallies: dict[str | None, list[int]] = {}
+def entries_from_comparison_run(run_dir: Path | str) -> list[dict[str, Any]]:
+    """One entry per team from a single frozen-comparison run."""
+    results = _load_json(Path(run_dir) / "results.json")
+    team_ids: list[str] = []
     for row in results.get("results") or []:
-        if row.get("status") == "skipped":
-            continue
-        tally = tallies.setdefault(_row_team(row), [0, 0])
-        tally[0] += 1 if row.get("passed") else 0
-        tally[1] += 1
-    return sorted(
-        ((team, passed, total) for team, (passed, total) in tallies.items()),
-        key=lambda item: (-(item[1] / item[2] if item[2] else 0.0), str(item[0])),
-    )
+        profile_id = row.get("profileId")
+        if isinstance(profile_id, str) and profile_id not in team_ids:
+            team_ids.append(profile_id)
+    return [
+        {"run_dir": Path(run_dir), "profile_id": team, "profile_label": team}
+        for team in team_ids
+    ]
 
 
-def _team_labels(results: dict[str, Any], suite: dict[str, Any]) -> dict[str | None, str]:
-    """A short human name per team: what distinguishes it, not its full slug."""
+def _team_labels(results: dict[str, Any], suite: dict[str, Any]) -> dict[str, str]:
     profiles = suite.get("profiles") or {}
-    teams: list[str | None] = []
+    teams: list[str] = []
     for row in results.get("results") or []:
-        team = _row_team(row)
-        if team not in teams:
-            teams.append(team)
-    labels: dict[str | None, str] = {}
+        team = row.get("profileId") or suite.get("profileId") or "catalyst-default"
+        if str(team) not in teams:
+            teams.append(str(team))
+    if not teams:
+        teams = [str(suite.get("profileId") or "catalyst-default")]
+    labels: dict[str, str] = {}
     for team in teams:
         cfg = profiles.get(team) or {}
         writer = cfg.get("writerModelId")
         reviewer = cfg.get("reviewerModelId")
         if not writer:
-            labels[team] = team or "this run"
+            labels[team] = team
         elif not reviewer:
-            labels[team] = "writer-only"
+            labels[team] = f"{writer} (writer-only)"
         elif reviewer == writer:
-            labels[team] = "self-checked"
+            labels[team] = f"{writer} (self-checked)"
         else:
-            labels[team] = f"{reviewer}-checked"
-    if len(set(labels.values())) < len(labels):
-        labels = {team: (team or "this run") for team in teams}
+            labels[team] = f"{writer} + {reviewer} checker"
     return labels
 
 
-def _team_models(suite: dict[str, Any], team: str | None) -> str:
-    cfg = (suite.get("profiles") or {}).get(team) or {}
-    writer = cfg.get("writerModelId")
-    reviewer = cfg.get("reviewerModelId")
-    if not writer:
-        return ""
-    return f"{writer} writer · {reviewer} reviewer" if reviewer else f"{writer}, no reviewer"
+def _arm_cards_from_suite(
+    backends: list[str],
+    suite: dict[str, Any],
+    labels: dict[str, str],
+) -> dict[str, dict[str, Any]]:
+    profiles = suite.get("profiles") or {}
+    cards: dict[str, dict[str, Any]] = {}
+    for b in backends:
+        cfg = profiles.get(b) or {}
+        writer = cfg.get("writerModelId")
+        reviewer = cfg.get("reviewerModelId")
+        is_team = bool(writer and reviewer and reviewer != writer)
+        models = []
+        roles: dict[str, dict[str, Any]] = {}
+        if writer:
+            w_entry = {"id": writer, "family": writer, "params": "", "quant": ""}
+            models.append(w_entry)
+            roles["writer"] = w_entry
+        if reviewer:
+            r_entry = {"id": reviewer, "family": reviewer, "params": "", "quant": ""}
+            if reviewer != writer:
+                models.append(r_entry)
+            roles["reviewer"] = r_entry
+        cards[b] = {
+            "title": labels.get(b) or b,
+            "short_title": labels.get(b) or b,
+            "kind": "team" if is_team else "single",
+            "path": "catalyst notebook validation",
+            "models": models,
+            "roles": roles,
+            "config": {"knobs": {}, "prompts": []},
+        }
+    return cards
 
 
-def _conformed(assertions: list[dict[str, Any]]) -> bool:
-    """No failed conformance assertion — the row is a valid measurement."""
-    for assertion in assertions:
-        if assertion.get("passed"):
-            continue
-        kind = assertion.get("class") or assertion_class(str(assertion.get("name") or ""))
-        if kind == "conformance":
-            return False
-    return True
-
-
-def _gate_outcome(
+def _gate_verdict(
     results: dict[str, Any],
-    labels: dict[str | None, str],
-    gates: dict[str, Any],
-) -> dict[str, Any] | None:
-    """The decision, computed the way comparison.html computes it: overall
-    rate and worst per-scenario rate against the frozen gates; a team with an
-    invalid measurement is undecidable rather than beaten."""
+    labels: dict[str, str],
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    gates = (config or {}).get("gates") or {}
     overall = gates.get("overall")
     per_scenario = gates.get("per_scenario")
+    rows = [
+        r
+        for r in (results.get("results") or [])
+        if r.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
+    total = len(rows)
+    passed = sum(1 for r in rows if r.get("passed"))
+    invalid = sum(
+        1 for r in rows if not conformed(r.get("assertions") or [])
+    )
+    blockers: list[str] = []
+    for r in rows:
+        if not r.get("passed") or not conformed(r.get("assertions") or []):
+            b_info = blame(r.get("assertions") or [])
+            root = b_info.get("root") or {}
+            why = root.get("why") or root.get("human") or root.get("name") or "failed check"
+            sid = r.get("scenarioId") or "?"
+            pid = r.get("profileId")
+            prefix = f"{pid} / {sid}" if pid else str(sid)
+            blockers.append(f"{prefix}: {why}")
+
     if overall is None and per_scenario is None:
-        return None
-    by_team: dict[str | None, dict[str, list[dict[str, Any]]]] = {}
-    for row in results.get("results") or []:
-        if row.get("status") == "skipped":
+        qualified = (total > 0 and passed == total and invalid == 0)
+        verdict = (
+            f"Passed {passed}/{total} conversations"
+            if qualified
+            else (
+                f"Undecidable ({invalid} invalid measurement{'s' if invalid != 1 else ''})"
+                if invalid
+                else f"{passed}/{total} conversations passed"
+            )
+        )
+        return {
+            "qualified": qualified,
+            "verdict": verdict,
+            "passed": passed,
+            "total": total,
+            "invalid": invalid,
+            "blockers": blockers[:12],
+        }
+
+    by_team: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for r in rows:
+        t = str(r.get("profileId") or "default")
+        by_team.setdefault(t, {}).setdefault(str(r.get("scenarioId")), []).append(r)
+
+    qual_teams: list[str] = []
+    undec_teams: list[str] = []
+    for t, by_scen in by_team.items():
+        t_rows = [r for rs in by_scen.values() for r in rs]
+        if any(not conformed(r.get("assertions") or []) for r in t_rows):
+            undec_teams.append(labels.get(t, t))
             continue
-        by_team.setdefault(_row_team(row), {}).setdefault(
-            str(row.get("scenarioId")), []
-        ).append(row)
-    if len(by_team) < 2:
-        return None
-    qualified: list[str] = []
-    undecidable: list[str] = []
-    for team, by_scenario in by_team.items():
-        rows = [row for runs in by_scenario.values() for row in runs]
-        if any(not _conformed(row.get("assertions") or []) for row in rows):
-            undecidable.append(labels.get(team, str(team)))
-            continue
-        rate = sum(1 for row in rows if row.get("passed")) / len(rows) if rows else 0.0
+        rate = sum(1 for r in t_rows if r.get("passed")) / len(t_rows) if t_rows else 0.0
         worst = min(
-            (
-                sum(1 for r in runs if r.get("passed")) / len(runs)
-                for runs in by_scenario.values()
-                if runs
-            ),
+            (sum(1 for r in rs if r.get("passed")) / len(rs) for rs in by_scen.values() if rs),
             default=0.0,
         )
         if (overall is None or rate >= float(overall)) and (
             per_scenario is None or worst >= float(per_scenario)
         ):
-            qualified.append(labels.get(team, str(team)))
-    gate_bits = []
-    if overall is not None:
-        gate_bits.append(f"≥{float(overall):.0%} overall")
-    if per_scenario is not None:
-        gate_bits.append(f"≥{float(per_scenario):.0%} per scenario")
+            qual_teams.append(labels.get(t, t))
+
+    verdict_str = (
+        f"Qualified: {', '.join(qual_teams)}"
+        if qual_teams
+        else (
+            f"Undecidable: {', '.join(undec_teams)}"
+            if undec_teams
+            else "No team qualified"
+        )
+    )
     return {
-        "gates": gate_bits,
-        "qualified": sorted(qualified),
-        "undecidable": sorted(undecidable),
+        "qualified": bool(qual_teams),
+        "verdict": verdict_str,
+        "qualified_teams": qual_teams,
+        "undecidable_teams": undec_teams,
+        "gates": gates,
+        "passed": passed,
+        "total": total,
+        "invalid": invalid,
+        "blockers": blockers[:12],
     }
 
 
-def _gate_verdict_line(outcome: dict[str, Any]) -> str:
-    prefix = (
-        "Against the gates in force at publication"
-        f" ({', '.join(outcome['gates'])}): "
-    )
-    qualified = outcome["qualified"]
-    undecidable = outcome["undecidable"]
-    if qualified:
-        line = prefix + "qualified — " + ", ".join(qualified)
-        if undecidable:
-            line += (
-                " · no decision for "
-                + ", ".join(undecidable)
-                + " (invalid measurements)"
-            )
-        return line
-    if undecidable:
-        return (
-            prefix
-            + "no decision — invalid measurements for "
-            + ", ".join(undecidable)
-        )
-    return prefix + "no team qualified"
-
-
-def _row_scenario_key(row: dict[str, Any]) -> str:
-    """Where this row's evidence lives under scenarios/.
-
-    A comparison run nests evidence per team; a single-profile run keeps the
-    flat layout. The row itself says which world it came from.
-    """
-    sid = str(row.get("scenarioId"))
-    team = row.get("profileId")
-    return f"{team}/{sid}" if isinstance(team, str) and team else sid
-
-
-def _row_label(row: dict[str, Any]) -> str:
-    """The scenario id, prefixed by its team when the run compares several."""
-    sid = str(row.get("scenarioId"))
-    team = row.get("profileId")
-    return f"{team} · {sid}" if isinstance(team, str) and team else sid
-
-
-def _gold_passed(assertions: list[dict[str, Any]]) -> bool:
-    gold = [
-        a
-        for a in assertions
-        if "gold_execution_match" in str(a.get("name", ""))
-    ]
-    if not gold:
-        return all(bool(a.get("passed")) for a in assertions)
-    return all(bool(a.get("passed")) for a in gold)
-
-
-def _fail_chip(assertion: dict[str, Any]) -> str:
-    """A failed check's chip, labeled by what kind of finding it is.
-
-    A broken contract (an invalid measurement) and a judged miss (a result)
-    must not look alike; the split comes stamped from the runner, with the
-    name table as the fallback for older rows.
-    """
-    kind = assertion.get("class") or assertion_class(
-        str(assertion.get("name") or "")
-    )
-    if kind == "conformance":
-        return (
-            f"<span class='chip-invalid'>contract · "
-            f"{esc(assertion.get('name'))}</span>"
-        )
-    return f"<span class='chip-fail'>judged · {esc(assertion.get('name'))}</span>"
-
-
-def _assertion_fail_details(
-    run_dir: Path,
-    scenario_id: str,
-    assertion: dict[str, Any],
-) -> str:
-    evidence = assertion.get("evidence")
-    rationale = ""
-    rel: str | None = None
-    if isinstance(evidence, dict):
-        rationale = str(
-            evidence.get("mismatch_rationale") or evidence.get("rationale") or ""
-        )
-        path_val = evidence.get("path")
-        if isinstance(path_val, str):
-            rel = path_val
-    name = str(assertion.get("name") or "")
-    if not rel and "gold_execution_match" in name:
-        stem = (
-            "15-gold-execution-match-base.json"
-            if "base_" in name
-            else "16-gold-execution-match-successor.json"
-        )
-        candidate = f"scenarios/{scenario_id}/repetition-01/{stem}"
-        if (run_dir / candidate).exists():
-            rel = candidate
-    chunks: list[str] = []
-    if rel:
-        abs_path = run_dir / rel
-        if abs_path.exists() and abs_path.suffix == ".json":
-            blob = _load_json(abs_path)
-            file_rationale = blob.get("mismatch_rationale")
-            if file_rationale:
-                rationale = str(file_rationale)
-        chunks.append(f'<a class="ev" href="{esc(rel)}">{esc(rel)}</a>')
-    if rationale:
-        chunks.insert(0, esc(rationale))
-    return "<br>".join(chunks) if chunks else ""
-
-
-def _render_judge_block(row: dict[str, Any] | None) -> str:
-    if row is None:
-        return '<span class="adv">Judge not available</span>'
-    axes = [
-        "intent_fidelity",
-        "sql_quality",
-        "schema_discipline",
-        "followup_coherence",
-    ]
-    bits = [
-        f"<div><b>advisory composite</b>: {esc(row.get('composite'))}</div>",
-        "<ul>",
-    ]
-    for axis in axes:
-        if axis not in row:
-            continue
-        rationale = row.get(f"{axis}_rationale", "")
-        bits.append(
-            f"<li><code>{esc(axis)}</code>={esc(row.get(axis))} — {esc(rationale)}</li>"
-        )
-    bits.append("</ul>")
-    paths = row.get("evidence_paths") or []
-    if paths:
-        bits.append("<div class='adv'>evidence: ")
-        bits.append(
-            ", ".join(
-                f'<a class="ev" href="{esc(p)}">{esc(p)}</a>' for p in paths
-            )
-        )
-        bits.append("</div>")
-    return "".join(bits)
-
-
-def _execution_row_count(run_dir: Path, scenario_id: str, stem: str) -> int | None:
-    """rowCount from the first repetition's execution artifact, if present."""
-    for candidate in (
-        run_dir / "scenarios" / scenario_id / "repetition-01" / stem,
-        run_dir / "scenarios" / scenario_id / stem,
-    ):
-        if not candidate.exists():
-            continue
-        blob = _load_json(candidate)
-        body = ((blob.get("response") or {}).get("body")) or blob
-        # Live runs nest under result; older fixture exchanges keep
-        # rows/rowCount at the body top level.
-        result = body.get("result") or body
-        if isinstance(result.get("rowCount"), int):
-            return result["rowCount"]
-        rows = result.get("rows")
-        if isinstance(rows, list):
-            return len(rows)
-    return None
-
-
-def _abstract_section(
-    suite: dict[str, Any],
-    results: dict[str, Any],
-    judges: list[dict[str, Any]],
-    config: dict[str, Any],
-) -> str:
-    """The report in plain terms: assembled from the run's own numbers so it
-    cannot drift from them, with the wording templates seeded (optionally)
-    from the run config's publish block."""
-    publish = config.get("publish") or {}
-    tallies = _team_tallies(results)
-    labels = _team_labels(results, suite)
-    gates = config.get("gates") or {}
-    n_questions = max((total for _, _, total in tallies), default=0)
-    subject = publish.get("plainSubject") or "a clinical database"
-    paragraphs: list[str] = []
-
-    lead = publish.get("plainSummary")
-    if not lead and tallies:
-        if len(tallies) > 1:
-            lead = (
-                f"We asked {len(tallies)} AI “teams” the same"
-                f" {n_questions} questions about {subject}, in plain English,"
-                " and let each team write and run the database queries itself"
-                " — including asking us to clarify vague questions, and"
-                " refusing ones the data can't answer. A team passes a"
-                " question only when its final answer matches an independently"
-                " written reference answer, row for row."
-            )
-        else:
-            lead = (
-                f"We asked an AI team {n_questions} questions about {subject},"
-                " in plain English, and let it write and run the database"
-                " queries itself. It passes a question only when its final"
-                " answer matches an independently written reference answer,"
-                " row for row."
-            )
-    if lead:
-        paragraphs.append(f"<p>{esc(lead)}</p>")
-
-    if tallies:
-        best_team, best_passed, best_total = tallies[0]
-        best_label = labels.get(best_team, str(best_team))
-        outcome = _gate_outcome(results, labels, gates)
-        if len(tallies) > 1 and outcome is not None:
-            if outcome["qualified"]:
-                sentence = (
-                    f"<b>{esc(', '.join(outcome['qualified']))} cleared the"
-                    " acceptance bar.</b>"
-                    f" Best score: {best_passed} of {best_total}."
-                )
-            elif outcome["undecidable"]:
-                sentence = (
-                    "<b>The run could not be decided</b> — some measurements"
-                    " were invalid; see the comparison page."
-                )
+def _assertion_counts(results: dict[str, Any]) -> dict[str, dict[str, int]]:
+    ev_pass = ev_fail = cf_pass = cf_fail = 0
+    for r in results.get("results") or []:
+        for a in r.get("assertions") or []:
+            kind = a.get("class") or assertion_class(str(a.get("name") or ""))
+            ok = bool(a.get("passed"))
+            if kind == "conformance":
+                if ok:
+                    cf_pass += 1
+                else:
+                    cf_fail += 1
             else:
-                sentence = (
-                    "<b>No team passed enough questions to clear the"
-                    " acceptance bar.</b> The best team —"
-                    f" {esc(best_label)} — got {best_passed} of {best_total}."
-                )
-        elif len(tallies) > 1:
-            sentence = (
-                f"The best team — {esc(best_label)} — passed"
-                f" {best_passed} of {best_total} questions."
-            )
-        else:
-            sentence = f"It passed {best_passed} of {best_total} questions."
-        paragraphs.append(f"<p>{sentence}</p>")
-
-    if judges:
-        composites = [
-            row["composite"]
-            for row in judges
-            if isinstance(row.get("composite"), (int, float))
-        ]
-        if composites:
-            judge_sentence = (
-                f"A separate AI judge read every query the team{'s' if len(tallies) > 1 else ''}"
-                f" wrote ({len(composites)} in all) and scored each from 0 to 100:"
-                f" the typical score was {median(composites):g} and the lowest"
-                f" was {min(composites):g}."
-            )
-            takeaway = publish.get("plainTakeaway")
-            if takeaway:
-                judge_sentence += f" {takeaway}"
-            paragraphs.append(f"<p>{esc(judge_sentence)}</p>")
-
-    reps = [1]
-    for row in results.get("results") or []:
-        if isinstance(row.get("repetition"), int):
-            reps.append(int(row["repetition"]))
-    once = max(reps) <= 1
-    caveat = (
-        ("One conversation per question, on a demonstration dataset — "
-         if once
-         else "A demonstration dataset — ")
-        + "read this as directional evidence, not a benchmark."
-    )
-    paragraphs.append(f"<p class='adv'>{esc(caveat)}</p>")
-
-    if not paragraphs:
-        return ""
-    return (
-        "<section class='abstract'><h2>In plain terms</h2>"
-        + "".join(paragraphs)
-        + "</section>"
-    )
+                if ok:
+                    ev_pass += 1
+                else:
+                    ev_fail += 1
+    return {
+        "evaluation": {"passed": ev_pass, "failed": ev_fail},
+        "conformance": {"passed": cf_pass, "failed": cf_fail},
+    }
 
 
-def _verdict_section(
-    suite: dict[str, Any],
-    results: dict[str, Any],
-    config: dict[str, Any],
-) -> str:
-    """The decision facts: gate verdict and how each team did, before any detail."""
-    passed = results.get("passedCount")
-    total = results.get("resultCount")
-    skipped = results.get("skippedCount") or 0
-    assertion_total = sum(
-        len(row.get("assertions") or []) for row in results.get("results") or []
-    )
-    tallies = _team_tallies(results)
-    labels = _team_labels(results, suite)
-    outcome = _gate_outcome(results, labels, config.get("gates") or {})
-    bits = ["<section>", "<h2>Result</h2>"]
-    if outcome:
-        cls = "pass" if outcome["qualified"] else "fail"
-        bits.append(
-            f"<p class='gate-verdict {cls}'>{esc(_gate_verdict_line(outcome))}</p>"
-        )
-    if len(tallies) > 1:
-        chips = []
-        for index, (team, team_passed, team_total) in enumerate(tallies):
-            models = _team_models(suite, team)
-            chips.append(
-                f"<div class='vchip{' lead' if index == 0 else ''}'>"
-                f"<b>{team_passed}/{team_total}</b> {esc(labels.get(team, str(team)))}"
-                + (f"<span class='sub'>{esc(models)}</span>" if models else "")
-                + "</div>"
-            )
-        bits.append(f"<div class='vchips'>{''.join(chips)}</div>")
-        bits.append(
-            f"<p class='adv'>{esc(passed)}/{esc(total)} conversations passed"
-            f" across all teams · {assertion_total} assertions"
-            + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
-            + " · pass = the final answer matches the independent reference"
-            " answer row-for-row.</p>"
-        )
-    else:
-        verdict_cls = "pass" if passed == total else "fail"
-        bits.append(
-            f"<p class='headline'><span class='{verdict_cls}'>{esc(passed)}/{esc(total)}"
-            " conversations passed</span>"
-            f" · {assertion_total} assertions"
-            + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
-            + "</p>"
-        )
-        bits.append(
-            "<p class='adv'>pass = the final answer matches the independent"
-            " reference answer row-for-row.</p>"
-        )
-    bits.append("</section>")
-    return "".join(bits)
-
-
-def _judge_summary_section(
-    suite: dict[str, Any],
-    results: dict[str, Any],
-    judges: list[dict[str, Any]],
-    judge_manifest: dict[str, Any],
-) -> str:
-    """The judge at a glance: one row per team, medians plus the floor and
-    the flagged cases — linked into the full rationales below."""
-    if not judges:
-        return ""
-    labels = _team_labels(results, suite)
-    by_team: dict[str | None, list[dict[str, Any]]] = {}
-    for row in judges:
-        by_team.setdefault(_judge_team(row), []).append(row)
-
-    def summary_row(
-        name: str, rows: list[dict[str, Any]], *, name_teams: bool = False
-    ) -> str:
-        composites = [
-            row["composite"]
-            for row in rows
-            if isinstance(row.get("composite"), (int, float))
-        ]
-        flagged = sorted(
-            (
-                row
-                for row in rows
-                if isinstance(row.get("composite"), (int, float))
-                and row["composite"] < _FLAG_BELOW
-            ),
-            key=lambda row: row["composite"],
-        )
-
-        def flag_link(row: dict[str, Any]) -> str:
-            team = _judge_team(row)
-            anchor = _judge_anchor(
-                team, str(row.get("scenario_id")), int(row.get("turn") or 0)
-            )
-            prefix = (
-                f"{esc(labels.get(team, str(team)))}: " if name_teams else ""
-            )
-            return (
-                f"<a class='jlink' href='#{anchor}'>{prefix}"
-                f"{esc(row.get('scenario_id'))}·turn {esc(row.get('turn'))}"
-                f" — {esc(row.get('composite'))}</a>"
-            )
-
-        flag_links = ", ".join(flag_link(row) for row in flagged)
-        floor = min(composites) if composites else None
-        floor_cls = " flagged" if flagged else ""
-        cells = [
-            f"<td>{esc(name)}</td>",
-            f"<td class='num'>{len(rows)}</td>",
-            f"<td class='num'>{median(composites):g}</td>" if composites else "<td class='num'>—</td>",
-            f"<td class='num{floor_cls}'>{floor:g}</td>" if floor is not None else "<td class='num'>—</td>",
-            f"<td>{flag_links or '—'}</td>",
-        ]
-        for axis in _JUDGE_AXES:
-            values = [row[axis] for row in rows if isinstance(row.get(axis), (int, float))]
-            cells.append(
-                f"<td class='num'>{median(values):g}</td>" if values else "<td class='num'>—</td>"
-            )
-        return "<tr>" + "".join(cells) + "</tr>"
-
-    rows_html = [
-        summary_row(labels.get(team, str(team) if team else "this run"), team_rows)
-        for team, team_rows in sorted(
-            by_team.items(), key=lambda item: str(item[0] or "")
-        )
-    ]
-    if len(by_team) > 1:
-        rows_html.append(summary_row("all teams", judges, name_teams=True))
-
-    model = judge_manifest.get("model") or (judges[0].get("model") if judges else "")
-    provider = judge_manifest.get("provider") or (judges[0].get("provider") if judges else "")
-    rubric = str(
-        judge_manifest.get("rubric_sha256") or judges[0].get("rubric_sha256") or ""
-    )
-    protocol = (
-        f"Judge: {esc(model)} ({esc(provider)}) · three independent passes"
-        " finalized by per-axis medians"
-        + (f" · rubric {esc(rubric[:12])}…" if rubric else "")
-    )
-    axis_heads = "".join(f"<th class='num'>{esc(_AXIS_HEADS[a])}</th>" for a in _JUDGE_AXES)
-    return (
-        "<section id='judge-summary'>"
-        "<h2>Judge summary<span class='pill-adv'>advisory</span></h2>"
-        "<p class='adv'>A separate AI judge read every executed query against"
-        " its recorded evidence. Scores are 0–3 per axis; the composite weighs"
-        " them into 0–100. Advisory means it never gates acceptance — the"
-        " row-for-row reference check does. Where that check failed, the judge"
-        " explains why; it cannot overrule it.</p>"
-        "<table class='data'><thead><tr>"
-        "<th>team</th><th class='num'>queries judged</th>"
-        "<th class='num'>composite median</th><th class='num'>floor</th>"
-        f"<th>flagged (&lt;{_FLAG_BELOW})</th>{axis_heads}"
-        "</tr></thead>"
-        f"<tbody>{''.join(rows_html)}</tbody></table>"
-        f"<p class='adv'>{protocol}</p>"
-        "<dl class='legend'>"
-        "<dt>intent</dt><dd>did the SQL answer the question as asked (0–3)</dd>"
-        "<dt>SQL craft</dt><dd>clean, minimal, executable construction — joins,"
-        " predicates, no dead branches (0–3)</dd>"
-        "<dt>schema</dt><dd>only catalogued tables and columns, parameters bound"
-        " with correct types (0–3)</dd>"
-        "<dt>follow-up</dt><dd>the revision honors the new instruction without"
-        " breaking what worked (0–3, follow-up turns only)</dd>"
-        "<dt>composite</dt><dd>weighted 0–100 (opening queries 47/29/24;"
-        " follow-up queries 40/25/20/15)</dd>"
-        "<dt>floor</dt><dd>the lowest composite this team received — its worst"
-        " single query</dd>"
-        "</dl>"
-        "</section>"
-    )
-
-
-def _judge_detail_section(
-    suite: dict[str, Any],
-    results: dict[str, Any],
-    judges: list[dict[str, Any]],
-) -> str:
-    """Every judge rationale, grouped per team, flagged cases first and open."""
-    if not judges:
-        return (
-            "<section><h2>Judge detail<span class='pill-adv'>advisory</span></h2>"
-            "<div class='note'>Judge not available for this run"
-            " (development / no-judge path).</div></section>"
-        )
-    labels = _team_labels(results, suite)
-    by_team: dict[str | None, list[dict[str, Any]]] = {}
-    for row in judges:
-        by_team.setdefault(_judge_team(row), []).append(row)
-    chunks: list[str] = []
-    for team, team_rows in sorted(by_team.items(), key=lambda item: str(item[0] or "")):
-        if len(by_team) > 1 or team is not None:
-            chunks.append(
-                f"<h3>{esc(labels.get(team, str(team)))}"
-                + (f" <span class='adv'>{esc(team)}</span>" if team else "")
-                + "</h3>"
-            )
-        ordered = sorted(
-            team_rows,
-            key=lambda row: (
-                not (
-                    isinstance(row.get("composite"), (int, float))
-                    and row["composite"] < _FLAG_BELOW
-                ),
-                row.get("composite") if isinstance(row.get("composite"), (int, float)) else 0,
-                str(row.get("scenario_id")),
-                int(row.get("turn") or 0),
-            ),
-        )
-        for row in ordered:
-            composite = row.get("composite")
-            flagged = isinstance(composite, (int, float)) and composite < _FLAG_BELOW
-            anchor = _judge_anchor(
-                team, str(row.get("scenario_id")), int(row.get("turn") or 0)
-            )
-            summary = (
-                f"<code>{esc(row.get('scenario_id'))}</code>"
-                f" turn {esc(row.get('turn'))}"
-                f" · composite {esc(composite)}"
-                + (" — <span class='flagged'>flagged</span>" if flagged else "")
-            )
-            chunks.append(
-                f"<details class='jcell' id='{anchor}'{' open' if flagged else ''}>"
-                f"<summary>{summary}</summary>"
-                f"<div class='adv'>version {esc(row.get('version_id'))}</div>"
-                f"{_render_judge_block(row)}"
-                "</details>"
-            )
-    return (
-        "<section><h2>Judge detail<span class='pill-adv'>advisory</span></h2>"
-        + "".join(chunks)
-        + "</section>"
-    )
-
-
-def _methods_section(
-    suite: dict[str, Any], results: dict[str, Any], meta_bits: list[str]
-) -> str:
-    """How the run works, the dataset, and the model lineup — folded, at the end."""
-    inner: list[str] = [
-        "<p class='adv'>Each conversation runs live: a question"
-        " generates SQL (a writer model drafts it; reviewed profiles also invoke"
-        " their configured reviewer), the query"
-        " is validated and executed against PostgreSQL, then a follow-up"
-        " instruction refines the exact current query and the successor is"
-        " validated and executed again. Executed results are re-checked against"
-        " an independently-authored gold query (byte-level row-set match) and an"
-        " independent read-only PostgreSQL cross-check.</p>",
-    ]
-    dataset = results.get("dataset") or {}
-    if dataset:
-        facts = []
-        for label, key in (
-            ("patients", "patients"),
-            ("results", "results"),
-            ("test types", "testTypes"),
-        ):
-            if dataset.get(key) is not None:
-                facts.append(f"{esc(dataset[key])} {label}")
-        window = " – ".join(
-            str(dataset[k])[:10] for k in ("firstObservedAt", "lastObservedAt")
-            if dataset.get(k)
-        )
-        if window:
-            facts.append(esc(window))
-        if facts:
-            inner.append(
-                f"<p class='adv'>Dataset <code>{esc(dataset.get('datasetId'))}</code>"
-                f" ({esc(dataset.get('dataSource'))}): " + " · ".join(facts) + "</p>"
-            )
-    profiles = suite.get("profiles") or {}
-    if profiles:
-        rows = "".join(
-            f"<tr><td><code>{esc(pid)}</code></td>"
-            f"<td>{esc(cfg.get('writerModelId'))}</td>"
-            f"<td>{esc(cfg.get('reviewerModelId') or '— (writer only)')}</td></tr>"
-            for pid, cfg in sorted(profiles.items())
-        )
-        inner.append(
-            "<table class='data'><thead><tr><th>profile</th><th>writer model</th>"
-            f"<th>reviewer model</th></tr></thead><tbody>{rows}</tbody></table>"
-        )
-    inner.append(f"<p class='adv'>{esc(' · '.join(meta_bits))}</p>")
-    return (
-        "<section><h2>Methods &amp; provenance</h2>"
-        "<details><summary>How this works, the dataset, and the model lineup</summary>"
-        + "".join(inner)
-        + "</details></section>"
-    )
-
-
-def _scenario_narrative_section(
-    run_dir: Path, suite: dict[str, Any], results: dict[str, Any]
-) -> str:
-    """One card per scenario: what was asked, how it was refined, what ran."""
-    # One card per (team, scenario): a comparison run's teams answered the
-    # same scenario independently and must not blend into one card.
-    by_cell: dict[tuple[str | None, str], list[dict[str, Any]]] = {}
-    teams: list[str | None] = []
-    for row in results.get("results") or []:
-        team = row.get("profileId") if isinstance(row.get("profileId"), str) else None
-        by_cell.setdefault((team, str(row["scenarioId"])), []).append(row)
-        if team not in teams:
-            teams.append(team)
-    cards: list[str] = []
-    for team in teams:
-        for scenario in suite.get("scenarios") or []:
-            sid = str(scenario.get("id"))
-            rows = by_cell.get((team, sid)) or []
-            label = f"{team} · {sid}" if team else sid
-            completed = [r for r in rows if r.get("status") != "skipped"]
-            if rows and not completed:
-                cards.append(
-                    f"<div class='note'><h3><code>{esc(label)}</code></h3>"
-                    "<p class='adv'>Skipped — manual-only scenario (requires an"
-                    " operator-controlled external failure).</p></div>"
-                )
-                continue
-            if not rows:
-                continue
-            cards.append(
-                _scenario_card(run_dir, scenario, label, completed)
-            )
-    return (
-        ("<section><h2>What each scenario does</h2>" + "".join(cards) + "</section>")
-        if cards
-        else ""
-    )
-
-
-def _scenario_card(
-    run_dir: Path,
-    scenario: dict[str, Any],
-    label: str,
-    completed: list[dict[str, Any]],
-) -> str:
-    """One (team, scenario) card: the ask, the refinement, what actually ran."""
-    chunks = [f"<div class='note'><h3><code>{esc(label)}</code></h3>"]
-    if True:
-        chunks.append(
-            f"<p><b>Question</b> — {esc(scenario.get('initialQuestion'))}</p>"
-        )
-        # The conversation as it ran: the writer's opening answer in words
-        # when it asked or declined, then each scripted turn and its answer.
-        first = completed[0] if completed else {}
-        if first.get("baseAnswerText"):
-            chunks.append(
-                f"<p><b>Writer</b> — {esc(first.get('baseAnswerText'))}</p>"
-            )
-        recorded_turns = first.get("turns") or []
-        if recorded_turns:
-            for index, turn in enumerate(recorded_turns, start=2):
-                chunks.append(
-                    f"<p><b>Turn {index}</b> — "
-                    f"“{esc(turn.get('instruction'))}” → "
-                    f"{esc(turn.get('observedOutcome') or '?')}"
-                    + (
-                        f": {esc(turn.get('answerText'))}"
-                        if turn.get("answerText")
-                        else ""
-                    )
-                    + "</p>"
-                )
-        elif scenario.get("followupInstruction"):
-            chunks.append(
-                f"<p><b>Follow-up</b> — {esc(scenario.get('followupInstruction'))}</p>"
-            )
-        facts: list[str] = []
-        if completed:
-            reps = len(completed)
-            all_ok = all(
-                all(a.get("passed") for a in (r.get("assertions") or []))
-                for r in completed
-            )
-            facts.append(
-                f"{reps} run{'s' if reps != 1 else ''} — "
-                + ("all passed" if all_ok else "FAILURES present")
-            )
-        key = (
-            _row_scenario_key(completed[0])
-            if completed
-            else str(scenario.get("id"))
-        )
-        base_rows = _execution_row_count(run_dir, key, "06-execute-base.json")
-        succ_rows = _execution_row_count(run_dir, key, "13-execute-successor.json")
-        if base_rows is not None:
-            facts.append(f"base query returned {base_rows} rows")
-        if succ_rows is not None:
-            facts.append(f"refined query returned {succ_rows} rows")
-        if facts:
-            chunks.append(f"<p class='adv'>{esc(' · '.join(facts))}</p>")
-    chunks.append("</div>")
-    return "".join(chunks)
-
-
-def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
-    manifest = blob["manifest"]
-    suite = blob["suite"]
-    results = blob["results"]
-    judges = blob["judges"]
-    config = blob.get("config") or {}
-    judge_manifest = blob.get("judge_manifest") or {}
-    judge_cells = _judges_by_cell(judges)
-
-    suite_id = suite.get("id") or results.get("suiteId") or manifest.get("run_id")
-    title = f"Catalyst notebook report · {suite_id}"
-    meta_bits = [
-        f"run_id={manifest.get('run_id')}",
-        f"evidence_status={manifest.get('evidence_status', 'development')}",
-        f"dataset={manifest.get('dataset_id')}",
-        f"catalog={suite.get('catalogVersion') or manifest.get('schema_mapping_version')}",
-        f"provider={suite.get('providerName') or (manifest.get('otel') or {}).get('gen_ai.provider.name')}",
-    ]
-    profiles = suite.get("profiles") or {}
-    if profiles:
-        meta_bits.append("profiles=" + ",".join(sorted(profiles)))
-
-    rows_html: list[str] = []
-    for row in results.get("results") or []:
-        sid = _row_label(row)
-        assertions = row.get("assertions") or []
-        gold_ok = _gold_passed(assertions)
-        # Judge rows join on (team, scenario): a comparison run's teams share
-        # every scenario id, so the bare id would collide across teams.
-        cell_judges = judge_cells.get(
-            (_row_team(row), str(row.get("scenarioId")))
-        ) or []
-        lowest = min(
-            (
-                jrow
-                for jrow in cell_judges
-                if isinstance(jrow.get("composite"), (int, float))
-            ),
-            key=lambda jrow: jrow["composite"],
-            default=None,
-        )
-        merged = merge_gold_and_judge(gold_passed=gold_ok, judge_row=lowest)
-        verdict = merged["reported"]
-        v_cls = "pass" if verdict == "PASS" else "fail"
-        judge_cell = (
-            " · ".join(
-                f"<a class='jlink' href='#{_judge_anchor(_judge_team(jrow), str(jrow.get('scenario_id')), int(jrow.get('turn') or 0))}'>"
-                f"{esc(jrow.get('composite'))}</a>"
-                for jrow in cell_judges
-            )
-            or "—"
-        )
-        fail_bits = []
-        for a in assertions:
-            if a.get("passed"):
-                continue
-            detail = _assertion_fail_details(run_dir, _row_scenario_key(row), a)
-            fail_bits.append(f"<div>{_fail_chip(a)} {detail}</div>")
-        assertion_names = ", ".join(esc(a.get("name")) for a in assertions)
-        passed_n = sum(1 for a in assertions if a.get("passed"))
-        assertions_cell = (
-            f"<details><summary>{passed_n}/{len(assertions)} passed</summary>"
-            f"<div class='adv'>{assertion_names}</div></details>"
-            if assertions
-            else "—"
-        )
-        rows_html.append(
-            "<tr>"
-            f"<td><code>{esc(sid)}</code><div class='adv'>{esc(row.get('family'))}</div></td>"
-            f"<td class='{v_cls}'>{esc(verdict)}</td>"
-            f"<td>{'yes' if gold_ok else 'no'}</td>"
-            f"<td class='adv'>{judge_cell}</td>"
-            f"<td>{assertions_cell}</td>"
-            f"<td>{''.join(fail_bits) if fail_bits else '—'}</td>"
-            "</tr>"
-        )
-
-    timeline: list[str] = []
-    for row in results.get("results") or []:
-        sid = _row_label(row)
-        timeline.append(
-            "<tr>"
-            f"<td><code>{esc(sid)}</code></td>"
-            f"<td>{esc(row.get('sessionId'))}</td>"
-            f"<td>{esc(row.get('baseVersionId'))} → {esc(row.get('selectedVersionId'))}</td>"
-            f"<td>{esc(row.get('baseExecutionId'))} / {esc(row.get('successorExecutionId'))}</td>"
-            f"<td>{esc((row.get('timing') or {}).get('unadjustedGenerationWallMs'))} ms</td>"
-            "</tr>"
-        )
-
-    diff_sections: list[str] = []
-    for row in results.get("results") or []:
-        sid = row["scenarioId"]
-        versions = _scenario_sql_versions(run_dir, _row_scenario_key(row))
-        if len(versions) < 2:
-            continue
-        chunks = [f"<h3><code>{esc(_row_label(row))}</code> SQL versions</h3>"]
-        for i in range(len(versions) - 1):
-            a_label, a_sql = versions[i]
-            b_label, b_sql = versions[i + 1]
-            diff = unified_sql_diff(a_sql, b_sql, fromfile=a_label, tofile=b_label)
-            if not diff.strip():
-                continue
-            chunks.append(
-                f"<pre class='diff'>{esc(diff)}</pre>"
-            )
-        if len(chunks) > 1:
-            diff_sections.append("".join(chunks))
-
-    empty_diff = "<div class='note'>No multi-version SQL diffs found.</div>"
-    diff_html = "".join(diff_sections) or empty_diff
-
-    body = (
-        "<header class='topbar'>"
-        "<div>"
-        f"<h1>{esc(title)}</h1>"
-        f"<div class='meta'>{esc(' · '.join(meta_bits))}</div>"
-        "<div class='meta'>Development fixture evidence — not a release claim.</div>"
-        "</div>"
-        f"{THEME_TOGGLE_BUTTON_HTML}"
-        "</header>"
-        "<main id='report'>"
-        f"{_abstract_section(suite, results, judges, config)}"
-        f"{_verdict_section(suite, results, config)}"
-        f"{_judge_summary_section(suite, results, judges, judge_manifest)}"
-        "<section>"
-        "<h2>Scenario matrix</h2>"
-        "<table class='data'>"
-        "<thead><tr>"
-        "<th>scenario</th><th>reported</th><th>gold ok</th>"
-        "<th>judge by turn (advisory)</th>"
-        "<th>assertions</th><th>gold FAIL detail</th>"
-        "</tr></thead>"
-        f"<tbody>{''.join(rows_html)}</tbody></table>"
-        "</section>"
-        f"{_scenario_narrative_section(run_dir, suite, results)}"
-        "<section>"
-        "<h2>SQL diffs</h2>"
-        f"{diff_html}"
-        "</section>"
-        "<section>"
-        "<h2>Turn / version / execution timeline</h2>"
-        "<table class='data'>"
-        "<thead><tr><th>scenario</th><th>session</th><th>versions</th>"
-        "<th>executions</th><th>gen wall</th></tr></thead>"
-        f"<tbody>{''.join(timeline)}</tbody></table>"
-        "</section>"
-        f"{_judge_detail_section(suite, results, judges)}"
-        f"{_methods_section(suite, results, meta_bits)}"
-        "</main>"
-        "<div id='sort-live' class='sr-only' aria-live='polite'></div>"
-    )
-    return body
-
-
-def build_report(run_dir: Path | str) -> Path:
-    """Render self-contained ``report.html`` from a notebook validation run directory."""
+def build_catalyst_report_packet(run_dir: Path | str) -> dict[str, Any]:
+    """Assemble the `openclinai.report.v2` JSON packet for a Catalyst run directory."""
     run_dir = Path(run_dir)
     suite = _load_json(run_dir / "suite.json")
-    if suite.get("reportMode") == "reader-led":
-        from .phase1_report import build_phase1_report
-
-        return build_phase1_report(run_dir)
     manifest = _load_json(run_dir / "run_manifest.json")
     results = _load_json(run_dir / "results.json")
-    judges = read_jsonl(run_dir / "judge.jsonl", strict=True)
-    blob = {
-        "report_family": "catalyst",
-        "manifest": manifest,
-        "suite": suite,
-        "results": results,
-        "judges": judges,
-        # The frozen seed (gates, publish copy) and the finalized-judge
-        # manifest travel with the run; both may be absent on older runs.
-        "config": load_frozen(run_dir),
-        "judge_manifest": _load_json(run_dir / "judge_manifest.json"),
+    judges = read_jsonl(run_dir / "judge.jsonl", strict=False)
+    config = load_frozen(run_dir)
+    judge_manifest = _load_json(run_dir / "judge_manifest.json")
+
+    is_reader_led = suite.get("reportMode") == "reader-led"
+    reader_led_block: dict[str, Any] | None = None
+    if is_reader_led:
+        prepare_reader_review(run_dir)
+        validate_reader_reviews(run_dir)
+        evidence_index = validate_notebook_evidence(run_dir)
+        records = case_records(
+            run_dir,
+            suite=suite,
+            results=results,
+            evidence_index=evidence_index,
+        )
+        coll = collection_summary(suite, results)
+        reviews_map: dict[str, Any] = {}
+        review_dir = run_dir / "reader-reviews"
+        if review_dir.is_dir():
+            for path in sorted(review_dir.glob("*.md")):
+                rmeta = _load_json(path.with_suffix(".json"))
+                reviews_map[path.stem] = {
+                    "reviewer": rmeta.get("reviewer"),
+                    "model": rmeta.get("model"),
+                    "reviewed_at": rmeta.get("reviewedAt"),
+                    "text": path.read_text(encoding="utf-8"),
+                }
+        reader_led_block = {
+            "collection_summary": {
+                **coll,
+                "case_count": len(records),
+            },
+            "case_records": [
+                {
+                    "case_id": f"{r.get('profileId')}:{r.get('scenarioId')}",
+                    "scenario_id": r.get("scenarioId"),
+                    "profile_id": r.get("profileId"),
+                    "family": r.get("family"),
+                    "measurement_valid": r.get("measurementValid"),
+                    "question": ((r.get("turns") or [{}])[0]).get("instruction") or "",
+                    "observed_outcome": ((r.get("turns") or [{}])[-1]).get("observedOutcome") or "",
+                    "turns": r.get("turns") or [],
+                }
+                for r in records
+            ],
+            "reader_reviews": reviews_map,
+        }
+
+    labels = _team_labels(results, suite)
+    backends = list(labels.keys())
+    arm_cards = _arm_cards_from_suite(backends, suite, labels)
+
+    suite_scenarios = {
+        str(s.get("id")): s
+        for s in (suite.get("scenarios") or [])
+        if isinstance(s, dict) and s.get("id")
     }
-    body = _build_body(run_dir, blob)
-    suite_id = suite.get("id") or results.get("suiteId") or manifest.get("run_id") or "catalyst"
-    html = render_document(
-        title=f"catalyst report · {suite_id}",
-        body_html=body,
-        embedded_data=blob,
-        style=_STYLE,
-        script=_SCRIPT,
-        theme_storage_key="oc-theme-report",
+    raw_rows = [
+        r
+        for r in (results.get("results") or [])
+        if isinstance(r, dict) and r.get("scenarioId")
+    ]
+    scenario_ids = ordered_unique(
+        [str(r.get("scenarioId")) for r in raw_rows]
+        + list(suite_scenarios.keys())
     )
-    out = run_dir / "report.html"
-    out.write_text(html, encoding="utf-8")
+
+    judge_by_cell: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for j in judges:
+        if not isinstance(j, dict):
+            continue
+        j_team = j.get("team")
+        if not j_team:
+            for p in j.get("evidence_paths") or []:
+                parts = str(p).split("/")
+                if len(parts) >= 3 and parts[0] == "scenarios" and not parts[2].startswith("repetition-"):
+                    j_team = parts[1]
+                    break
+        b_id = str(j_team or backends[0])
+        s_id = str(j.get("scenario_id") or "")
+        judge_by_cell.setdefault((s_id, b_id), []).append(j)
+
+    scenarios_out: list[dict[str, Any]] = []
+    judge_rows_out: list[dict[str, Any]] = []
+    lat_by_b: dict[str, list[float]] = {b: [] for b in backends}
+    chars_by_b: dict[str, list[float]] = {b: [] for b in backends}
+
+    for sid in scenario_ids:
+        s_def = suite_scenarios.get(sid) or {}
+        question = str(s_def.get("initialQuestion") or s_def.get("comment") or sid)
+        s_rows = [r for r in raw_rows if str(r.get("scenarioId")) == sid]
+        rows_by_b: dict[str, list[dict[str, Any]]] = {}
+        for b in backends:
+            b_rows = [
+                r
+                for r in s_rows
+                if str(r.get("profileId") or suite.get("profileId") or "catalyst-default") == b
+            ]
+            if not b_rows and len(backends) == 1 and s_rows:
+                b_rows = list(s_rows)
+            if b_rows:
+                indexed = list(enumerate(b_rows))
+                indexed.sort(
+                    key=lambda pair: (
+                        int(pair[1]["repetition"])
+                        if isinstance(pair[1].get("repetition"), int)
+                        else pair[0],
+                        pair[0],
+                    )
+                )
+                rows_by_b[b] = [pair[1] for pair in indexed]
+
+        max_reps = max((len(rs) for rs in rows_by_b.values()), default=0)
+        scen_turns_out: list[dict[str, Any]] = []
+        for rep_idx in range(max_reps):
+            turn_no = rep_idx + 1
+            turn_cells: dict[str, dict[str, Any]] = {}
+            rep_labels: list[int] = []
+            for b, b_rows in rows_by_b.items():
+                if rep_idx >= len(b_rows):
+                    continue
+                row = b_rows[rep_idx]
+                raw_rep = row.get("repetition")
+                rep_num = (
+                    int(raw_rep)
+                    if isinstance(raw_rep, int)
+                    else (turn_no if len(b_rows) > 1 else None)
+                )
+                if rep_num is not None:
+                    rep_labels.append(rep_num)
+                scen_key = (
+                    f"{b}/{sid}"
+                    if (row.get("profileId") and (run_dir / "scenarios" / b / sid).exists())
+                    else sid
+                )
+                versions = _scenario_sql_versions(run_dir, scen_key, repetition=rep_num)
+                sql_diff = ""
+                if len(versions) >= 2:
+                    diffs = []
+                    for idx in range(len(versions) - 1):
+                        d_txt = unified_sql_diff(
+                            versions[idx][1],
+                            versions[idx + 1][1],
+                            fromfile=versions[idx][0],
+                            tofile=versions[idx + 1][0],
+                        )
+                        if d_txt.strip():
+                            diffs.append(d_txt)
+                    sql_diff = "\n\n".join(diffs)
+
+                conv_turns: list[dict[str, Any]] = []
+                base_q = row.get("question") or question
+                conv_turns.append({"role": "user", "text": base_q})
+                conv_turns.append(
+                    {
+                        "role": "writer",
+                        "outcome": row.get("baseOutcome"),
+                        "text": row.get("baseAnswerText") or "",
+                        "sql": row.get("baseSql") or (versions[0][1] if versions else ""),
+                    }
+                )
+                turns_list = row.get("turns") or []
+                if not turns_list and s_def.get("followupInstruction"):
+                    conv_turns.append(
+                        {"role": "user (turn 2)", "text": str(s_def.get("followupInstruction"))}
+                    )
+                for idx, t_item in enumerate(turns_list, start=2):
+                    if not isinstance(t_item, dict):
+                        continue
+                    conv_turns.append(
+                        {"role": f"user (turn {idx})", "text": t_item.get("instruction") or ""}
+                    )
+                    conv_turns.append(
+                        {
+                            "role": f"writer (turn {idx})",
+                            "outcome": t_item.get("observedOutcome"),
+                            "text": t_item.get("answerText") or "",
+                            "sql": t_item.get("sql") or "",
+                        }
+                    )
+
+                assertions = row.get("assertions") or []
+                all_assertions = [
+                    {
+                        "name": a.get("name"),
+                        "passed": bool(a.get("passed")),
+                        "class": a.get("class") or assertion_class(str(a.get("name") or "")),
+                        "evidence": a.get("evidence"),
+                    }
+                    for a in assertions
+                    if isinstance(a, dict)
+                ]
+                failed_assertions = [a for a in all_assertions if not a["passed"]]
+                final_sql = (
+                    row.get("selectedSql")
+                    or (versions[-1][1] if versions else "")
+                    or row.get("baseSql")
+                    or ""
+                )
+                wall_ms = int(
+                    ((row.get("timing") or {}).get("unadjustedGenerationWallMs")) or 0
+                )
+                if wall_ms > 0:
+                    lat_by_b.setdefault(b, []).append(float(wall_ms))
+                chars_by_b.setdefault(b, []).append(float(len(final_sql)))
+
+                passed = bool(row.get("passed"))
+                is_conformant = conformed(assertions)
+                c_jrows_all = judge_by_cell.get((sid, b)) or []
+                if rep_num is not None and c_jrows_all:
+                    rep_tokens = {f"repetition-{rep_num:02d}", f"repetition-{rep_num}"}
+                    matched_jrows = [
+                        j
+                        for j in c_jrows_all
+                        if j.get("repetition") == rep_num
+                        or any(
+                            any(tok in str(p).split("/") for tok in rep_tokens)
+                            for p in (j.get("evidence_paths") or [])
+                        )
+                    ]
+                    c_jrows = matched_jrows if matched_jrows else c_jrows_all
+                else:
+                    c_jrows = c_jrows_all
+
+                merged = merge_gold_and_judge(
+                    gold_passed=passed,
+                    judge_row=c_jrows[-1] if c_jrows else None,
+                )
+                reported_str = (
+                    f"{merged['reported']} (advisory judge {merged['judge_composite']}/100)"
+                    if merged.get("judge_composite") is not None
+                    else merged["reported"]
+                )
+                res_preview = row.get("resultPreview") or _extract_result_preview(
+                    run_dir, scen_key, repetition=rep_num
+                )
+                turn_cells[b] = {
+                    "error": None if is_conformant else "conformance check failed",
+                    "http_status": 200 if is_conformant else 500,
+                    "answer_text": final_sql,
+                    "answer_view": {
+                        "status": "checked" if passed else ("failed" if not is_conformant else "needs_review"),
+                        "label": reported_str,
+                        "tone": "success" if passed else "danger",
+                        "note": "" if passed else (failed_assertions[0]["name"] if failed_assertions else ""),
+                        "findings": [],
+                    },
+                    "indepth_view": {"status": "not_in_profile"},
+                    "answer_validation_status": "checked" if passed else "needs_review",
+                    "blocks": [],
+                    "sources": {},
+                    "temporal_gate": {"status": "pass" if passed else "fail"},
+                    "stage_timings": [],
+                    "degraded": not is_conformant,
+                    "metrics": {
+                        "latency_ms": wall_ms,
+                        "http_status": 200 if is_conformant else 500,
+                        "citation_count": len(versions),
+                        "first_turn": turn_no == 1,
+                        "json_valid": is_conformant,
+                    },
+                    "catalyst_turn": {
+                        "repetition": rep_num,
+                        "passed": passed,
+                        "conformed": is_conformant,
+                        "reported": reported_str,
+                        "final_answer": final_sql,
+                        "conversation_turns": conv_turns,
+                        "sql_versions": [{"path": p, "sql": s} for p, s in versions],
+                        "sql_diff": sql_diff,
+                        "result_preview": res_preview,
+                        "assertions": all_assertions,
+                        "failed_assertions": failed_assertions,
+                        "judge_detail": c_jrows,
+                    },
+                }
+
+            if turn_cells:
+                rep_lbl = rep_labels[0] if rep_labels else turn_no
+                turn_entry: dict[str, Any] = {
+                    "turn": turn_no,
+                    "question": (
+                        f"{question} (repetition {rep_lbl})" if max_reps > 1 else question
+                    ),
+                    "cells": turn_cells,
+                }
+                if max_reps > 1 or rep_labels:
+                    turn_entry["repetition"] = rep_lbl
+                scen_turns_out.append(turn_entry)
+
+        for b, b_rows in rows_by_b.items():
+            c_jrows_all = judge_by_cell.get((sid, b)) or []
+            if not c_jrows_all:
+                continue
+            scen_passed = all(bool(r.get("passed")) for r in b_rows)
+            raw_comp = round(
+                sum(float(j.get("composite") or 0.0) for j in c_jrows_all) / len(c_jrows_all),
+                1,
+            )
+            adj_comp = raw_comp if scen_passed else min(raw_comp, 40.0)
+            acc_10 = round(raw_comp / 10.0, 1)
+            last_j = c_jrows_all[-1]
+            note_parts = [
+                str(last_j.get(k))
+                for k in (
+                    "rationale",
+                    "intent_fidelity_rationale",
+                    "sql_quality_rationale",
+                    "schema_discipline_rationale",
+                )
+                if last_j.get(k)
+            ]
+            judge_rows_out.append(
+                {
+                    "scenario_id": sid,
+                    "backend_id": b,
+                    "composite": raw_comp,
+                    "raw_benchmark_score": raw_comp,
+                    "benchmark_score": adj_comp,
+                    "safety_adjusted_benchmark_score": adj_comp,
+                    "accuracy": acc_10,
+                    "completeness": acc_10,
+                    "relevance": acc_10,
+                    "abstention_outcome": "n-a",
+                    "citation_groundedness": "supported" if scen_passed else "partly",
+                    "harm": False,
+                    "critical_omission": not scen_passed,
+                    "severe_harm": False,
+                    "note": " · ".join(note_parts),
+                }
+            )
+
+        if scen_turns_out:
+            scenarios_out.append(
+                {
+                    "scenario_id": sid,
+                    "turns": scen_turns_out,
+                }
+            )
+
+    summary_rows: list[dict[str, Any]] = []
+    judge_summary_rows: list[dict[str, Any]] = []
+    for b in backends:
+        b_rows = [
+            r
+            for r in raw_rows
+            if str(r.get("profileId") or suite.get("profileId") or "catalyst-default") == b
+        ]
+        if not b_rows and len(backends) == 1:
+            b_rows = raw_rows
+        lats = [int(x) for x in lat_by_b.get(b, [])]
+        passed_n = sum(1 for r in b_rows if r.get("passed"))
+        invalid_n = sum(1 for r in b_rows if not conformed(r.get("assertions") or []))
+        total_n = len(b_rows)
+        summary_rows.append(
+            {
+                "backend_id": b,
+                "label": labels.get(b, b),
+                "turns": total_n,
+                "valid_turns": total_n - invalid_n,
+                "avg_latency_ms": avg(lats),
+                "max_latency_ms": max(lats) if lats else 0,
+                "total_chart_refs": total_n,
+                "resolved_chart_refs": passed_n,
+                "unresolved_chart_refs": total_n - passed_n,
+                "degraded": invalid_n,
+                "errors": invalid_n,
+                "temporal_gate_pass": passed_n,
+                "temporal_gate_warn": 0,
+                "temporal_gate_fail": total_n - passed_n,
+                "temporal_gate_applied": 0,
+                "answer_check_edited": 0,
+                "answer_check_flagged": total_n - passed_n,
+                "stage_latency_ms": {},
+                "catalyst": {
+                    "passed": passed_n,
+                    "total": total_n,
+                    "invalid": invalid_n,
+                },
+            }
+        )
+        b_jrows = [jr for jr in judge_rows_out if jr["backend_id"] == b]
+        if b_jrows:
+            raw_scores = [float(jr["raw_benchmark_score"]) for jr in b_jrows]
+            adj_scores = [float(jr["safety_adjusted_benchmark_score"]) for jr in b_jrows]
+            raw_mean = round(sum(raw_scores) / len(raw_scores), 1)
+            adj_mean = round(sum(adj_scores) / len(adj_scores), 1)
+            mean_10 = round(raw_mean / 10.0, 2)
+            judge_summary_rows.append(
+                {
+                    "backend": b,
+                    "n": len(b_jrows),
+                    "composite_mean": raw_mean,
+                    "raw_benchmark_score": raw_mean,
+                    "benchmark_score": adj_mean,
+                    "safety_adjusted_benchmark_score": adj_mean,
+                    "accuracy_mean": mean_10,
+                    "completeness_mean": mean_10,
+                    "relevance_mean": mean_10,
+                    "harm_count": 0,
+                    "critical_omission_count": sum(1 for jr in b_jrows if jr.get("critical_omission")),
+                    "severe_harm_count": 0,
+                    "abstention": {"correct": 0, "failed-to-abstain": 0},
+                    "groundedness": {
+                        "supported": sum(1 for jr in b_jrows if jr.get("citation_groundedness") == "supported"),
+                        "partly": sum(1 for jr in b_jrows if jr.get("citation_groundedness") == "partly"),
+                        "unsupported": sum(1 for jr in b_jrows if jr.get("citation_groundedness") == "unsupported"),
+                    },
+                    "temporal": {"date_wrong": 0, "window_over": 0, "trend_fab": 0},
+                }
+            )
+
+    lat_series = [
+        {"backend": b, **(box_stats(lat_by_b[b]) or {})}
+        for b in backends
+        if lat_by_b.get(b) and box_stats(lat_by_b[b])
+    ]
+    all_lats = [x for b in backends for x in lat_by_b.get(b, [])]
+    char_series = [
+        {"backend": b, **(box_stats(chars_by_b[b]) or {})}
+        for b in backends
+        if chars_by_b.get(b) and box_stats(chars_by_b[b])
+    ]
+    all_chars = [x for b in backends for x in chars_by_b.get(b, [])]
+
+    run_id = str(
+        results.get("runId")
+        or manifest.get("run_id")
+        or run_dir.name
+    )
+    gv = _gate_verdict(results, labels, config)
+    ac = _assertion_counts(results)
+
+    catalyst_meta: dict[str, Any] = {
+        "kind": "reader-led" if is_reader_led else ("comparison" if len(backends) > 1 else "single"),
+        "suite_id": suite.get("id") or results.get("suiteId") or "",
+        "catalog_version": results.get("catalogVersion") or "",
+        "dataset": results.get("dataset"),
+        "gate_verdict": gv,
+        "assertion_counts": ac,
+        "gate": {
+            "verdict": "QUALIFIED" if gv.get("qualified") else ("UNDECIDABLE" if gv.get("invalid") else "NOT_QUALIFIED"),
+            "headline": gv.get("verdict") or "",
+            "qualified": gv.get("qualified_teams") or ([backends[0]] if gv.get("qualified") and backends else []),
+            "undecidable": gv.get("undecidable_teams") or [],
+        },
+        "totals": {
+            "passed": gv.get("passed", 0),
+            "total": gv.get("total", 0),
+            "invalid": gv.get("invalid", 0),
+            "conformance_passed": ac["conformance"]["passed"],
+            "conformance_total": ac["conformance"]["passed"] + ac["conformance"]["failed"],
+            "evaluation_passed": ac["evaluation"]["passed"],
+            "evaluation_total": ac["evaluation"]["passed"] + ac["evaluation"]["failed"],
+        },
+    }
+    if reader_led_block:
+        catalyst_meta["reader_led"] = reader_led_block
+
+    has_judge = bool(judge_rows_out)
+    judge_actor_name = str(judge_manifest.get("model") or "catalyst-gold-and-judge")
+    run_blob: dict[str, Any] = {
+        "run_id": run_id,
+        "family": "catalyst",
+        "meta": {
+            "run_id": run_id,
+            "component": manifest.get("component") or "catalyst-notebook-validation",
+            "git_sha": str(manifest.get("git_sha") or "")[:10],
+            "dataset_id": manifest.get("dataset_id") or suite.get("id") or "catalyst-notebook",
+            "provider": ((manifest.get("otel") or {}).get("gen_ai.provider.name")) or "catalyst",
+            "generated_at": manifest.get("generated_at") or results.get("completedAt") or "",
+            "reference_date": None,
+        },
+        "backends": backends,
+        "labels": labels,
+        "scenarios": scenarios_out,
+        "summary": summary_rows,
+        "metrics": {
+            "latency_ms": {
+                "label": "latency (ms)",
+                "series": lat_series,
+                "axis_max": round(robust_axis_max(lat_series, all_lats), 2),
+            },
+            "citation_count": {"label": "SQL versions", "series": [], "axis_max": 0},
+            "answer_chars": {
+                "label": "SQL length (chars)",
+                "series": char_series,
+                "axis_max": round(robust_axis_max(char_series, all_chars), 2),
+            },
+        },
+        "judge": judge_summary_rows,
+        "judge_rows": judge_rows_out,
+        "judge_actors": [judge_actor_name] if has_judge else [],
+        "judge_actor_cells": {},
+        "judging": {
+            "recorded": has_judge,
+            "aggregation": "single" if has_judge else "none",
+            "canonical": [judge_actor_name] if has_judge else [],
+            "sentence": (
+                f"Deterministic SQL gold-check + advisory judge ({judge_actor_name})."
+                if has_judge
+                else "Deterministic SQL gold-check & conformance suite."
+            ),
+            "cards": [],
+        },
+        "judge_passes": {},
+        "judge_combined": [],
+        "calibrated": [],
+        "adjudication_rows": [],
+        "check_precision": None,
+        "patients": [],
+        "context": None,
+        "arm_cards": arm_cards,
+        "catalyst": catalyst_meta,
+    }
+    return {
+        "schema": "openclinai.report.v2",
+        "schema_version": 2,
+        "family": "catalyst",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "runs": [run_blob],
+    }
+
+
+def build_comparison_report(
+    entries: list[dict[str, Any]],
+    *,
+    title: str = "Catalyst profile comparison",
+    gates: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Assemble a multi-entry Catalyst profile comparison `openclinai.report.v2` packet."""
+    if not entries:
+        return {
+            "schema": "openclinai.report.v2",
+            "schema_version": 2,
+            "family": "catalyst",
+            "title": title,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "runs": [],
+        }
+    first_dir = Path(entries[0]["run_dir"])
+    packet = build_catalyst_report_packet(first_dir)
+    packet["title"] = title
+    run_blob = packet["runs"][0]
+    comparison_entries = []
+    for entry in entries:
+        r_dir = Path(entry["run_dir"])
+        res = _load_json(r_dir / "results.json")
+        pid = entry["profile_id"]
+        rows = [
+            r
+            for r in (res.get("results") or [])
+            if r.get("status") not in {"skipped", "infrastructure_failed"}
+            and (not r.get("profileId") or r.get("profileId") == pid)
+        ]
+        passed = sum(1 for r in rows if r.get("passed"))
+        conf = sum(1 for r in rows if conformed(r.get("assertions") or []))
+        wall = [
+            int(r["timing"]["unadjustedGenerationWallMs"])
+            for r in rows
+            if isinstance(r.get("timing"), dict) and "unadjustedGenerationWallMs" in r["timing"]
+        ]
+        comparison_entries.append(
+            {
+                "entry_id": entry.get("profile_label") or pid,
+                "profile_id": pid,
+                "model_id": pid,
+                "passed_count": f"{passed}/{len(rows)}",
+                "conformed_count": f"{conf}/{len(rows)}",
+                "avg_latency_ms": avg(wall) if wall else None,
+            }
+        )
+    run_blob.setdefault("catalyst", {})["comparison_entries"] = comparison_entries
+    if gates is not None:
+        results = _load_json(first_dir / "results.json")
+        suite = _load_json(first_dir / "suite.json")
+        labels = {e["profile_id"]: e.get("profile_label") or e["profile_id"] for e in entries}
+        gv = _gate_verdict(results, labels, {"gates": gates})
+        run_blob["catalyst"]["gate_verdict"] = gv
+    return packet
+
+
+def _write_catalyst_run_summary(run_dir: Path, packet: dict[str, Any]) -> Path:
+    runs = packet.get("runs") or []
+    run = runs[0] if runs else {}
+    meta = run.get("meta") or {}
+    backends = list(run.get("backends") or [])
+    scenarios = list(run.get("scenarios") or [])
+    summary_rows = list(run.get("summary") or [])
+    total_turns = sum(int(s.get("turns") or 0) for s in summary_rows)
+    scout = [
+        {
+            "backend": j.get("backend"),
+            "benchmark_score": j.get("benchmark_score"),
+            "safety_adjusted_benchmark_score": j.get("safety_adjusted_benchmark_score"),
+            "accuracy": j.get("accuracy_mean"),
+            "completeness": j.get("completeness_mean"),
+            "relevance": j.get("relevance_mean"),
+            "harm_count": j.get("harm_count", 0),
+        }
+        for j in (run.get("judge") or [])
+    ]
+    summary = {
+        "schema": "openclinai.summary.v2",
+        "schema_version": 2,
+        "family": "catalyst",
+        "run_id": run.get("run_id") or meta.get("run_id") or run_dir.name,
+        "git_sha": str(meta.get("git_sha") or "")[:10],
+        "dataset_id": meta.get("dataset_id") or "catalyst-notebook",
+        "provider": meta.get("provider") or "catalyst",
+        "generated_at": str(meta.get("generated_at") or "")[:19],
+        "date": str(meta.get("generated_at") or "")[:10],
+        "reference_date": None,
+        "arms": backends,
+        "arm_labels": run.get("labels") or {},
+        "arm_cards": run.get("arm_cards") or {},
+        "scenarios": len(scenarios),
+        "patients": 0,
+        "cells": total_turns,
+        "judges": list(run.get("judge_actors") or []),
+        "judging": run.get("judging") or {"recorded": False},
+        "scout": scout,
+        "calibrated": None,
+        "hardware": None,
+        "catalyst": (run.get("catalyst") or {}).get("gate_verdict"),
+    }
+    out = run_dir / "run-summary.json"
+    out.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return out
+
+
+def _write_catalyst_dashboard_data(run_dir: Path, packet: dict[str, Any]) -> Path:
+    runs = packet.get("runs") or []
+    run = runs[0] if runs else {}
+    backends = list(run.get("backends") or [])
+    scenarios = list(run.get("scenarios") or [])
+    jrow_by_cell = {
+        (jr.get("scenario_id"), jr.get("backend_id")): jr
+        for jr in (run.get("judge_rows") or [])
+        if isinstance(jr, dict)
+    }
+    grid: list[dict[str, Any]] = []
+    details: dict[str, Any] = {}
+    for scen in scenarios:
+        sid = scen.get("scenario_id")
+        scen_turns = scen.get("turns") or []
+        for b in backends:
+            b_entries = [
+                (t_obj, (t_obj.get("cells") or {}).get(b))
+                for t_obj in scen_turns
+                if isinstance(t_obj, dict) and (t_obj.get("cells") or {}).get(b)
+            ]
+            if not b_entries:
+                grid.append({"scenario": sid, "backend": b, "state": "pending"})
+                continue
+            all_conformed = all(
+                bool((c.get("catalyst_turn") or {}).get("conformed", True))
+                for _, c in b_entries
+            )
+            all_passed = all(
+                bool((c.get("catalyst_turn") or {}).get("passed"))
+                for _, c in b_entries
+            )
+            total_lat = sum(
+                int(((c.get("metrics") or {}).get("latency_ms")) or 0)
+                for _, c in b_entries
+            )
+            state = "done" if all_conformed else "err"
+            grid.append(
+                {
+                    "scenario": sid,
+                    "backend": b,
+                    "state": state,
+                    "turns_done": len(b_entries),
+                    "turns_total": len(b_entries),
+                    "passed": all_passed,
+                    "latency_ms": total_lat,
+                }
+            )
+            detail_turns = []
+            for idx, (t_obj, c) in enumerate(b_entries, start=1):
+                ct = c.get("catalyst_turn") or {}
+                detail_turns.append(
+                    {
+                        "turn": int(t_obj.get("turn") or idx),
+                        "repetition": ct.get("repetition"),
+                        "question": t_obj.get("question"),
+                        "status": c.get("http_status", 200),
+                        "passed": ct.get("passed"),
+                        "latency_ms": (c.get("metrics") or {}).get("latency_ms"),
+                        "chars": len(c.get("answer_text") or ""),
+                        "citations": len(ct.get("sql_versions") or []),
+                        "answer": c.get("answer_text") or "",
+                        "failed_assertions": ct.get("failed_assertions") or [],
+                        "blame": blame(ct.get("assertions") or []),
+                        "answer_view": c.get("answer_view"),
+                        "indepth_view": c.get("indepth_view"),
+                        "blocks": [],
+                        "sources_ref": None,
+                        "refs_ref": None,
+                        "error": c.get("error"),
+                        "trace": None,
+                    }
+                )
+            details[f"{sid}|{b}"] = {
+                "scenario": sid,
+                "backend": b,
+                "turns": detail_turns,
+                "judge": jrow_by_cell.get((sid, b)) or {},
+            }
+    cat_meta = run.get("catalyst") or {}
+    totals = cat_meta.get("totals") or {}
+    jrows = run.get("judge_rows") or []
+    judged_scored = len(jrows)
+    judged_passed = sum(
+        1 for jr in jrows if not jr.get("critical_omission") and not jr.get("harm")
+    )
+    dash = {
+        "schema": "openclinai.dashboard.v2",
+        "schema_version": 2,
+        "family": "catalyst",
+        "status": {
+            "run": run.get("run_id") or run_dir.name,
+            "family": "catalyst",
+            "set": (run.get("meta") or {}).get("dataset_id") or "catalyst",
+            "done": len(details),
+            "total": len(grid),
+            "ok": totals.get("passed", 0),
+            "err": totals.get("invalid", 0),
+            "conformant": totals.get("total", 0) - totals.get("invalid", 0),
+            "unexpected": totals.get("invalid", 0),
+            "judged_passed": judged_passed,
+            "judged_scored": judged_scored,
+            "finished": True,
+            "scenarios": [s.get("scenario_id") for s in scenarios],
+            "backends": backends,
+            "arms": {b: {"label": (run.get("labels") or {}).get(b, b)} for b in backends},
+            "arm_cards": run.get("arm_cards") or {},
+            "profile_titles": {},
+            "grid": grid,
+            "status_legend": [],
+            "judge": run.get("judge") or [],
+            "judge_actors": run.get("judge_actors") or [],
+            "judge_combined": [],
+            "judging": run.get("judging") or {"recorded": False},
+            "check_precision": None,
+            "feed": [],
+            "models": [],
+        },
+        "record_pool": [],
+        "sources_pool": [],
+        "refs_pool": [],
+        "details": details,
+    }
+    out = run_dir / "dashboard-data.json"
+    out.write_text(json.dumps(dash, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return out
+
+
+def build_report(
+    run_dir: Path | str,
+    *,
+    write_summary: bool = True,
+    write_dashboard: bool = True,
+) -> Path:
+    """Write `report-data.json`, `run-summary.json`, and `dashboard-data.json` into `run_dir`."""
+    run_dir = Path(run_dir)
+    packet = build_catalyst_report_packet(run_dir)
+    out = run_dir / "report-data.json"
+    out.write_text(json.dumps(packet, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if write_summary:
+        _write_catalyst_run_summary(run_dir, packet)
+    if write_dashboard:
+        _write_catalyst_dashboard_data(run_dir, packet)
     return out

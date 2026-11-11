@@ -367,13 +367,9 @@ def test_write_run_meta_and_report_surface_hardware_and_streaming_latency(
     }
     (run_dir / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
 
-    html = build_report(run_dir).read_text(encoding="utf-8")
-    body = re.search(
-        r"<script type='application/json' id='report-data'>(.*?)</script>",
-        html,
-        re.DOTALL,
-    ).group(1)
-    run_blob = json.loads(body)["runs"][0]
+    from evals.validate._test_shell import render_cell_via_js
+
+    run_blob = json.loads(build_report(run_dir).read_text(encoding="utf-8"))["runs"][0]
 
     assert run_blob["hardware"] == {
         "tier": "gpu_server",
@@ -391,9 +387,10 @@ def test_write_run_meta_and_report_surface_hardware_and_streaming_latency(
     assert streaming["avg_cached_tokens"] == 10240.0
 
     cell = run_blob["scenarios"][0]["turns"][0]["cells"]["hub-profile-single-12b-bare"]
-    assert "TTFT 0.5 s" in cell["chips_html"]
-    assert "answer 1.9 s" in cell["chips_html"]
-    assert "TPOT 18.5ms/tok" in cell["chips_html"]
+    chips_html = render_cell_via_js(cell, run_blob)["chips_html"]
+    assert "TTFT 0.5 s" in chips_html
+    assert "answer 1.9 s" in chips_html
+    assert "TPOT 18.5ms/tok" in chips_html
     assert cell["metrics"]["ttft_ms"] == 480
     assert cell["metrics"]["answer_done_ms"] == 1920
     assert cell["metrics"]["tpot_ms"] == 18.5

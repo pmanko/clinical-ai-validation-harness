@@ -13,12 +13,6 @@ from harness.catalyst.phase1_evidence import (
     collection_summary,
     load_json,
 )
-from harness.catalyst.phase1_report import (
-    _evidence_details,
-    _matrix_cell,
-    _reviews,
-    _turn_fact,
-)
 from harness.catalyst.reader_review import (
     prepare_reader_review,
     validate_reader_reviews,
@@ -450,57 +444,6 @@ def test_collection_summary_supports_one_unnamed_profile_and_ignores_nonresults(
     assert summary["recordedConversations"] == 1
 
 
-@pytest.mark.parametrize(
-    ("turn", "expected"),
-    [
-        (
-            {"evidence": {"execution": {"status": "timed_out"}}},
-            ("database returned timed_out", "different"),
-        ),
-        (
-            {"expectedOutcome": "ready", "observedOutcome": "ready"},
-            ("outcome was as expected", "ok"),
-        ),
-        (
-            {"expectedOutcome": "ready", "observedOutcome": "unsupported"},
-            ("expected ready; observed unsupported", "different"),
-        ),
-        ({}, ("no automated factual conclusion", "unknown")),
-    ],
-)
-def test_turn_fact_describes_database_and_observed_outcomes(
-    turn: dict,
-    expected: tuple[str, str],
-) -> None:
-    assert _turn_fact(turn) == expected
-
-
-def test_matrix_cell_names_database_diagnostics() -> None:
-    html = _matrix_cell(
-        {
-            "measurementValid": False,
-            "turns": [
-                {
-                    "expectedOutcome": "ready",
-                    "observedOutcome": "ready",
-                    "evidence": {"execution": {"status": "failed"}},
-                }
-            ],
-        }
-    )
-
-    assert "evidence incomplete" in html
-    assert "1 database diagnostic(s)" in html
-
-
-def test_evidence_details_allows_a_turn_without_optional_artifacts() -> None:
-    assert _evidence_details({"evidence": {}}) == ""
-
-
-def test_reviews_explains_that_no_review_is_attached(tmp_path: Path) -> None:
-    assert "No reader review has been attached yet" in _reviews(tmp_path)
-
-
 def test_review_preparation_rejects_unsigned_results_and_incomplete_runs(
     tmp_path: Path,
 ) -> None:
@@ -767,30 +710,15 @@ def test_reader_led_report_uses_full_evidence_without_legacy_verdicts(
     _attach_current_review(run_dir, review_text)
 
     report_path = build_report(run_dir)
-    html = report_path.read_text(encoding="utf-8")
+    assert report_path == run_dir / "report-data.json"
+    packet = json.loads(report_path.read_text(encoding="utf-8"))
+    assert packet["schema"] == "openclinai.report.v2"
+    assert packet["schema_version"] == 2
+    rl = packet["runs"][0]["catalyst"]["reader_led"]
+    serialized = json.dumps(rl)
 
-    assert "Catalyst Phase 1 model-team comparison" in html
-    assert "Side-by-side factual observations" in html
-    assert "Complete case evidence" in html
-    assert review_text in html
-    assert "The measurement is 99; this is the intentionally wrong answer." in html
-    assert "database answer differed" in html
-    assert "team-a-opening-generation" in html
-    assert "team-a-followup-one-generation" in html
-    assert "team-a-followup-two-generation" in html
-    assert "Question-specific database answer check" in html
-    assert "Model context, calls, tokens, and exact requests" in html
-
-    assert "<h2>Result</h2>" not in html
-    assert "Judge summary" not in html
-    assert "gold FAIL detail" not in html
-    assert "Qualified:" not in html
-    assert "No team qualified" not in html
-
-
-def test_evidence_details_titles_the_execution_evidence_without_naming_an_engine() -> None:
-    html = _evidence_details(
-        {"evidence": {"execution": {"status": "ok", "rows": [[1]]}}}
-    )
-    assert "<summary>" in html
-    assert "PostgreSQL" not in html
+    assert review_text in serialized
+    assert "The measurement is 99; this is the intentionally wrong answer." in serialized
+    assert "team-a-opening-generation" in serialized
+    assert "team-a-followup-one-generation" in serialized
+    assert "team-a-followup-two-generation" in serialized

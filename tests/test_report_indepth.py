@@ -1,5 +1,12 @@
+from evals.validate._test_shell import render_cell_via_js, render_report_for_test
 from harness.validate import report
 from harness.validate.review_presentation import confidence_display
+
+
+def _cell_with_js(row, **kwargs):
+    cell = report._cell_blob(row, **kwargs)
+    cell.update(render_cell_via_js(cell))
+    return cell
 
 
 def _row(in_depth):
@@ -34,7 +41,7 @@ def test_report_trace_correlation_uses_model_frozen_in_result():
 def test_report_renders_hub_native_indepth_content(monkeypatch):
     monkeypatch.setattr(report, "_trace_for_row", lambda _row, _traces: {})
 
-    cell = report._cell_blob(
+    cell = _cell_with_js(
         _row(
             {
                 "status": "complete",
@@ -51,7 +58,7 @@ def test_report_renders_hub_native_indepth_content(monkeypatch):
 def test_report_renders_withheld_hub_native_indepth_status(monkeypatch):
     monkeypatch.setattr(report, "_trace_for_row", lambda _row, _traces: {})
 
-    cell = report._cell_blob(
+    cell = _cell_with_js(
         _row(
             {
                 "status": "needs_review",
@@ -66,7 +73,6 @@ def test_report_renders_withheld_hub_native_indepth_status(monkeypatch):
 
     assert cell["indepth_view"]["status"] == "needs_review"
     assert "In-Depth was withheld because every claim failed checks." in cell["answer_html"]
-    # A draft nothing delivered is kept for review, collapsed, and named as undelivered.
     assert cell["indepth_view"]["draft"]["kind"] == "withheld"
     assert "<details class='draftbox' data-kind='withheld'>" in cell["answer_html"]
     assert "Rejected model claim [2]." in cell["answer_html"]
@@ -76,13 +82,14 @@ def test_report_renders_withheld_hub_native_indepth_status(monkeypatch):
 
 
 def test_report_low_confidence_content_is_visible_without_a_reveal():
-    rendered = report._render_section(
-        "Answer",
-        "Flagged model answer [1].",
-        confidence_display(
-            {"level": "red", "note": "The date could not be verified."}
-        ),
-    )
+    rendered = render_cell_via_js(
+        {
+            "answer_text": "Flagged model answer [1].",
+            "answer_view": confidence_display(
+                {"level": "red", "note": "The date could not be verified."}
+            ),
+        }
+    )["answer_html"]
 
     assert "Flagged model answer [1]." in rendered
     assert "The date could not be verified." in rendered
@@ -98,7 +105,7 @@ def test_report_uses_response_confidence_when_trace_is_unavailable(monkeypatch):
         "answer": {"level": "red", "note": "The source check failed."}
     }
 
-    cell = report._cell_blob(row)
+    cell = _cell_with_js(row)
 
     assert cell["answer_view"]["confidence_level"] == "red"
     assert "self-check" not in cell["answer_html"].lower()
@@ -117,7 +124,7 @@ def test_report_shows_edited_original_without_treating_it_as_final_evidence(monk
     }
     row["response"]["references"] = [{"index": 1, "resourceType": "obs"}]
 
-    cell = report._cell_blob(
+    cell = _cell_with_js(
         row,
         chart_fixture={
             "chart_snapshot": "[99] (2026-01-01) Original draft record",
@@ -145,7 +152,7 @@ def test_report_shows_changed_original_when_result_still_needs_review(monkeypatc
         "originalAnswer": "The model answer before checking [2].",
     }
 
-    cell = report._cell_blob(row)
+    cell = _cell_with_js(row)
 
     assert "Original model answer" in cell["answer_html"]
     assert "The model answer before checking [2]." in cell["answer_html"]
@@ -165,7 +172,7 @@ def test_report_shows_same_prose_only_when_a_citation_now_names_another_record(m
             "originalAnswer": "Short answer [1].",
             "originalReferences": [{"index": 1, "sourceId": original_source}],
         }
-        return report._cell_blob(row)
+        return _cell_with_js(row)
 
     changed = cell_for("obs:earlier")
     unchanged = cell_for("obs:current")
@@ -192,7 +199,7 @@ def test_report_recovers_rejected_draft_from_historical_trace(monkeypatch):
         },
     )
 
-    cell = report._cell_blob(
+    cell = _cell_with_js(
         _row(
             {
                 "status": "needs_review",
@@ -226,7 +233,7 @@ def test_report_retains_legacy_separate_indepth(monkeypatch):
     del row["response"]["inDepth"]
     row["indepth"] = {"response": {"answer": "Legacy In-Depth [3]."}}
 
-    cell = report._cell_blob(row)
+    cell = _cell_with_js(row)
 
     assert "Legacy In-Depth [3]." in cell["answer_html"]
 
@@ -242,7 +249,7 @@ def test_report_does_not_show_embedded_text_withheld_by_product_envelope(monkeyp
     )
     row["response"]["answer"] = "Short answer.\n\n**InDepth** Old unsafe background."
 
-    cell = report._cell_blob(row)
+    cell = _cell_with_js(row)
 
     assert "Short answer." in cell["answer_html"]
     assert "Current In-Depth was withheld." in cell["answer_html"]
@@ -258,7 +265,7 @@ def test_report_drops_evidence_used_only_by_discarded_embedded_text(monkeypatch)
         {"index": 99, "resourceType": "obs"},
     ]
 
-    cell = report._cell_blob(row)
+    cell = _cell_with_js(row)
 
     assert cell["sources"]["diagnostics"]["top_level_refs"] == [1]
     assert [source["citation_index"] for source in cell["sources"]["sources"]] == [1]
@@ -273,7 +280,7 @@ def test_report_shows_historical_indepth_call_failure(monkeypatch):
         "error": "in-depth request failed: timeout",
     }
 
-    cell = report._cell_blob(row)
+    cell = _cell_with_js(row)
 
     assert "Failed" in cell["answer_html"]
     assert "in-depth request failed: timeout" in cell["answer_html"]
@@ -322,8 +329,11 @@ def test_the_narrative_report_sections_a_comparison_run_by_team(tmp_path):
     )
 
     out = build_report(run_dir)
-    html = out.read_text(encoding="utf-8")
-    assert "team-a · A1" in html
+    payload = _json.loads(out.read_text(encoding="utf-8"))
+    run0 = payload["runs"][0]
+    assert "team-a" in run0["backends"]
+    assert run0["scenarios"][0]["scenario_id"] == "A1"
+    assert "team-a" in run0["scenarios"][0]["turns"][0]["cells"]
 
 
 def test_report_carries_the_reader_context_the_comparison_set_links_to(tmp_path):

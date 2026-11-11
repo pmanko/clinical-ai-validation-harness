@@ -3508,11 +3508,10 @@ def build_wahs_report_packet(
     *,
     patients_summary: str | None = None,
 ) -> dict[str, Any]:
-    """Generate a reproducible, self-contained OpenClinAI report packet (`report.html`,
-    `dashboard.html`, `meta.json`, `judge.jsonl`, and `judges/`) for a completed WAHS run directory.
+    """Generate a reproducible, self-contained OpenClinAI v2 report packet (`report-data.json`,
+    `dashboard-data.json`, `run-summary.json`, `judge.jsonl`, and `judges/`) for a completed WAHS run directory.
     """
-    import importlib.util
-    from harness.validate.judging import arm_families, judge_summary
+    from harness.validate.judging import judge_summary
     from harness.validate.reconcile import scout_summary
     from harness.validate.report import build_report
 
@@ -3532,7 +3531,6 @@ def build_wahs_report_packet(
     )
     cases_path = rdir / "inputs" / "wahs_eval_cases.jsonl"
     cases = load_wahs_cases(cases_path) if cases_path.is_file() else []
-    cases_by_id = {c.case_id: c for c in cases}
 
     rows: list[dict[str, Any]] = []
     for line in (rdir / "results.jsonl").read_text(encoding="utf-8").splitlines():
@@ -3639,34 +3637,29 @@ def build_wahs_report_packet(
             f"{pt_label} · {len(cases)} clinical question{'s' if len(cases) != 1 else ''} × {len(backend_ids)} setups"
         )
 
-    meta_payload = {
+    report_data_path = build_report(rdir)
+    run_summary_path = rdir / "run-summary.json"
+    if run_summary_path.is_file():
+        run_summary = json.loads(run_summary_path.read_text(encoding="utf-8"))
+    else:
+        run_summary = {"schema_version": 2, "schema": "openclinai.summary.v2"}
+    run_summary.update({
+        "family": "wahs",
         "scout": scout,
         "judging": judging,
         "evaluation_modality": evaluation_modality,
         "patients": patients_summary,
         "cells": len(rows),
-        "date": datetime.now(timezone.utc).strftime("%-d %b %Y"),
-    }
-    meta_path = rdir / "meta.json"
-    meta_path.write_text(json.dumps(meta_payload, indent=2) + "\n", encoding="utf-8")
-
-    report_html_path = build_report(rdir)
-
-    dash_script = Path(__file__).resolve().parents[2] / "scripts" / "validate-dashboard.py"
-    dash_html_path = rdir / "dashboard.html"
-    if dash_script.is_file():
-        spec = importlib.util.spec_from_file_location("_wahs_validate_dashboard", dash_script)
-        if spec and spec.loader:
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            setattr(mod, "_RUN_OVERRIDE", str(rdir))
-            mod.freeze(str(dash_html_path))
+        "date": run_summary.get("date") or datetime.now(timezone.utc).strftime("%-d %b %Y"),
+    })
+    run_summary_path.write_text(json.dumps(run_summary, indent=2) + "\n", encoding="utf-8")
+    dash_data_path = rdir / "dashboard-data.json"
 
     return {
         "run_dir": str(rdir),
-        "report_html": str(report_html_path),
-        "dashboard_html": str(dash_html_path) if dash_html_path.is_file() else None,
-        "meta_json": str(meta_path),
+        "report_data_json": str(report_data_path),
+        "dashboard_data_json": str(dash_data_path) if dash_data_path.is_file() else None,
+        "run_summary_json": str(run_summary_path),
         "total_cells": summary["total_cells"],
         "passed_cells": summary["passed_cells"],
         "scout": scout,

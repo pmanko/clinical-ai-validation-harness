@@ -187,6 +187,8 @@ def test_cell_blob_exposes_stage_timings_for_detail_renderer(monkeypatch):
         [trace],
     )
 
+    from evals.validate._test_shell import REPORT_SHELL_JS
+
     assert cell["stage_timings"] == [
         {
             "stage": "gather",
@@ -195,5 +197,5 @@ def test_cell_blob_exposes_stage_timings_for_detail_renderer(monkeypatch):
             "status": "completed",
         }
     ]
-    assert "Average latency by stage" in report._SCRIPT
-    assert "renderStageTimings(cell.stage_timings)" in report._SCRIPT
+    assert "Average latency by stage" in REPORT_SHELL_JS
+    assert "renderStageTimings(cell.stage_timings)" in REPORT_SHELL_JS

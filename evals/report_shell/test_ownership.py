@@ -1,4 +1,4 @@
-"""CVR-G05: generic shell ownership vs domain renderers."""
+"""Producer/viewer boundary ownership tests (`openclinai.report.v2`)."""
 
 from __future__ import annotations
 
@@ -6,56 +6,26 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SHELL = ROOT / "harness" / "report_shell"
-REPORT = ROOT / "harness" / "validate" / "report.py"
+HARNESS_DIR = ROOT / "harness"
+VALIDATE_REPORT = HARNESS_DIR / "validate" / "report.py"
+CATALYST_REPORT = HARNESS_DIR / "catalyst" / "report.py"
+STATS = HARNESS_DIR / "common" / "stats.py"
 
 
-def test_shell_has_document_assets_stats_defs() -> None:
-    doc = ast.parse((SHELL / "document.py").read_text(encoding="utf-8"))
-    assets = ast.parse((SHELL / "assets.py").read_text(encoding="utf-8"))
-    stats = ast.parse((SHELL / "stats.py").read_text(encoding="utf-8"))
-
-    doc_fns = {n.name for n in ast.walk(doc) if isinstance(n, ast.FunctionDef)}
-    asset_assigns = {
-        n.targets[0].id
-        for n in ast.walk(assets)
-        if isinstance(n, ast.Assign)
-        and len(n.targets) == 1
-        and isinstance(n.targets[0], ast.Name)
-    }
-    stats_fns = {n.name for n in ast.walk(stats) if isinstance(n, ast.FunctionDef)}
-
-    assert "render_document" in doc_fns
-    assert "embed_json" in doc_fns
-    assert "THEME_CSS_VARS" in asset_assigns
-    assert "SORTABLE_TABLE_CSS" in asset_assigns
+def test_stats_helpers_live_in_common_module() -> None:
+    stats_ast = ast.parse(STATS.read_text(encoding="utf-8"))
+    stats_fns = {n.name for n in ast.walk(stats_ast) if isinstance(n, ast.FunctionDef)}
     assert {"avg", "percentile", "box_stats", "robust_axis_max", "ordered_unique"} <= stats_fns
 
 
-def test_domain_renderers_remain_outside_shell() -> None:
-    shell_text = "\n".join(p.read_text(encoding="utf-8") for p in SHELL.glob("*.py"))
-    for needle in (
-        "chartsearchai",
-        "scout",
-        "adjudicat",
-        "source_cell",
-        "answer_cell",
-        "catalyst-judge",
-    ):
-        assert needle not in shell_text.lower(), needle
+def test_harness_producers_emit_pure_v2_json_without_embedded_html_shells() -> None:
+    for path in sorted(HARNESS_DIR.rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        assert "<!doctype html>" not in text.lower(), f"{path} embeds an HTML document shell"
+        assert "report-shell.js" not in text, f"{path} references viewer asset report-shell.js"
+        assert "dashboard-shell.js" not in text, f"{path} references viewer asset dashboard-shell.js"
 
-    report_text = REPORT.read_text(encoding="utf-8")
-    assert "from harness.report_shell" in report_text
-    assert "def build_report" in report_text
-
-
-def test_shared_sorting_js_brings_its_own_helpers() -> None:
-    """The shell's sortable-table JS calls htmlEsc, which only one caller
-    happened to define -- so every other page threw a ReferenceError
-    mid-sort and left the header blank. The shell now ships the helper its
-    own code needs.
-    """
-    from harness.report_shell import assets
-
-    assert "function htmlEsc" in assets.SHARED_JS_DEPS
-    assert "htmlEsc" in assets.SORTABLE_TABLE_JS
+    for report_mod in (VALIDATE_REPORT, CATALYST_REPORT):
+        text = report_mod.read_text(encoding="utf-8")
+        assert "def build_report" in text
+        assert "openclinai.report.v2" in text

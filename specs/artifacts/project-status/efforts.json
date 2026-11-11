@@ -524,7 +524,7 @@
       "sources": [
         "scripts/validate-dashboard.py",
         "harness/validate/report.py",
-        "harness/report_shell/document.py",
+        "harness/validate/report_data.py",
         "https://github.com/pmanko/openclinai.org/blob/main/reports-index.json",
         "https://github.com/pmanko/clinical-ai-validation-harness/blob/9b5b87ef67397fe7705b37467b98d3550c8d0e47/specs/artifacts/planning/reports-frontend-consolidation-roadmap.md"
       ],

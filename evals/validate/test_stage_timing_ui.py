@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 from harness.validate import report
+from harness.validate.dashboard_data import deduplicate_dashboard_details
+from _test_shell import render_dashboard_for_test, render_report_for_test
 
 
 def _write_timed_run(run_dir: Path) -> None:
@@ -116,7 +118,7 @@ def test_static_report_renders_stage_status_and_missing_coverage(tmp_path, monke
             "roles": {},
             "config": {},
         }}}), encoding="utf-8")
-    uri = report.build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(report.build_report(run_dir)).resolve().as_uri()
 
     with sync_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch()
@@ -194,8 +196,25 @@ def test_frozen_dashboard_renders_stage_timing_detail(tmp_path):
             }
         ],
     }
-    frozen = tmp_path / "dashboard.html"
-    dashboard.freeze(frozen)
+    raw_details = {"s1|team": dashboard.detail("s1", "team")}
+    record_pool, sources_pool, refs_pool, details = deduplicate_dashboard_details(raw_details)
+    dash_path = tmp_path / "dashboard-data.json"
+    dash_path.write_text(
+        json.dumps(
+            {
+                "schema": "openclinai.dashboard.v2",
+                "schema_version": 2,
+                "family": "chartsearchai",
+                "status": dashboard.status(),
+                "record_pool": record_pool,
+                "sources_pool": sources_pool,
+                "refs_pool": refs_pool,
+                "details": details,
+            }
+        ),
+        encoding="utf-8",
+    )
+    frozen = render_dashboard_for_test(dash_path)
 
     with sync_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch()

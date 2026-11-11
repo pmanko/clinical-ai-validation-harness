@@ -1,0 +1,337 @@
+"""Deterministic prep for the clinical-answer-scoring judge fan-out.
+
+Turns a completed run's results.jsonl into one judge CELL per (scenario_id, backend_id):
+splits the team Answer/In-Depth sections, runs the deterministic citation resolution
+(Layer 1 — resolve_citations against the chart fixture's valid_uuids), and attaches the
+question(s) + patient demographics. Writes:
+
+  <run>/judge-cells.jsonl        one cell per (scenario, backend) — the fan-out work-list
+  <run>/charts/<slug>.snapshot.txt   the chart_snapshot text each judge agent reads
+
+With --blind the same cells are also written as one bundle per scenario under
+<run>/judge-bundles/, the arms replaced by letters, with judge-blind-map.json beside them for
+judge-finalize to map the letters back. judge-cells.jsonl is unchanged either way.
+"""
+
+from __future__ import annotations
+
+import json
+import pathlib
+import re
+import sys
+
+from .blinding import write_bundles
+from .bundle import frozen_arm_cards, review_results, run_chart
+from .hub_trace import (
+    load_traces,
+    match_trace,
+    trace_model_for_result,
+    trace_transport_for_result,
+)
+from .reconcile import resolve_citations
+from .response_artifacts import (
+    in_depth_artifact,
+    response_for_displayed_evidence,
+    split_answer_sections,
+)
+from .review_presentation import CHECK_MARK_PATTERN
+from .sources import build_sources, render_sources_for_judge, source_ref_labels
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def split_sections(answer: str) -> tuple[str, str]:
+    """Historical script API; new consumers use ``split_answer_sections``."""
+    direct, background = split_answer_sections(answer)
+    return direct, (f"**In Depth**\n{background}" if background else "")
+
+
+_CHECK_MARK_RE = re.compile(r"\s*" + CHECK_MARK_PATTERN, re.IGNORECASE)
+
+_JUDGE_REFERENCE_KEYS = (
+    "index",
+    "resourceType",
+    "resourceUuid",
+    "uuid",
+    "sourceId",
+    "date",
+    "display",
+    "title",
+)
+
+_JUDGE_SOURCE_KEYS = (
+    "source_id",
+    "citation_index",
+    "record_index",
+    "chart_record_index",
+    "resource_type",
+    "resource_uuid",
+    "date",
+    "title",
+    "source_text",
+    "facts_used",
+    "used_by",
+    "resolution_status",
+)
+
+
+def strip_check_marks(text):
+    """The In-Depth as written, without the notes the checks append to its points."""
+    return _CHECK_MARK_RE.sub("", text or "")
+
+
+def _judge_references(references: list) -> list[dict]:
+    """Strip check grounding verdicts from references handed to the judge."""
+    out = []
+    for ref in references or []:
+        if not isinstance(ref, dict):
+            continue
+        cleaned = {k: ref[k] for k in _JUDGE_REFERENCE_KEYS if k in ref}
+        if "display" in cleaned and isinstance(cleaned["display"], str):
+            cleaned["display"] = strip_check_marks(cleaned["display"])
+        if "title" in cleaned and isinstance(cleaned["title"], str):
+            cleaned["title"] = strip_check_marks(cleaned["title"])
+        out.append(cleaned)
+    return out
+
+
+def _judge_sources(sources: list) -> list[dict]:
+    """Keep chart identity, text and deterministic chart resolution; omit check support verdicts."""
+    out = []
+    for src in sources or []:
+        if not isinstance(src, dict):
+            continue
+        cleaned = {k: src[k] for k in _JUDGE_SOURCE_KEYS if k in src}
+        if "facts_used" in cleaned and isinstance(cleaned["facts_used"], list):
+            cleaned["facts_used"] = [strip_check_marks(str(f)) for f in cleaned["facts_used"]]
+        out.append(cleaned)
+    return out
+
+
+def reference_date_of(rd: pathlib.Path) -> str | None:
+    """The run's reference date (its simulated "today"), from run_meta.json or the run event;
+    None when neither records one, so a judge is never handed a guessed date."""
+    for name, key in (("run_meta.json", "reference_date"),):
+        path = rd / name
+        if path.is_file():
+            try:
+                value = json.loads(path.read_text(encoding="utf-8")).get(key)
+            except (OSError, json.JSONDecodeError):
+                value = None
+            if value:
+                return str(value)
+    events = rd / "events.jsonl"
+    if events.is_file():
+        for line in events.read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line) if line.strip() else {}
+            except json.JSONDecodeError:
+                continue
+            if event.get("event_type") == "run" and event.get("reference_date"):
+                return str(event["reference_date"])
+    return None
+
+
+def run_dir(arg: str) -> pathlib.Path:
+    p = pathlib.Path(arg)
+    if p.is_dir():
+        return p
+    for base in (pathlib.Path.cwd(), ROOT):
+        cand = base / "artifacts/validate" / arg
+        if cand.is_dir():
+            return cand
+    sys.exit(f"no run dir for {arg!r}")
+
+
+def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
+    """Flatten the envelope's structured `blocks` (tables) into readable text for the judge."""
+    if not isinstance(blocks, list):
+        return ""
+    labels_by_ref = source_ref_labels(sources_v1)
+    out = []
+    for b in blocks:
+        if not isinstance(b, dict) or b.get("kind") != "table":
+            continue
+        cols = b.get("columns") or []
+        labels = {c.get("key"): (c.get("label") or c.get("key")) for c in cols if isinstance(c, dict)}
+        keys = [c.get("key") for c in cols if isinstance(c, dict) and c.get("key")]
+        title = (b.get("title") or "Table").strip()
+        lines = [f"[Table: {title}]"]
+        for row in b.get("rows") or []:
+            cells = (row or {}).get("cells") or {}
+            parts = []
+            row_refs: list[int] = []
+            for k in keys or cells.keys():
+                cell = cells.get(k) or {}
+                if not isinstance(cell, dict):
+                    continue
+                text = str(cell.get("text", "")).strip()
+                if not text:
+                    continue
+                row_refs.extend(n for n in (cell.get("refs") or []) if isinstance(n, int))
+                parts.append(f"{labels.get(k, k)}: {text}")
+            if parts:
+                source_labels = []
+                seen = set()
+                for ref in row_refs:
+                    label = labels_by_ref.get(ref, f"[{ref}]")
+                    if label not in seen:
+                        seen.add(label)
+                        source_labels.append(label)
+                if source_labels:
+                    parts.append("Sources: " + ", ".join(source_labels))
+                lines.append("- " + "; ".join(parts))
+        if len(lines) > 1:
+            out.append("\n".join(lines))
+    return "\n\n".join(out)
+
+
+def main(argv: list[str] | None = None) -> None:
+    raw_argv = sys.argv[1:] if argv is None else list(argv)
+    args = [a for a in raw_argv if a != "--blind"]
+    blind = "--blind" in raw_argv
+    rd = run_dir(args[0] if args else sys.exit("usage: judge-prep.py <run> [--blind]"))
+    results = review_results(rd)
+    traces = load_traces(rd / "trace.jsonl")
+    cards = frozen_arm_cards(rd, list(dict.fromkeys(r["backend_id"] for r in results)))
+    snap_dir = rd / "charts"
+    snap_dir.mkdir(exist_ok=True)
+    reference_date = reference_date_of(rd)
+
+    cells: dict[tuple[str, str], list[dict]] = {}
+    for r in results:
+        if r.get("error"):
+            continue
+        cells.setdefault((r["scenario_id"], r["backend_id"]), []).append(r)
+    for rows in cells.values():
+        rows.sort(key=lambda r: r.get("turn", 1))
+
+    out = []
+    for (scenario_id, backend_id), rows in sorted(cells.items()):
+        scenario_path = rd / "inputs" / "scenarios" / f"{scenario_id}.json"
+        if not scenario_path.is_file():
+            print(f"  WARN: no captured scenario for {scenario_id}", file=sys.stderr)
+            continue
+        scen = json.loads(scenario_path.read_text(encoding="utf-8"))
+        uuid = scen.get("patient_ref")
+        chart = run_chart(rd, scenario_id)
+        if not chart:
+            print(f"  WARN: no chart fixture for {scenario_id} (patient {uuid})", file=sys.stderr)
+            continue
+        valid = set(chart.get("valid_uuids") or [])
+        slug = pathlib.Path(str((chart.get("patient") or {}).get("slug") or scenario_id)).name
+        snapshot_path = snap_dir / f"{slug}.snapshot.txt"
+        snapshot_path.write_text(chart.get("chart_snapshot") or "", encoding="utf-8")
+
+        turns = []
+        for r in rows:
+            resp = r.get("response") or {}
+            if isinstance(resp, str):
+                try:
+                    resp = json.loads(resp)
+                except Exception:
+                    resp = {"answer": resp}
+            ans, embedded_indepth = split_answer_sections(resp.get("answer"))
+            ans = strip_check_marks(ans)
+            embedded_indepth = strip_check_marks(embedded_indepth)
+            indepth_art = in_depth_artifact(r, resp, embedded_indepth)
+            indepth = strip_check_marks(indepth_art["answer"])
+            cleaned_indepth_artifact = {**indepth_art, "answer": indepth}
+            evidence_response = response_for_displayed_evidence(
+                resp, ans, cleaned_indepth_artifact, embedded_indepth
+            )
+            sources_v1 = build_sources(evidence_response, chart)
+            rendered = render_blocks(resp.get("blocks"), sources_v1)
+            if rendered:
+                ans = (ans + "\n\n" + rendered).strip() if ans else rendered
+            evidence = render_sources_for_judge(sources_v1)
+            if evidence:
+                ans = (ans + "\n\n" + evidence).strip() if ans else evidence
+            turns.append(
+                {
+                    "n": r.get("turn", 1),
+                    "question": next(
+                        (t.get("question") for t in scen.get("turns", []) if t.get("n") == r.get("turn", 1)),
+                        (scen.get("turns") or [{}])[0].get("question"),
+                    ),
+                    "answer_section": ans,
+                    "in_depth_section": indepth,
+                    "in_depth_status": indepth_art["status"],
+                    "indepth_latency_ms": indepth_art["latency_ms"],
+                    "references": _judge_references(evidence_response.get("references") or []),
+                    "sources": _judge_sources(sources_v1.get("sources") or []),
+                    "source_diagnostics": sources_v1.get("diagnostics") or {},
+                }
+            )
+        final = turns[-1]
+        final_row = rows[-1]
+        trace = (
+            match_trace(
+                traces,
+                trace_model_for_result(final_row, backend_id),
+                final_row.get("started_at"),
+                final_row.get("ended_at"),
+                question=(final_row.get("request") or {}).get("question"),
+                session=(final_row.get("request") or {}).get("session"),
+                request_id=(final_row.get("request") or {}).get("request_id"),
+                transport=trace_transport_for_result(final_row),
+            )
+            or {}
+        )
+        cres = resolve_citations(final["references"], valid)
+        has_in_depth = bool(final["in_depth_section"])
+        is_team = has_in_depth or (cards.get(backend_id) or {}).get("kind") == "team"
+        p = chart.get("patient") or {}
+        exp = scen.get("expectations") or {}
+        what_it_tests = exp.get("what_it_tests") or scen.get("what_it_tests")
+        ref_notes = exp.get("reference_verification_notes") or scen.get("reference_verification_notes")
+        cell_obj = {
+            "scenario_id": scenario_id,
+            "backend_id": backend_id,
+            "reference_date": reference_date,
+            "is_team": is_team,
+            "has_in_depth": has_in_depth,
+            "score_background": has_in_depth,
+            "patient": {k: p.get(k) for k in ("name", "gender", "birthdate", "slug")},
+            "snapshot_file": snapshot_path.relative_to(rd).as_posix(),
+            "should_abstain": (
+                exp.get("should_abstain")
+                or scen.get("should_abstain")
+                or scen.get("expect_abstain")
+                or False
+            ),
+            "n_turns": len(turns),
+            "turns": turns,
+            "answer_section": final["answer_section"],
+            "in_depth_section": final["in_depth_section"],
+            "in_depth_status": final.get("in_depth_status"),
+            "references": final["references"],
+            "citation_resolution": cres,
+            "sources": final.get("sources") or [],
+            "source_diagnostics": final.get("source_diagnostics") or {},
+            "temporal_facts_summary": trace.get("temporal_facts_summary"),
+        }
+        if what_it_tests:
+            cell_obj["what_it_tests"] = what_it_tests
+        if ref_notes:
+            cell_obj["reference_verification_notes"] = ref_notes
+        out.append(cell_obj)
+
+    cells_path = rd / "judge-cells.jsonl"
+    with open(cells_path, "w", encoding="utf-8") as fh:
+        for c in out:
+            fh.write(json.dumps(c) + "\n")
+    background = sum(1 for c in out if c.get("score_background"))
+    print(
+        f"wrote {len(out)} cells ({background} with In-Depth / {len(out) - background} answer-only) -> {cells_path}"
+    )
+    if blind:
+        bundles = write_bundles(rd, out, rd.name)
+        print(
+            f"blinded: {len(bundles)} bundles -> {rd / 'judge-bundles'}, map -> {rd / 'judge-blind-map.json'}"
+        )
+    print(f"snapshots -> {snap_dir}/*.snapshot.txt")
+
+
+if __name__ == "__main__":
+    main()

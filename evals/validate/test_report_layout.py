@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from harness.validate.report import build_report
+from _test_shell import render_report_for_test
 
 
 def _write_many_backend_run(run_dir: Path, backends, turns: int = 1) -> None:
@@ -52,7 +53,7 @@ def test_report_extends_to_full_width_with_scrollable_bands(tmp_path):
     backends = [f"backend-{i:02d}" for i in range(6)]
     run_dir = tmp_path / "run"
     _write_many_backend_run(run_dir, backends)
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
 
     with sync_api.sync_playwright() as p:
         browser = p.chromium.launch()

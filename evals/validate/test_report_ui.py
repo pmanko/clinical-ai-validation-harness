@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from harness.validate.report import build_report
+from _test_shell import render_report_for_test
 
 PATIENT_UUID = "dd75c020-1691-11df-97a5-7038c432aabf"
 
@@ -66,7 +67,7 @@ def test_expand_is_a_real_button(tmp_path):
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, ["a", "b"])
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -87,7 +88,7 @@ def test_tiles_have_larger_min_width(tmp_path):
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, [f"backend-{i}" for i in range(6)])  # 6 tiles overflow a 1400px viewport
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -105,7 +106,7 @@ def test_click_tile_opens_fullscreen(tmp_path):
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, ["a", "b"])
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -129,7 +130,7 @@ def test_scroll_arrows_grey_at_edges(tmp_path):
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, [f"backend-{i}" for i in range(8)])  # force overflow
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -153,7 +154,7 @@ def test_patient_banner_links_to_openmrs_chart(tmp_path):
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, ["a", "b"], with_patient=True)
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -210,7 +211,7 @@ def test_judge_caveat_renders_actual_patient_and_judge_counts(tmp_path):
         actor_dir.mkdir(parents=True)
         (actor_dir / "judge.jsonl").write_text(json.dumps(judge) + "\n", encoding="utf-8")
 
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -228,7 +229,7 @@ def test_summary_label_is_escaped_not_injected(tmp_path):
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, ["a"], labels={"a": "<img src=x onerror=window.__xss=1>"})
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -247,7 +248,7 @@ def test_tile_renders_readonly_eval_footer_without_legacy_radios(tmp_path):
     sync_api = pytest.importorskip("playwright.sync_api")
     run_dir = tmp_path / "run"
     _write_run(run_dir, ["a", "b"])
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:
@@ -299,7 +300,7 @@ def test_progressive_disclosure_tabs_and_scenario_drawer(tmp_path):
         "".join(json.dumps(r) + "\n" for r in judge_rows), encoding="utf-8"
     )
 
-    uri = build_report(run_dir).resolve().as_uri()
+    uri = render_report_for_test(build_report(run_dir)).resolve().as_uri()
     with sync_api.sync_playwright() as p:
         b = p.chromium.launch()
         try:

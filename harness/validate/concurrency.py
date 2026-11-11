@@ -24,7 +24,7 @@ from typing import Any, Callable, Sequence
 from uuid import uuid4
 
 from ..metadata import utc_now_iso
-from ..report_shell.stats import avg, percentile
+from ..common.stats import avg, percentile
 from .client import (
     ChartSearchAiClient,
     ChatResult,

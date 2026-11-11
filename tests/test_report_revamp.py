@@ -7,6 +7,11 @@ from pathlib import Path
 import shutil
 import subprocess
 
+from evals.validate._test_shell import (
+    render_report_for_test,
+    report_shell_css,
+    report_shell_js,
+)
 from harness.validate import report
 from harness.validate.adjudicate import adjudication_record
 
@@ -199,7 +204,7 @@ def test_report_removes_embedded_adjudication_forms_and_drag_ranking(tmp_path: P
     _write_stage3_adjudication_fixture(run_dir)
 
     out = report.build_report(run_dir)
-    html = out.read_text(encoding="utf-8")
+    html = render_report_for_test(out).read_text(encoding="utf-8")
 
     # Verify all legacy interactive adjudication & drag-to-rank widgets are gone
     for forbidden in (
@@ -284,7 +289,7 @@ def test_report_script_passes_node_syntax_check(tmp_path: Path) -> None:
     if not shutil.which("node"):
         return
     js_file = tmp_path / "report_script.js"
-    js_file.write_text(report._SCRIPT, encoding="utf-8")
+    js_file.write_text(report_shell_js(), encoding="utf-8")
     proc = subprocess.run(["node", "--check", str(js_file)], capture_output=True, text=True, check=False)
     assert proc.returncode == 0, proc.stderr
 
@@ -299,30 +304,37 @@ def test_build_report_emits_standalone_report_data_json_and_external_shell(tmp_p
         run_dir,
         deduplicate=True,
         write_data_json=True,
-        external_shell_prefix="../assets",
     )
-    html = out.read_text(encoding="utf-8")
     data_path = run_dir / "report-data.json"
+    assert out == data_path
     assert data_path.is_file()
+    assert (run_dir / "run-summary.json").is_file()
+    assert (run_dir / "dashboard-data.json").is_file()
     payload = json.loads(data_path.read_text(encoding="utf-8"))
+    assert payload["schema"] == "openclinai.report.v2"
+    assert payload["schema_version"] == 2
     run0 = payload["runs"][0]
     assert "source_card_pool" in run0
-    assert "../assets/report-shell.css?v=" in html
-    assert "../assets/report-shell.js?v=" in html
-    shell_dir = Path(report.__file__).resolve().parents[1] / "report_shell"
-    assert (shell_dir / "report-shell.css").is_file()
-    assert (shell_dir / "report-shell.js").is_file()
 
 
 def test_enrich_and_deduplicate_run_edge_cases() -> None:
-    from harness.validate.report_data import _esc, enrich_and_deduplicate_run
+    from harness.validate.report_data import enrich_and_deduplicate_run
 
-    assert _esc("a<b>c") == "a&lt;b&gt;c"
-    card = (
-        "<article class='source-card'><div class='sc-head'><b>S1</b>"
-        "<span>cite [1] · chart [10] Labs</span></div>"
-        "<ul><li>Labs</li></ul><details><summary>open source record</summary><pre>Labs</pre></details></article>"
-    )
+    src_item = {
+        "source_id": "S1",
+        "citation_index": 1,
+        "chart_record_index": 10,
+        "title": "Labs",
+        "resource_type": "obs",
+        "date": "2026-05-01",
+        "sections": ["answer"],
+        "record_label": "resolved",
+        "record_tone": "success",
+        "support_label": "supported",
+        "support_tone": "success",
+        "facts_used": ["Labs"],
+        "source_text": "Labs",
+    }
     run_obj = {
         "backends": ["b1"],
         "scenarios": [
@@ -333,15 +345,16 @@ def test_enrich_and_deduplicate_run_edge_cases() -> None:
                         "cells": {
                             "b1": {
                                 "http_status": 200,
-                                "refs_html": "",
-                                "sources_html": card,
-                                "sources": {"sources": [1], "diagnostics": {"top_level_refs": [1], "unresolved_refs": []}},
+                                "sources": {
+                                    "sources": [src_item],
+                                    "diagnostics": {"top_level_refs": [1], "unresolved_refs": []},
+                                },
                                 "indepth_view": {"status": "not_in_profile", "extra": 1},
                             },
                             "skip": "not-a-dict",
                         }
                     },
-                    {"cells": {"b1": {"http_status": 200, "sources_html": ""}}},
+                    {"cells": {"b1": {"http_status": 200}}},
                 ],
             }
         ],
@@ -360,5 +373,25 @@ def test_enrich_and_deduplicate_run_edge_cases() -> None:
     assert run_obj["summary"][0]["valid_turns"] == 2
     assert run_obj["judge"][0]["benchmark_score"] is not None
     assert run_obj["calibrated"]
+
+
+def test_report_shell_includes_viewport_catalog_meta_and_overflow_guards(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    _write_stage1_fixture(run_dir)
+    _write_stage2_judge_fixture(run_dir)
+    out = report.build_report(run_dir)
+    html = render_report_for_test(out).read_text(encoding="utf-8")
+    assert "<meta name='viewport' content='width=device-width, initial-scale=1'>" in html
+
+    css = report_shell_css()
+    js = report_shell_js()
+    assert ".ov-diff-sc > .ov-score-num" in css
+    assert "overflow-x: clip" in css
+    assert "@media (max-width: 720px)" in css
+    assert "ov-study-brief" in css
+    assert "compactArmLabel" in js
+    assert "What We Tested" in js
+    assert "Key Takeaway" in js
+
 
 

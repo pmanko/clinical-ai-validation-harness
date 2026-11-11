@@ -15,7 +15,6 @@ from harness.validate.review_presentation import (
     format_latency,
     indepth_claim_rows,
     indepth_section_view,
-    markdown_html,
     section_confidence_displays,
     status_display,
 )
@@ -163,16 +162,21 @@ def test_an_arm_reporting_no_answer_checks_has_no_answer_status():
     assert answer is None
 
 
-def test_markdown_bullets_render_as_a_list_with_marks_visible_and_text_escaped():
-    out = markdown_html(
-        "- First point [1].\n- Second point. *(General guidance, not from the chart.)*\n"
-        "- Third <b>point</b> [2]. *(Check: its cited record does not support it.)*"
+def test_indepth_section_view_carries_raw_markdown_body_text_without_html():
+    view = indepth_section_view(
+        {
+            "status": "complete",
+            "answer": (
+                "- First point [1].\n"
+                "- Second point. *(General guidance, not from the chart.)*\n"
+                "- Third point [2]. *(Check: its cited record does not support it.)*"
+            ),
+        }
     )
 
-    assert out.count("<li>") == 3
-    assert "\n" not in out
-    assert "claim-guidance" in out and "claim-mark" in out
-    assert "<b>" not in out
+    assert view["body_text"].startswith("- First point [1].")
+    assert "body_html" not in view
+    assert "<li>" not in view["body_text"]
 
 
 def test_sources_say_which_section_cites_them_and_name_knowledge_references():
@@ -402,14 +406,10 @@ def test_hub_indepth_contradiction_fail_entry_reads_as_contradicted():
     assert rows[0]["checks"]["citation"]["tone"] == "danger"
 
 
-def test_parenthetical_check_marks_are_ignored_in_draft_comparison_and_rendered_completely():
+def test_parenthetical_check_marks_are_ignored_in_draft_comparison():
     delivered = "- Weight fell to 41 kg [21]. *(Check: [21] does not state 52 kg (baseline); flagged on review.)*"
     draft = "- Weight fell to 41 kg [21]."
     assert draft_view({"answer": delivered, "reviewDraft": draft}) is None
-
-    rendered = markdown_html(delivered)
-    assert "<em class='claim-mark'>(Check: [21] does not state 52 kg (baseline); flagged on review.)</em>" in rendered
-    assert "; flagged on review.)*" not in rendered
 
 
 def test_answer_original_differs_when_uuid_changes_or_reference_is_removed_or_lacks_identity():
