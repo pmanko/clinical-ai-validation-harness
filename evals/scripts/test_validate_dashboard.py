@@ -153,7 +153,7 @@ def test_detail_nests_indepth_block(tmp_path, monkeypatch):
     d = vd.detail("s1", "b1")
     assert len(d["turns"]) == 1
     t = d["turns"][0]
-    assert "the in-depth answer" in t["indepth_view"]["body_html"]
+    assert "the in-depth answer" in t["indepth_view"]["body_text"]
     assert t["indepth_latency_ms"] == 5500
     assert t["answer"].startswith("A")  # the Answer is preserved alongside
 
@@ -193,7 +193,7 @@ def test_detail_indepth_is_none_when_arm_has_none(tmp_path, monkeypatch):
                results=[_answer_row("s1", "b1", 1)])  # no in-depth
     t = vd.detail("s1", "b1")["turns"][0]
     assert t["indepth_view"]["status"] == "not_in_profile"
-    assert t["indepth_view"]["body_html"] == ""
+    assert t["indepth_view"]["body_text"] == ""
 
 
 def test_detail_includes_canonical_sources_v1(tmp_path, monkeypatch):
@@ -228,7 +228,7 @@ def test_detail_parses_string_indepth_response(tmp_path, monkeypatch):
     _setup_run(tmp_path, vd, monkeypatch,
                results=[_answer_row("s1", "b1", 1, indepth=indepth)])
     t = vd.detail("s1", "b1")["turns"][0]
-    assert "string-encoded in-depth" in t["indepth_view"]["body_html"]
+    assert "string-encoded in-depth" in t["indepth_view"]["body_text"]
 
 
 @pytest.mark.parametrize("metadata", [{}, {"backends": {"b1": {"modelName": "known-model"}}}, None])

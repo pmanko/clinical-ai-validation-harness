@@ -97,10 +97,33 @@ def _build_parser() -> argparse.ArgumentParser:
         "row (and passed to the chat client if it accepts a date field). Unset -> "
         "today's behavior (temporal scoring falls back to the data era).",
     )
-    val_report = val_sub.add_parser("report", help="Render report.html from a completed run")
+    val_report = val_sub.add_parser(
+        "report",
+        help="Emit v2 JSON report packet (report-data.json, run-summary.json, dashboard-data.json) from a completed run",
+    )
     val_report.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
     val_report.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
     val_report.add_argument("--output-dir", default="artifacts/validate")
+
+    val_judge = val_sub.add_parser(
+        "judge",
+        help="Run blind-session or multi-judge evaluation passes over a completed run and emit v2 JSON report packet",
+    )
+    val_judge.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
+    val_judge.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
+    val_judge.add_argument("--output-dir", default="artifacts/validate")
+    val_judge.add_argument(
+        "--judge",
+        dest="judges",
+        action="append",
+        metavar="AGENT:MODEL:EFFORT[:PASSES]",
+        help="Judge specification (repeatable); default uses --agent with REVIEW_MODEL/REVIEW_REASONING",
+    )
+    val_judge.add_argument("--judge-passes", type=int, default=1, help="Number of passes per judge (default: 1)")
+    val_judge.add_argument("--blind", action="store_true", help="Letter the arms and judge one scenario bundle per session")
+    val_judge.add_argument("--add", action="store_true", help="Add judge passes to existing headline rather than replacing")
+    val_judge.add_argument("--agent", default="claude", choices=("claude", "codex", "gemini", "human"))
+    val_judge.add_argument("--work-dir", help="Working directory for judge prompt/session artifacts")
 
     val_expect = val_sub.add_parser(
         "expect", help="Check a completed run's answers against its scenarios' turn checks"
@@ -336,6 +359,10 @@ def main(
             out = build_report(run_dir)
             print(f"report -> {out}")
             return 0
+        if args.validate_action == "judge":
+            from .validate.judge_runner import run_judge_command
+
+            return run_judge_command(args)
         if args.validate_action == "expect":
             from .validate.expectations import check_run
 

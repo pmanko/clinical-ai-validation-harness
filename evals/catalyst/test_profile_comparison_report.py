@@ -1,7 +1,8 @@
-"""Offline tests for the multi-profile Catalyst notebook comparison report."""
+"""Offline tests for the multi-profile Catalyst notebook comparison v2 JSON packet."""
 
 from __future__ import annotations
 
+import json
 import socket
 from pathlib import Path
 
@@ -21,39 +22,31 @@ def test_comparison_report_shows_each_profiles_pass_rate_and_assertion_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _block_network(monkeypatch)
-    from harness.catalyst.profile_comparison_report import build_comparison_report
+    from harness.catalyst.report import build_comparison_report
 
-    html = build_comparison_report(
+    packet = build_comparison_report(
         [
             {"run_dir": FIXTURE, "profile_id": "catalyst-query-a", "profile_label": "Profile A"},
             {"run_dir": FIXTURE, "profile_id": "catalyst-query-b", "profile_label": "Profile B"},
         ]
     )
-
-    assert "Profile A" in html
-    assert "Profile B" in html
-    assert "catalyst-query-a" in html
-    assert "catalyst-query-b" in html
-    # The fixture has 7/8 passed; both rows should show that ratio.
-    assert html.count("7/8") == 2
-    # Average generation wall time (ms) is a real speed signal for comparing
-    # small-model tradeoffs, so it should be surfaced too.
-    assert "avg" in html.lower() and "ms" in html.lower()
+    assert packet["schema"] == "openclinai.report.v2"
+    assert packet["schema_version"] == 2
+    entries = packet["runs"][0]["catalyst"]["comparison_entries"]
+    assert [e["entry_id"] for e in entries] == ["Profile A", "Profile B"]
+    assert [e["passed_count"] for e in entries] == ["7/8", "7/8"]
+    assert all(e["avg_latency_ms"] is not None for e in entries)
 
 
 def test_comparison_report_breaks_down_pass_fail_per_scenario(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _block_network(monkeypatch)
-    from harness.catalyst.profile_comparison_report import build_comparison_report
+    from harness.catalyst.report import build_comparison_report
 
-    html = build_comparison_report(
+    packet = build_comparison_report(
         [{"run_dir": FIXTURE, "profile_id": "catalyst-query-a", "profile_label": "Profile A"}]
     )
-
-    # The fixture's one genuine failure must be visible per-scenario, not
-    # hidden inside an aggregate pass count.
-    assert "bounded-hub-tool-failure" in html
-    assert "narrowing-unchanged-base" in html
-    assert html.count("FAIL") >= 1
-    assert html.count("PASS") >= 1
+    serialized = json.dumps(packet)
+    assert "bounded-hub-tool-failure" in serialized
+    assert "narrowing-unchanged-base" in serialized

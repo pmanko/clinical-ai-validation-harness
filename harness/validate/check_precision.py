@@ -56,7 +56,6 @@ actor when present. The headline block is the canonical pass.
 from __future__ import annotations
 
 import hashlib
-import html
 import json
 import math
 import os
@@ -701,92 +700,3 @@ def table_text(data: dict[str, Any]) -> str:
             unmarked = ", ".join(f"{v} {by.get('unmarked', {}).get(v, 0)}" for v in VERDICTS)
             out.append(f"  {CHECK_LABELS[check]}: marked [{marked}] / unmarked [{unmarked}]")
     return "\n".join(out)
-
-
-def _html_table(head: list[str], rows: list[list[str]], caption: str) -> str:
-    h = f"<table class='summary checkprec'><caption>{html.escape(caption)}</caption><thead><tr>"
-    h += "".join(f"<th>{html.escape(c)}</th>" for c in head) + "</tr></thead><tbody>"
-    for row in rows:
-        h += "<tr>" + "".join(
-            f"<td class='b'>{html.escape(c)}</td>" if i == 0 else f"<td>{html.escape(c)}</td>"
-            for i, c in enumerate(row)
-        ) + "</tr>"
-    return h + "</tbody></table>"
-
-
-def table_html(data: dict[str, Any], arm_titles: dict[str, str] | None = None) -> str:
-    """The scoring as HTML, one block for the Answer and one for In-Depth points."""
-    titles = arm_titles or {}
-    ref = data.get("reference") or {}
-    h = "<div class='checkprec'>"
-    h += (
-        "<p class='intro'>" + html.escape(EXPLANATION)
-        + f" Reference: the {html.escape(str(ref.get('headline') or 'judge'))} judge pass"
-        + f" (an accuracy below {html.escape(str((ref.get('thresholds') or {}).get('accuracy_error_below')))},"
-        " a citation the judge found unsupported or partly supported, harm, or a temporal"
-        " axis not ok counts as a judged error)."
-        + (
-            " Other passes scored: " + html.escape(", ".join(a for a in ref.get("actors") or [] if a != ref.get("headline"))) + "."
-            if len(ref.get("actors") or []) > 1
-            else ""
-        )
-        + "</p>"
-    )
-    answer = data.get("answer") or {}
-    unmatched_cells = answer.get("unmatched_cells", 0)
-    unscored_rows = answer.get("unscored_rows", 0)
-    answer_extra = []
-    if unmatched_cells:
-        answer_extra.append(f"{unmatched_cells} unmatched")
-    if unscored_rows:
-        answer_extra.append(f"{unscored_rows} unscored")
-    answer_caption = (
-        f"Answer checks, all arms ({answer.get('cells', 0)} judged cells"
-        + (f", {', '.join(answer_extra)}" if answer_extra else "")
-        + ")"
-    )
-    h += _html_table(_ANSWER_HEAD, _answer_rows(answer.get("overall") or {}), answer_caption)
-    arms = answer.get("by_arm") or {}
-    if arms:
-        h += "<details class='checkprec-arms'><summary>Answer checks per arm</summary>"
-        for arm, block in arms.items():
-            n = (block.get("needs_review") or {}).get("n", 0)
-            h += _html_table(_ANSWER_HEAD, _answer_rows(block), f"{titles.get(arm, arm)} ({n} cells)")
-        h += "</details>"
-    indepth = data.get("indepth") or {}
-    if not indepth.get("available"):
-        marks = ", ".join(f"{CHECK_LABELS[c]} {v}" for c, v in (indepth.get("marked") or {}).items())
-        h += (
-            "<p class='intro'>In-Depth per point: no per-point verdicts in the judge rows"
-            f" ({indepth.get('points', 0)} points; marks: {html.escape(marks)}).</p>"
-        )
-    else:
-        unmatched_verdicts = indepth.get("unmatched_verdicts", 0)
-        indepth_caption = (
-            f"In-Depth checks per point, all arms ({indepth.get('judged_points', 0)} judged of {indepth.get('points', 0)} points"
-            + (f", {unmatched_verdicts} unmatched verdicts" if unmatched_verdicts else "")
-            + ")"
-        )
-        h += _html_table(
-            _HEAD,
-            _indepth_rows(indepth.get("overall") or {}),
-            indepth_caption,
-        )
-        verdict_head = ["check"] + [f"marked: {v}" for v in VERDICTS] + [f"unmarked: {v}" for v in VERDICTS]
-        verdict_rows = []
-        for check in INDEPTH_CHECKS:
-            by = (indepth.get("overall") or {}).get(check, {}).get("by_verdict") or {}
-            verdict_rows.append(
-                [CHECK_LABELS[check]]
-                + [str(by.get("marked", {}).get(v, 0)) for v in VERDICTS]
-                + [str(by.get("unmarked", {}).get(v, 0)) for v in VERDICTS]
-            )
-        h += _html_table(verdict_head, verdict_rows, "Marks by judge verdict, all arms")
-        arms = indepth.get("by_arm") or {}
-        if arms:
-            h += "<details class='checkprec-arms'><summary>In-Depth checks per arm</summary>"
-            for arm, block in arms.items():
-                n = (block.get("marked") or {}).get("n", 0)
-                h += _html_table(_HEAD, _indepth_rows(block), f"{titles.get(arm, arm)} ({n} judged points)")
-            h += "</details>"
-    return h + "</div>"

@@ -13,7 +13,6 @@ may be another model and some arms run no review at all.
 
 from __future__ import annotations
 
-import html
 import re
 from typing import Any
 
@@ -259,73 +258,6 @@ def normalize_for_comparison(text: Any) -> str:
 
 def differs_in_substance(draft: Any, delivered: Any) -> bool:
     return normalize_for_comparison(draft) != normalize_for_comparison(delivered)
-
-
-def _inline_markdown(escaped: str) -> str:
-    out = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
-    out = re.sub(
-        r"\*\((Check:?.*?)\)\*", r"<em class='claim-mark'>(\1)</em>", out, flags=re.IGNORECASE
-    )
-    out = re.sub(
-        r"\*\((General guidance.*?)\)\*",
-        r"<em class='claim-guidance'>(\1)</em>",
-        out,
-        flags=re.IGNORECASE,
-    )
-    return re.sub(r"(?<![\w*])\*(?![\s*])(.+?)(?<![\s*])\*(?![\w*])", r"<em>\1</em>", out)
-
-
-def markdown_html(text: Any) -> str:
-    """Render the small markdown subset product sections use, escaping first.
-
-    Bullets become a list, ``**bold**`` and ``*italic*`` are kept, and each
-    claim's inline check mark or general-guidance tag stays visible with its own
-    class. The output has no raw newlines, so it reads the same inside the
-    dashboard's pre-wrap boxes and the report's section bodies.
-    """
-    lines = html.escape("" if text is None else str(text)).replace("\\n", "\n").split("\n")
-    parts: list[str] = []
-    paragraph: list[str] = []
-    items: list[str] = []
-    list_tag = ""
-
-    def flush_paragraph() -> None:
-        if paragraph:
-            parts.append("<p class='md-p'>" + "<br>".join(paragraph) + "</p>")
-            paragraph.clear()
-
-    def flush_list() -> None:
-        nonlocal list_tag
-        if items:
-            parts.append(f"<{list_tag} class='md-list'>" + "".join(items) + f"</{list_tag}>")
-            items.clear()
-        list_tag = ""
-
-    for raw in lines:
-        line = raw.strip()
-        bullet = re.match(r"^[-*•]\s+(.*)$", line)
-        numbered = re.match(r"^\d+[.)]\s+(.*)$", line)
-        if bullet or numbered:
-            flush_paragraph()
-            tag = "ul" if bullet else "ol"
-            if list_tag and list_tag != tag:
-                flush_list()
-            list_tag = tag
-            items.append("<li>" + _inline_markdown((bullet or numbered).group(1)) + "</li>")
-            continue
-        flush_list()
-        if not line:
-            flush_paragraph()
-            continue
-        heading = re.match(r"^#{1,6}\s+(.*)$", line)
-        paragraph.append(
-            "<strong>" + _inline_markdown(heading.group(1)) + "</strong>"
-            if heading
-            else _inline_markdown(line)
-        )
-    flush_list()
-    flush_paragraph()
-    return "".join(parts)
 
 
 def _short(text: Any, limit: int = 160) -> str:
@@ -734,7 +666,7 @@ def indepth_section_view(
         "checks": [CHECK_NAMES[c] for c in CHECK_NAMES if c in questioned],
         "marked": marked,
         "claim_count": len(rows),
-        "body_html": markdown_html(answer) if answer else "",
+        "body_text": answer,
         "claims": rows,
         "draft": draft_view(indepth),
         "check_names": {k: CHECK_NAMES[k] for k in CLAIM_CHECKS},
@@ -867,8 +799,3 @@ def format_latency(ms: Any) -> str:
         return f"{float(ms) / 1000:.1f} s"
     except (TypeError, ValueError):
         return "n/a"
-
-
-def score_formatter_js(name: str = "fmt10") -> str:
-    """One browser formatter for the report and dashboard's 0-10 score strings."""
-    return f"function {name}(v){{ return v==null ? '\u2014' : (Math.round(v*10)/10); }}"

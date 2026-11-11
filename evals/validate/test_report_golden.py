@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import json
-import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from harness.validate.report import build_report, _embed_json
-
-from .dom_canon import canonicalize_html
+from harness.validate.report import build_report
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "validate-run-golden"
 _FROZEN = datetime(2026, 7, 21, 12, 0, 0, tzinfo=timezone.utc)
@@ -22,43 +20,28 @@ def _freeze_report_clock(monkeypatch) -> None:
     monkeypatch.setattr("harness.validate.report.datetime", _FrozenDateTime)
 
 
-def _parse_embedded_data(html: str) -> dict:
-    m = re.search(
-        r"<script type='application/json' id='report-data'>(.*?)</script>",
-        html,
-        flags=re.DOTALL,
-    )
-    assert m is not None, "missing report-data island"
-    return json.loads(m.group(1))
+def test_report_regeneration_emits_deterministic_v2_json_packets(monkeypatch, tmp_path: Path) -> None:
+    _freeze_report_clock(monkeypatch)
+    run_copy = tmp_path / "run"
+    shutil.copytree(FIXTURE, run_copy)
 
+    out_path = build_report(run_copy)
+    assert out_path == run_copy / "report-data.json"
+    assert (run_copy / "run-summary.json").is_file()
+    assert (run_copy / "dashboard-data.json").is_file()
 
-def _baseline_with_captured_arm_cards() -> str:
-    """The former live-source arm cards are no longer part of the report contract."""
-    baseline = (FIXTURE / "report.pre-p0.html").read_text(encoding="utf-8")
-    data = _parse_embedded_data(baseline)
+    data = json.loads(out_path.read_text(encoding="utf-8"))
+    assert data["schema"] == "openclinai.report.v2"
+    assert data["schema_version"] == 2
+    assert data["generated_at"] == "2026-07-21T12:00:00+00:00"
+    assert len(data["runs"]) == 1
+
+    run = data["runs"][0]
     meta_path = FIXTURE / "run_meta.json"
-    frozen = json.loads(meta_path.read_text()).get("arm_cards", {}) if meta_path.exists() else {}
-    for run in data["runs"]:
-        run["arm_cards"] = {bid: frozen.get(bid) for bid in run["backends"]}
-    return re.sub(
-        r"(<script type='application/json' id='report-data'>).*?(</script>)",
-        lambda match: match[1] + _embed_json(data) + match[2],
-        baseline, flags=re.DOTALL,
-    )
+    frozen = json.loads(meta_path.read_text(encoding="utf-8")).get("arm_cards", {}) if meta_path.exists() else {}
+    assert run["arm_cards"] == {bid: frozen.get(bid) for bid in run["backends"]}
 
-
-def test_report_regeneration_changes_only_retired_live_arm_cards(monkeypatch) -> None:
-    _freeze_report_clock(monkeypatch)
-    baseline = _baseline_with_captured_arm_cards().encode("utf-8")
-    regenerated = build_report(FIXTURE).read_bytes()
-    assert regenerated == baseline
-
-
-def test_report_regeneration_matches_pre_p0_dom_and_embedded_data(monkeypatch) -> None:
-    """P1 semantic parity: canonical HTML structure + exact parsed data island."""
-    _freeze_report_clock(monkeypatch)
-    baseline_html = _baseline_with_captured_arm_cards()
-    regenerated_html = build_report(FIXTURE).read_text(encoding="utf-8")
-
-    assert canonicalize_html(regenerated_html) == canonicalize_html(baseline_html)
-    assert _parse_embedded_data(regenerated_html) == _parse_embedded_data(baseline_html)
+    # Regenerate a second time and verify byte-for-byte determinism
+    first_bytes = out_path.read_bytes()
+    second_bytes = build_report(run_copy).read_bytes()
+    assert first_bytes == second_bytes

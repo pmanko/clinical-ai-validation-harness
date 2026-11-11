@@ -16,7 +16,6 @@ from harness.validate.check_precision import (
     load_scores,
     point_verdicts,
     score_run,
-    table_html,
     table_text,
     write_scores,
 )
@@ -207,27 +206,25 @@ def test_a_human_adjudication_joins_as_one_more_reference(tmp_path):
 def test_the_table_renders_from_the_written_file(tmp_path):
     run = _copy_run(tmp_path)
     write_scores(run, score_run(run))
-    html = table_html(load_scores(run), {"engine-parity-bundled-12b": "Bundled <engine>"})
-
     data = load_scores(run)
-    expected = 2 + len(data["answer"]["by_arm"]) + 1 + len(data["indepth"]["by_arm"])
-    assert html.count("<table") == expected, "overall, per arm, In-Depth overall, by verdict, per arm"
-    assert "Precision: of the items a check marked" in html
-    assert "Bundled &lt;engine&gt;" in html
-    assert "Citation support" in html and "wrong_citation" in html
-    assert "<details class='checkprec-arms'>" in html
+    text = table_text(data)
+
+    assert data["schema_version"] == "check_precision.v1"
+    assert set(data["answer"]["by_arm"]) == {c["backend_id"] for c in CELLS.values()}
+    assert "Precision" in text and "Recall" in text
+    assert "Citation support" in text and "wrong_citation" in text
 
 
 def test_the_report_carries_the_table_once_the_run_is_scored(tmp_path):
     run = _copy_run(tmp_path)
     before = report._run_blob(run)
-    assert before["check_precision"] is None and before["check_precision_html"] == ""
+    assert before["check_precision"] is None
+    assert "check_precision_html" not in before
 
     write_scores(run, score_run(run))
     after = report._run_blob(run)
     assert after["check_precision"]["answer"]["cells"] == 6
-    assert "<table" in after["check_precision_html"]
-    assert "Label for engine-parity-bundled-12b" in after["check_precision_html"]
+    assert "check_precision_html" not in after
 
 
 def test_a_patched_answer_is_counted_apart_from_date_check_marks():
@@ -360,9 +357,8 @@ def test_malformed_jsonl_unmatched_counts_partial_adjudication_and_stale_cache(t
     assert adj_answer["unscored_rows"] == 1
     assert adj_answer["unmatched_cells"] == 1
     assert data["indepth"]["unmatched_verdicts"] == 1
-    html = table_html({**data, "answer": adj_answer})
-    assert "1 unmatched" in html and "1 unscored" in html
-    assert "1 unmatched verdicts" in html
+    text = table_text({**data, "answer": adj_answer})
+    assert "Precision" in text and "Recall" in text
 
     # Write scores, then mutate judge.jsonl -> load_scores must invalidate the stale cache.
     write_scores(run, data)

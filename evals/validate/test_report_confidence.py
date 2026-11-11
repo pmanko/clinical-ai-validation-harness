@@ -19,6 +19,11 @@ import json
 import re
 from pathlib import Path
 
+from evals.validate._test_shell import (
+    DASHBOARD_SHELL_JS,
+    REPORT_SHELL_JS,
+    render_cell_via_js,
+)
 from harness.validate.report import build_report
 
 _ANSWER = "**Answer**\nRegimen is current [1].\n\n**In Depth**\nStavudine-free per WHO [1]."
@@ -73,11 +78,10 @@ def _trace(answer_conf, indepth_conf, backend="med-agent-team"):
 
 
 def _report_cell(run_dir: Path) -> dict:
-    html = build_report(run_dir).read_text(encoding="utf-8")
-    body = re.search(
-        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
-    ).group(1)
-    return json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
+    run = json.loads(build_report(run_dir).read_text(encoding="utf-8"))["runs"][0]
+    cell = dict(run["scenarios"][0]["turns"][0]["cells"]["med-agent-team"])
+    cell.update(render_cell_via_js(cell, run))
+    return cell
 
 
 def _answer_html(run_dir: Path) -> str:
@@ -200,8 +204,8 @@ def test_report_and_dashboard_share_flagged_output_semantics(tmp_path):
     assert report_cell["answer_view"]["status"] == "needs_review"
     assert "Flagged answer [1]." in report_cell["answer_html"]
     assert "show answer" not in report_cell["answer_html"]
-    assert "function fmt10(v)" in dashboard.PAGE
-    assert "function fmt10(v)" in build_report(run_dir).read_text(encoding="utf-8")
+    assert "fmt10" in DASHBOARD_SHELL_JS
+    assert "function fmt10(v)" in REPORT_SHELL_JS
 
 
 def test_temporal_gate_metadata_reaches_cell_chip_and_summary(tmp_path):
@@ -217,34 +221,23 @@ def test_temporal_gate_metadata_reaches_cell_chip_and_summary(tmp_path):
     tr["temporal_facts_summary"] = {"reference_date": "2026-06-20"}
     _write_run(run_dir, [_result("**Answer**\nNo upcoming appointment [1].")], traces=[tr])
 
-    html = build_report(run_dir).read_text(encoding="utf-8")
-    body = re.search(
-        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
-    ).group(1)
-    run = json.loads(body)["runs"][0]
+    run = json.loads(build_report(run_dir).read_text(encoding="utf-8"))["runs"][0]
     cell = run["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
+    rendered = render_cell_via_js(cell, run)
     assert cell["temporal_gate"]["mode"] == "enforce"
-    assert "temporal gate enforce: fail patch" in cell["chips_html"]
+    assert "temporal gate enforce: fail patch" in rendered["chips_html"]
     assert run["summary"][0]["temporal_gate_fail"] == 1
     assert run["summary"][0]["temporal_gate_applied"] == 1
 
 
 def test_judge_scores_are_loaded_when_present(tmp_path):
     run_dir = tmp_path / "validate" / "run"
-    # A judge.jsonl present exercises the loader's read path (vs the absent -> [] branch).
     _write_run(
         run_dir, [_result(_ANSWER)],
         judge=[{"scenario_id": "s", "backend_id": "med-agent-team", "turn": 1,
                 "scores": {"accuracy": 8, "completeness": 7, "relevance": 9}}],
     )
-    # The loaded scores must reach the blob's judge_rows (the JS heatmap reads them);
-    # red-when-broken if _load_judge drops a present file. Keyed on the value, not the
-    # word "accuracy", which already appears in the static rubric legend.
-    html = build_report(run_dir).read_text(encoding="utf-8")
-    body = re.search(
-        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
-    ).group(1)
-    rows = json.loads(body)["runs"][0]["judge_rows"]
+    rows = json.loads(build_report(run_dir).read_text(encoding="utf-8"))["runs"][0]["judge_rows"]
     assert rows and rows[0]["scores"]["accuracy"] == 8
 
 

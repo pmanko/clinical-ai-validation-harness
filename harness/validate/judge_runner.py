@@ -1,0 +1,582 @@
+"""Blind-session and multi-judge orchestration for validation-harness runs."""
+
+from __future__ import annotations
+
+import fcntl
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .judging import judge_summary
+from .report import build_report
+
+HARNESS_ROOT = Path(__file__).resolve().parents[2]
+JUDGE_BRIEF_PATH = HARNESS_ROOT / ".claude/skills/clinical-answer-scoring/judge.md"
+RUBRIC_PATH = HARNESS_ROOT / ".claude/skills/clinical-answer-scoring/rubric.md"
+
+DEFAULT_JUDGE_SETTINGS = {
+    "claude": ("claude-sonnet-5-5", "medium"),
+    "codex": ("gpt-6.1-sol", "medium"),
+    "gemini": ("unrecorded", "unrecorded"),
+    "human": ("human", ""),
+}
+
+_ALLOC_LOCK = threading.Lock()
+
+
+@contextmanager
+def _run_judge_lock(run_dir: Path):
+    """Process- and thread-safe lock around pass reservation and finalization."""
+    judges_dir = run_dir / "judges"
+    judges_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = judges_dir / ".alloc.lock"
+    with _ALLOC_LOCK:
+        with open(lock_path, "a+", encoding="utf-8") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield judges_dir
+            finally:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+
+def last_json(text: str) -> Any:
+    """The last ```json block of a judge's answer, parsed (with trailing-comma repair outside strings)."""
+    blocks = re.findall(r"```json\s*(.*?)```", text, re.S)
+    if not blocks:
+        raise SystemExit("the judge's answer has no ```json block")
+    block = blocks[-1]
+    try:
+        return json.loads(block)
+    except json.JSONDecodeError:
+        repaired = re.sub(
+            r'("(?:\\.|[^"\\])*")|,\s*([}\]])',
+            lambda m: m.group(1) if m.group(1) is not None else m.group(2),
+            block,
+        )
+        return json.loads(repaired)
+
+
+def parse_judges(args: Any) -> list[dict[str, Any]]:
+    """Parse `--judge agent:model:effort[:passes]` specifications or fall back to default agent."""
+    raw_passes = getattr(args, "judge_passes", 1)
+    default = 1 if raw_passes is None else int(raw_passes)
+    if default < 1:
+        raise SystemExit(f"--judge-passes must be at least 1, got {raw_passes!r}")
+    judges: list[dict[str, Any]] = []
+    for spec in getattr(args, "judges", None) or []:
+        parts = spec.split(":")
+        if len(parts) not in (3, 4) or not all(parts) or (len(parts) == 4 and not parts[3].isdigit()):
+            raise SystemExit(f"--judge wants agent:model:effort[:passes], got {spec!r}")
+        passes = int(parts[3]) if len(parts) == 4 else default
+        if passes < 1:
+            raise SystemExit(f"--judge {spec!r}: passes must be at least 1")
+        judges.append({"agent": parts[0], "model": parts[1], "effort": parts[2], "passes": passes})
+    if judges:
+        return judges
+    agent = getattr(args, "agent", "claude") or "claude"
+    default_model, default_effort = DEFAULT_JUDGE_SETTINGS.get(agent, ("gpt-6.1-sol", "medium"))
+    return [
+        {
+            "agent": agent,
+            "model": os.environ.get("REVIEW_MODEL") or default_model,
+            "effort": os.environ.get("REVIEW_REASONING") or default_effort,
+            "passes": default,
+        }
+    ]
+
+
+def run_judges(run_dir: Path) -> tuple[list[str], dict[tuple[str, str, str], int], bool]:
+    """Return `(built_from, highest_pass_by_judge, blinded)` for an existing run directory."""
+    try:
+        built = json.loads((run_dir / "judges" / "canonical.json").read_text(encoding="utf-8")).get("built_from") or []
+    except (OSError, json.JSONDecodeError):
+        built = []
+    last: dict[tuple[str, str, str], int] = {}
+    blinded = False
+    for manifest in sorted((run_dir / "judges").glob("*/manifest.json")):
+        try:
+            card = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        key = (
+            str(card.get("agent") or ""),
+            str(card.get("model") or ""),
+            str(card.get("reasoning_effort") or ""),
+        )
+        last[key] = max(last.get(key, 0), int(card.get("pass_index") or 1))
+        blinded = blinded or (manifest.parent.name in built and bool(card.get("blinded")))
+    return [str(a) for a in built], last, blinded
+
+
+def _reserve_judge_passes(
+    run_dir: Path, judges: list[dict[str, Any]]
+) -> list[tuple[dict[str, Any], int, int]]:
+    """Atomically reserve contiguous pass numbers for each judge before sessions run."""
+    with _run_judge_lock(run_dir) as judges_dir:
+        _, last, _ = run_judges(run_dir)
+        res_file = judges_dir / ".reserved.json"
+        try:
+            raw_res = json.loads(res_file.read_text(encoding="utf-8")) if res_file.exists() else {}
+        except (OSError, json.JSONDecodeError):
+            raw_res = {}
+        reserved: dict[tuple[str, str, str], int] = {}
+        for k_str, val in raw_res.items():
+            parts = k_str.split("\0")
+            if len(parts) == 3 and isinstance(val, int):
+                reserved[(parts[0], parts[1], parts[2])] = val
+        allocations: list[tuple[dict[str, Any], int, int]] = []
+        for judge in judges:
+            key = (str(judge["agent"]), str(judge["model"]), str(judge["effort"]))
+            start = max(last.get(key, 0), reserved.get(key, 0))
+            end = start + int(judge["passes"])
+            reserved[key] = end
+            allocations.append((judge, start, end))
+        res_file.write_text(
+            json.dumps({"\0".join(k): v for k, v in reserved.items()}, indent=1),
+            encoding="utf-8",
+        )
+        return allocations
+
+
+def _expected_session_cells(cells_path: Path) -> list[tuple[str, str]]:
+    if not cells_path.is_file():
+        return []
+    expected: list[tuple[str, str]] = []
+    for line in cells_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        cell = json.loads(line)
+        expected.append((str(cell["scenario_id"]), str(cell["backend_id"])))
+    return expected
+
+
+def _validate_session_rows(rows: Any, expected: list[tuple[str, str]]) -> list[dict[str, Any]]:
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("verdict JSON must be a non-empty list of cell rows")
+    seen: list[tuple[str, str]] = []
+    for idx, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise ValueError(f"row {idx} is not an object")
+        for req in ("scenario_id", "backend_id", "accuracy"):
+            if req not in row:
+                raise ValueError(f"row {idx} is missing {req!r}")
+        for axis in ("accuracy", "completeness", "relevance"):
+            if axis in row:
+                val = row[axis]
+                if isinstance(val, bool) or not isinstance(val, (int, float)):
+                    raise ValueError(f"row {idx} {axis!r} must be numeric")
+        if "harm" in row and not isinstance(row["harm"], bool):
+            raise ValueError(f"row {idx} 'harm' must be boolean")
+        seen.append((str(row["scenario_id"]), str(row["backend_id"])))
+    if len(set(seen)) != len(seen):
+        raise ValueError("duplicate (scenario_id, backend_id) in verdict rows")
+    if expected and set(seen) != set(expected):
+        missing = sorted(set(expected) - set(seen))
+        extra = sorted(set(seen) - set(expected))
+        raise ValueError(f"cell coverage mismatch (missing={missing}, unexpected={extra})")
+    return rows
+
+
+def _prepare_blind_session_dir(
+    run_dir: Path, out_dir: Path, tag: str, bundle: Path
+) -> tuple[Path, Path]:
+    """Create a bounded directory with only this scenario's bundle and chart snapshots."""
+    session_dir = out_dir / f"{tag}-input-{bundle.stem}"
+    if session_dir.exists():
+        shutil.rmtree(session_dir)
+    session_dir.mkdir(parents=True, exist_ok=True)
+    staged_bundle = session_dir / bundle.name
+    shutil.copy2(bundle, staged_bundle)
+    charts_src = run_dir / "charts"
+    if charts_src.is_dir():
+        shutil.copytree(charts_src, session_dir / "charts")
+    return session_dir, staged_bundle
+
+
+def run_judge_role(
+    args: Any,
+    workdir: Path,
+    prompt: str,
+    out: Path,
+    *,
+    agent: str,
+    env: dict[str, str] | None = None,
+) -> str:
+    """Run one fresh session of the judge agent and record `<out>.card.json`."""
+    prompt_file = out.with_suffix(".prompt.md")
+    scratch = out.parent / "scratch"
+    scratch.mkdir(parents=True, exist_ok=True)
+    full_prompt = (
+        prompt
+        + f"\nKeep all working scripts and logs in {scratch}, never /tmp. Preserve reproduction scripts there.\n"
+        + "\nYour final message is saved as your answer: do not write it to a file, and leave the repository as you found it.\n"
+    )
+    if agent == "human" and out.exists() and prompt_file.exists():
+        previous_prompt = prompt_file.read_text(encoding="utf-8")
+        if previous_prompt != full_prompt:
+            archive = (
+                out.parent
+                / "history"
+                / hashlib.sha256(previous_prompt.encode() + out.read_bytes()).hexdigest()[:16]
+            )
+            archive.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(out, archive / out.name)
+            (archive / prompt_file.name).write_text(previous_prompt, encoding="utf-8")
+            out.unlink()
+    prompt_file.write_text(full_prompt, encoding="utf-8")
+
+    eff_env = {**os.environ, **(env or {})}
+    default_model, default_effort = DEFAULT_JUDGE_SETTINGS.get(agent, ("gpt-6.1-sol", "medium"))
+    model = eff_env.get("REVIEW_MODEL") or default_model
+    reasoning = eff_env.get("REVIEW_REASONING") or default_effort
+    tools = "Bash Read Grep Glob WebFetch"
+    started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    version = ""
+    rc = 0
+
+    if agent == "claude":
+        try:
+            version = subprocess.run(
+                ["claude", "--version"], capture_output=True, text=True
+            ).stdout.splitlines()[0]
+        except Exception:
+            version = ""
+        with prompt_file.open("rb") as stdin_fh, out.open("w", encoding="utf-8") as stdout_fh:
+            rc = subprocess.run(
+                ["claude", "-p", "--model", model, "--effort", reasoning, "--allowedTools", tools],
+                cwd=workdir,
+                stdin=stdin_fh,
+                stdout=stdout_fh,
+                env=eff_env,
+            ).returncode
+    elif agent == "codex":
+        try:
+            raw_v = subprocess.run(
+                ["codex", "--version"], capture_output=True, text=True
+            ).stdout.splitlines()[0]
+            version = re.sub(r"^codex-cli\s+", "", raw_v)
+        except Exception:
+            version = ""
+        log_path = Path(f"{out}.log")
+        with prompt_file.open("rb") as stdin_fh, log_path.open("w", encoding="utf-8") as log_fh:
+            rc = subprocess.run(
+                [
+                    "codex",
+                    "exec",
+                    "-C",
+                    str(workdir),
+                    "--add-dir",
+                    str(out.parent),
+                    "-s",
+                    "workspace-write",
+                    "-m",
+                    model,
+                    "-c",
+                    f'model_reasoning_effort="{reasoning}"',
+                    "-o",
+                    str(out),
+                    "-",
+                ],
+                stdin=stdin_fh,
+                stdout=log_fh,
+                stderr=subprocess.STDOUT,
+                env=eff_env,
+            ).returncode
+    elif agent == "gemini":
+        try:
+            version = subprocess.run(
+                ["gemini", "--version"], capture_output=True, text=True
+            ).stdout.splitlines()[0]
+        except Exception:
+            version = ""
+        cmd = ["gemini", "--approval-mode", "yolo"]
+        if eff_env.get("REVIEW_MODEL"):
+            cmd.extend(["-m", model])
+        cmd.extend(["-p", "Follow the instructions given on stdin."])
+        with prompt_file.open("rb") as stdin_fh, out.open("w", encoding="utf-8") as stdout_fh:
+            rc = subprocess.run(cmd, cwd=workdir, stdin=stdin_fh, stdout=stdout_fh, env=eff_env).returncode
+    elif agent == "human":
+        if not out.is_file() or out.stat().st_size == 0:
+            print(f"judge: read {prompt_file}, work in {workdir}, write your answer to {out}, then re-run.")
+            sys.exit(3)
+        model = eff_env.get("REVIEW_MODEL") or "human"
+        reasoning = ""
+        version = ""
+    else:
+        raise SystemExit(f"unknown judge agent {agent!r}")
+
+    finished = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    card_payload = {
+        "agent": agent,
+        "agent_version": version,
+        "model": model,
+        "reasoning_effort": reasoning,
+        "sampling": "provider default",
+        "role": "judge",
+        "started_at": started,
+        "finished_at": finished,
+    }
+    Path(f"{out}.card.json").write_text(json.dumps(card_payload) + "\n", encoding="utf-8")
+    if rc == 3:
+        sys.exit(3)
+    if rc or not out.exists():
+        raise SystemExit(f"judge failed (exit {rc}); see {out}")
+    return out.read_text(encoding="utf-8")
+
+
+def judge_card(answer: Path, pass_index: int, passes: int) -> Path:
+    """Attach `brief_sha256`, `brief_path`, `pass_index`, and `passes` to the session card."""
+    session = json.loads(answer.with_suffix(".md.card.json").read_text(encoding="utf-8"))
+    brief_bytes = JUDGE_BRIEF_PATH.read_bytes()
+    session.update(
+        {
+            "brief_sha256": hashlib.sha256(brief_bytes).hexdigest(),
+            "brief_path": "review/briefs/judge.md",
+            "pass_index": pass_index,
+            "passes": passes,
+        }
+    )
+    card = answer.with_suffix(".card.json")
+    card.write_text(json.dumps(session, indent=1), encoding="utf-8")
+    return card
+
+
+def judge_sessions(
+    args: Any,
+    run_dir: Path,
+    out_dir: Path,
+    pass_index: int,
+    passes: int,
+    judge: dict[str, Any],
+    blind: bool,
+    tag: str = "judge",
+) -> tuple[Path, Path]:
+    """Run one pass of one judge across `judge-cells.jsonl` or blinded `judge-bundles/*.jsonl`."""
+    base = out_dir / f"{tag}.md"
+    brief = JUDGE_BRIEF_PATH.read_text(encoding="utf-8")
+    env = {
+        k: str(v)
+        for k, v in (("REVIEW_MODEL", judge.get("model")), ("REVIEW_REASONING", judge.get("effort")))
+        if v
+    }
+    if blind:
+        bundles = sorted((run_dir / "judge-bundles").glob("*.jsonl"))
+        if not bundles:
+            raise SystemExit(f"{run_dir}: no judge-bundles; run judge-prep.py with --blind")
+        sessions = []
+        for b in bundles:
+            s_dir, s_bundle = _prepare_blind_session_dir(run_dir, out_dir, tag, b)
+            s_inputs = (
+                f"\n## Inputs\n\n- Session directory (bounded input containing only this scenario's "
+                f"bundle and chart snapshots; do not read outside {s_dir} or inspect maps, other "
+                f"scenarios, or earlier judgments): {s_dir}\n"
+                f"- Rubric: {RUBRIC_PATH}\n"
+                f"- Cells for this session: {s_bundle} (one scenario; its arms are lettered, so score each "
+                "answer on its own against the chart and keep the letter as backend_id)\n"
+            )
+            sessions.append((out_dir / f"{tag}-{b.stem}.md", brief + s_inputs, s_dir, s_bundle))
+    else:
+        inputs = f"\n## Inputs\n\n- Run directory: {run_dir}\n- Rubric: {RUBRIC_PATH}\n"
+        sessions = [(base, brief + inputs, run_dir, run_dir / "judge-cells.jsonl")]
+
+    attempts = max(1, int(os.environ.get("JUDGE_ATTEMPTS", "4")))
+    retry_delay = int(os.environ.get("JUDGE_RETRY_DELAY", "60"))
+
+    def one(session: tuple[Path, str, Path, Path]) -> list[dict[str, Any]]:
+        out, prompt, workdir, cells_path = session
+        expected = _expected_session_cells(cells_path)
+        for attempt in range(1, attempts + 1):
+            try:
+                answer = run_judge_role(args, workdir, prompt, out, agent=str(judge["agent"]), env=env)
+                return _validate_session_rows(last_json(answer), expected)
+            except SystemExit as e:
+                if e.code == 3 or attempt == attempts:
+                    raise
+            except (json.JSONDecodeError, ValueError) as e:
+                if attempt == attempts:
+                    raise SystemExit(f"{out}: the judge's verdict block is invalid ({e})")
+            time.sleep(retry_delay * attempt)
+        return []
+
+    parallel = max(1, int(os.environ.get("JUDGE_PARALLEL", "4")))
+    with ThreadPoolExecutor(max_workers=min(parallel, len(sessions))) as pool:
+        rows = [r for session_rows in pool.map(one, sessions) for r in session_rows]
+    rows_path = base.with_suffix(".rows.json")
+    rows_path.write_text(json.dumps(rows), encoding="utf-8")
+    cards = [
+        json.loads(out.with_suffix(".md.card.json").read_text(encoding="utf-8"))
+        for out, _, _, _ in sessions
+    ]
+    identities = {
+        (
+            c.get("agent"),
+            c.get("agent_version"),
+            c.get("model"),
+            c.get("reasoning_effort"),
+            c.get("sampling"),
+        )
+        for c in cards
+    }
+    if len(identities) > 1:
+        raise SystemExit(f"{base}: session cards diverged within one pass: {identities}")
+    merged = {
+        **cards[0],
+        "started_at": min(str(c.get("started_at", "")) for c in cards),
+        "finished_at": max(str(c.get("finished_at", "")) for c in cards),
+        "sessions": len(cards),
+        "session_cards": cards,
+        "blinded": blind,
+    }
+    base.with_suffix(".md.card.json").write_text(json.dumps(merged, indent=1), encoding="utf-8")
+    return rows_path, judge_card(base, pass_index=pass_index, passes=passes)
+
+
+def judge_passes(
+    args: Any, run_dir: Path, out_dir: Path, keep: list[str] | None = None
+) -> list[str]:
+    """Judge the run's cells with each judge and finalize/aggregate into `judges/` and `judge.jsonl`."""
+    keep = list(keep or [])
+    judges = parse_judges(args)
+    blind = bool(getattr(args, "blind", False))
+    allocations = _reserve_judge_passes(run_dir, judges)
+    total_new = sum(int(j["passes"]) for j in judges)
+    actors: list[str] = []
+    for k, (judge, start, end) in enumerate(allocations, 1):
+        for i in range(start + 1, end + 1):
+            tag = (
+                "judge"
+                + (f"-j{k}" if len(judges) > 1 else "")
+                + (f"-p{i}" if total_new > 1 or start else "")
+            )
+            rows, card = judge_sessions(args, run_dir, out_dir, i, end, judge, blind, tag)
+            with _run_judge_lock(run_dir):
+                cmd = [
+                    sys.executable,
+                    str(HARNESS_ROOT / "scripts/judge-finalize.py"),
+                    str(run_dir),
+                    str(rows),
+                    "--judge-card",
+                    str(card),
+                ]
+                if total_new == 1 and not keep:
+                    cmd.append("--promote")
+                done = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
+            m = re.search(r"judges/([^/\s]+)/judge\.jsonl", done)
+            if not m:
+                raise SystemExit(f"finalize named no actor for {tag}:\n{done}")
+            actors.append(m.group(1))
+            manifest = run_dir / "judges" / m.group(1) / "manifest.json"
+            if manifest.exists() and json.loads(manifest.read_text(encoding="utf-8")).get(
+                "self_preference_risk"
+            ):
+                print(
+                    f"WARNING: {m.group(1)} is from the same model family as an arm it judged "
+                    f"(self-preference risk); see its manifest"
+                )
+    headline = keep + [a for a in actors if a not in keep]
+    if len(headline) > 1:
+        with _run_judge_lock(run_dir):
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(HARNESS_ROOT / "scripts/judge-aggregate.py"),
+                    str(run_dir),
+                    *[a for actor in headline for a in ("--actor", actor)],
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    return headline
+
+
+def arm_means(run_dir: Path) -> dict[str, dict[str, Any]]:
+    """Each arm's judged cell count, mean scores, and harm flags."""
+    judge_file = run_dir / "judge.jsonl"
+    if not judge_file.is_file():
+        return {}
+    judged = [
+        json.loads(line)
+        for line in judge_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    out: dict[str, dict[str, Any]] = {}
+    for arm in sorted({r["backend_id"] for r in judged}):
+        rs = [r for r in judged if r["backend_id"] == arm]
+        mean = lambda k: round(sum(r[k] for r in rs) / len(rs), 2)
+        out[arm] = {
+            "cells": len(rs),
+            "accuracy": mean("accuracy"),
+            "completeness": mean("completeness"),
+            "relevance": mean("relevance"),
+            "harm": sum(bool(r.get("harm")) for r in rs),
+        }
+    return out
+
+
+def arm_table(run_dir: Path) -> list[str]:
+    lines = [
+        "| Arm | Cells | Accuracy | Completeness | Relevance | Harm |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for arm, m in arm_means(run_dir).items():
+        lines.append(
+            f"| {arm} | {m['cells']} | {m['accuracy']} | {m['completeness']} | "
+            f"{m['relevance']} | {m['harm']} |"
+        )
+    return lines
+
+
+def run_judge_command(args: Any) -> int:
+    """Execute `harness-cli validate judge` on a completed run directory."""
+    adding = bool(getattr(args, "add", False))
+    raw_dir = getattr(args, "run_dir", None) or (
+        Path(getattr(args, "output_dir", "artifacts/validate")) / str(getattr(args, "run_id", ""))
+    )
+    run_dir = Path(raw_dir).resolve()
+    if not run_dir.is_dir():
+        raise SystemExit(f"Run directory not found: {run_dir}")
+
+    keep, _, blinded = run_judges(run_dir) if adding else ([], {}, False)
+    if adding and not keep:
+        raise SystemExit(f"{run_dir} has no judged headline to add to; omit --add to rejudge")
+    args.blind = bool(getattr(args, "blind", False)) or blinded
+
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    work_root = Path(getattr(args, "work_dir", None) or (run_dir / "judge-work"))
+    out_dir = work_root / f"{'add-judges' if adding else 'judge'}-{stamp}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    prep_cmd = [sys.executable, str(HARNESS_ROOT / "scripts/judge-prep.py"), str(run_dir)]
+    if args.blind:
+        prep_cmd.append("--blind")
+    subprocess.run(prep_cmd, check=True, capture_output=True, text=True)
+
+    actors = judge_passes(args, run_dir, out_dir, keep)
+    report_path = build_report(run_dir)
+    j_sum = judge_summary(run_dir)
+    title = "Added judges to" if adding else "Judged"
+    lines = [
+        f"# {title} {run_dir.name} ({stamp})",
+        "",
+        f"Headline passes: {', '.join(actors)}",
+        f"Report packet: {report_path}",
+        "",
+        str(j_sum.get("sentence") or ""),
+        "",
+        *arm_table(run_dir),
+    ]
+    (out_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("\n".join(lines))
+    return 0

@@ -82,6 +82,8 @@ def test_finalize_without_a_card_records_that_no_judge_was_recorded(tmp_path):
 
 
 def test_the_report_names_the_judge_from_the_cards(tmp_path):
+    from evals.validate._test_shell import render_report_for_test
+
     run = _run_dir(tmp_path)
     card = tmp_path / "card.json"
     card.write_text(json.dumps({"agent": "claude", "model": "claude-opus-5-5",
@@ -89,7 +91,7 @@ def test_the_report_names_the_judge_from_the_cards(tmp_path):
     _finalize(str(run), str(_rows(tmp_path)), "--card", str(card), "--promote")
 
     blob = report._run_blob(run)
-    html = report.build_report(run).read_text(encoding="utf-8")
+    html = render_report_for_test(report.build_report(run)).read_text(encoding="utf-8")
 
     assert blob["judging"]["recorded"] is True
     assert blob["judging"]["sentence"] == \
@@ -102,6 +104,8 @@ def test_the_report_names_the_judge_from_the_cards(tmp_path):
 
 
 def test_report_heatmap_click_renders_per_pass_drilldown_and_aggregate_caption(tmp_path):
+    from evals.validate._test_shell import REPORT_SHELL_JS
+
     run = _run_dir(tmp_path)
     (run / "events.jsonl").write_text(
         json.dumps({"event_type": "run", "scenario_ids": ["s1"], "backend_ids": ["b1"]}) + "\n"
@@ -133,9 +137,8 @@ def test_report_heatmap_click_renders_per_pass_drilldown_and_aggregate_caption(t
          "--actor", "codex-gpt-6-astra-high-p1", "--actor", "codex-gpt-6-astra-high-p2"],
         check=True, capture_output=True, text=True, cwd=ROOT,
     )
-    html = report.build_report(run).read_text(encoding="utf-8")
     blob = report._run_blob(run)
-    js_block = html.split("<script type='application/json' id='report-data'>", 1)[1].split("</script><script>", 1)[1].split("</script></body>", 1)[0]
+    js_block = REPORT_SHELL_JS
     fn_start = js_block.index("function judgeCardLine(")
     fn_end = js_block.index("function renderInDepth(")
     extracted_js = js_block[fn_start:fn_end]

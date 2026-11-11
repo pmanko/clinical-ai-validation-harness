@@ -1054,9 +1054,9 @@ def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
 
     # Verify build_wahs_report_packet does NOT fabricate a synthetic judge.jsonl before LLM judging
     assert main(["wahs", "report", str(res.run_dir)]) == 0
-    assert (res.run_dir / "report.html").is_file()
-    assert (res.run_dir / "dashboard.html").is_file()
-    assert (res.run_dir / "meta.json").is_file()
+    assert (res.run_dir / "report-data.json").is_file()
+    assert (res.run_dir / "dashboard-data.json").is_file()
+    assert (res.run_dir / "run-summary.json").is_file()
     assert not (res.run_dir / "judge.jsonl").is_file()
 
     # Finalize blinded LLM judge rows via judge-finalize.py and verify report packet
@@ -1099,10 +1099,10 @@ def test_wahs_profile_chat_completions_and_judge_prep_artifacts(tmp_path: Path):
     )
     assert main(["wahs", "report", str(res.run_dir)]) == 0
     assert (res.run_dir / "judge.jsonl").is_file()
-    meta_json = json.loads((res.run_dir / "meta.json").read_text(encoding="utf-8"))
-    assert meta_json["cells"] == 3
-    assert len(meta_json["scout"]) == 3
-    assert meta_json["judging"]["recorded"] is True
+    summary_json = json.loads((res.run_dir / "run-summary.json").read_text(encoding="utf-8"))
+    assert summary_json["cells"] == 3
+    assert len(summary_json["scout"]) == 3
+    assert summary_json["judging"]["recorded"] is True
 
 
 def test_multi_budget_valid_uuids_union_and_cell_source_resolution():

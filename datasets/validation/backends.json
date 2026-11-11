@@ -1,34 +1,34 @@
 {
   "engine-parity-bundled": {
-    "label": "Bundled provider (remote engine via parity tap)",
+    "label": "Built-in ChartSearchAI (Gemma 4 E4B)",
     "kind": "provider_arm",
     "provider": "bundled",
     "endpointUrl": "http://host.docker.internal:8078/v1/chat/completions",
     "modelName": "gemma-e4b"
   },
   "engine-parity-hub": {
-    "label": "Hub provider (single-e4b-checked via parity tap)",
+    "label": "Med Agent Hub (Gemma 4 E4B, checked)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "single-e4b-checked"
   },
   "engine-parity-bundled-12b": {
-    "label": "Bundled provider (remote engine via parity tap, gemma-4-12b)",
+    "label": "Built-in ChartSearchAI (Gemma 4 12B)",
     "kind": "provider_arm",
     "provider": "bundled",
     "endpointUrl": "http://host.docker.internal:8078/v1/chat/completions",
     "modelName": "gemma-4-12b"
   },
   "engine-parity-hub-answer-12b": {
-    "label": "Hub provider (single-12b-answer via parity tap: one answer call with deterministic checks, like the bundled arm)",
+    "label": "Med Agent Hub (Gemma 4 12B, 1-call answer)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "single-12b-answer"
   },
   "engine-parity-hub-12b": {
-    "label": "Hub provider (single-12b-checked via parity tap: review, gates and In-Depth)",
+    "label": "Med Agent Hub (Gemma 4 12B, checked + In-Depth)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
