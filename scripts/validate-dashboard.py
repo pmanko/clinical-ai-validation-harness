@@ -45,10 +45,23 @@ _RUN_OVERRIDE: str | None = None
 
 
 def _assets_dir() -> Path:
+    if os.environ.get("OPENCLINAI_DISABLE_UMBRELLA_ASSETS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return ROOT / "_standalone_no_assets"
     env_dir = os.environ.get("OPENCLINAI_ASSETS_DIR")
     if env_dir:
         return Path(env_dir)
     return ROOT.parent.parent / "reports" / "assets"
+
+
+def _assets_available() -> bool:
+    assets = _assets_dir()
+    return (assets / "dashboard-shell.css").is_file() and (
+        assets / "dashboard-shell.js"
+    ).is_file()
 
 
 def _catalyst_runs_dir() -> Path:
@@ -95,10 +108,10 @@ LIVE_SHELL_HTML = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>validate run · live monitor</title>
 <link rel="stylesheet" href="/assets/dashboard-shell.css">
-<script>(function(){try{var s=localStorage.getItem('oc-theme-dashboard');if(s==='light'||s==='dark'){document.documentElement.setAttribute('data-theme',s);return;}if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches){document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();</script>
+<script>(function(){try{var s=localStorage.getItem('oc-theme-validate-dash')||localStorage.getItem('oc-theme-dashboard');if(s==='light'||s==='dark'){document.documentElement.setAttribute('data-theme',s);return;}if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches){document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();</script>
 </head>
 <body>
-<button type="button" id="oc-theme-toggle" class="oc-theme-toggle" title="Switch color theme" aria-label="Switch color theme">◐ theme</button>
+<button type="button" id="theme-toggle" class="oc-theme-toggle" title="Switch color theme" aria-label="Switch color theme">◐ theme</button>
 <h1 id="hdr">validate run</h1>
 <div class="bar"><div id="fill" style="width:0%"></div></div>
 <div id="prog" class="muted"></div>
@@ -133,10 +146,25 @@ class H(http.server.BaseHTTPRequestHandler):
         elif parsed.path in ("/assets/dashboard-shell.css", "/assets/dashboard-shell.js"):
             asset_path = _assets_dir() / Path(parsed.path).name
             if not asset_path.is_file():
-                self.send_error(404, f"Missing asset: {asset_path}")
+                self.send_error(
+                    404,
+                    f"Missing viewer asset: {asset_path}. Set OPENCLINAI_ASSETS_DIR to openclinai.org/reports/assets.",
+                )
                 return
             body = asset_path.read_bytes()
             ctype = "text/css; charset=utf-8" if parsed.path.endswith(".css") else "application/javascript; charset=utf-8"
+        elif not _assets_available():
+            body = (
+                "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+                "<title>validate run · live monitor (JSON API active)</title></head><body>"
+                "<h1>validate run · live JSON API active</h1>"
+                "<p>Viewer assets (<code>dashboard-shell.css</code> / <code>dashboard-shell.js</code>) were not found at "
+                f"<code>{_assets_dir()}</code>.</p>"
+                "<p>Set <code>OPENCLINAI_ASSETS_DIR=/path/to/openclinai.org/reports/assets</code> for the browser UI, "
+                "or query <a href='/api/status'><code>/api/status</code></a> directly.</p>"
+                "</body></html>"
+            ).encode("utf-8")
+            ctype = "text/html; charset=utf-8"
         else:
             body = LIVE_SHELL_HTML.encode("utf-8")
             ctype = "text/html; charset=utf-8"

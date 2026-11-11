@@ -12,7 +12,6 @@ import pytest
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "catalyst-notebook-golden"
 ROOT = Path(__file__).resolve().parents[2]
-REPORTS_ASSETS = ROOT.parent.parent / "reports" / "assets"
 
 
 def _block_network(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -134,7 +133,9 @@ def test_report_carries_narrative_context_not_just_the_gate_matrix(
 
 
 def test_catalyst_pages_can_actually_sort_their_tables() -> None:
-    script = (REPORTS_ASSETS / "report-shell.js").read_text(encoding="utf-8")
+    from evals.validate._test_shell import report_shell_js
+
+    script = report_shell_js()
     assert "function htmlEsc" in script
     assert "function makeSortable(" in script
 
@@ -288,3 +289,113 @@ def test_single_profile_run_keeps_its_headline_and_gets_no_gate_verdict() -> Non
     assert "gates" not in gv
     results = json.loads((FIXTURE / "results.json").read_text(encoding="utf-8"))
     assert f"{results['passedCount']}/{results['resultCount']}" in gv["verdict"]
+
+
+def test_safety_adjusted_benchmark_score_caps_failed_gold_cell_in_arm_mean() -> None:
+    from harness.catalyst.report import build_catalyst_report_packet
+
+    packet = build_catalyst_report_packet(FIXTURE)
+    run0 = packet["runs"][0]
+    failed_jr = next(
+        jr for jr in run0["judge_rows"] if jr["scenario_id"] == "gold-fail-high-judge"
+    )
+    assert failed_jr["raw_benchmark_score"] == 100.0
+    assert failed_jr["benchmark_score"] == 40.0
+    assert failed_jr["safety_adjusted_benchmark_score"] == 40.0
+
+    arm_summary = run0["judge"][0]
+    # 5 passing scenarios at 100.0 + 1 failed gold scenario capped at 40.0 => 540 / 6 = 90.0
+    assert arm_summary["composite_mean"] == 100.0
+    assert arm_summary["raw_benchmark_score"] == 100.0
+    assert arm_summary["benchmark_score"] == 90.0
+    assert arm_summary["safety_adjusted_benchmark_score"] == 90.0
+
+
+def test_multi_repetition_preserves_earlier_failure_and_scopes_sql_versions(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.report import build_report
+
+    run = tmp_path / "multi-rep"
+    (run / "scenarios" / "S1" / "repetition-01").mkdir(parents=True)
+    (run / "scenarios" / "S1" / "repetition-02").mkdir(parents=True)
+    (run / "scenarios" / "S1" / "repetition-01" / "01-base-sql.sql").write_text(
+        "SELECT bad_col FROM wrong_table", encoding="utf-8"
+    )
+    (run / "scenarios" / "S1" / "repetition-02" / "01-base-sql.sql").write_text(
+        "SELECT good_col FROM right_table", encoding="utf-8"
+    )
+    (run / "scenarios" / "S1" / "repetition-01" / "06-execute-base.json").write_text(
+        json.dumps({"result": {"columns": ["bad_col"], "rows": [], "rowCount": 0}}),
+        encoding="utf-8",
+    )
+    (run / "scenarios" / "S1" / "repetition-02" / "06-execute-base.json").write_text(
+        json.dumps({"result": {"columns": ["good_col"], "rows": [{"good_col": 7}], "rowCount": 1}}),
+        encoding="utf-8",
+    )
+    (run / "run_manifest.json").write_text("{}", encoding="utf-8")
+    (run / "suite.json").write_text(
+        json.dumps(
+            {
+                "id": "multi-rep-suite",
+                "profileId": "team-a",
+                "scenarios": [{"id": "S1", "initialQuestion": "Count active patients"}],
+                "profiles": {"team-a": {"writerModelId": "w"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    rows = [
+        {
+            "scenarioId": "S1",
+            "profileId": "team-a",
+            "passed": False,
+            "status": "completed",
+            "repetition": 1,
+            "timing": {"unadjustedGenerationWallMs": 1200},
+            "assertions": [
+                {
+                    "name": "base_gold_execution_match",
+                    "passed": False,
+                    "evidence": "rep1 mismatch",
+                }
+            ],
+        },
+        {
+            "scenarioId": "S1",
+            "profileId": "team-a",
+            "passed": True,
+            "status": "completed",
+            "repetition": 2,
+            "timing": {"unadjustedGenerationWallMs": 800},
+            "assertions": [{"name": "base_gold_execution_match", "passed": True}],
+        },
+    ]
+    (run / "results.json").write_text(
+        json.dumps({"results": rows, "passedCount": 1, "resultCount": 2, "skippedCount": 0}),
+        encoding="utf-8",
+    )
+
+    build_report(run)
+    packet = json.loads((run / "report-data.json").read_text(encoding="utf-8"))
+    dash = json.loads((run / "dashboard-data.json").read_text(encoding="utf-8"))
+
+    run0 = packet["runs"][0]
+    scen = run0["scenarios"][0]
+    assert len(scen["turns"]) == 2
+    rep1_cell = scen["turns"][0]["cells"]["team-a"]["catalyst_turn"]
+    rep2_cell = scen["turns"][1]["cells"]["team-a"]["catalyst_turn"]
+
+    assert rep1_cell["passed"] is False
+    assert rep1_cell["failed_assertions"][0]["evidence"] == "rep1 mismatch"
+    assert [v["sql"] for v in rep1_cell["sql_versions"]] == ["SELECT bad_col FROM wrong_table"]
+    assert rep1_cell["result_preview"]["returned"] == 0
+
+    assert rep2_cell["passed"] is True
+    assert [v["sql"] for v in rep2_cell["sql_versions"]] == ["SELECT good_col FROM right_table"]
+    assert rep2_cell["result_preview"]["returned"] == 1
+
+    assert run0["summary"][0]["avg_latency_ms"] == 1000
+    assert dash["status"]["grid"][0]["passed"] is False
+    assert dash["status"]["grid"][0]["turns_total"] == 2
+    assert len(dash["details"]["S1|team-a"]["turns"]) == 2

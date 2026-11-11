@@ -41,5 +41,17 @@ def test_report_without_judge_artifacts(tmp_path: Path, monkeypatch: pytest.Monk
     for row in results["results"]:
         assert row["scenarioId"] in raw
     assert packet["runs"][0]["judging"]["recorded"] is False
+    assert packet["runs"][0]["judging"]["canonical"] == []
+    assert packet["runs"][0]["judge"] == []
+    assert packet["runs"][0]["judge_rows"] == []
+    assert packet["runs"][0]["judge_actors"] == []
+
+    summary = json.loads((run_dir / "run-summary.json").read_text(encoding="utf-8"))
+    assert summary["judges"] == []
+    assert summary["scout"] == []
+
+    dash = json.loads((run_dir / "dashboard-data.json").read_text(encoding="utf-8"))
+    assert dash["status"]["judged_scored"] == 0
+    assert dash["status"]["judged_passed"] == 0
     assert "gold-fail-high-judge" in raw
     assert "FAIL" in raw

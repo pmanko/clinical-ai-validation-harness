@@ -65,7 +65,23 @@ def _extract_sql(path: Path) -> str | None:
     return None
 
 
-def _scenario_sql_versions(run_dir: Path, scenario_key: str) -> list[tuple[str, str]]:
+def _path_matches_repetition(path: Path, root: Path, repetition: int | None) -> bool:
+    if repetition is None:
+        return True
+    rel_parts = path.relative_to(root).parts
+    rep_dirs = [p for p in rel_parts if p.startswith("repetition-")]
+    if not rep_dirs:
+        return True
+    allowed = {f"repetition-{int(repetition):02d}", f"repetition-{int(repetition)}"}
+    return all(p in allowed for p in rep_dirs)
+
+
+def _scenario_sql_versions(
+    run_dir: Path,
+    scenario_key: str,
+    *,
+    repetition: int | None = None,
+) -> list[tuple[str, str]]:
     """Return ordered `(relative_path, sql)` pairs discovered under the scenario evidence tree."""
     root = run_dir / "scenarios" / scenario_key
     if not root.exists():
@@ -73,6 +89,8 @@ def _scenario_sql_versions(run_dir: Path, scenario_key: str) -> list[tuple[str, 
     candidates: list[tuple[int, str, str]] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.suffix not in {".json", ".sql"}:
+            continue
+        if not _path_matches_repetition(path, root, repetition):
             continue
         if (
             "version" not in path.name
@@ -103,21 +121,32 @@ def _scenario_sql_versions(run_dir: Path, scenario_key: str) -> list[tuple[str, 
     return out
 
 
-def _extract_result_preview(run_dir: Path, scenario_key: str) -> dict[str, Any] | None:
+def _extract_result_preview(
+    run_dir: Path,
+    scenario_key: str,
+    *,
+    repetition: int | None = None,
+) -> dict[str, Any] | None:
     root = run_dir / "scenarios" / scenario_key
     if not root.exists():
         return None
-    exec_files = sorted(root.rglob("*execute*.json"))
+    exec_files = [
+        p
+        for p in sorted(root.rglob("*execute*.json"))
+        if _path_matches_repetition(p, root, repetition)
+    ]
     for path in reversed(exec_files):
         blob = _load_json(path)
         body = ((blob.get("response") or {}).get("body")) or blob
         res = (body.get("result") if isinstance(body, dict) and isinstance(body.get("result"), dict) else body)
         if isinstance(res, dict) and ("rows" in res or "rowCount" in res):
             rows = res.get("rows") or []
+            row_count = res.get("rowCount") if res.get("rowCount") is not None else len(rows)
             return {
                 "columns": res.get("columns") or (list(rows[0].keys()) if rows and isinstance(rows[0], dict) else []),
                 "rows": rows[:10],
-                "row_count": res.get("rowCount") if res.get("rowCount") is not None else len(rows),
+                "row_count": row_count,
+                "returned": row_count,
             }
     return None
 
@@ -409,7 +438,7 @@ def build_catalyst_report_packet(run_dir: Path | str) -> dict[str, Any]:
         s_def = suite_scenarios.get(sid) or {}
         question = str(s_def.get("initialQuestion") or s_def.get("comment") or sid)
         s_rows = [r for r in raw_rows if str(r.get("scenarioId")) == sid]
-        cells: dict[str, dict[str, Any]] = {}
+        rows_by_b: dict[str, list[dict[str, Any]]] = {}
         for b in backends:
             b_rows = [
                 r
@@ -417,190 +446,244 @@ def build_catalyst_report_packet(run_dir: Path | str) -> dict[str, Any]:
                 if str(r.get("profileId") or suite.get("profileId") or "catalyst-default") == b
             ]
             if not b_rows and len(backends) == 1 and s_rows:
-                b_rows = s_rows
-            if not b_rows:
-                continue
-            row = b_rows[-1]
-            scen_key = f"{b}/{sid}" if row.get("profileId") else sid
-            versions = _scenario_sql_versions(run_dir, scen_key)
-            sql_diff = ""
-            if len(versions) >= 2:
-                diffs = []
-                for idx in range(len(versions) - 1):
-                    d_txt = unified_sql_diff(
-                        versions[idx][1],
-                        versions[idx + 1][1],
-                        fromfile=versions[idx][0],
-                        tofile=versions[idx + 1][0],
+                b_rows = list(s_rows)
+            if b_rows:
+                indexed = list(enumerate(b_rows))
+                indexed.sort(
+                    key=lambda pair: (
+                        int(pair[1]["repetition"])
+                        if isinstance(pair[1].get("repetition"), int)
+                        else pair[0],
+                        pair[0],
                     )
-                    if d_txt.strip():
-                        diffs.append(d_txt)
-                sql_diff = "\n\n".join(diffs)
-
-            conv_turns: list[dict[str, Any]] = []
-            base_q = row.get("question") or question
-            conv_turns.append({"role": "user", "text": base_q})
-            conv_turns.append(
-                {
-                    "role": "writer",
-                    "outcome": row.get("baseOutcome"),
-                    "text": row.get("baseAnswerText") or "",
-                    "sql": row.get("baseSql") or (versions[0][1] if versions else ""),
-                }
-            )
-            turns_list = row.get("turns") or []
-            if not turns_list and s_def.get("followupInstruction"):
-                conv_turns.append(
-                    {"role": "user (turn 2)", "text": str(s_def.get("followupInstruction"))}
                 )
-            for idx, t_item in enumerate(turns_list, start=2):
-                if not isinstance(t_item, dict):
+                rows_by_b[b] = [pair[1] for pair in indexed]
+
+        max_reps = max((len(rs) for rs in rows_by_b.values()), default=0)
+        scen_turns_out: list[dict[str, Any]] = []
+        for rep_idx in range(max_reps):
+            turn_no = rep_idx + 1
+            turn_cells: dict[str, dict[str, Any]] = {}
+            rep_labels: list[int] = []
+            for b, b_rows in rows_by_b.items():
+                if rep_idx >= len(b_rows):
                     continue
-                conv_turns.append(
-                    {"role": f"user (turn {idx})", "text": t_item.get("instruction") or ""}
+                row = b_rows[rep_idx]
+                raw_rep = row.get("repetition")
+                rep_num = (
+                    int(raw_rep)
+                    if isinstance(raw_rep, int)
+                    else (turn_no if len(b_rows) > 1 else None)
                 )
+                if rep_num is not None:
+                    rep_labels.append(rep_num)
+                scen_key = (
+                    f"{b}/{sid}"
+                    if (row.get("profileId") and (run_dir / "scenarios" / b / sid).exists())
+                    else sid
+                )
+                versions = _scenario_sql_versions(run_dir, scen_key, repetition=rep_num)
+                sql_diff = ""
+                if len(versions) >= 2:
+                    diffs = []
+                    for idx in range(len(versions) - 1):
+                        d_txt = unified_sql_diff(
+                            versions[idx][1],
+                            versions[idx + 1][1],
+                            fromfile=versions[idx][0],
+                            tofile=versions[idx + 1][0],
+                        )
+                        if d_txt.strip():
+                            diffs.append(d_txt)
+                    sql_diff = "\n\n".join(diffs)
+
+                conv_turns: list[dict[str, Any]] = []
+                base_q = row.get("question") or question
+                conv_turns.append({"role": "user", "text": base_q})
                 conv_turns.append(
                     {
-                        "role": f"writer (turn {idx})",
-                        "outcome": t_item.get("observedOutcome"),
-                        "text": t_item.get("answerText") or "",
-                        "sql": t_item.get("sql") or "",
+                        "role": "writer",
+                        "outcome": row.get("baseOutcome"),
+                        "text": row.get("baseAnswerText") or "",
+                        "sql": row.get("baseSql") or (versions[0][1] if versions else ""),
                     }
                 )
+                turns_list = row.get("turns") or []
+                if not turns_list and s_def.get("followupInstruction"):
+                    conv_turns.append(
+                        {"role": "user (turn 2)", "text": str(s_def.get("followupInstruction"))}
+                    )
+                for idx, t_item in enumerate(turns_list, start=2):
+                    if not isinstance(t_item, dict):
+                        continue
+                    conv_turns.append(
+                        {"role": f"user (turn {idx})", "text": t_item.get("instruction") or ""}
+                    )
+                    conv_turns.append(
+                        {
+                            "role": f"writer (turn {idx})",
+                            "outcome": t_item.get("observedOutcome"),
+                            "text": t_item.get("answerText") or "",
+                            "sql": t_item.get("sql") or "",
+                        }
+                    )
 
-            assertions = row.get("assertions") or []
-            all_assertions = [
-                {
-                    "name": a.get("name"),
-                    "passed": bool(a.get("passed")),
-                    "class": a.get("class") or assertion_class(str(a.get("name") or "")),
-                    "evidence": a.get("evidence"),
-                }
-                for a in assertions
-                if isinstance(a, dict)
-            ]
-            failed_assertions = [a for a in all_assertions if not a["passed"]]
-            final_sql = (
-                row.get("selectedSql")
-                or (versions[-1][1] if versions else "")
-                or row.get("baseSql")
-                or ""
-            )
-            wall_ms = int(
-                ((row.get("timing") or {}).get("unadjustedGenerationWallMs")) or 0
-            )
-            if wall_ms > 0:
-                lat_by_b.setdefault(b, []).append(float(wall_ms))
-            chars_by_b.setdefault(b, []).append(float(len(final_sql)))
-
-            passed = bool(row.get("passed"))
-            is_conformant = conformed(assertions)
-            c_jrows = judge_by_cell.get((sid, b)) or []
-            merged = merge_gold_and_judge(
-                gold_passed=passed,
-                judge_row=c_jrows[-1] if c_jrows else None,
-            )
-            reported_str = (
-                f"{merged['reported']} (advisory judge {merged['judge_composite']}/100)"
-                if merged.get("judge_composite") is not None
-                else merged["reported"]
-            )
-            res_preview = row.get("resultPreview") or _extract_result_preview(run_dir, scen_key)
-            cells[b] = {
-                "error": None if is_conformant else "conformance check failed",
-                "http_status": 200 if is_conformant else 500,
-                "answer_text": final_sql,
-                "answer_view": {
-                    "status": "checked" if passed else ("failed" if not is_conformant else "needs_review"),
-                    "label": reported_str,
-                    "tone": "success" if passed else "danger",
-                    "note": "" if passed else (failed_assertions[0]["name"] if failed_assertions else ""),
-                    "findings": [],
-                },
-                "indepth_view": {"status": "not_in_profile"},
-                "answer_validation_status": "checked" if passed else "needs_review",
-                "blocks": [],
-                "sources": {},
-                "temporal_gate": {"status": "pass" if passed else "fail"},
-                "stage_timings": [],
-                "degraded": not is_conformant,
-                "metrics": {
-                    "latency_ms": wall_ms,
-                    "http_status": 200 if is_conformant else 500,
-                    "citation_count": len(versions),
-                    "first_turn": True,
-                    "json_valid": is_conformant,
-                },
-                "catalyst_turn": {
-                    "passed": passed,
-                    "conformed": is_conformant,
-                    "reported": reported_str,
-                    "final_answer": final_sql,
-                    "conversation_turns": conv_turns,
-                    "sql_versions": [{"path": p, "sql": s} for p, s in versions],
-                    "sql_diff": sql_diff,
-                    "result_preview": res_preview,
-                    "assertions": all_assertions,
-                    "failed_assertions": failed_assertions,
-                    "judge_detail": c_jrows,
-                },
-            }
-
-            if c_jrows:
-                last_j = c_jrows[-1]
-                comp = float(last_j.get("composite") or 0.0)
-                acc_10 = round(comp / 10.0, 1)
-                note_parts = [
-                    str(last_j.get(k))
-                    for k in ("rationale", "intent_fidelity_rationale", "sql_quality_rationale", "schema_discipline_rationale")
-                    if last_j.get(k)
+                assertions = row.get("assertions") or []
+                all_assertions = [
+                    {
+                        "name": a.get("name"),
+                        "passed": bool(a.get("passed")),
+                        "class": a.get("class") or assertion_class(str(a.get("name") or "")),
+                        "evidence": a.get("evidence"),
+                    }
+                    for a in assertions
+                    if isinstance(a, dict)
                 ]
-                judge_rows_out.append(
-                    {
-                        "scenario_id": sid,
-                        "backend_id": b,
-                        "benchmark_score": round(comp, 1),
-                        "safety_adjusted_benchmark_score": round(comp, 1) if passed else min(round(comp, 1), 40.0),
-                        "accuracy": acc_10,
-                        "completeness": acc_10,
-                        "relevance": acc_10,
-                        "abstention_outcome": "n-a",
-                        "citation_groundedness": "supported" if passed else "partly",
-                        "harm": False,
-                        "critical_omission": not passed,
-                        "severe_harm": False,
-                        "note": " · ".join(note_parts),
-                    }
+                failed_assertions = [a for a in all_assertions if not a["passed"]]
+                final_sql = (
+                    row.get("selectedSql")
+                    or (versions[-1][1] if versions else "")
+                    or row.get("baseSql")
+                    or ""
                 )
-            else:
-                score_val = 100.0 if passed else 0.0
-                judge_rows_out.append(
-                    {
-                        "scenario_id": sid,
-                        "backend_id": b,
-                        "benchmark_score": score_val,
-                        "safety_adjusted_benchmark_score": score_val,
-                        "accuracy": 10.0 if passed else 0.0,
-                        "completeness": 10.0 if passed else 0.0,
-                        "relevance": 10.0 if passed else 0.0,
-                        "abstention_outcome": "n-a",
-                        "citation_groundedness": "supported" if passed else "unsupported",
-                        "harm": False,
-                        "critical_omission": not passed,
-                        "severe_harm": False,
-                        "note": "Gold check passed." if passed else (
-                            f"Failed checks: {', '.join(fa['name'] for fa in failed_assertions)}"
-                            if failed_assertions
-                            else "Failed gold check."
-                        ),
-                    }
+                wall_ms = int(
+                    ((row.get("timing") or {}).get("unadjustedGenerationWallMs")) or 0
                 )
+                if wall_ms > 0:
+                    lat_by_b.setdefault(b, []).append(float(wall_ms))
+                chars_by_b.setdefault(b, []).append(float(len(final_sql)))
 
-        if cells:
+                passed = bool(row.get("passed"))
+                is_conformant = conformed(assertions)
+                c_jrows_all = judge_by_cell.get((sid, b)) or []
+                if rep_num is not None and c_jrows_all:
+                    rep_tokens = {f"repetition-{rep_num:02d}", f"repetition-{rep_num}"}
+                    matched_jrows = [
+                        j
+                        for j in c_jrows_all
+                        if j.get("repetition") == rep_num
+                        or any(
+                            any(tok in str(p).split("/") for tok in rep_tokens)
+                            for p in (j.get("evidence_paths") or [])
+                        )
+                    ]
+                    c_jrows = matched_jrows if matched_jrows else c_jrows_all
+                else:
+                    c_jrows = c_jrows_all
+
+                merged = merge_gold_and_judge(
+                    gold_passed=passed,
+                    judge_row=c_jrows[-1] if c_jrows else None,
+                )
+                reported_str = (
+                    f"{merged['reported']} (advisory judge {merged['judge_composite']}/100)"
+                    if merged.get("judge_composite") is not None
+                    else merged["reported"]
+                )
+                res_preview = row.get("resultPreview") or _extract_result_preview(
+                    run_dir, scen_key, repetition=rep_num
+                )
+                turn_cells[b] = {
+                    "error": None if is_conformant else "conformance check failed",
+                    "http_status": 200 if is_conformant else 500,
+                    "answer_text": final_sql,
+                    "answer_view": {
+                        "status": "checked" if passed else ("failed" if not is_conformant else "needs_review"),
+                        "label": reported_str,
+                        "tone": "success" if passed else "danger",
+                        "note": "" if passed else (failed_assertions[0]["name"] if failed_assertions else ""),
+                        "findings": [],
+                    },
+                    "indepth_view": {"status": "not_in_profile"},
+                    "answer_validation_status": "checked" if passed else "needs_review",
+                    "blocks": [],
+                    "sources": {},
+                    "temporal_gate": {"status": "pass" if passed else "fail"},
+                    "stage_timings": [],
+                    "degraded": not is_conformant,
+                    "metrics": {
+                        "latency_ms": wall_ms,
+                        "http_status": 200 if is_conformant else 500,
+                        "citation_count": len(versions),
+                        "first_turn": turn_no == 1,
+                        "json_valid": is_conformant,
+                    },
+                    "catalyst_turn": {
+                        "repetition": rep_num,
+                        "passed": passed,
+                        "conformed": is_conformant,
+                        "reported": reported_str,
+                        "final_answer": final_sql,
+                        "conversation_turns": conv_turns,
+                        "sql_versions": [{"path": p, "sql": s} for p, s in versions],
+                        "sql_diff": sql_diff,
+                        "result_preview": res_preview,
+                        "assertions": all_assertions,
+                        "failed_assertions": failed_assertions,
+                        "judge_detail": c_jrows,
+                    },
+                }
+
+            if turn_cells:
+                rep_lbl = rep_labels[0] if rep_labels else turn_no
+                turn_entry: dict[str, Any] = {
+                    "turn": turn_no,
+                    "question": (
+                        f"{question} (repetition {rep_lbl})" if max_reps > 1 else question
+                    ),
+                    "cells": turn_cells,
+                }
+                if max_reps > 1 or rep_labels:
+                    turn_entry["repetition"] = rep_lbl
+                scen_turns_out.append(turn_entry)
+
+        for b, b_rows in rows_by_b.items():
+            c_jrows_all = judge_by_cell.get((sid, b)) or []
+            if not c_jrows_all:
+                continue
+            scen_passed = all(bool(r.get("passed")) for r in b_rows)
+            raw_comp = round(
+                sum(float(j.get("composite") or 0.0) for j in c_jrows_all) / len(c_jrows_all),
+                1,
+            )
+            adj_comp = raw_comp if scen_passed else min(raw_comp, 40.0)
+            acc_10 = round(raw_comp / 10.0, 1)
+            last_j = c_jrows_all[-1]
+            note_parts = [
+                str(last_j.get(k))
+                for k in (
+                    "rationale",
+                    "intent_fidelity_rationale",
+                    "sql_quality_rationale",
+                    "schema_discipline_rationale",
+                )
+                if last_j.get(k)
+            ]
+            judge_rows_out.append(
+                {
+                    "scenario_id": sid,
+                    "backend_id": b,
+                    "composite": raw_comp,
+                    "raw_benchmark_score": raw_comp,
+                    "benchmark_score": adj_comp,
+                    "safety_adjusted_benchmark_score": adj_comp,
+                    "accuracy": acc_10,
+                    "completeness": acc_10,
+                    "relevance": acc_10,
+                    "abstention_outcome": "n-a",
+                    "citation_groundedness": "supported" if scen_passed else "partly",
+                    "harm": False,
+                    "critical_omission": not scen_passed,
+                    "severe_harm": False,
+                    "note": " · ".join(note_parts),
+                }
+            )
+
+        if scen_turns_out:
             scenarios_out.append(
                 {
                     "scenario_id": sid,
-                    "turns": [{"turn": 1, "question": question, "cells": cells}],
+                    "turns": scen_turns_out,
                 }
             )
 
@@ -646,30 +729,35 @@ def build_catalyst_report_packet(run_dir: Path | str) -> dict[str, Any]:
             }
         )
         b_jrows = [jr for jr in judge_rows_out if jr["backend_id"] == b]
-        scores = [float(jr["benchmark_score"]) for jr in b_jrows]
-        mean_score = round(sum(scores) / len(scores), 1) if scores else 0.0
-        mean_10 = round(mean_score / 10.0, 2)
-        judge_summary_rows.append(
-            {
-                "backend": b,
-                "n": len(b_jrows),
-                "benchmark_score": mean_score,
-                "safety_adjusted_benchmark_score": mean_score,
-                "accuracy_mean": mean_10,
-                "completeness_mean": mean_10,
-                "relevance_mean": mean_10,
-                "harm_count": 0,
-                "critical_omission_count": total_n - passed_n,
-                "severe_harm_count": 0,
-                "abstention": {"correct": 0, "failed-to-abstain": 0},
-                "groundedness": {
-                    "supported": passed_n,
-                    "partly": 0,
-                    "unsupported": total_n - passed_n,
-                },
-                "temporal": {"date_wrong": 0, "window_over": 0, "trend_fab": 0},
-            }
-        )
+        if b_jrows:
+            raw_scores = [float(jr["raw_benchmark_score"]) for jr in b_jrows]
+            adj_scores = [float(jr["safety_adjusted_benchmark_score"]) for jr in b_jrows]
+            raw_mean = round(sum(raw_scores) / len(raw_scores), 1)
+            adj_mean = round(sum(adj_scores) / len(adj_scores), 1)
+            mean_10 = round(raw_mean / 10.0, 2)
+            judge_summary_rows.append(
+                {
+                    "backend": b,
+                    "n": len(b_jrows),
+                    "composite_mean": raw_mean,
+                    "raw_benchmark_score": raw_mean,
+                    "benchmark_score": adj_mean,
+                    "safety_adjusted_benchmark_score": adj_mean,
+                    "accuracy_mean": mean_10,
+                    "completeness_mean": mean_10,
+                    "relevance_mean": mean_10,
+                    "harm_count": 0,
+                    "critical_omission_count": sum(1 for jr in b_jrows if jr.get("critical_omission")),
+                    "severe_harm_count": 0,
+                    "abstention": {"correct": 0, "failed-to-abstain": 0},
+                    "groundedness": {
+                        "supported": sum(1 for jr in b_jrows if jr.get("citation_groundedness") == "supported"),
+                        "partly": sum(1 for jr in b_jrows if jr.get("citation_groundedness") == "partly"),
+                        "unsupported": sum(1 for jr in b_jrows if jr.get("citation_groundedness") == "unsupported"),
+                    },
+                    "temporal": {"date_wrong": 0, "window_over": 0, "trend_fab": 0},
+                }
+            )
 
     lat_series = [
         {"backend": b, **(box_stats(lat_by_b[b]) or {})}
@@ -718,6 +806,7 @@ def build_catalyst_report_packet(run_dir: Path | str) -> dict[str, Any]:
     if reader_led_block:
         catalyst_meta["reader_led"] = reader_led_block
 
+    has_judge = bool(judge_rows_out)
     judge_actor_name = str(judge_manifest.get("model") or "catalyst-gold-and-judge")
     run_blob: dict[str, Any] = {
         "run_id": run_id,
@@ -750,15 +839,15 @@ def build_catalyst_report_packet(run_dir: Path | str) -> dict[str, Any]:
         },
         "judge": judge_summary_rows,
         "judge_rows": judge_rows_out,
-        "judge_actors": [judge_actor_name],
+        "judge_actors": [judge_actor_name] if has_judge else [],
         "judge_actor_cells": {},
         "judging": {
-            "recorded": bool(judges),
-            "aggregation": "single",
-            "canonical": [judge_actor_name],
+            "recorded": has_judge,
+            "aggregation": "single" if has_judge else "none",
+            "canonical": [judge_actor_name] if has_judge else [],
             "sentence": (
                 f"Deterministic SQL gold-check + advisory judge ({judge_actor_name})."
-                if judges
+                if has_judge
                 else "Deterministic SQL gold-check & conformance suite."
             ),
             "cards": [],
@@ -894,37 +983,57 @@ def _write_catalyst_dashboard_data(run_dir: Path, packet: dict[str, Any]) -> Pat
     run = runs[0] if runs else {}
     backends = list(run.get("backends") or [])
     scenarios = list(run.get("scenarios") or [])
+    jrow_by_cell = {
+        (jr.get("scenario_id"), jr.get("backend_id")): jr
+        for jr in (run.get("judge_rows") or [])
+        if isinstance(jr, dict)
+    }
     grid: list[dict[str, Any]] = []
     details: dict[str, Any] = {}
     for scen in scenarios:
         sid = scen.get("scenario_id")
-        turn0 = (scen.get("turns") or [{}])[0]
-        cells = turn0.get("cells") or {}
+        scen_turns = scen.get("turns") or []
         for b in backends:
-            c = cells.get(b)
-            if not c:
+            b_entries = [
+                (t_obj, (t_obj.get("cells") or {}).get(b))
+                for t_obj in scen_turns
+                if isinstance(t_obj, dict) and (t_obj.get("cells") or {}).get(b)
+            ]
+            if not b_entries:
                 grid.append({"scenario": sid, "backend": b, "state": "pending"})
                 continue
-            ct = c.get("catalyst_turn") or {}
-            state = "done" if ct.get("conformed", True) else "err"
+            all_conformed = all(
+                bool((c.get("catalyst_turn") or {}).get("conformed", True))
+                for _, c in b_entries
+            )
+            all_passed = all(
+                bool((c.get("catalyst_turn") or {}).get("passed"))
+                for _, c in b_entries
+            )
+            total_lat = sum(
+                int(((c.get("metrics") or {}).get("latency_ms")) or 0)
+                for _, c in b_entries
+            )
+            state = "done" if all_conformed else "err"
             grid.append(
                 {
                     "scenario": sid,
                     "backend": b,
                     "state": state,
-                    "turns_done": 1,
-                    "turns_total": 1,
-                    "passed": ct.get("passed"),
-                    "latency_ms": (c.get("metrics") or {}).get("latency_ms"),
+                    "turns_done": len(b_entries),
+                    "turns_total": len(b_entries),
+                    "passed": all_passed,
+                    "latency_ms": total_lat,
                 }
             )
-            details[f"{sid}|{b}"] = {
-                "scenario": sid,
-                "backend": b,
-                "turns": [
+            detail_turns = []
+            for idx, (t_obj, c) in enumerate(b_entries, start=1):
+                ct = c.get("catalyst_turn") or {}
+                detail_turns.append(
                     {
-                        "turn": 1,
-                        "question": turn0.get("question"),
+                        "turn": int(t_obj.get("turn") or idx),
+                        "repetition": ct.get("repetition"),
+                        "question": t_obj.get("question"),
                         "status": c.get("http_status", 200),
                         "passed": ct.get("passed"),
                         "latency_ms": (c.get("metrics") or {}).get("latency_ms"),
@@ -941,11 +1050,20 @@ def _write_catalyst_dashboard_data(run_dir: Path, packet: dict[str, Any]) -> Pat
                         "error": c.get("error"),
                         "trace": None,
                     }
-                ],
-                "judge": {},
+                )
+            details[f"{sid}|{b}"] = {
+                "scenario": sid,
+                "backend": b,
+                "turns": detail_turns,
+                "judge": jrow_by_cell.get((sid, b)) or {},
             }
     cat_meta = run.get("catalyst") or {}
     totals = cat_meta.get("totals") or {}
+    jrows = run.get("judge_rows") or []
+    judged_scored = len(jrows)
+    judged_passed = sum(
+        1 for jr in jrows if not jr.get("critical_omission") and not jr.get("harm")
+    )
     dash = {
         "schema": "openclinai.dashboard.v2",
         "schema_version": 2,
@@ -960,8 +1078,8 @@ def _write_catalyst_dashboard_data(run_dir: Path, packet: dict[str, Any]) -> Pat
             "err": totals.get("invalid", 0),
             "conformant": totals.get("total", 0) - totals.get("invalid", 0),
             "unexpected": totals.get("invalid", 0),
-            "judged_passed": totals.get("passed", 0),
-            "judged_scored": totals.get("total", 0),
+            "judged_passed": judged_passed,
+            "judged_scored": judged_scored,
             "finished": True,
             "scenarios": [s.get("scenario_id") for s in scenarios],
             "backends": backends,

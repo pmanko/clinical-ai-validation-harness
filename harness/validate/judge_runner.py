@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -32,7 +33,99 @@ DEFAULT_JUDGE_SETTINGS = {
     "human": ("human", ""),
 }
 
+_BASE_ENV_ALLOWLIST = (
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "TMPDIR",
+    "TEMP",
+    "TMP",
+    "LANG",
+    "LC_ALL",
+    "TERM",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "XDG_CONFIG_HOME",
+    "XDG_CACHE_HOME",
+)
+
+_AGENT_ENV_ALLOWLIST: dict[str, tuple[str, ...]] = {
+    "claude": (
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_BASE_URL",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "CLAUDE_CONFIG_DIR",
+    ),
+    "codex": (
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_ORG_ID",
+        "CODEX_HOME",
+    ),
+    "gemini": (
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GOOGLE_GENAI_USE_VERTEXAI",
+        "GOOGLE_CLOUD_PROJECT",
+        "GOOGLE_CLOUD_LOCATION",
+    ),
+    "human": (),
+}
+
 _ALLOC_LOCK = threading.Lock()
+
+
+def _minimal_judge_env(agent: str, overrides: dict[str, str] | None = None) -> dict[str, str]:
+    """Construct a minimal environment for judge subprocesses, stripping ambient credentials."""
+    allowed = set(_BASE_ENV_ALLOWLIST) | set(_AGENT_ENV_ALLOWLIST.get(agent, ()))
+    clean = {k: v for k, v in os.environ.items() if k in allowed}
+    if overrides:
+        for k, v in overrides.items():
+            if v is not None:
+                clean[str(k)] = str(v)
+    return clean
+
+
+def _chmod_tree_writable(root: Path) -> None:
+    """Restore owner write permissions before cleaning up a read-only staged tree."""
+    if not root.exists():
+        return
+    for dirpath, dirnames, filenames in os.walk(root):
+        dp = Path(dirpath)
+        try:
+            dp.chmod(stat.S_IRWXU)
+        except OSError:
+            pass
+        for fn in filenames:
+            fp = dp / fn
+            if not fp.is_symlink():
+                try:
+                    fp.chmod(stat.S_IRUSR | stat.S_IWUSR)
+                except OSError:
+                    pass
+        for dn in dirnames:
+            sub = dp / dn
+            if not sub.is_symlink():
+                try:
+                    sub.chmod(stat.S_IRWXU)
+                except OSError:
+                    pass
+
+
+def _chmod_tree_readonly(root: Path) -> None:
+    """Lock staged judge inputs read-only (`0444` files, `0555` dirs) before running a judge."""
+    for dirpath, _dirnames, filenames in os.walk(root, topdown=False):
+        dp = Path(dirpath)
+        for fn in filenames:
+            fp = dp / fn
+            if not fp.is_symlink():
+                fp.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        dp.chmod(
+            stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
+        )
 
 
 @contextmanager
@@ -191,16 +284,20 @@ def _validate_session_rows(rows: Any, expected: list[tuple[str, str]]) -> list[d
 def _prepare_blind_session_dir(
     run_dir: Path, out_dir: Path, tag: str, bundle: Path
 ) -> tuple[Path, Path]:
-    """Create a bounded directory with only this scenario's bundle and chart snapshots."""
+    """Create a read-only bounded directory with only this session's bundle, rubric, and chart snapshots."""
     session_dir = out_dir / f"{tag}-input-{bundle.stem}"
     if session_dir.exists():
+        _chmod_tree_writable(session_dir)
         shutil.rmtree(session_dir)
     session_dir.mkdir(parents=True, exist_ok=True)
     staged_bundle = session_dir / bundle.name
     shutil.copy2(bundle, staged_bundle)
+    if RUBRIC_PATH.is_file():
+        shutil.copy2(RUBRIC_PATH, session_dir / "rubric.md")
     charts_src = run_dir / "charts"
     if charts_src.is_dir():
         shutil.copytree(charts_src, session_dir / "charts")
+    _chmod_tree_readonly(session_dir)
     return session_dir, staged_bundle
 
 
@@ -213,14 +310,13 @@ def run_judge_role(
     agent: str,
     env: dict[str, str] | None = None,
 ) -> str:
-    """Run one fresh session of the judge agent and record `<out>.card.json`."""
+    """Run one fresh read-only sandboxed session of the judge agent and record `<out>.card.json`."""
     prompt_file = out.with_suffix(".prompt.md")
-    scratch = out.parent / "scratch"
-    scratch.mkdir(parents=True, exist_ok=True)
     full_prompt = (
         prompt
-        + f"\nKeep all working scripts and logs in {scratch}, never /tmp. Preserve reproduction scripts there.\n"
-        + "\nYour final message is saved as your answer: do not write it to a file, and leave the repository as you found it.\n"
+        + "\nOperate strictly read-only over the staged session directory: do not execute shell commands, "
+        "fetch network URLs, or write files.\n"
+        + "\nYour final message is saved as your answer: emit your JSON verdict block directly in your response.\n"
     )
     if agent == "human" and out.exists() and prompt_file.exists():
         previous_prompt = prompt_file.read_text(encoding="utf-8")
@@ -236,11 +332,10 @@ def run_judge_role(
             out.unlink()
     prompt_file.write_text(full_prompt, encoding="utf-8")
 
-    eff_env = {**os.environ, **(env or {})}
+    eff_env = _minimal_judge_env(agent, env)
     default_model, default_effort = DEFAULT_JUDGE_SETTINGS.get(agent, ("gpt-6.1-sol", "medium"))
     model = eff_env.get("REVIEW_MODEL") or default_model
     reasoning = eff_env.get("REVIEW_REASONING") or default_effort
-    tools = "Bash Read Grep Glob WebFetch"
     started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     version = ""
     rc = 0
@@ -248,13 +343,30 @@ def run_judge_role(
     if agent == "claude":
         try:
             version = subprocess.run(
-                ["claude", "--version"], capture_output=True, text=True
+                ["claude", "--version"], capture_output=True, text=True, env=eff_env
             ).stdout.splitlines()[0]
         except Exception:
             version = ""
         with prompt_file.open("rb") as stdin_fh, out.open("w", encoding="utf-8") as stdout_fh:
             rc = subprocess.run(
-                ["claude", "-p", "--model", model, "--effort", reasoning, "--allowedTools", tools],
+                [
+                    "claude",
+                    "-p",
+                    "--model",
+                    model,
+                    "--effort",
+                    reasoning,
+                    "--permission-mode",
+                    "plan",
+                    "--permission-prompts",
+                    "none",
+                    "--tools",
+                    "Read,Grep,Glob",
+                    "--allowedTools",
+                    "Read,Grep,Glob",
+                    "--disallowedTools",
+                    "Bash,Edit,Write,WebFetch,WebSearch",
+                ],
                 cwd=workdir,
                 stdin=stdin_fh,
                 stdout=stdout_fh,
@@ -263,7 +375,7 @@ def run_judge_role(
     elif agent == "codex":
         try:
             raw_v = subprocess.run(
-                ["codex", "--version"], capture_output=True, text=True
+                ["codex", "--version"], capture_output=True, text=True, env=eff_env
             ).stdout.splitlines()[0]
             version = re.sub(r"^codex-cli\s+", "", raw_v)
         except Exception:
@@ -274,12 +386,11 @@ def run_judge_role(
                 [
                     "codex",
                     "exec",
+                    "--skip-git-repo-check",
                     "-C",
                     str(workdir),
-                    "--add-dir",
-                    str(out.parent),
                     "-s",
-                    "workspace-write",
+                    "read-only",
                     "-m",
                     model,
                     "-c",
@@ -296,11 +407,11 @@ def run_judge_role(
     elif agent == "gemini":
         try:
             version = subprocess.run(
-                ["gemini", "--version"], capture_output=True, text=True
+                ["gemini", "--version"], capture_output=True, text=True, env=eff_env
             ).stdout.splitlines()[0]
         except Exception:
             version = ""
-        cmd = ["gemini", "--approval-mode", "yolo"]
+        cmd = ["gemini", "--sandbox", "--approval-mode", "plan"]
         if eff_env.get("REVIEW_MODEL"):
             cmd.extend(["-m", model])
         cmd.extend(["-p", "Follow the instructions given on stdin."])
@@ -328,8 +439,6 @@ def run_judge_role(
         "finished_at": finished,
     }
     Path(f"{out}.card.json").write_text(json.dumps(card_payload) + "\n", encoding="utf-8")
-    if rc == 3:
-        sys.exit(3)
     if rc or not out.exists():
         raise SystemExit(f"judge failed (exit {rc}); see {out}")
     return out.read_text(encoding="utf-8")
@@ -342,7 +451,7 @@ def judge_card(answer: Path, pass_index: int, passes: int) -> Path:
     session.update(
         {
             "brief_sha256": hashlib.sha256(brief_bytes).hexdigest(),
-            "brief_path": "review/briefs/judge.md",
+            "brief_path": ".claude/skills/clinical-answer-scoring/judge.md",
             "pass_index": pass_index,
             "passes": passes,
         }
@@ -377,18 +486,27 @@ def judge_sessions(
         sessions = []
         for b in bundles:
             s_dir, s_bundle = _prepare_blind_session_dir(run_dir, out_dir, tag, b)
+            rubric_staged = s_dir / "rubric.md"
             s_inputs = (
-                f"\n## Inputs\n\n- Session directory (bounded input containing only this scenario's "
-                f"bundle and chart snapshots; do not read outside {s_dir} or inspect maps, other "
-                f"scenarios, or earlier judgments): {s_dir}\n"
-                f"- Rubric: {RUBRIC_PATH}\n"
+                f"\n## Inputs\n\n- Session directory (bounded read-only input containing only this scenario's "
+                f"bundle, rubric, and chart snapshots; do not read outside {s_dir}): {s_dir}\n"
+                f"- Rubric: {rubric_staged}\n"
                 f"- Cells for this session: {s_bundle} (one scenario; its arms are lettered, so score each "
                 "answer on its own against the chart and keep the letter as backend_id)\n"
             )
             sessions.append((out_dir / f"{tag}-{b.stem}.md", brief + s_inputs, s_dir, s_bundle))
     else:
-        inputs = f"\n## Inputs\n\n- Run directory: {run_dir}\n- Rubric: {RUBRIC_PATH}\n"
-        sessions = [(base, brief + inputs, run_dir, run_dir / "judge-cells.jsonl")]
+        cells_src = run_dir / "judge-cells.jsonl"
+        if not cells_src.is_file():
+            raise SystemExit(f"{run_dir}: missing judge-cells.jsonl; run judge-prep.py first")
+        s_dir, s_cells = _prepare_blind_session_dir(run_dir, out_dir, tag, cells_src)
+        rubric_staged = s_dir / "rubric.md"
+        inputs = (
+            f"\n## Inputs\n\n- Session directory (bounded read-only input): {s_dir}\n"
+            f"- Rubric: {rubric_staged}\n"
+            f"- Cells for this session: {s_cells}\n"
+        )
+        sessions = [(base, brief + inputs, s_dir, s_cells)]
 
     attempts = max(1, int(os.environ.get("JUDGE_ATTEMPTS", "4")))
     retry_delay = int(os.environ.get("JUDGE_RETRY_DELAY", "60"))
@@ -466,7 +584,7 @@ def judge_passes(
                     str(HARNESS_ROOT / "scripts/judge-finalize.py"),
                     str(run_dir),
                     str(rows),
-                    "--judge-card",
+                    "--card",
                     str(card),
                 ]
                 if total_new == 1 and not keep:

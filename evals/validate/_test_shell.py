@@ -1,19 +1,77 @@
 """Test-only helper for exercising canonical `openclinai.org/reports/assets/` shells
 against pure `openclinai.report.v2` and `openclinai.dashboard.v2` JSON packets.
+
+Loads external viewer assets lazily so `clinical-ai-validation-harness` runs cleanly
+standalone in CI without requiring an umbrella `openclinai.org` checkout.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
-REPORTS_ASSETS = Path(__file__).resolve().parents[4] / "reports" / "assets"
-REPORT_SHELL_CSS = (REPORTS_ASSETS / "report-shell.css").read_text(encoding="utf-8")
-REPORT_SHELL_JS = (REPORTS_ASSETS / "report-shell.js").read_text(encoding="utf-8")
-DASHBOARD_SHELL_CSS = (REPORTS_ASSETS / "dashboard-shell.css").read_text(encoding="utf-8")
-DASHBOARD_SHELL_JS = (REPORTS_ASSETS / "dashboard-shell.js").read_text(encoding="utf-8")
+import pytest
+
+
+def resolve_viewer_assets_dir() -> Path | None:
+    """Locate `openclinai.org/reports/assets` via env override or sibling umbrella layout."""
+    if os.environ.get("OPENCLINAI_DISABLE_UMBRELLA_ASSETS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return None
+    env_dir = os.environ.get("OPENCLINAI_ASSETS_DIR")
+    if env_dir:
+        cand = Path(env_dir)
+        if (cand / "report-shell.js").is_file():
+            return cand
+        return None
+    cand = Path(__file__).resolve().parents[4] / "reports" / "assets"
+    if (cand / "report-shell.js").is_file():
+        return cand
+    return None
+
+
+def require_viewer_assets() -> Path:
+    """Return the viewer assets directory or skip the viewer-only assertion cleanly."""
+    assets = resolve_viewer_assets_dir()
+    if assets is None:
+        pytest.skip(
+            "canonical viewer assets (openclinai.org/reports/assets) not available in standalone checkout"
+        )
+    return assets
+
+
+def report_shell_css() -> str:
+    return (require_viewer_assets() / "report-shell.css").read_text(encoding="utf-8")
+
+
+def report_shell_js() -> str:
+    return (require_viewer_assets() / "report-shell.js").read_text(encoding="utf-8")
+
+
+def dashboard_shell_css() -> str:
+    return (require_viewer_assets() / "dashboard-shell.css").read_text(encoding="utf-8")
+
+
+def dashboard_shell_js() -> str:
+    return (require_viewer_assets() / "dashboard-shell.js").read_text(encoding="utf-8")
+
+
+def __getattr__(name: str) -> str:
+    loaders = {
+        "REPORT_SHELL_CSS": report_shell_css,
+        "REPORT_SHELL_JS": report_shell_js,
+        "DASHBOARD_SHELL_CSS": dashboard_shell_css,
+        "DASHBOARD_SHELL_JS": dashboard_shell_js,
+    }
+    if name in loaders:
+        return loaders[name]()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def embed_json(obj: Any) -> str:
@@ -28,11 +86,13 @@ def embed_json(obj: Any) -> str:
 def render_report_for_test(data_json_path: Path) -> Path:
     """Wrap a `report-data.json` packet in the canonical `report-shell.{css,js}` for browser/HTML tests."""
     payload = json.loads(data_json_path.read_text(encoding="utf-8"))
+    css = report_shell_css()
+    js = report_shell_js()
     html = (
         "<!doctype html><html data-theme='light'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<title>Validation report — OpenClinAI</title>"
-        f"<style>{REPORT_SHELL_CSS}</style>"
+        f"<style>{css}</style>"
         "<script>(function(){try{var t=localStorage.getItem('oc-theme-report');"
         "if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>"
         "</head><body>"
@@ -61,7 +121,7 @@ def render_report_for_test(data_json_path: Path) -> Path:
         "<dt>chart refs</dt><dd>count of chart records cited — a COUNT, not a grounding/quality signal.</dd>"
         "</dl></div>"
         f"<script type='application/json' id='report-data'>{embed_json(payload)}</script>"
-        f"<script>{REPORT_SHELL_JS}</script>"
+        f"<script>{js}</script>"
         "</body></html>"
     )
     out = data_json_path.parent / "test-report.html"
@@ -72,17 +132,19 @@ def render_report_for_test(data_json_path: Path) -> Path:
 def render_dashboard_for_test(data_json_path: Path) -> Path:
     """Wrap a `dashboard-data.json` packet in the canonical `dashboard-shell.{css,js}` for browser/HTML tests."""
     payload = json.loads(data_json_path.read_text(encoding="utf-8"))
+    css = dashboard_shell_css()
+    js = dashboard_shell_js()
     html = (
         "<!doctype html><html lang='en' data-theme='dark'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<title>validate run · live monitor</title>"
-        f"<style>{DASHBOARD_SHELL_CSS}</style>"
-        "<script>(function(){try{var s=localStorage.getItem('oc-theme-dashboard');"
+        f"<style>{css}</style>"
+        "<script>(function(){try{var s=localStorage.getItem('oc-theme-validate-dash')||localStorage.getItem('oc-theme-dashboard');"
         "if(s==='light'||s==='dark'){document.documentElement.setAttribute('data-theme',s);return;}"
         "if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches){"
         "document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();</script>"
         "</head><body>"
-        "<button type='button' id='oc-theme-toggle' class='oc-theme-toggle' title='Switch color theme' aria-label='Switch color theme'>◐ theme</button>"
+        "<button type='button' id='theme-toggle' class='oc-theme-toggle' title='Switch color theme' aria-label='Switch color theme'>◐ theme</button>"
         "<h1 id='hdr'>validate run</h1>"
         "<div class='bar'><div id='fill' style='width:0%'></div></div>"
         "<div id='prog' class='muted'></div>"
@@ -96,7 +158,7 @@ def render_dashboard_for_test(data_json_path: Path) -> Path:
         "<section><h2>Recent &nbsp;<span class='muted'>(click a row)</span></h2><div class='feed' id='feed'></div></section>"
         "<div id='modal' onclick='if(event.target===this)closeD()'><div id='mbody'></div></div>"
         f"<script type='application/json' id='dashboard-data'>{embed_json(payload)}</script>"
-        f"<script>{DASHBOARD_SHELL_JS}</script>"
+        f"<script>{js}</script>"
         "</body></html>"
     )
     out = data_json_path.parent / "test-dashboard.html"
@@ -104,26 +166,26 @@ def render_dashboard_for_test(data_json_path: Path) -> Path:
     return out
 
 
-_CELL_RENDERER_JS_SLICE = (
-    "function htmlEsc(s){\n"
-    "  return (s == null ? '' : String(s))\n"
-    "    .replace(/&/g, '&amp;')\n"
-    "    .replace(/</g, '&lt;')\n"
-    "    .replace(/>/g, '&gt;')\n"
-    "    .replace(/\"/g, '&quot;')\n"
-    "    .replace(/'/g, '&#x27;');\n"
-    "}\n"
-    + REPORT_SHELL_JS[
-        REPORT_SHELL_JS.index("var TONE_CLASSES =") : REPORT_SHELL_JS.index("function bpNiceCeil(")
-    ]
-)
+def _cell_renderer_js_slice() -> str:
+    js = report_shell_js()
+    return (
+        "function htmlEsc(s){\n"
+        "  return (s == null ? '' : String(s))\n"
+        "    .replace(/&/g, '&amp;')\n"
+        "    .replace(/</g, '&lt;')\n"
+        "    .replace(/>/g, '&gt;')\n"
+        "    .replace(/\"/g, '&quot;')\n"
+        "    .replace(/'/g, '&#x27;');\n"
+        "}\n"
+        + js[js.index("var TONE_CLASSES =") : js.index("function bpNiceCeil(")]
+    )
 
 
 def render_cell_via_js(cell: dict[str, Any], run: dict[str, Any] | None = None) -> dict[str, str]:
     """Execute `report-shell.js`'s client-side cell renderers in Node on a `v2` JSON cell."""
     run_obj = run or {}
     script = (
-        _CELL_RENDERER_JS_SLICE
+        _cell_renderer_js_slice()
         + f"\nconst run = {json.dumps(run_obj)};\n"
         + f"const cell = {json.dumps(cell)};\n"
         + "process.stdout.write(JSON.stringify({\n"

@@ -20,9 +20,9 @@ import re
 from pathlib import Path
 
 from evals.validate._test_shell import (
-    DASHBOARD_SHELL_JS,
-    REPORT_SHELL_JS,
+    dashboard_shell_js,
     render_cell_via_js,
+    report_shell_js,
 )
 from harness.validate.report import build_report
 
@@ -204,8 +204,8 @@ def test_report_and_dashboard_share_flagged_output_semantics(tmp_path):
     assert report_cell["answer_view"]["status"] == "needs_review"
     assert "Flagged answer [1]." in report_cell["answer_html"]
     assert "show answer" not in report_cell["answer_html"]
-    assert "fmt10" in DASHBOARD_SHELL_JS
-    assert "function fmt10(v)" in REPORT_SHELL_JS
+    assert "fmt10" in dashboard_shell_js()
+    assert "function fmt10(v)" in report_shell_js()
 
 
 def test_temporal_gate_metadata_reaches_cell_chip_and_summary(tmp_path):

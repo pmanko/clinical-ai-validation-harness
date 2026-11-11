@@ -8,9 +8,9 @@ import shutil
 import subprocess
 
 from evals.validate._test_shell import (
-    REPORT_SHELL_CSS,
-    REPORT_SHELL_JS,
     render_report_for_test,
+    report_shell_css,
+    report_shell_js,
 )
 from harness.validate import report
 from harness.validate.adjudicate import adjudication_record
@@ -289,7 +289,7 @@ def test_report_script_passes_node_syntax_check(tmp_path: Path) -> None:
     if not shutil.which("node"):
         return
     js_file = tmp_path / "report_script.js"
-    js_file.write_text(REPORT_SHELL_JS, encoding="utf-8")
+    js_file.write_text(report_shell_js(), encoding="utf-8")
     proc = subprocess.run(["node", "--check", str(js_file)], capture_output=True, text=True, check=False)
     assert proc.returncode == 0, proc.stderr
 
@@ -383,8 +383,8 @@ def test_report_shell_includes_viewport_catalog_meta_and_overflow_guards(tmp_pat
     html = render_report_for_test(out).read_text(encoding="utf-8")
     assert "<meta name='viewport' content='width=device-width, initial-scale=1'>" in html
 
-    css = REPORT_SHELL_CSS
-    js = REPORT_SHELL_JS
+    css = report_shell_css()
+    js = report_shell_js()
     assert ".ov-diff-sc > .ov-score-num" in css
     assert "overflow-x: clip" in css
     assert "@media (max-width: 720px)" in css
