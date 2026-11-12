@@ -1800,12 +1800,228 @@ def test_w29_question_scoped_kb_findings_for_prompt():
     assert "never attach [1] (Demographics) or [2] (Completeness Manifest)" in built
 
 
+def test_stage4_wilson_bootstrap_and_latency_stats():
+    from harness.wahs.evaluator import (
+        bootstrap_mean_ci_95,
+        latency_percentiles,
+        wilson_ci_95,
+    )
+
+    ci_zero = wilson_ci_95(0, 0)
+    assert ci_zero == {"rate": 0.0, "ci95_low": 0.0, "ci95_high": 0.0, "successes": 0, "n": 0}
+
+    ci_all = wilson_ci_95(24, 24)
+    assert ci_all["rate"] == 1.0
+    assert 0.85 < ci_all["ci95_low"] < 1.0
+    assert ci_all["ci95_high"] == 1.0
+
+    b_ci = bootstrap_mean_ci_95([0.8, 0.9, 1.0, 0.85, 0.95])
+    assert b_ci["n"] == 5
+    assert 0.8 <= b_ci["ci95_low"] <= b_ci["mean"] <= b_ci["ci95_high"] <= 1.0
+
+    lp = latency_percentiles([100.0, 200.0, 300.0, 400.0, 1000.0])
+    assert lp["n"] == 5
+    assert lp["p50_ms"] == 300.0
+    assert lp["p95_ms"] >= 400.0
 
 
+def test_stage4_wahs_engine_and_raw_fhir_multiseed_report_packet(tmp_path: Path):
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    sample_bundle = {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {"resource": {"resourceType": "Patient", "id": "pt-1"}},
+            {
+                "resource": {
+                    "resourceType": "MedicationRequest",
+                    "id": "med-lipitor",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Lipitor 40 MG"},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationRequest",
+                    "id": "med-simva",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Simvastatin 20 MG"},
+                }
+            },
+        ],
+    }
+    (bundle_dir / "Demo_Patient.json").write_text(json.dumps(sample_bundle), encoding="utf-8")
 
+    cases_path = tmp_path / "stage4_cases.jsonl"
+    cases_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "case_id": "s4_reconcile",
+                        "patient_id": "Demo_Patient_set_b",
+                        "use_case": "uc1_med_reconcile",
+                        "prompt": "Check my statin medications.",
+                        "expected_target_uuids": ["med-lipitor", "med-simva"],
+                        "positive_rubric_items": [
+                            {
+                                "id": "dup_statin",
+                                "criterion": "Flags Lipitor and Simvastatin.",
+                                "weight": 1.0,
+                                "required_keywords": ["lipitor", "simvastatin"],
+                            }
+                        ],
+                    }
+                ),
+                json.dumps(
+                    {
+                        "case_id": "s4_abstain",
+                        "patient_id": "Demo_Patient_set_b",
+                        "use_case": "uc3_grounded_abstention",
+                        "prompt": "What was my APOE4 genotype?",
+                        "must_abstain": True,
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
+    recorded_seeds: list[int | None] = []
+    recorded_strategies: list[str] = []
 
+    class Stage4Session:
+        headers: dict = {}
 
+        def get(self, url, **kwargs):
+            class Resp:
+                status_code = 404
 
+                def json(self):
+                    return {}
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            payload = kwargs["json"]
+            if url.endswith("/v1/wahs/context/preview"):
+                class PrevResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {"chart_text": "[1] Lipitor 40 MG\n[2] Simvastatin 20 MG"}
+
+                return PrevResp()
+
+            if "8095/v1/chat/completions" in url:
+                recorded_seeds.append(payload.get("seed"))
+                strat = payload["wahs"]["retrieval_strategy"]
+                recorded_strategies.append(strat)
+                is_abstain = "APOE4" in payload["messages"][0]["content"]
+                ans = (
+                    "Your APOE4 genetic test is not documented in the chart."
+                    if is_abstain
+                    else "You have duplicate statin prescriptions: Lipitor 40 mg [1] and Simvastatin 20 mg [2]."
+                )
+
+                class EngResp:
+                    status_code = 200
+                    text = ""
+
+                    def json(self):
+                        return {
+                            "choices": [{"message": {"role": "assistant", "content": ans}}],
+                            "usage": {"prompt_tokens": 220, "completion_tokens": 32},
+                            "x_wahs": {
+                                "condensation": {"tier": 0, "tier_name": "Tier 0", "actual_tokens": 220},
+                                "citation_map": {
+                                    "1": {"resourceType": "MedicationRequest", "id": "med-lipitor", "display": "Lipitor 40 MG"},
+                                    "2": {"resourceType": "MedicationRequest", "id": "med-simva", "display": "Simvastatin 20 MG"},
+                                },
+                                "privacy_notices": [],
+                                "timings": {
+                                    "engine_prep_ms": 8.5,
+                                    "upstream_llm_ms": 410.0,
+                                    "total_latency_ms": 418.5,
+                                    "prompt_ms": 95.0,
+                                    "predicted_ms": 315.0,
+                                    "prompt_n": 220,
+                                    "predicted_n": 32,
+                                    "prompt_per_second": 2315.0,
+                                    "predicted_per_second": 101.5,
+                                    "llm_rounds": 2 if strat == "dynamic_fhir_tools" else 1,
+                                },
+                            },
+                        }
+
+                return EngResp()
+
+            if "8077/v1/chat/completions" in url:
+                recorded_seeds.append(payload.get("seed"))
+                is_abstain = "APOE4" in payload["messages"][0]["content"]
+                ans = (
+                    "Your APOE4 genetic test is not documented in the chart."
+                    if is_abstain
+                    else "Lipitor 40 MG and Simvastatin 20 MG appear in the JSON."
+                )
+
+                class RawResp:
+                    status_code = 200
+                    text = ""
+
+                    def json(self):
+                        return {
+                            "choices": [{"message": {"role": "assistant", "content": ans}}],
+                            "timings": {"prompt_ms": 140.0, "predicted_ms": 260.0, "prompt_n": 300, "predicted_n": 25},
+                        }
+
+                return RawResp()
+
+            raise AssertionError(f"Unexpected URL: {url}")
+
+    from harness.wahs.evaluator import build_wahs_report_packet
+
+    client = WahsHubClient(
+        base_url="http://127.0.0.1:8095",
+        direct_llm_base_url="http://127.0.0.1:8077/v1",
+        session=Stage4Session(),
+        bundle_dirs=[bundle_dir],
+    )
+    res = run_wahs_suite(
+        cases_path,
+        client=client,
+        output_dir=tmp_path / "runs",
+        profiles=[
+            "wahs-engine-kb:gemma-e4b@4k",
+            "wahs-engine-rag:gemma-e4b@4k",
+            "wahs-engine-tools:gemma-e4b@4k",
+            "raw-fhir:gemma-e4b@4k",
+        ],
+        seeds=[42, 43, 44],
+        evaluation_modality="live_model_and_team_eval",
+    )
+    assert res.total_cells == 24  # 4 profiles * 3 seeds * 2 cases
+    assert res.summary["seeds"] == [42, 43, 44]
+    by_strat = res.summary["by_retrieval_strategy"]
+    assert set(by_strat.keys()) == {
+        "condensation_kb",
+        "note_rag",
+        "dynamic_fhir_tools",
+        "offline_raw_ablation",
+    }
+    assert by_strat["condensation_kb"]["pass_rate"] == 1.0
+    assert by_strat["offline_raw_ablation"]["evaluation_modality"] == "offline_raw_ablation"
+    assert by_strat["condensation_kb"]["latency_stats"]["prefill_prompt_ms"]["p50_ms"] == 95.0
+
+    packet = build_wahs_report_packet(res.run_dir)
+    assert Path(packet["report_data_json"]).is_file()
+    assert Path(packet["dashboard_data_json"]).is_file()
+    run_sum = json.loads(Path(packet["run_summary_json"]).read_text(encoding="utf-8"))
+    assert run_sum["schema"] == "openclinai.summary.v2"
+    assert run_sum["cells"] == 24
+    assert "Condensation+KB 100.0%" in run_sum["scoreline"]
+    assert run_sum["statistical_benchmark"]["seeds"] == [42, 43, 44]
 
 
