@@ -2041,7 +2041,10 @@ def test_stage4_wahs_engine_and_raw_fhir_multiseed_report_packet(tmp_path: Path)
     run_sum = json.loads(Path(packet["run_summary_json"]).read_text(encoding="utf-8"))
     assert run_sum["schema"] == "openclinai.summary.v2"
     assert run_sum["cells"] == 24
+    assert run_sum["scout"] == []
     assert "Condensation+KB 100.0%" in run_sum["scoreline"]
     assert run_sum["statistical_benchmark"]["seeds"] == [42, 43, 44]
+    rep_data = json.loads(Path(packet["report_data_json"]).read_text(encoding="utf-8"))
+    assert rep_data["runs"][0]["statistical_benchmark"]["seeds"] == [42, 43, 44]
 
 

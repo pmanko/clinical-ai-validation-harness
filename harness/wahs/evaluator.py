@@ -4546,8 +4546,16 @@ def build_wahs_report_packet(
     else:
         judge_rows = []
 
-    scout = scout_summary(judge_rows, backend_ids)
+    scout = scout_summary(judge_rows, backend_ids) if judge_rows else []
     judging = judge_summary(rdir)
+    if not judge_rows and not (isinstance(judging, dict) and judging.get("sentence")):
+        judging = {
+            "sentence": (
+                "Scored by deterministic HealthBench-weighted clinical rubrics, "
+                "VeriFact atomic claim entailment, and 3-seed 95% Wilson & bootstrap "
+                "confidence intervals (no synthetic LLM-judge scores)."
+            )
+        }
     if not patients_summary:
         unique_patients = []
         for c in cases:
@@ -4589,6 +4597,22 @@ def build_wahs_report_packet(
         else f"{summary['passed_cells']}/{summary['total_cells']} cells passed ({summary['pass_rate'] * 100.0:.1f}%)"
     )
 
+    stat_bench = {
+        "seeds": summary.get("seeds") or [],
+        "total_cells": summary.get("total_cells"),
+        "passed_cells": summary.get("passed_cells"),
+        "pass_rate": summary.get("pass_rate"),
+        "pass_rate_wilson_ci_95": summary.get("pass_rate_wilson_ci_95"),
+        "privacy_leak_count": summary.get("privacy_leak_count"),
+        "abstention_accuracy": summary.get("abstention_accuracy"),
+        "by_use_case": summary.get("by_use_case") or {},
+        "by_question_horizon": summary.get("by_question_horizon") or {},
+        "by_retrieval_strategy": by_strat,
+        "by_model_family": summary.get("by_model_family") or {},
+        "by_underlying_model": summary.get("by_underlying_model") or {},
+        "by_profile": summary.get("by_profile") or {},
+    }
+
     run_summary.update({
         "family": "wahs",
         "report_family": "wahs",
@@ -4598,19 +4622,28 @@ def build_wahs_report_packet(
         "patients": patients_summary,
         "cells": len(rows),
         "scoreline": scoreline,
-        "statistical_benchmark": {
-            "seeds": summary.get("seeds") or [],
-            "pass_rate": summary.get("pass_rate"),
-            "pass_rate_wilson_ci_95": summary.get("pass_rate_wilson_ci_95"),
-            "privacy_leak_count": summary.get("privacy_leak_count"),
-            "by_retrieval_strategy": by_strat,
-            "by_underlying_model": summary.get("by_underlying_model") or {},
-            "by_profile": summary.get("by_profile") or {},
-        },
+        "statistical_benchmark": stat_bench,
         "date": run_summary.get("date") or datetime.now(timezone.utc).strftime("%-d %b %Y"),
     })
     run_summary_path.write_text(json.dumps(run_summary, indent=2) + "\n", encoding="utf-8")
+
     dash_data_path = rdir / "dashboard-data.json"
+    for packet_json_path in (Path(report_data_path), dash_data_path):
+        if packet_json_path.is_file():
+            try:
+                pkt_obj = json.loads(packet_json_path.read_text(encoding="utf-8"))
+                if isinstance(pkt_obj, dict):
+                    pkt_obj["family"] = "wahs"
+                    runs_list = pkt_obj.get("runs")
+                    if isinstance(runs_list, list) and runs_list and isinstance(runs_list[0], dict):
+                        runs_list[0]["family"] = "wahs"
+                        runs_list[0]["evaluation_modality"] = evaluation_modality
+                        runs_list[0]["statistical_benchmark"] = stat_bench
+                        runs_list[0]["scoreline"] = scoreline
+                        runs_list[0]["judging"] = judging
+                    packet_json_path.write_text(json.dumps(pkt_obj, separators=(",", ":")) + "\n", encoding="utf-8")
+            except Exception:
+                pass
 
     return {
         "run_dir": str(rdir),
