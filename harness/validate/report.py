@@ -827,7 +827,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "scenarios": scenarios,
         "summary": summary_rows,
         "metrics": _metric_distributions(results, backends),
-        "judge": scout_summary(judge_rows_raw, backends),
+        "judge": scout_summary(judge_rows_raw, backends) if judge_rows_raw else [],
         "judge_rows": judge_rows,
         "judge_actors": sorted(judge_actors.keys()),
         "judge_actor_cells": judge_actor_cells,
