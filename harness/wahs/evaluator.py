@@ -3879,6 +3879,10 @@ def run_wahs_suite(
             encoding="utf-8",
         )
 
+    from harness.validate.live_dashboard import ensure_live_dashboard
+
+    ensure_live_dashboard(run_dir=run_dir, output_dir=Path(output_dir))
+
     results_path = run_dir / "results.jsonl"
     scores: list[WahsCaseScore] = []
     cell_meta_list: list[dict[str, Any]] = []

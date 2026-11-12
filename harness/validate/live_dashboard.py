@@ -1,4 +1,4 @@
-"""Ensure the local :8099 live validation dashboard is serving when a run starts."""
+"""Enforce the local :8099 live validation dashboard whenever an evaluation run executes."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from typing import Any
 import urllib.request
 
 
@@ -15,88 +16,223 @@ def _truthy_env(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _status_alive(port: int, timeout: float = 1.5) -> bool:
+def _status_payload(port: int, timeout: float = 1.5) -> dict[str, Any] | None:
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=timeout) as resp:
-            return int(getattr(resp, "status", 200)) == 200
+            if int(getattr(resp, "status", 200)) != 200:
+                return None
+            data = json.loads(resp.read().decode("utf-8"))
+            return data if isinstance(data, dict) else None
     except Exception:
-        return False
+        return None
 
 
-def _notify_watch_artifacts(port: int, artifacts_dir: Path) -> None:
+def _status_alive(port: int, timeout: float = 1.5) -> bool:
+    return _status_payload(port, timeout=timeout) is not None
+
+
+def _register_watch(
+    port: int,
+    *,
+    artifacts_dir: Path,
+    output_dir: Path | None = None,
+    run_dir: Path | None = None,
+    timeout: float = 2.0,
+) -> dict[str, Any]:
+    body: dict[str, str] = {"artifacts_dir": str(artifacts_dir.resolve())}
+    if output_dir is not None:
+        body["output_dir"] = str(output_dir.resolve())
+    if run_dir is not None:
+        body["run_dir"] = str(run_dir.resolve())
     try:
         req = urllib.request.Request(
             f"http://127.0.0.1:{port}/api/watch",
-            data=json.dumps({"artifacts_dir": str(artifacts_dir.resolve())}).encode("utf-8"),
+            data=json.dumps(body).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=1.0):
-            pass
-    except Exception:
-        pass
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status_code = int(getattr(resp, "status", 200))
+            raw = resp.read().decode("utf-8")
+    except Exception as exc:
+        raise RuntimeError(
+            f"Live validation dashboard at http://127.0.0.1:{port} failed /api/watch registration: {exc}"
+        ) from exc
+
+    if status_code != 200:
+        raise RuntimeError(
+            f"Live validation dashboard at http://127.0.0.1:{port} returned HTTP {status_code} from /api/watch"
+        )
+    try:
+        parsed = json.loads(raw) if raw else {}
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Live validation dashboard at http://127.0.0.1:{port} returned invalid JSON from /api/watch: {raw!r}"
+        ) from exc
+    if not isinstance(parsed, dict) or parsed.get("ok") is not True:
+        raise RuntimeError(
+            f"Live validation dashboard at http://127.0.0.1:{port} rejected /api/watch payload: {parsed!r}"
+        )
+    return parsed
+
+
+def _git_common_repo_root(root: Path) -> Path | None:
+    dot_git = root / ".git"
+    if not dot_git.is_file():
+        return None
+    try:
+        for line in dot_git.read_text(encoding="utf-8").splitlines():
+            if line.startswith("gitdir:"):
+                raw = line.split(":", 1)[1].strip()
+                gitdir = Path(raw)
+                if not gitdir.is_absolute():
+                    gitdir = (root / gitdir).resolve()
+                else:
+                    gitdir = gitdir.resolve()
+                if gitdir.parent.name == "worktrees":
+                    return gitdir.parent.parent.parent
+                return gitdir.parent
+    except OSError:
+        return None
+    return None
+
+
+def _discover_assets_dir(root: Path) -> Path | None:
+    candidates = [
+        root.parent.parent / "reports" / "assets",
+        root.parent / "openclinai.org" / "reports" / "assets",
+        root.parent.parent / "openclinai.org" / "reports" / "assets",
+    ]
+    common_root = _git_common_repo_root(root)
+    if common_root is not None:
+        candidates.extend(
+            [
+                common_root.parent / "openclinai.org" / "reports" / "assets",
+                common_root.parent.parent / "reports" / "assets",
+            ]
+        )
+    for cand in candidates:
+        if (cand / "dashboard-shell.css").is_file() and (cand / "dashboard-shell.js").is_file():
+            return cand.resolve()
+    return None
+
+
+def _tail_log(log_path: Path, max_chars: int = 800) -> str:
+    try:
+        if not log_path.is_file():
+            return "(no dashboard.log written)"
+        text = log_path.read_text(encoding="utf-8", errors="replace").strip()
+        if not text:
+            return "(dashboard.log empty)"
+        return text[-max_chars:]
+    except OSError as exc:
+        return f"(failed to read dashboard.log: {exc})"
 
 
 def ensure_live_dashboard(
     project_root: Path | None = None,
     *,
+    run_dir: Path | str | None = None,
+    output_dir: Path | str | None = None,
     port: int | None = None,
     force: bool = False,
 ) -> str | None:
-    """Start `scripts/validate-dashboard.py` in the background if `:8099` is not already serving."""
+    """Ensure `scripts/validate-dashboard.py` is serving on `:8099` and watching `run_dir`."""
     if not force and not _truthy_env("HARNESS_FORCE_DASHBOARD"):
-        if (
-            _truthy_env("HARNESS_NO_DASHBOARD")
-            or _truthy_env("CI")
-            or bool(os.environ.get("PYTEST_CURRENT_TEST"))
-        ):
+        if _truthy_env("CI") or bool(os.environ.get("PYTEST_CURRENT_TEST")):
             return None
 
     eff_port = int(port if port is not None else os.environ.get("DASH_PORT", "8099"))
     url = f"http://localhost:{eff_port}"
     root = (project_root or Path(__file__).resolve().parents[2]).resolve()
-    if _status_alive(eff_port):
-        _notify_watch_artifacts(eff_port, root / "artifacts")
-        print(f"    live dashboard: {url}", file=sys.stderr)
-        return url
+    resolved_run_dir = Path(run_dir).resolve() if run_dir is not None else None
+    resolved_output_dir = (
+        Path(output_dir).resolve()
+        if output_dir is not None
+        else (resolved_run_dir.parent if resolved_run_dir is not None else None)
+    )
 
-    script_path = root / "scripts" / "validate-dashboard.py"
-    if not script_path.is_file():
-        return None
+    if not _status_alive(eff_port):
+        script_path = root / "scripts" / "validate-dashboard.py"
+        if not script_path.is_file():
+            raise RuntimeError(
+                f"Live validation dashboard script not found at {script_path}; "
+                "evaluation runs cannot execute without a live dashboard."
+            )
 
-    runtime_dir = root / "artifacts" / "validate-dashboard"
-    try:
-        runtime_dir.mkdir(parents=True, exist_ok=True)
-        log_fh = (runtime_dir / "dashboard.log").open("ab")
-    except OSError:
-        log_fh = open(os.devnull, "ab")
-
-    env = dict(os.environ)
-    env["DASH_PORT"] = str(eff_port)
-    try:
-        proc = subprocess.Popen(
-            [sys.executable, "-u", str(script_path)],
-            cwd=str(root),
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=log_fh,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
+        runtime_dir = root / "artifacts" / "validate-dashboard"
+        log_path = runtime_dir / "dashboard.log"
         try:
-            (runtime_dir / "dashboard.pid").write_text(f"{proc.pid}\n", encoding="utf-8")
+            runtime_dir.mkdir(parents=True, exist_ok=True)
+            log_fh = log_path.open("ab")
         except OSError:
-            pass
-    except OSError:
-        log_fh.close()
-        return None
-    finally:
-        log_fh.close()
+            log_fh = open(os.devnull, "ab")
 
-    deadline = time.monotonic() + 5.0
-    while time.monotonic() < deadline:
-        if _status_alive(eff_port, timeout=1.0):
-            print(f"    live dashboard: {url}", file=sys.stderr)
-            return url
-        time.sleep(0.15)
-    return None
+        env = dict(os.environ)
+        env["DASH_PORT"] = str(eff_port)
+        existing_pp = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = f"{root}{os.pathsep}{existing_pp}" if existing_pp else str(root)
+        if "OPENCLINAI_ASSETS_DIR" not in env and not _truthy_env("OPENCLINAI_DISABLE_UMBRELLA_ASSETS"):
+            discovered_assets = _discover_assets_dir(root)
+            if discovered_assets is not None:
+                env["OPENCLINAI_ASSETS_DIR"] = str(discovered_assets)
+
+        try:
+            proc = subprocess.Popen(
+                [sys.executable, "-u", str(script_path)],
+                cwd=str(root),
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=log_fh,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+            try:
+                (runtime_dir / "dashboard.pid").write_text(f"{proc.pid}\n", encoding="utf-8")
+            except OSError:
+                pass
+        except OSError as exc:
+            log_fh.close()
+            raise RuntimeError(
+                f"Failed to launch live validation dashboard ({script_path}): {exc}"
+            ) from exc
+        finally:
+            log_fh.close()
+
+        deadline = time.monotonic() + 5.0
+        alive = False
+        while time.monotonic() < deadline:
+            if _status_alive(eff_port, timeout=1.0):
+                alive = True
+                break
+            if proc.poll() is not None:
+                if _status_alive(eff_port, timeout=0.5):
+                    alive = True
+                break
+            time.sleep(0.15)
+
+        if not alive:
+            log_tail = _tail_log(log_path)
+            raise RuntimeError(
+                f"Live validation dashboard failed to bind/respond on {url} within 5.0s. "
+                f"Log tail: {log_tail}"
+            )
+
+    _register_watch(
+        eff_port,
+        artifacts_dir=root / "artifacts",
+        output_dir=resolved_output_dir,
+        run_dir=resolved_run_dir,
+    )
+
+    if resolved_run_dir is not None and resolved_run_dir.is_dir():
+        payload = _status_payload(eff_port)
+        if payload is None or payload.get("run") is None:
+            raise RuntimeError(
+                f"Live validation dashboard at {url} reported run=None after registering "
+                f"{resolved_run_dir}; restart scripts/validate-dashboard.py so the run is monitored."
+            )
+
+    suffix = f" (watching {resolved_run_dir.name})" if resolved_run_dir is not None else ""
+    print(f"    live dashboard: {url}{suffix}", file=sys.stderr)
+    return url

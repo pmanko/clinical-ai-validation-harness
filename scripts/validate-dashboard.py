@@ -43,6 +43,29 @@ from harness.validate.dashboard_data import (  # noqa: E402
 PORT = int(os.environ.get("DASH_PORT", "8099"))
 _RUN_OVERRIDE: str | None = None
 _WATCH_ARTIFACTS_DIRS: set[str] = set()
+_WATCH_OUTPUT_DIRS: set[str] = set()
+_WATCH_RUN_DIRS: set[str] = set()
+
+
+def _git_common_repo_root(root: Path) -> Path | None:
+    dot_git = root / ".git"
+    if not dot_git.is_file():
+        return None
+    try:
+        for line in dot_git.read_text(encoding="utf-8").splitlines():
+            if line.startswith("gitdir:"):
+                raw = line.split(":", 1)[1].strip()
+                gitdir = Path(raw)
+                if not gitdir.is_absolute():
+                    gitdir = (root / gitdir).resolve()
+                else:
+                    gitdir = gitdir.resolve()
+                if gitdir.parent.name == "worktrees":
+                    return gitdir.parent.parent.parent
+                return gitdir.parent
+    except OSError:
+        return None
+    return None
 
 
 def _assets_dir() -> Path:
@@ -60,6 +83,14 @@ def _assets_dir() -> Path:
         ROOT.parent / "openclinai.org" / "reports" / "assets",
         ROOT.parent.parent / "openclinai.org" / "reports" / "assets",
     ]
+    common_root = _git_common_repo_root(ROOT)
+    if common_root is not None:
+        candidates.extend(
+            [
+                common_root.parent / "openclinai.org" / "reports" / "assets",
+                common_root.parent.parent / "reports" / "assets",
+            ]
+        )
     for cand in candidates:
         if (cand / "dashboard-shell.css").is_file():
             return cand
@@ -81,6 +112,7 @@ def _search_bases(artifacts_root: Path) -> list[Path]:
     ]
     return [
         artifacts_root / "validate",
+        artifacts_root / "catalyst-validation",
         artifacts_root / "catalyst-notebook-validation",
         *wahs_dirs,
     ]
@@ -94,8 +126,17 @@ def newest_run() -> str | None:
         for b in _search_bases(Path(extra)):
             if b not in search_bases:
                 search_bases.append(b)
+    for od in sorted(_WATCH_OUTPUT_DIRS):
+        od_path = Path(od)
+        if od_path not in search_bases:
+            search_bases.append(od_path)
     pin = os.environ.get("DASH_RUN")
     if pin:
+        for rd in sorted(_WATCH_RUN_DIRS):
+            if os.path.isdir(rd) and (
+                pin == rd or os.path.abspath(pin) == rd or Path(rd).name == pin
+            ):
+                return rd
         for base in search_bases:
             p = pin if os.path.isabs(pin) or os.path.sep in pin else str(base / pin)
             if os.path.isdir(p):
@@ -104,11 +145,18 @@ def newest_run() -> str | None:
     dirs: list[str] = []
     for base in search_bases:
         dirs.extend(d for d in glob.glob(str(base / "*")) if os.path.isdir(d))
+    for rd in sorted(_WATCH_RUN_DIRS):
+        if os.path.isdir(rd) and rd not in dirs:
+            dirs.append(rd)
 
     def _activity(d: str) -> float:
-        rp = os.path.join(d, "results.jsonl")
-        if os.path.exists(rp):
-            return os.path.getmtime(rp)
+        stream_mtimes: list[float] = []
+        for name in ("results.jsonl", "events.jsonl"):
+            p = os.path.join(d, name)
+            if os.path.exists(p):
+                stream_mtimes.append(os.path.getmtime(p))
+        if stream_mtimes:
+            return max(stream_mtimes)
         newest = max(
             (os.path.getmtime(p) for p in glob.glob(os.path.join(d, "**", "*.json"), recursive=True)),
             default=0.0,
@@ -159,6 +207,7 @@ class H(http.server.BaseHTTPRequestHandler):
         pass
 
     def do_POST(self) -> None:
+        global _RUN_OVERRIDE
         parsed = urlparse(self.path)
         if parsed.path == "/api/watch":
             length = int(self.headers.get("Content-Length", "0") or 0)
@@ -168,9 +217,19 @@ class H(http.server.BaseHTTPRequestHandler):
                 ad = str(payload.get("artifacts_dir") or "").strip()
                 if ad and os.path.isabs(ad):
                     _WATCH_ARTIFACTS_DIRS.add(ad)
+                od = str(payload.get("output_dir") or "").strip()
+                if od and os.path.isabs(od):
+                    _WATCH_OUTPUT_DIRS.add(od)
+                rd = str(payload.get("run_dir") or "").strip()
+                if rd and os.path.isabs(rd):
+                    _WATCH_RUN_DIRS.add(rd)
+                    _WATCH_OUTPUT_DIRS.add(str(Path(rd).parent))
+                    if _RUN_OVERRIDE and _RUN_OVERRIDE != rd:
+                        _WATCH_RUN_DIRS.add(_RUN_OVERRIDE)
+                        _RUN_OVERRIDE = None
             except Exception:
                 pass
-            body = json.dumps({"ok": True}).encode("utf-8")
+            body = json.dumps({"ok": True, "active_run": newest_run()}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))

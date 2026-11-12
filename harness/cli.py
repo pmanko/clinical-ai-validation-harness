@@ -284,7 +284,10 @@ def main(
     if getattr(args, f"{args.command}_action", None) == "run":
         from .validate.live_dashboard import ensure_live_dashboard
 
-        ensure_live_dashboard(project_root=root)
+        ensure_live_dashboard(
+            project_root=root,
+            output_dir=getattr(args, "output_dir", None),
+        )
 
     if args.command == "catalyst":
         from .catalyst.cli import dispatch as dispatch_catalyst
