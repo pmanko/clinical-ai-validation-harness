@@ -3782,6 +3782,8 @@ def run_wahs_suite(
                                 )
                                 if prior is not None:
                                     envelope = dict(prior["response"])
+                                    started_iso = str(prior.get("started_at") or started_iso)
+                                    ended_iso = str(prior.get("ended_at") or started_iso)
                                 else:
                                     envelope = _invoke_client_evaluate_case(
                                         client,
@@ -3794,7 +3796,7 @@ def run_wahs_suite(
                                         seed=seed_val,
                                         temperature=temperature,
                                     )
-                                ended_iso = datetime.now(timezone.utc).isoformat()
+                                    ended_iso = datetime.now(timezone.utc).isoformat()
                                 score = score_wahs_case(case, envelope, budget_tokens=b_tokens)
                                 scores.append(score)
                                 default_strat, default_mod = _infer_retrieval_strategy_and_modality(prof_id)
