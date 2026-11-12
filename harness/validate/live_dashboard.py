@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -22,13 +23,28 @@ def _status_alive(port: int, timeout: float = 1.5) -> bool:
         return False
 
 
+def _notify_watch_artifacts(port: int, artifacts_dir: Path) -> None:
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/watch",
+            data=json.dumps({"artifacts_dir": str(artifacts_dir.resolve())}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=1.0):
+            pass
+    except Exception:
+        pass
+
+
 def ensure_live_dashboard(
     project_root: Path | None = None,
     *,
     port: int | None = None,
+    force: bool = False,
 ) -> str | None:
     """Start `scripts/validate-dashboard.py` in the background if `:8099` is not already serving."""
-    if not _truthy_env("HARNESS_FORCE_DASHBOARD"):
+    if not force and not _truthy_env("HARNESS_FORCE_DASHBOARD"):
         if (
             _truthy_env("HARNESS_NO_DASHBOARD")
             or _truthy_env("CI")
@@ -38,11 +54,12 @@ def ensure_live_dashboard(
 
     eff_port = int(port if port is not None else os.environ.get("DASH_PORT", "8099"))
     url = f"http://localhost:{eff_port}"
+    root = (project_root or Path(__file__).resolve().parents[2]).resolve()
     if _status_alive(eff_port):
+        _notify_watch_artifacts(eff_port, root / "artifacts")
         print(f"    live dashboard: {url}", file=sys.stderr)
         return url
 
-    root = (project_root or Path(__file__).resolve().parents[2]).resolve()
     script_path = root / "scripts" / "validate-dashboard.py"
     if not script_path.is_file():
         return None

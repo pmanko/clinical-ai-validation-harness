@@ -42,6 +42,7 @@ from harness.validate.dashboard_data import (  # noqa: E402
 
 PORT = int(os.environ.get("DASH_PORT", "8099"))
 _RUN_OVERRIDE: str | None = None
+_WATCH_ARTIFACTS_DIRS: set[str] = set()
 
 
 def _assets_dir() -> Path:
@@ -72,28 +73,34 @@ def _assets_available() -> bool:
     ).is_file()
 
 
-def _catalyst_runs_dir() -> Path:
-    return ROOT / "artifacts" / "catalyst-notebook-validation"
-
-
-def _wahs_run_dirs() -> list[Path]:
-    return [
+def _search_bases(artifacts_root: Path) -> list[Path]:
+    wahs_dirs = [
         Path(p)
-        for p in glob.glob(str(ROOT / "artifacts" / "wahs*"))
+        for p in glob.glob(str(artifacts_root / "wahs*"))
         if os.path.isdir(p)
+    ]
+    return [
+        artifacts_root / "validate",
+        artifacts_root / "catalyst-notebook-validation",
+        *wahs_dirs,
     ]
 
 
 def newest_run() -> str | None:
     if _RUN_OVERRIDE:
         return _RUN_OVERRIDE
-    search_bases = [ROOT / "artifacts" / "validate", _catalyst_runs_dir(), *_wahs_run_dirs()]
+    search_bases = _search_bases(ROOT / "artifacts")
+    for extra in sorted(_WATCH_ARTIFACTS_DIRS):
+        for b in _search_bases(Path(extra)):
+            if b not in search_bases:
+                search_bases.append(b)
     pin = os.environ.get("DASH_RUN")
     if pin:
         for base in search_bases:
             p = pin if os.path.isabs(pin) or os.path.sep in pin else str(base / pin)
             if os.path.isdir(p):
                 return p
+        return None
     dirs: list[str] = []
     for base in search_bases:
         dirs.extend(d for d in glob.glob(str(base / "*")) if os.path.isdir(d))
@@ -150,6 +157,27 @@ LIVE_SHELL_HTML = """<!doctype html>
 class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a: object) -> None:
         pass
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/watch":
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+                ad = str(payload.get("artifacts_dir") or "").strip()
+                if ad and os.path.isabs(ad):
+                    _WATCH_ARTIFACTS_DIRS.add(ad)
+            except Exception:
+                pass
+            body = json.dumps({"ok": True}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_error(404)
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -222,6 +250,11 @@ def serve_dashboard() -> None:
 
 
 if __name__ == "__main__":
+    if "--ensure" in sys.argv:
+        from harness.validate.live_dashboard import ensure_live_dashboard
+
+        url = ensure_live_dashboard(ROOT, port=PORT, force=True)
+        raise SystemExit(0 if url else 1)
     if "--run" in sys.argv:
         j = sys.argv.index("--run")
         if j + 1 < len(sys.argv):
