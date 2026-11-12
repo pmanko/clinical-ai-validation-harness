@@ -16,7 +16,7 @@ def _truthy_env(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _status_payload(port: int, timeout: float = 1.5) -> dict[str, Any] | None:
+def _status_payload(port: int, timeout: float = 5.0) -> dict[str, Any] | None:
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=timeout) as resp:
             if int(getattr(resp, "status", 200)) != 200:
@@ -27,7 +27,7 @@ def _status_payload(port: int, timeout: float = 1.5) -> dict[str, Any] | None:
         return None
 
 
-def _status_alive(port: int, timeout: float = 1.5) -> bool:
+def _status_alive(port: int, timeout: float = 5.0) -> bool:
     return _status_payload(port, timeout=timeout) is not None
 
 
@@ -37,7 +37,7 @@ def _register_watch(
     artifacts_dir: Path,
     output_dir: Path | None = None,
     run_dir: Path | None = None,
-    timeout: float = 2.0,
+    timeout: float = 5.0,
 ) -> dict[str, Any]:
     body: dict[str, str] = {"artifacts_dir": str(artifacts_dir.resolve())}
     if output_dir is not None:
@@ -74,47 +74,6 @@ def _register_watch(
             f"Live validation dashboard at http://127.0.0.1:{port} rejected /api/watch payload: {parsed!r}"
         )
     return parsed
-
-
-def _git_common_repo_root(root: Path) -> Path | None:
-    dot_git = root / ".git"
-    if not dot_git.is_file():
-        return None
-    try:
-        for line in dot_git.read_text(encoding="utf-8").splitlines():
-            if line.startswith("gitdir:"):
-                raw = line.split(":", 1)[1].strip()
-                gitdir = Path(raw)
-                if not gitdir.is_absolute():
-                    gitdir = (root / gitdir).resolve()
-                else:
-                    gitdir = gitdir.resolve()
-                if gitdir.parent.name == "worktrees":
-                    return gitdir.parent.parent.parent
-                return gitdir.parent
-    except OSError:
-        return None
-    return None
-
-
-def _discover_assets_dir(root: Path) -> Path | None:
-    candidates = [
-        root.parent.parent / "reports" / "assets",
-        root.parent / "openclinai.org" / "reports" / "assets",
-        root.parent.parent / "openclinai.org" / "reports" / "assets",
-    ]
-    common_root = _git_common_repo_root(root)
-    if common_root is not None:
-        candidates.extend(
-            [
-                common_root.parent / "openclinai.org" / "reports" / "assets",
-                common_root.parent.parent / "reports" / "assets",
-            ]
-        )
-    for cand in candidates:
-        if (cand / "dashboard-shell.css").is_file() and (cand / "dashboard-shell.js").is_file():
-            return cand.resolve()
-    return None
 
 
 def _tail_log(log_path: Path, max_chars: int = 800) -> str:
@@ -172,10 +131,6 @@ def ensure_live_dashboard(
         env["DASH_PORT"] = str(eff_port)
         existing_pp = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = f"{root}{os.pathsep}{existing_pp}" if existing_pp else str(root)
-        if "OPENCLINAI_ASSETS_DIR" not in env and not _truthy_env("OPENCLINAI_DISABLE_UMBRELLA_ASSETS"):
-            discovered_assets = _discover_assets_dir(root)
-            if discovered_assets is not None:
-                env["OPENCLINAI_ASSETS_DIR"] = str(discovered_assets)
 
         try:
             proc = subprocess.Popen(
@@ -199,14 +154,14 @@ def ensure_live_dashboard(
         finally:
             log_fh.close()
 
-        deadline = time.monotonic() + 5.0
+        deadline = time.monotonic() + 8.0
         alive = False
         while time.monotonic() < deadline:
-            if _status_alive(eff_port, timeout=1.0):
+            if _status_alive(eff_port, timeout=2.5):
                 alive = True
                 break
             if proc.poll() is not None:
-                if _status_alive(eff_port, timeout=0.5):
+                if _status_alive(eff_port, timeout=1.0):
                     alive = True
                 break
             time.sleep(0.15)
@@ -214,7 +169,7 @@ def ensure_live_dashboard(
         if not alive:
             log_tail = _tail_log(log_path)
             raise RuntimeError(
-                f"Live validation dashboard failed to bind/respond on {url} within 5.0s. "
+                f"Live validation dashboard failed to bind/respond on {url} within 8.0s. "
                 f"Log tail: {log_tail}"
             )
 
