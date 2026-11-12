@@ -798,9 +798,59 @@ def test_validate_dashboard_http_routes_with_and_without_viewer_assets(
         resp_js = conn.getresponse()
         assert resp_js.status == 200
         assert resp_js.read().decode("utf-8") == "console.log(1);"
+
+        # 3) POST /api/watch registers extra worktree artifacts dirs; invalid JSON & unknown paths handled.
+        wt_artifacts = tmp_path / "wt_artifacts"
+        wt_run = wt_artifacts / "wahs_stage4" / "run-watch-1"
+        wt_run.mkdir(parents=True)
+        (wt_run / "results.jsonl").write_text(
+            json.dumps({"scenario_id": "s1", "backend_id": "b1", "turn": 1}) + "\n",
+            encoding="utf-8",
+        )
+        watch_body = json.dumps({"artifacts_dir": str(wt_artifacts)}).encode("utf-8")
+        conn.request(
+            "POST",
+            "/api/watch",
+            body=watch_body,
+            headers={"Content-Type": "application/json", "Content-Length": str(len(watch_body))},
+        )
+        resp_watch = conn.getresponse()
+        assert resp_watch.status == 200
+        assert json.loads(resp_watch.read()) == {"ok": True}
+        assert str(wt_artifacts) in vd._WATCH_ARTIFACTS_DIRS
+
+        bad_body = b"{invalid-json"
+        conn.request(
+            "POST",
+            "/api/watch",
+            body=bad_body,
+            headers={"Content-Type": "application/json", "Content-Length": str(len(bad_body))},
+        )
+        resp_bad = conn.getresponse()
+        resp_bad.read()
+        assert resp_bad.status == 200
+
+        conn.request("POST", "/api/unknown", body=b"{}", headers={"Content-Length": "2"})
+        resp_404 = conn.getresponse()
+        resp_404.read()
+        assert resp_404.status == 404
         conn.close()
+
+        # Verify _WATCH_ARTIFACTS_DIRS discovery and _assets_dir() candidate probing.
+        vd._RUN_OVERRIDE = None
+        monkeypatch.setattr(vd, "ROOT", tmp_path / "isolated_root")
+        monkeypatch.delenv("DASH_RUN", raising=False)
+        assert vd.newest_run() == str(wt_run)
+
+        monkeypatch.delenv("OPENCLINAI_ASSETS_DIR", raising=False)
+        assert vd._assets_dir() == (tmp_path / "isolated_root").parent.parent / "reports" / "assets"
+        cand_assets = (tmp_path / "isolated_root").parent / "openclinai.org" / "reports" / "assets"
+        cand_assets.mkdir(parents=True)
+        (cand_assets / "dashboard-shell.css").write_text("body{}", encoding="utf-8")
+        assert vd._assets_dir() == cand_assets
     finally:
         vd._RUN_OVERRIDE = None
+        vd._WATCH_ARTIFACTS_DIRS.clear()
         srv.shutdown()
         srv.server_close()
 
@@ -811,8 +861,17 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
     import os
     import signal
     import socket
+    import subprocess
 
-    from harness.validate.live_dashboard import ensure_live_dashboard
+    from harness.validate.live_dashboard import (
+        _notify_watch_artifacts,
+        ensure_live_dashboard,
+    )
+
+    # Default under pytest without force/HARNESS_FORCE_DASHBOARD is a no-op.
+    monkeypatch.delenv("HARNESS_FORCE_DASHBOARD", raising=False)
+    assert ensure_live_dashboard(project_root=tmp_path) is None
+    _notify_watch_artifacts(9, tmp_path)
 
     wahs_run = tmp_path / "artifacts" / "wahs_stage4" / "run-123"
     wahs_run.mkdir(parents=True)
@@ -843,14 +902,31 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
 
     monkeypatch.setenv("HARNESS_FORCE_DASHBOARD", "1")
     monkeypatch.setenv("DASH_PORT", str(free_port))
+    # Missing script returns None cleanly.
+    assert ensure_live_dashboard(project_root=tmp_path / "missing_proj", port=free_port) is None
+
     fake_root = tmp_path / "proj"
     (fake_root / "scripts").mkdir(parents=True)
     (fake_root / "scripts" / "validate-dashboard.py").symlink_to(
         ROOT / "scripts" / "validate-dashboard.py"
     )
+
+    # Popen OSError returns None cleanly.
+    def _boom(*_a, **_kw):
+        raise OSError("spawn failed")
+
+    with monkeypatch.context() as mp:
+        mp.setattr(subprocess, "Popen", _boom)
+        assert ensure_live_dashboard(project_root=fake_root, port=free_port) is None
+
     try:
         url = ensure_live_dashboard(project_root=fake_root, port=free_port)
         assert url == f"http://localhost:{free_port}"
+        # Second call hits already-alive branch and notifies /api/watch for secondary worktree.
+        wt2 = tmp_path / "wt2"
+        (wt2 / "artifacts").mkdir(parents=True)
+        url2 = ensure_live_dashboard(project_root=wt2, port=free_port)
+        assert url2 == f"http://localhost:{free_port}"
     finally:
         pid_file = fake_root / "artifacts" / "validate-dashboard" / "dashboard.pid"
         if pid_file.is_file():
@@ -858,4 +934,5 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
                 os.kill(int(pid_file.read_text().strip()), signal.SIGTERM)
             except OSError:
                 pass
+
 

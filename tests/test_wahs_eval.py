@@ -2048,3 +2048,206 @@ def test_stage4_wahs_engine_and_raw_fhir_multiseed_report_packet(tmp_path: Path)
     assert rep_data["runs"][0]["statistical_benchmark"]["seeds"] == [42, 43, 44]
 
 
+def test_stage4_cli_seeds_resume_arm_cards_and_error_paths(tmp_path: Path, monkeypatch) -> None:
+    """Covers WAHS CLI seed parsing/dispatch, arm card model families, resume, and engine retry/error branches."""
+    from harness import cli as root_cli
+    from harness.wahs import cli as wahs_cli
+    from harness.wahs.evaluator import (
+        WahsEvalCase,
+        _wahs_arm_card,
+        score_wahs_run,
+    )
+
+    assert wahs_cli._parse_seed_list(None) is None
+    assert wahs_cli._parse_seed_list(["", " , "]) is None
+    assert wahs_cli._parse_seed_list(["42,43", "43, 44"]) == [42, 43, 44]
+
+    expected_models = {
+        "wahs-engine-chart:gemma-4-12b-q4@4k": ("Engine Chart (Gemma 12B Q4 (4k))", "Q4_K_M"),
+        "wahs-engine-kb:qwen3-4b@4k": ("Engine KB (Qwen3 4B (4k))", "Q8_0"),
+        "wahs-engine-rag:qwen3.5-9b@4k": ("Engine Note-RAG (Qwen 3.5 9B (4k))", "Q6_K"),
+        "wahs-engine-tools:qwen3-14b@4k": ("Engine Tools (Qwen3 14B (4k))", "Q8_0"),
+        "wahs-engine-kb:llama32-3b@4k": ("Engine KB (Llama 3.2 3B (4k))", "Q8_0"),
+        "wahs-engine-kb:llama-3.1-8b@4k": ("Engine KB (Llama 3.1 8B (4k))", "Q8_0"),
+        "wahs-engine-kb:hermes3-8b@4k": ("Engine KB (Hermes 3 8B (4k))", "Q8_0"),
+        "wahs-engine-kb:medgemma-1.5-4b@4k": ("Engine KB (MedGemma 4B (4k))", "Q8_0"),
+    }
+    for backend_id, (short_title, quant) in expected_models.items():
+        card = _wahs_arm_card(backend_id)
+        assert card["short_title"] == short_title
+        assert card["model"]["quant"] == quant
+
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    (bundle_dir / "Demo_Patient.json").write_text(
+        json.dumps(
+            {
+                "resourceType": "Bundle",
+                "type": "collection",
+                "entry": [{"resource": {"resourceType": "Patient", "id": "pt-1"}}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Engine retry & error branches (preview exception, 503 retry -> 200, transport failure).
+    calls = {"chat": 0}
+
+    class FlakySession:
+        headers: dict = {}
+
+        def post(self, url, **kwargs):
+            if url.endswith("/v1/wahs/context/preview"):
+                raise ConnectionError("preview offline")
+            calls["chat"] += 1
+            if calls["chat"] == 1:
+                class R503:
+                    status_code = 503
+                    text = "busy"
+                return R503()
+
+            class R200:
+                status_code = 200
+                text = ""
+
+                def json(self):
+                    return {
+                        "choices": [{"message": {"content": "Not documented in the chart."}}],
+                        "x_wahs": {"condensation": {"tier": 0, "actual_tokens": 50}, "citation_map": {}},
+                    }
+
+            return R200()
+
+    flaky_client = WahsHubClient(
+        base_url="http://127.0.0.1:8095",
+        session=FlakySession(),
+        bundle_dirs=[bundle_dir],
+        max_retries=1,
+        retry_backoff_s=0.0,
+    )
+    abstain_case = WahsEvalCase(
+        case_id="c_abstain",
+        patient_id="Demo_Patient",
+        use_case="uc3_grounded_abstention",
+        prompt="What is my APOE4 genotype?",
+        must_abstain=True,
+    )
+    env = flaky_client.evaluate_case(
+        abstain_case,
+        budget_tokens=4096,
+        profile_id="wahs-engine-chart:gemma-e4b@4k",
+        seed=42,
+    )
+    assert env["include_kb_findings"] is False
+    assert calls["chat"] == 2
+
+    class DeadSession:
+        headers: dict = {}
+
+        def post(self, url, **kwargs):
+            raise ConnectionError("engine down")
+
+    dead_client = WahsHubClient(
+        base_url="http://127.0.0.1:8095",
+        session=DeadSession(),
+        bundle_dirs=[bundle_dir],
+        max_retries=1,
+        retry_backoff_s=0.0,
+    )
+    with pytest.raises(RuntimeError, match="transport failure"):
+        dead_client.evaluate_case(
+            abstain_case,
+            budget_tokens=4096,
+            profile_id="wahs-engine-kb:gemma-e4b@4k",
+            seed=42,
+        )
+
+    # CLI `wahs run --seeds ... --profile ...`, `--resume`, `wahs score` (fallback manifest), and `wahs report`.
+    cases_path = tmp_path / "cli_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c_abstain",
+                "patient_id": "Demo_Patient",
+                "use_case": "uc3_grounded_abstention",
+                "prompt": "What is my APOE4 genotype?",
+                "must_abstain": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def _fake_client_factory(**kwargs):
+        return WahsHubClient(
+            base_url=kwargs.get("base_url") or "http://127.0.0.1:8095",
+            direct_llm_base_url=kwargs.get("direct_llm_base_url"),
+            session=FlakySession(),
+            bundle_dirs=[bundle_dir],
+            max_retries=2,
+            retry_backoff_s=0.0,
+        )
+
+    monkeypatch.setattr(wahs_cli, "WahsHubClient", _fake_client_factory)
+    out_dir = tmp_path / "cli_out"
+    rc = root_cli.main(
+        [
+            "wahs",
+            "run",
+            "--cases",
+            str(cases_path),
+            "--hub-url",
+            "http://127.0.0.1:8095",
+            "--output-dir",
+            str(out_dir),
+            "--budget",
+            "4096",
+            "--profile",
+            "wahs-engine-kb:gemma-e4b@4k",
+            "--seeds",
+            "42,43",
+            "--evaluation-modality",
+            "live_model_and_team_eval",
+        ]
+    )
+    assert rc == 0
+    run_dirs = [p for p in out_dir.iterdir() if p.is_dir()]
+    assert len(run_dirs) == 1
+    first_run = run_dirs[0]
+
+    # Resume over already-complete run skips live HTTP calls cleanly.
+    out_resume = tmp_path / "cli_resume"
+    rc_res = root_cli.main(
+        [
+            "wahs",
+            "run",
+            "--cases",
+            str(cases_path),
+            "--hub-url",
+            "http://127.0.0.1:8095",
+            "--output-dir",
+            str(out_resume),
+            "--budget",
+            "4096",
+            "--profile",
+            "wahs-engine-kb:gemma-e4b@4k",
+            "--seeds",
+            "42,43",
+            "--resume",
+            str(first_run),
+        ]
+    )
+    assert rc_res == 0
+
+    # Test manifest fallback without expected_cells during offline score_wahs_run.
+    manifest_path = first_run / "run_manifest.json"
+    manifest_obj = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_obj.pop("expected_cells", None)
+    manifest_path.write_text(json.dumps(manifest_obj), encoding="utf-8")
+    rescored = score_wahs_run(first_run)
+    assert rescored["total_cells"] == 2
+    assert root_cli.main(["wahs", "score", str(first_run)]) == 0
+    assert root_cli.main(["wahs", "report", str(first_run)]) == 0
+
+
+
