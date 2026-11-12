@@ -54,7 +54,15 @@ def _assets_dir() -> Path:
     env_dir = os.environ.get("OPENCLINAI_ASSETS_DIR")
     if env_dir:
         return Path(env_dir)
-    return ROOT.parent.parent / "reports" / "assets"
+    candidates = [
+        ROOT.parent.parent / "reports" / "assets",
+        ROOT.parent / "openclinai.org" / "reports" / "assets",
+        ROOT.parent.parent / "openclinai.org" / "reports" / "assets",
+    ]
+    for cand in candidates:
+        if (cand / "dashboard-shell.css").is_file():
+            return cand
+    return candidates[0]
 
 
 def _assets_available() -> bool:
@@ -68,17 +76,27 @@ def _catalyst_runs_dir() -> Path:
     return ROOT / "artifacts" / "catalyst-notebook-validation"
 
 
+def _wahs_run_dirs() -> list[Path]:
+    return [
+        Path(p)
+        for p in glob.glob(str(ROOT / "artifacts" / "wahs*"))
+        if os.path.isdir(p)
+    ]
+
+
 def newest_run() -> str | None:
     if _RUN_OVERRIDE:
         return _RUN_OVERRIDE
+    search_bases = [ROOT / "artifacts" / "validate", _catalyst_runs_dir(), *_wahs_run_dirs()]
     pin = os.environ.get("DASH_RUN")
     if pin:
-        for base in (ROOT / "artifacts" / "validate", _catalyst_runs_dir()):
+        for base in search_bases:
             p = pin if os.path.isabs(pin) or os.path.sep in pin else str(base / pin)
             if os.path.isdir(p):
                 return p
-    dirs = [d for d in glob.glob(str(ROOT / "artifacts" / "validate" / "*")) if os.path.isdir(d)]
-    dirs += [d for d in glob.glob(str(_catalyst_runs_dir() / "*")) if os.path.isdir(d)]
+    dirs: list[str] = []
+    for base in search_bases:
+        dirs.extend(d for d in glob.glob(str(base / "*")) if os.path.isdir(d))
 
     def _activity(d: str) -> float:
         rp = os.path.join(d, "results.jsonl")

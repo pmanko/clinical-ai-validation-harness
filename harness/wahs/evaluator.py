@@ -3747,7 +3747,8 @@ def run_wahs_suite(
         run_event_payload["backend_ids"] = [str(p) for p in profiles if str(p).strip()]
     append_event(events_path, run_event_payload)
     if profiles:
-        for prof_id in [str(p) for p in profiles if str(p).strip()]:
+        active_bids = [str(p) for p in profiles if str(p).strip()]
+        for prof_id in active_bids:
             label = _profile_display_label(prof_id, profiles_catalog)
             append_event(
                 events_path,
@@ -3757,6 +3758,10 @@ def run_wahs_suite(
                     "label": label,
                 },
             )
+        (run_dir / "run_meta.json").write_text(
+            json.dumps({"arm_cards": {bid: _wahs_arm_card(bid) for bid in active_bids}}, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     results_path = run_dir / "results.jsonl"
     scores: list[WahsCaseScore] = []
@@ -4397,6 +4402,7 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
             "(automated clinical conflict rules & graph turned off)"
         )
 
+    model_info["id"] = underlying or base_id
     return {
         "title": title,
         "short_title": short_title,
