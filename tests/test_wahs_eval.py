@@ -2075,7 +2075,7 @@ def test_stage4_cli_seeds_resume_arm_cards_and_error_paths(tmp_path: Path, monke
     for backend_id, (short_title, quant) in expected_models.items():
         card = _wahs_arm_card(backend_id)
         assert card["short_title"] == short_title
-        assert card["model"]["quant"] == quant
+        assert card["models"][0]["quant"] == quant
 
     bundle_dir = tmp_path / "bundles"
     bundle_dir.mkdir()
