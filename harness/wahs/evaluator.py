@@ -42,7 +42,9 @@ _CITATION_RE = re.compile(r"\[(\d+)\]")
 _ABSTENTION_RE = re.compile(
     r"\b("
     r"not documented|no documented|no documentation|not recorded|no record|no records|"
-    r"no information|not listed|cannot find|do not see|does not show|"
+    r"no information|not listed|cannot find|could not find|do not find|did not find|do not see|does not show|"
+    r"do not have (?:the |any )?(?:results?|records?|documentation|information|data|details|reports?)|"
+    r"does not appear to be (?:documented|recorded|present|listed|in)|"
     r"cannot verify|not found in|not present in|does not contain|do not contain|"
     r"does not include|does not list|not mentioned|no mention|not available|"
     r"abstain|abstains|grounded abstention"
@@ -52,14 +54,17 @@ _ABSTENTION_RE = re.compile(
 _ABSTENTION_META_OR_NEG_RE = re.compile(
     r"\b(?:"
     r"not\s+documented|no\s+documented|no\s+documentation|not\s+recorded|no\s+records?|"
-    r"no\s+information|not\s+listed|cannot\s+find|do\s+not\s+see|does\s+not\s+show|"
+    r"no\s+information|not\s+listed|cannot\s+find|could\s+not\s+find|do\s+not\s+find|did\s+not\s+find|"
+    r"do\s+not\s+have\b|does\s+not\s+appear|do\s+not\s+see|does\s+not\s+show|"
     r"cannot\s+verify|not\s+found\s+in|not\s+present\s+in|does\s+not\s+(?:contain|include|list|document|show)|"
     r"do\s+not\s+(?:contain|include|list|document|show)|not\s+mentioned|no\s+mention|not\s+available|unavailable|"
     r"abstain|abstains|grounded\s+abstention|neither|nor|cannot\s+answer|cannot\s+provide|unable\s+to|"
     r"no\s+matching\s+records|unrecorded|undocumented|missing|absent|without|none|no\s+evidence|no\s+results?|"
     r"safety\s+posture|grounding\s+rules|external\s+share|external_share|patient_self|"
     r"42\s+cfr|mhmda|my\s+health\s+my\s+data|redacted|excluded|withheld|hidden|"
-    r"switch\s+(?:back\s+)?to|ask\s+your\s+doctor|doctor|physician|provider|clinic|clinician|care\s+team|specialist|"
+    r"switch\s+(?:back\s+)?to|ask\s+your\s+doctor|doctor|physician|provider|clinic|clinician|care\s+team|"
+    r"oncology\s+team|cardiology\s+team|medical\s+team|specialist|health\s+summary|"
+    r"for\s+example|you\s+(?:could|can|may|might)\s+(?:ask|want\s+to\s+ask)|questions?\s+(?:to\s+ask|for\s+your)|"
     r"only\s+reports\s+facts|chart|bundle|health\s+records?|medical\s+records?|reviewed|however|while|although|if\s+you"
     r")\b",
     re.IGNORECASE,
@@ -956,7 +961,7 @@ def _is_clean_abstention(answer_text: str, envelope: dict[str, Any]) -> bool:
         return False
 
     summary_part = re.split(
-        r"\n+\s*(?:#+\s*)?QUESTIONS[_\s]+FOR[_\s]+(?:YOUR[_\s]+)?(?:DOCTOR|CLINICIAN|PROVIDER)\s*:?",
+        r"\n+\s*(?:#+\s*|\*+\s*)?QUESTIONS[_\s]+(?:TO[_\s]+ASK|FOR)[_\s]+(?:YOUR[_\s]+)?(?:DOCTOR|CLINICIAN|PROVIDER|CARE[_\s]+TEAM|ONCOLOGY[_\s]+TEAM|MEDICAL[_\s]+TEAM)\b[^\n]*",
         answer_text,
         maxsplit=1,
         flags=re.IGNORECASE,
@@ -969,7 +974,12 @@ def _is_clean_abstention(answer_text: str, envelope: dict[str, Any]) -> bool:
 
     raw_sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(summary_part) if s.strip()]
     for sent in raw_sentences:
-        if sent.startswith("#") or sent.endswith(":"):
+        cleaned_hdr = sent.lstrip("*-• ").rstrip("* ").strip()
+        if sent.startswith("#") or cleaned_hdr.endswith(":"):
+            continue
+        if re.match(r"^(?:[-*•]\s*)?\*{2}[^*\n]+\*{2}:?\s*$", sent):
+            continue
+        if re.match(r'^(?:[-*•]\s*)?["“].+\?["”]?\s*$', sent):
             continue
         words = _WORD_RE.findall(sent)
         if len(words) < 3:

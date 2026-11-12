@@ -1412,6 +1412,26 @@ def test_abstention_rejects_contradictory_finding_even_with_bracket_citation():
     assert sc.passed is False
 
 
+def test_abstention_accepts_natural_do_not_have_and_care_team_questions():
+    from harness.wahs.evaluator import _is_clean_abstention
+
+    natural_abstain = (
+        "I do not have the results for your coronary artery calcium CT Agatston score or your "
+        "Factor V Leiden genetic thrombophilia panel documented in the current health summary view.\n\n"
+        "**Coronary Artery Calcium CT Agatston Score:**\n"
+        "This test does not appear to be documented in the records.\n\n"
+        "Questions to ask your care team:\n"
+        '- "Can you confirm if a coronary artery calcium CT scan was performed?"'
+    )
+    assert _is_clean_abstention(natural_abstain, {}) is True
+    # Still rejects unrequested chart condition assertions appended to an abstention
+    unrequested_dump = (
+        "I could not find any results for that test.\n"
+        "You have chronic systolic heart failure [4] and atrial fibrillation [5]."
+    )
+    assert _is_clean_abstention(unrequested_dump, {}) is False
+
+
 def test_build_wahs_report_packet_preserves_caller_context_and_derives_default_from_run(tmp_path: Path):
     from harness.wahs.evaluator import build_wahs_report_packet
 
