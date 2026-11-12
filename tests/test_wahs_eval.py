@@ -2233,6 +2233,8 @@ def test_stage4_cli_seeds_resume_arm_cards_and_error_paths(tmp_path: Path, monke
             "wahs-engine-kb:gemma-e4b@4k",
             "--seeds",
             "42,43",
+            "--evaluation-modality",
+            "live_model_and_team_eval",
             "--resume",
             str(first_run),
         ]
