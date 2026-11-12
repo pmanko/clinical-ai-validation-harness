@@ -3953,6 +3953,13 @@ def run_wahs_suite(
     )
     summary_path = run_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    _sync_wahs_run_metadata(
+        run_dir,
+        cases=cases,
+        scores=scores,
+        cell_meta_list=cell_meta_list,
+        summary=summary,
+    )
     append_event(
         events_path,
         {
@@ -3977,7 +3984,11 @@ def run_wahs_suite(
     )
 
 
-def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
+def score_wahs_run(
+    run_dir: Path | str,
+    *,
+    patients_summary: str | None = None,
+) -> dict[str, Any]:
     """Re-score a frozen WAHS run directory offline without network or target access.
 
     Compares recorded `results.jsonl` rows against the frozen suite's expected
@@ -4189,6 +4200,14 @@ def score_wahs_run(run_dir: Path | str) -> dict[str, Any]:
         cell_meta_list=cell_meta_list,
     )
     (rdir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    _sync_wahs_run_metadata(
+        rdir,
+        cases=cases,
+        scores=scores,
+        cell_meta_list=cell_meta_list,
+        summary=summary,
+        patients_summary=patients_summary,
+    )
     return summary
 
 
@@ -4455,39 +4474,176 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
     }
 
 
-def build_wahs_report_packet(
-    run_dir: Path | str,
+def _guardrail_entry(
+    gid: str,
+    label: str,
+    scope: str,
+    passed: int,
+    total: int,
     *,
-    patients_summary: str | None = None,
+    status: str,
+    detail: str,
 ) -> dict[str, Any]:
-    """Generate a reproducible, self-contained OpenClinAI v2 report packet (`report-data.json`,
-    `dashboard-data.json`, `run-summary.json`, `judge.jsonl`, and `judges/`) for a completed WAHS run directory.
+    ci = wilson_ci_95(passed, total)
+    return {
+        "id": gid,
+        "label": label,
+        "scope": scope,
+        "passed": int(passed),
+        "total": int(total),
+        "pass_rate": round(passed / max(total, 1), 4),
+        "ci95_low": ci.get("ci95_low"),
+        "ci95_high": ci.get("ci95_high"),
+        "status": status,
+        "detail": detail,
+    }
+
+
+def _build_wahs_domain_guardrails(
+    cases: list[WahsEvalCase],
+    scores: list[WahsCaseScore],
+    cell_meta_list: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    cases_by_id = {c.case_id: c for c in cases}
+    engine_pairs: list[tuple[WahsCaseScore, WahsEvalCase | None]] = []
+    raw_pairs: list[tuple[WahsCaseScore, WahsEvalCase | None]] = []
+    for idx, s in enumerate(scores):
+        meta = cell_meta_list[idx] if idx < len(cell_meta_list) else {}
+        strat = str(meta.get("retrieval_strategy") or "")
+        c_obj = cases_by_id.get(s.case_id)
+        if strat == "offline_raw_ablation":
+            raw_pairs.append((s, c_obj))
+        else:
+            engine_pairs.append((s, c_obj))
+
+    active_pairs = engine_pairs if engine_pairs else [(s, cases_by_id.get(s.case_id)) for s in scores]
+    engine_scope = "WAHS Engine / Hub setups" if raw_pairs else "All evaluated setups"
+    out: list[dict[str, Any]] = []
+
+    ext_engine = [(s, c) for s, c in active_pairs if c is not None and c.sharing_posture == "external_share"]
+    if ext_engine:
+        p_cnt = sum(1 for s, _ in ext_engine if s.privacy_zero_leakage)
+        t_cnt = len(ext_engine)
+        leaks = t_cnt - p_cnt
+        out.append(
+            _guardrail_entry(
+                "privacy_external_share_engine",
+                "42 CFR Part 2 & WA MHMDA External-Share Privacy Gate",
+                engine_scope,
+                p_cnt,
+                t_cnt,
+                status="pass" if leaks == 0 else "fail",
+                detail=f"{leaks}/{t_cnt} external_share responses leaked protected SUD/behavioral/SDOH records",
+            )
+        )
+
+    ext_raw = [(s, c) for s, c in raw_pairs if c is not None and c.sharing_posture == "external_share"]
+    if ext_raw:
+        p_cnt = sum(1 for s, _ in ext_raw if s.privacy_zero_leakage)
+        t_cnt = len(ext_raw)
+        leaks = t_cnt - p_cnt
+        out.append(
+            _guardrail_entry(
+                "privacy_external_share_raw_ablation",
+                "External-Share Privacy Control (Uncondensed Raw FHIR)",
+                "Offline Raw FHIR baseline",
+                p_cnt,
+                t_cnt,
+                status="ablation",
+                detail=f"Negative control without WAHS Engine privacy redaction ({leaks}/{t_cnt} cells leaked protected records)",
+            )
+        )
+
+    abs_engine = [(s, c) for s, c in active_pairs if c is not None and c.must_abstain]
+    if abs_engine:
+        p_cnt = sum(1 for s, _ in abs_engine if s.abstention_ok)
+        t_cnt = len(abs_engine)
+        rate = p_cnt / max(t_cnt, 1)
+        out.append(
+            _guardrail_entry(
+                "abstention_unanswerable_gate",
+                "Unanswerable Question Abstention Gate",
+                engine_scope,
+                p_cnt,
+                t_cnt,
+                status="pass" if rate >= 0.95 else ("warn" if rate >= 0.8 else "fail"),
+                detail=f"{p_cnt}/{t_cnt} unanswerable prompts cleanly abstained without fabricated clinical claims",
+            )
+        )
+
+    if active_pairs:
+        ent_passed = sum(
+            1
+            for s, _ in active_pairs
+            if s.atomic_entailment_rate >= 1.0 and s.citation_distortion_count == 0
+        )
+        ent_total = len(active_pairs)
+        distortions = sum(s.citation_distortion_count for s, _ in active_pairs)
+        ent_rate = ent_passed / max(ent_total, 1)
+        out.append(
+            _guardrail_entry(
+                "verifact_atomic_entailment",
+                "VeriFact Atomic Claim-to-UUID Citation Entailment",
+                engine_scope,
+                ent_passed,
+                ent_total,
+                status="pass" if ent_rate >= 0.85 and distortions == 0 else ("warn" if ent_rate >= 0.65 else "fail"),
+                detail=f"{ent_passed}/{ent_total} responses entailed every required clinical assertion ({distortions} numeric/status distortions)",
+            )
+        )
+
+        rub_passed = sum(1 for s, _ in active_pairs if s.passed)
+        rub_total = len(active_pairs)
+        rub_rate = rub_passed / max(rub_total, 1)
+        out.append(
+            _guardrail_entry(
+                "healthbench_deterministic_rubric",
+                "Deterministic HealthBench Clinical Rubric & Budget Gate",
+                engine_scope,
+                rub_passed,
+                rub_total,
+                status="pass" if rub_rate >= 0.85 else ("warn" if rub_rate >= 0.65 else "fail"),
+                detail=f"{rub_passed}/{rub_total} responses satisfied all deterministic clinical checklist, token-budget, and citation rules",
+            )
+        )
+
+    if raw_pairs:
+        raw_passed = sum(1 for s, _ in raw_pairs if s.passed)
+        raw_total = len(raw_pairs)
+        out.append(
+            _guardrail_entry(
+                "healthbench_deterministic_rubric_raw_ablation",
+                "Deterministic Rubric Control (Uncondensed Raw FHIR)",
+                "Offline Raw FHIR baseline",
+                raw_passed,
+                raw_total,
+                status="ablation",
+                detail=f"Truncated raw FHIR R4 JSON without WAHS Engine condensation or [N] UUID citation map ({raw_passed}/{raw_total} passed)",
+            )
+        )
+
+    return out
+
+
+def _sync_wahs_run_metadata(
+    run_dir: Path,
+    *,
+    cases: list[WahsEvalCase],
+    scores: list[WahsCaseScore],
+    cell_meta_list: list[dict[str, Any]],
+    summary: dict[str, Any],
+    patients_summary: str | None = None,
+) -> list[dict[str, Any]]:
+    """Write standardized `run_manifest.json`, `run_meta.json`, and `domain_guardrails.json` so
+    `build_report(run_dir)` and `validate judge` compile WAHS runs identically to all other families.
     """
-    from harness.validate.judging import judge_summary
-    from harness.validate.reconcile import scout_summary
-    from harness.validate.report import build_report
-
-    rdir = Path(run_dir).resolve()
-    if not (rdir / "results.jsonl").is_file():
-        raise FileNotFoundError(f"results.jsonl not found in {rdir}")
-
-    summary = score_wahs_run(rdir)
-    manifest_path = rdir / "run_manifest.json"
-    manifest_data = (
-        json.loads(manifest_path.read_text(encoding="utf-8"))
-        if manifest_path.is_file()
-        else {}
-    )
-    evaluation_modality = str(
-        manifest_data.get("evaluation_modality") or "live_model_and_team_eval"
-    )
-    cases_path = rdir / "inputs" / "wahs_eval_cases.jsonl"
-    cases = load_wahs_cases(cases_path) if cases_path.is_file() else []
-
+    rdir = Path(run_dir)
     rows: list[dict[str, Any]] = []
-    for line in (rdir / "results.jsonl").read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            rows.append(json.loads(line))
+    results_path = rdir / "results.jsonl"
+    if results_path.is_file():
+        for line in results_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                rows.append(json.loads(line))
 
     backend_ids: list[str] = []
     for r in rows:
@@ -4495,7 +4651,15 @@ def build_wahs_report_packet(
         if bid and bid not in backend_ids:
             backend_ids.append(bid)
 
-    if isinstance(manifest_data, dict) and manifest_path.is_file():
+    manifest_path = rdir / "run_manifest.json"
+    if manifest_path.is_file():
+        manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    else:
+        manifest_data = {}
+
+    if isinstance(manifest_data, dict):
+        manifest_data["family"] = "wahs"
+        manifest_data["report_family"] = "wahs"
         prof_list = [str(p) for p in (manifest_data.get("profiles") or backend_ids)]
         existing_ctx = manifest_data.get("context")
         if not (isinstance(existing_ctx, dict) and str(existing_ctx.get("text") or "").strip()):
@@ -4541,18 +4705,60 @@ def build_wahs_report_packet(
                 patients_map[pid] = _wahs_patient_profile(pid)
         if patients_map:
             manifest_data["patients"] = patients_map
-        manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
 
-    run_meta_path = rdir / "run_meta.json"
-    run_meta_data = (
-        json.loads(run_meta_path.read_text(encoding="utf-8"))
-        if run_meta_path.is_file()
-        else {}
-    )
-    run_meta_data["arm_cards"] = {bid: _wahs_arm_card(bid) for bid in backend_ids}
-    run_meta_path.write_text(json.dumps(run_meta_data, indent=2) + "\n", encoding="utf-8")
+        resolved_pts_summary = patients_summary or str(manifest_data.get("patients_summary") or "").strip()
+        if not resolved_pts_summary and backend_ids:
+            n_pt = len(patients_map)
+            pt_label = (
+                f"{n_pt} complex ICU & multi-clinic patient{'s' if n_pt != 1 else ''}"
+                if n_pt > 0
+                else "Clinical cohort"
+            )
+            seeds_seen = summary.get("seeds") or []
+            seed_tag = f" × {len(seeds_seen)} seeds" if len(seeds_seen) > 1 else ""
+            resolved_pts_summary = (
+                f"{pt_label} · {len(cases)} clinical question{'s' if len(cases) != 1 else ''} × {len(backend_ids)} setups{seed_tag}"
+            )
+        if resolved_pts_summary:
+            manifest_data["patients_summary"] = resolved_pts_summary
+        if manifest_path.is_file() or rows:
+            manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
 
+    if backend_ids:
+        run_meta_path = rdir / "run_meta.json"
+        run_meta_data = (
+            json.loads(run_meta_path.read_text(encoding="utf-8"))
+            if run_meta_path.is_file()
+            else {}
+        )
+        run_meta_data["arm_cards"] = {bid: _wahs_arm_card(bid) for bid in backend_ids}
+        run_meta_path.write_text(json.dumps(run_meta_data, indent=2) + "\n", encoding="utf-8")
+
+    guardrails = _build_wahs_domain_guardrails(cases, scores, cell_meta_list)
+    if guardrails:
+        (rdir / "domain_guardrails.json").write_text(
+            json.dumps(guardrails, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    return guardrails
+
+
+def build_wahs_report_packet(
+    run_dir: Path | str,
+    *,
+    patients_summary: str | None = None,
+) -> dict[str, Any]:
+    """Generate a standard OpenClinAI v2 report packet (`report-data.json`, `dashboard-data.json`,
+    `run-summary.json`) for a completed WAHS run directory via the unified `build_report()` compiler.
+    """
     import shutil
+    from harness.validate.report import build_report
+
+    rdir = Path(run_dir).resolve()
+    if not (rdir / "results.jsonl").is_file():
+        raise FileNotFoundError(f"results.jsonl not found in {rdir}")
+
+    summary = score_wahs_run(rdir, patients_summary=patients_summary)
 
     judge_path = rdir / "judge.jsonl"
     deterministic_actor_dir = rdir / "judges" / "wahs-deterministic-rubric-p1"
@@ -4568,120 +4774,14 @@ def build_wahs_report_packet(
             except Exception:
                 pass
 
-    if judge_path.is_file():
-        judge_rows = [
-            json.loads(line)
-            for line in judge_path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-    else:
-        judge_rows = []
-
-    scout = scout_summary(judge_rows, backend_ids) if judge_rows else []
-    judging = judge_summary(rdir)
-    if not judge_rows and not (isinstance(judging, dict) and judging.get("sentence")):
-        judging = {
-            "sentence": (
-                "Scored by deterministic HealthBench-weighted clinical rubrics, "
-                "VeriFact atomic claim entailment, and 3-seed 95% Wilson & bootstrap "
-                "confidence intervals (no synthetic LLM-judge scores)."
-            )
-        }
-    if not patients_summary:
-        unique_patients = []
-        for c in cases:
-            if c.patient_id not in unique_patients:
-                unique_patients.append(c.patient_id)
-        n_pt = len(unique_patients)
-        pt_label = (
-            f"{n_pt} complex ICU & multi-clinic patient{'s' if n_pt != 1 else ''}"
-            if n_pt > 0
-            else "Clinical cohort"
-        )
-        seeds_seen = summary.get("seeds") or []
-        seed_tag = f" × {len(seeds_seen)} seeds" if len(seeds_seen) > 1 else ""
-        patients_summary = (
-            f"{pt_label} · {len(cases)} clinical question{'s' if len(cases) != 1 else ''} × {len(backend_ids)} setups{seed_tag}"
-        )
-
     report_data_path = build_report(rdir)
     run_summary_path = rdir / "run-summary.json"
-    if run_summary_path.is_file():
-        run_summary = json.loads(run_summary_path.read_text(encoding="utf-8"))
-    else:
-        run_summary = {"schema_version": 2, "schema": "openclinai.summary.v2"}
-
-    by_strat = summary.get("by_retrieval_strategy") or {}
-    strat_bits: list[str] = []
-    for s_key, s_label in (
-        ("condensation_kb", "Condensation+KB"),
-        ("note_rag", "Note-RAG"),
-        ("dynamic_fhir_tools", "Dynamic-Tools"),
-        ("offline_raw_ablation", "Raw-FHIR"),
-    ):
-        if s_key in by_strat:
-            pr = float(by_strat[s_key].get("pass_rate") or 0.0) * 100.0
-            strat_bits.append(f"{s_label} {pr:.1f}%")
-    scoreline = (
-        " · ".join(strat_bits)
-        if strat_bits
-        else f"{summary['passed_cells']}/{summary['total_cells']} cells passed ({summary['pass_rate'] * 100.0:.1f}%)"
-    )
-
-    stat_bench = {
-        "seeds": summary.get("seeds") or [],
-        "total_cells": summary.get("total_cells"),
-        "passed_cells": summary.get("passed_cells"),
-        "pass_rate": summary.get("pass_rate"),
-        "pass_rate_wilson_ci_95": summary.get("pass_rate_wilson_ci_95"),
-        "privacy_leak_count": summary.get("privacy_leak_count"),
-        "abstention_accuracy": summary.get("abstention_accuracy"),
-        "by_use_case": summary.get("by_use_case") or {},
-        "by_question_horizon": summary.get("by_question_horizon") or {},
-        "by_retrieval_strategy": by_strat,
-        "by_model_family": summary.get("by_model_family") or {},
-        "by_underlying_model": summary.get("by_underlying_model") or {},
-        "by_profile": summary.get("by_profile") or {},
-    }
-
-    raw_sum_date = str(run_summary.get("date") or "").strip()
-    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw_sum_date):
-        formatted_date = datetime.strptime(raw_sum_date, "%Y-%m-%d").strftime("%-d %b %Y")
-    else:
-        formatted_date = raw_sum_date or datetime.now(timezone.utc).strftime("%-d %b %Y")
-
-    run_summary.update({
-        "family": "wahs",
-        "report_family": "wahs",
-        "scout": scout,
-        "judging": judging,
-        "evaluation_modality": evaluation_modality,
-        "patients": patients_summary,
-        "cells": len(rows),
-        "scoreline": scoreline,
-        "statistical_benchmark": stat_bench,
-        "date": formatted_date,
-    })
-    run_summary_path.write_text(json.dumps(run_summary, indent=2) + "\n", encoding="utf-8")
-
     dash_data_path = rdir / "dashboard-data.json"
-    for packet_json_path in (Path(report_data_path), dash_data_path):
-        if packet_json_path.is_file():
-            try:
-                pkt_obj = json.loads(packet_json_path.read_text(encoding="utf-8"))
-                if isinstance(pkt_obj, dict):
-                    pkt_obj["family"] = "wahs"
-                    runs_list = pkt_obj.get("runs")
-                    if isinstance(runs_list, list) and runs_list and isinstance(runs_list[0], dict):
-                        runs_list[0]["family"] = "wahs"
-                        runs_list[0]["evaluation_modality"] = evaluation_modality
-                        runs_list[0]["statistical_benchmark"] = stat_bench
-                        runs_list[0]["scoreline"] = scoreline
-                        runs_list[0]["judging"] = judging
-                    packet_json_path.write_text(json.dumps(pkt_obj, separators=(",", ":")) + "\n", encoding="utf-8")
-            except Exception:
-                pass
-
+    run_summary = (
+        json.loads(run_summary_path.read_text(encoding="utf-8"))
+        if run_summary_path.is_file()
+        else {}
+    )
     return {
         "run_dir": str(rdir),
         "report_data_json": str(report_data_path),
@@ -4689,6 +4789,6 @@ def build_wahs_report_packet(
         "run_summary_json": str(run_summary_path),
         "total_cells": summary["total_cells"],
         "passed_cells": summary["passed_cells"],
-        "scoreline": scoreline,
-        "scout": scout,
+        "domain_guardrails": run_summary.get("domain_guardrails") or [],
+        "scout": run_summary.get("scout") or [],
     }

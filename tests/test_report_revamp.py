@@ -394,4 +394,43 @@ def test_report_shell_includes_viewport_catalog_meta_and_overflow_guards(tmp_pat
     assert "Key Takeaway" in js
 
 
+def test_build_report_loads_domain_guardrails_and_family_from_manifest(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run_guardrails"
+    _write_stage1_fixture(run_dir)
+    _write_stage2_judge_fixture(run_dir)
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    manifest["family"] = "wahs"
+    manifest["evaluation_modality"] = "live_model_and_team_eval"
+    (run_dir / "run_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (run_dir / "domain_guardrails.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "privacy_external_share_engine",
+                    "label": "42 CFR Part 2 & WA MHMDA External-Share Privacy Gate",
+                    "scope": "WAHS Engine / Hub setups",
+                    "passed": 36,
+                    "total": 36,
+                    "pass_rate": 1.0,
+                    "ci95_low": 0.9036,
+                    "ci95_high": 1.0,
+                    "status": "pass",
+                    "detail": "0/36 external_share responses leaked protected records",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = report.build_report(run_dir)
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["family"] == "wahs"
+    assert payload["runs"][0]["family"] == "wahs"
+    assert payload["runs"][0]["evaluation_modality"] == "live_model_and_team_eval"
+    assert payload["runs"][0]["domain_guardrails"][0]["id"] == "privacy_external_share_engine"
+    summary_payload = json.loads((run_dir / "run-summary.json").read_text(encoding="utf-8"))
+    assert summary_payload["family"] == "wahs"
+    assert summary_payload["domain_guardrails"][0]["passed"] == 36
+    assert len(summary_payload["scout"]) == 2
+
+
 

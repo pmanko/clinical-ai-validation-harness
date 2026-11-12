@@ -386,12 +386,23 @@ def build_run_summary(blob: dict[str, Any], *, family: str | None = None) -> dic
     gen_at = str(meta.get("generated_at") or blob.get("generated_at") or "")
     date_str = gen_at[:10] if len(gen_at) >= 10 else ""
     turns_per_arm = max((a.get("turns") or 0 for a in arms), default=0)
+    total_cells = sum(int(a.get("turns") or 0) for a in arms)
+    patients_out: Any = (
+        str(meta["patients_summary"])
+        if meta.get("patients_summary")
+        else [
+            p.get("display") or p.get("identifier") or p.get("uuid")
+            for p in (run.get("patients") or [])
+            if isinstance(p, dict) and (p.get("display") or p.get("identifier") or p.get("uuid"))
+        ]
+    )
 
     out: dict[str, Any] = {
         "schema": "openclinai.summary.v2",
         "schema_version": 2,
         "run_id": str(run.get("run_id") or meta.get("run_id") or ""),
         "family": resolved_family,
+        "report_family": resolved_family,
         "component": meta.get("component") or "",
         "dataset_id": meta.get("dataset_id") or "",
         "date": date_str,
@@ -400,13 +411,12 @@ def build_run_summary(blob: dict[str, Any], *, family: str | None = None) -> dic
         "reference_date": meta.get("reference_date"),
         "scenarios": len(run.get("scenarios") or []),
         "turns": turns_per_arm,
+        "cells": total_cells,
         "backends": backends,
-        "patients": [
-            p.get("display") or p.get("identifier") or p.get("uuid")
-            for p in (run.get("patients") or [])
-            if isinstance(p, dict) and (p.get("display") or p.get("identifier") or p.get("uuid"))
-        ],
+        "patients": patients_out,
+        "scout": list(run.get("judge") or []),
         "judging": {
+            "recorded": bool(judging.get("recorded") or judge_actors),
             "actor_count": len(judge_actors),
             "judge_count": n_judges,
             "actors": judge_actors,
@@ -417,6 +427,12 @@ def build_run_summary(blob: dict[str, Any], *, family: str | None = None) -> dic
         "arms": arms,
         "winner": winner,
     }
+    if run.get("evaluation_modality"):
+        out["evaluation_modality"] = str(run["evaluation_modality"])
+    if run.get("seeds"):
+        out["seeds"] = list(run["seeds"])
+    if run.get("domain_guardrails"):
+        out["domain_guardrails"] = list(run["domain_guardrails"])
     if run.get("catalyst"):
         out["catalyst"] = {
             k: v

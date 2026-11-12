@@ -145,8 +145,26 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     report_p.add_argument(
         "--patients",
         default=None,
-        help="Optional summary label for the patient cohort in meta.json",
+        help="Optional summary label for the patient cohort in run_manifest.json",
     )
+
+    judge_p = sub.add_parser(
+        "judge",
+        help="Run blind-session or multi-judge evaluation passes over a completed WAHS run and emit its v2 report packet",
+    )
+    judge_p.add_argument("run_dir", help="Completed WAHS run directory")
+    judge_p.add_argument(
+        "--judge",
+        dest="judges",
+        action="append",
+        metavar="AGENT:MODEL:EFFORT[:PASSES]",
+        help="Judge specification (repeatable); default uses --agent with REVIEW_MODEL/REVIEW_REASONING",
+    )
+    judge_p.add_argument("--judge-passes", type=int, default=1, help="Number of passes per judge (default: 1)")
+    judge_p.add_argument("--blind", action="store_true", help="Letter the arms and judge one scenario bundle per session")
+    judge_p.add_argument("--add", action="store_true", help="Add judge passes to existing headline rather than replacing")
+    judge_p.add_argument("--agent", default="claude", choices=("claude", "codex", "gemini", "human"))
+    judge_p.add_argument("--work-dir", help="Working directory for judge prompt/session artifacts")
 
 
 def dispatch(args: argparse.Namespace) -> int:
@@ -154,6 +172,12 @@ def dispatch(args: argparse.Namespace) -> int:
         summary = score_wahs_run(Path(args.run_dir))
         print(json.dumps(summary, indent=2))
         return 0 if (summary["passed_cells"] == summary["total_cells"] and not summary.get("incomplete")) else 1
+
+    if args.wahs_action == "judge":
+        from harness.validate.judge_runner import run_judge_command
+
+        score_wahs_run(Path(args.run_dir))
+        return run_judge_command(args)
 
     if args.wahs_action == "report":
         packet = build_wahs_report_packet(

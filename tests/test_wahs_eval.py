@@ -2040,12 +2040,57 @@ def test_stage4_wahs_engine_and_raw_fhir_multiseed_report_packet(tmp_path: Path)
     assert Path(packet["dashboard_data_json"]).is_file()
     run_sum = json.loads(Path(packet["run_summary_json"]).read_text(encoding="utf-8"))
     assert run_sum["schema"] == "openclinai.summary.v2"
+    assert run_sum["family"] == "wahs"
     assert run_sum["cells"] == 24
+    assert run_sum["scenarios"] == 2
+    assert run_sum["seeds"] == [42, 43, 44]
     assert run_sum["scout"] == []
-    assert "Condensation+KB 100.0%" in run_sum["scoreline"]
-    assert run_sum["statistical_benchmark"]["seeds"] == [42, 43, 44]
+    assert "statistical_benchmark" not in run_sum
+    assert len(run_sum["domain_guardrails"]) >= 3
     rep_data = json.loads(Path(packet["report_data_json"]).read_text(encoding="utf-8"))
-    assert rep_data["runs"][0]["statistical_benchmark"]["seeds"] == [42, 43, 44]
+    assert rep_data["family"] == "wahs"
+    assert "statistical_benchmark" not in rep_data["runs"][0]
+    assert rep_data["runs"][0]["seeds"] == [42, 43, 44]
+    assert [sc["scenario_id"] for sc in rep_data["runs"][0]["scenarios"]] == [
+        "s4_reconcile",
+        "s4_abstain",
+    ]
+    first_cell = rep_data["runs"][0]["scenarios"][0]["turns"][0]["cells"]["wahs-engine-kb:gemma-e4b@4k"]
+    assert [rep["seed"] for rep in first_cell["seed_replicates"]] == [42, 43, 44]
+
+    # Verify multi-seed judge consolidation preserves n=6 per arm across 24 cells while consolidating scenarios to 2
+    judge_rows_seed = []
+    for line in (res.run_dir / "results.jsonl").read_text(encoding="utf-8").splitlines():
+        r = json.loads(line)
+        is_raw = str(r["backend_id"]).startswith("raw-fhir:")
+        judge_rows_seed.append(
+            {
+                "scenario_id": r["scenario_id"],
+                "backend_id": r["backend_id"],
+                "turn": 1,
+                "accuracy": 5.0 if is_raw else 9.0,
+                "completeness": 5.0 if is_raw else 9.0,
+                "relevance": 6.0 if is_raw else 9.5,
+                "harm": bool(is_raw),
+                "abstention_outcome": "n-a",
+                "citation_groundedness": "unsupported" if is_raw else "supported",
+                "note": f"Seed {r['seed']} note.",
+            }
+        )
+    (res.run_dir / "judge.jsonl").write_text(
+        "\n".join(json.dumps(jr) for jr in judge_rows_seed) + "\n", encoding="utf-8"
+    )
+    actor_dir = res.run_dir / "judges" / "claude-opus-5-5-high-p1"
+    actor_dir.mkdir(parents=True, exist_ok=True)
+    (actor_dir / "judge.jsonl").write_text(
+        "\n".join(json.dumps(jr) for jr in judge_rows_seed) + "\n", encoding="utf-8"
+    )
+    judged_packet = build_wahs_report_packet(res.run_dir)
+    assert len(judged_packet["scout"]) == 4
+    assert all(arm["n"] == 6 for arm in judged_packet["scout"])
+    judged_rep = json.loads(Path(judged_packet["report_data_json"]).read_text(encoding="utf-8"))
+    assert len(judged_rep["runs"][0]["judge_rows"]) == 8  # 2 canonical scenarios * 4 arms
+    assert "s4_reconcile|wahs-engine-kb:gemma-e4b@4k" in judged_rep["runs"][0]["judge_actor_cells"]
 
 
 def test_stage4_cli_seeds_resume_arm_cards_and_error_paths(tmp_path: Path, monkeypatch) -> None:
@@ -2250,6 +2295,14 @@ def test_stage4_cli_seeds_resume_arm_cards_and_error_paths(tmp_path: Path, monke
     assert rescored["total_cells"] == 2
     assert root_cli.main(["wahs", "score", str(first_run)]) == 0
     assert root_cli.main(["wahs", "report", str(first_run)]) == 0
+
+    called_judge: list[str] = []
+    monkeypatch.setattr(
+        "harness.validate.judge_runner.run_judge_command",
+        lambda a: (called_judge.append(str(a.run_dir)) or 0),
+    )
+    assert root_cli.main(["wahs", "judge", str(first_run), "--blind"]) == 0
+    assert called_judge == [str(first_run)]
 
 
 
