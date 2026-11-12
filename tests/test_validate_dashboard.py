@@ -805,24 +805,18 @@ def test_validate_dashboard_http_routes_with_and_without_viewer_assets(
         srv.server_close()
 
 
-def test_single_path_active_run_pointer_and_ensure_live_dashboard(
+def test_wahs_run_discovery_and_ensure_live_dashboard(
     tmp_path: Path, monkeypatch
 ) -> None:
     import os
     import signal
+    import socket
 
-    from harness.validate.live_dashboard import (
-        ensure_live_dashboard,
-        read_registered_active_run,
-        register_active_run,
-    )
+    from harness.validate.live_dashboard import ensure_live_dashboard
 
-    ptr_file = tmp_path / "active.run"
-    monkeypatch.setenv("OPENCLINAI_ACTIVE_RUN_FILE", str(ptr_file))
-
-    external_wahs_run = tmp_path / "worktree_wahs" / "run-123"
-    external_wahs_run.mkdir(parents=True)
-    (external_wahs_run / "results.jsonl").write_text(
+    wahs_run = tmp_path / "artifacts" / "wahs_stage4" / "run-123"
+    wahs_run.mkdir(parents=True)
+    (wahs_run / "results.jsonl").write_text(
         json.dumps(
             {
                 "scenario_id": "s_wahs",
@@ -836,17 +830,12 @@ def test_single_path_active_run_pointer_and_ensure_live_dashboard(
         + "\n",
         encoding="utf-8",
     )
-    register_active_run(external_wahs_run)
-    assert read_registered_active_run() == str(external_wahs_run.resolve())
 
     vd = _load_dashboard_module()
     vd._RUN_OVERRIDE = None
-    vd.ROOT = tmp_path / "empty_checkout"
-    vd.ROOT.mkdir()
-    assert vd.newest_run() == str(external_wahs_run.resolve())
-
-    # Verify ensure_live_dashboard spawns and verifies an HTTP listener on an ephemeral free port
-    import socket
+    monkeypatch.delenv("DASH_RUN", raising=False)
+    monkeypatch.setattr(vd, "ROOT", tmp_path)
+    assert vd.newest_run() == str(wahs_run)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))

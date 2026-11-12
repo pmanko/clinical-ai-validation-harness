@@ -1,4 +1,4 @@
-"""Single-path live dashboard (:8099) lifecycle & cross-worktree active-run registration."""
+"""Ensure the local :8099 live validation dashboard is serving when a run starts."""
 
 from __future__ import annotations
 
@@ -6,56 +6,12 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.request
 
 
 def _truthy_env(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def dashboard_port(port: int | None = None) -> int:
-    if port is not None:
-        return int(port)
-    return int(os.environ.get("DASH_PORT", "8099"))
-
-
-def active_run_pointer_path(port: int | None = None) -> Path:
-    override = os.environ.get("OPENCLINAI_ACTIVE_RUN_FILE", "").strip()
-    if override:
-        return Path(override)
-    eff_port = dashboard_port(port)
-    return Path(tempfile.gettempdir()) / f"openclinai-validate-dashboard-{eff_port}.active-run"
-
-
-def register_active_run(run_dir: Path | str, *, port: int | None = None) -> None:
-    """Record the active run directory so the :8099 monitor tracks it across worktrees/output-dirs."""
-    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("OPENCLINAI_ACTIVE_RUN_FILE"):
-        return
-    try:
-        resolved = str(Path(run_dir).resolve())
-        ptr = active_run_pointer_path(port)
-        ptr.parent.mkdir(parents=True, exist_ok=True)
-        tmp = ptr.with_suffix(".tmp")
-        tmp.write_text(resolved + "\n", encoding="utf-8")
-        tmp.replace(ptr)
-    except OSError:
-        pass
-
-
-def read_registered_active_run(port: int | None = None) -> str | None:
-    """Return the registered active run directory if it exists on disk."""
-    try:
-        ptr = active_run_pointer_path(port)
-        if not ptr.is_file():
-            return None
-        val = ptr.read_text(encoding="utf-8").strip()
-        if val and os.path.isdir(val):
-            return val
-    except OSError:
-        return None
-    return None
 
 
 def _status_alive(port: int, timeout: float = 1.5) -> bool:
@@ -71,7 +27,7 @@ def ensure_live_dashboard(
     *,
     port: int | None = None,
 ) -> str | None:
-    """Ensure the live :8099 validation dashboard is running before any `harness-cli * run`."""
+    """Start `scripts/validate-dashboard.py` in the background if `:8099` is not already serving."""
     if not _truthy_env("HARNESS_FORCE_DASHBOARD"):
         if (
             _truthy_env("HARNESS_NO_DASHBOARD")
@@ -80,7 +36,7 @@ def ensure_live_dashboard(
         ):
             return None
 
-    eff_port = dashboard_port(port)
+    eff_port = int(port if port is not None else os.environ.get("DASH_PORT", "8099"))
     url = f"http://localhost:{eff_port}"
     if _status_alive(eff_port):
         print(f"    live dashboard: {url}", file=sys.stderr)

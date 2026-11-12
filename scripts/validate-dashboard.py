@@ -24,7 +24,6 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from harness.validate.live_dashboard import read_registered_active_run  # noqa: E402
 from harness.validate.dashboard_data import (  # noqa: E402
     CLASSIFIER_SOURCE,
     arm_models,
@@ -98,9 +97,6 @@ def newest_run() -> str | None:
     dirs: list[str] = []
     for base in search_bases:
         dirs.extend(d for d in glob.glob(str(base / "*")) if os.path.isdir(d))
-    reg = read_registered_active_run(PORT)
-    if reg and reg not in dirs:
-        dirs.append(reg)
 
     def _activity(d: str) -> float:
         rp = os.path.join(d, "results.jsonl")
