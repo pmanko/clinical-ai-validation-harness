@@ -2,6 +2,8 @@ from pathlib import Path
 import json
 import subprocess
 
+import pytest
+
 from evals.validate._test_shell import dashboard_shell_js
 
 
