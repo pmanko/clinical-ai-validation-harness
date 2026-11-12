@@ -282,11 +282,19 @@ def main(
         return _not_yet_implemented(f"manifest {args.manifest_action}")
 
     if args.command == "catalyst":
+        if getattr(args, "catalyst_action", None) == "run":
+            from .validate.live_dashboard import ensure_live_dashboard
+
+            ensure_live_dashboard(project_root=root)
         from .catalyst.cli import dispatch as dispatch_catalyst
 
         return dispatch_catalyst(args, project_root=root)
 
     if args.command == "wahs":
+        if getattr(args, "wahs_action", None) == "run":
+            from .validate.live_dashboard import ensure_live_dashboard
+
+            ensure_live_dashboard(project_root=root)
         from .wahs.cli import dispatch as dispatch_wahs
 
         return dispatch_wahs(args)
@@ -312,6 +320,9 @@ def main(
                 )
                 return 0
         if args.validate_action == "run":
+            from .validate.live_dashboard import ensure_live_dashboard
+
+            ensure_live_dashboard(project_root=root)
             from .validate.client import (
                 ChartSearchAiClient,
                 MedAgentHubClient,

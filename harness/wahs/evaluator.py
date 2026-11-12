@@ -3746,6 +3746,9 @@ def run_wahs_suite(
         run_event_payload["scenario_ids"] = scen_ids
         run_event_payload["backend_ids"] = [str(p) for p in profiles if str(p).strip()]
     append_event(events_path, run_event_payload)
+    from harness.validate.live_dashboard import register_active_run
+
+    register_active_run(run_dir)
     if profiles:
         active_bids = [str(p) for p in profiles if str(p).strip()]
         for prof_id in active_bids:

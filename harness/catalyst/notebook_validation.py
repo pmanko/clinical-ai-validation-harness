@@ -2873,6 +2873,9 @@ def run_notebook_suite(
         resume_ancestry=list((resume_header or {}).get("ancestry") or []),
     )
     recorder.json("run_manifest.json", manifest.to_dict(), kind="run_manifest")
+    from harness.validate.live_dashboard import register_active_run
+
+    register_active_run(run_dir)
     recorder.json(
         "suite.json",
         json.loads(suite_path.read_text(encoding="utf-8")),

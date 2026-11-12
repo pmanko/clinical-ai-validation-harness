@@ -803,3 +803,70 @@ def test_validate_dashboard_http_routes_with_and_without_viewer_assets(
         vd._RUN_OVERRIDE = None
         srv.shutdown()
         srv.server_close()
+
+
+def test_single_path_active_run_pointer_and_ensure_live_dashboard(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import os
+    import signal
+
+    from harness.validate.live_dashboard import (
+        ensure_live_dashboard,
+        read_registered_active_run,
+        register_active_run,
+    )
+
+    ptr_file = tmp_path / "active.run"
+    monkeypatch.setenv("OPENCLINAI_ACTIVE_RUN_FILE", str(ptr_file))
+
+    external_wahs_run = tmp_path / "worktree_wahs" / "run-123"
+    external_wahs_run.mkdir(parents=True)
+    (external_wahs_run / "results.jsonl").write_text(
+        json.dumps(
+            {
+                "scenario_id": "s_wahs",
+                "backend_id": "wahs-engine-kb:gemma-e4b@4k",
+                "turn": 1,
+                "request": {"question": "q"},
+                "response": {"answer": "ok", "references": []},
+                "metrics": {"http_status": 200, "latency_ms": 12},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    register_active_run(external_wahs_run)
+    assert read_registered_active_run() == str(external_wahs_run.resolve())
+
+    vd = _load_dashboard_module()
+    vd._RUN_OVERRIDE = None
+    vd.ROOT = tmp_path / "empty_checkout"
+    vd.ROOT.mkdir()
+    assert vd.newest_run() == str(external_wahs_run.resolve())
+
+    # Verify ensure_live_dashboard spawns and verifies an HTTP listener on an ephemeral free port
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        free_port = s.getsockname()[1]
+
+    monkeypatch.setenv("HARNESS_FORCE_DASHBOARD", "1")
+    monkeypatch.setenv("DASH_PORT", str(free_port))
+    fake_root = tmp_path / "proj"
+    (fake_root / "scripts").mkdir(parents=True)
+    (fake_root / "scripts" / "validate-dashboard.py").symlink_to(
+        ROOT / "scripts" / "validate-dashboard.py"
+    )
+    try:
+        url = ensure_live_dashboard(project_root=fake_root, port=free_port)
+        assert url == f"http://localhost:{free_port}"
+    finally:
+        pid_file = fake_root / "artifacts" / "validate-dashboard" / "dashboard.pid"
+        if pid_file.is_file():
+            try:
+                os.kill(int(pid_file.read_text().strip()), signal.SIGTERM)
+            except OSError:
+                pass
+

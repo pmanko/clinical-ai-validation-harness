@@ -275,6 +275,9 @@ def run_comparison(
     manifest_path = run_dir / "run_manifest.json"
     events_path = run_dir / "events.jsonl"
     write_manifest(manifest_path, manifest)
+    from .live_dashboard import register_active_run
+
+    register_active_run(run_dir)
     freeze_inputs(data_root, run_dir, comparison_set_id)
     write_run_meta(
         run_dir,
