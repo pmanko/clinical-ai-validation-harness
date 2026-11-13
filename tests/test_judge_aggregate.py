@@ -75,7 +75,7 @@ def test_the_script_writes_the_canonical_rows_the_rule_and_the_spread(tmp_path):
     assert canonical[0]["accuracy"] == 8 and canonical[0]["note"] == "p2"
     rule = json.loads((run / "judges" / "canonical.json").read_text())
     assert rule["built_from"] == ["p1", "p2", "p3"]
-    assert rule["aggregation"] == "median-consensus"
+    assert rule["aggregation"] == "median-majority"
     combined = json.loads((run / "judges" / "combined.json").read_text())
     assert combined["actors"] == ["p1", "p2", "p3"]
     assert combined["cells"][0]["actor_range"] > 0

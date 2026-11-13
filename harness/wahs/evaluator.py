@@ -2131,9 +2131,14 @@ class WahsHubClient:
                         references.append(ref_entry)
 
                 actual_tokens = int(cond_meta.get("actual_tokens") or 0)
-                eff_chart_budget = cond_meta.get("effective_chart_budget")
+                eff_chart_budget = (
+                    cond_meta.get("effective_chart_budget")
+                    if cond_meta.get("effective_chart_budget") is not None
+                    else cond_meta.get("budget_effective")
+                )
                 is_ceiling_clamped = bool(
                     cond_meta.get("clamped_to_chart_budget_ceiling")
+                    or cond_meta.get("clamp_reason") == "chart_budget_ceiling"
                     or x_wahs.get("clamped_to_chart_budget_ceiling")
                     or (
                         isinstance(eff_chart_budget, (int, float))

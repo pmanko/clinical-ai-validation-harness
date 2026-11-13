@@ -124,8 +124,8 @@ def test_lossless_snapshot_hardware_warmup_ceiling_and_categories(tmp_path: Path
                     },
                     "condensation": {
                         "actual_tokens": 12000,
-                        "effective_chart_budget": 16384,
-                        "clamped_to_chart_budget_ceiling": True,
+                        "budget_effective": 16384,
+                        "clamp_reason": "chart_budget_ceiling",
                     },
                     "timings": {"total_latency_ms": 420.0},
                 },
@@ -141,15 +141,14 @@ def test_lossless_snapshot_hardware_warmup_ceiling_and_categories(tmp_path: Path
             client=client,
             output_dir=out_dir,
             evaluation_modality="live_model_and_team_eval",
-            profiles=["wahs-engine-12b-chart@32k", "wahs-engine-26b-chart@16k"],
-            run_id="run-meta-test",
+            profiles=["wahs-engine-chart:gemma4:12b@32k", "wahs-engine-chart:gemma4:26b@16k"],
         )
 
     assert len(warmups) == 2
     assert any("clamped to chart_budget_ceiling" in str(w.message) for w in caught)
 
     # Check lossless chart snapshot was NOT overwritten by shorter condensed preview
-    chart_q07 = json.loads((run_res.run_dir / "inputs" / "charts" / "wahs_sheet_q07__marcus_vance__b32768.json").read_text())
+    chart_q07 = json.loads((run_res.run_dir / "inputs" / "charts" / "wahs_sheet_q07__marcus_vance.json").read_text())
     assert chart_q07["lossless_stage_a"] is True
     assert "98/60" in chart_q07["chart_snapshot"]
     assert "33333333-3333-3333-3333-333333333333" in chart_q07["valid_uuids"]
@@ -157,17 +156,17 @@ def test_lossless_snapshot_hardware_warmup_ceiling_and_categories(tmp_path: Path
     # Attempting to overwrite with a truncated response must preserve lossless_stage_a snapshot
     slim_response_envelope(
         run_res.run_dir,
-        "wahs_sheet_q07__marcus_vance__b32768",
+        "wahs_sheet_q07__marcus_vance",
         "Marcus_Vance",
         {"condensed_text": "Tiny 1k chart", "mappings": [{"index": 1, "resourceUuid": "11111111-1111-1111-1111-111111111111"}]},
     )
-    after = json.loads((run_res.run_dir / "inputs" / "charts" / "wahs_sheet_q07__marcus_vance__b32768.json").read_text())
+    after = json.loads((run_res.run_dir / "inputs" / "charts" / "wahs_sheet_q07__marcus_vance.json").read_text())
     assert after["lossless_stage_a"] is True
     assert "98/60" in after["chart_snapshot"]
 
     # Scenario category populated
-    scen_q07 = json.loads((run_res.run_dir / "inputs" / "scenarios" / "wahs_sheet_q07__marcus_vance__b32768.json").read_text())
-    scen_p01 = json.loads((run_res.run_dir / "inputs" / "scenarios" / "wahs_sheet_p01__marcus_vance__b32768.json").read_text())
+    scen_q07 = json.loads((run_res.run_dir / "inputs" / "scenarios" / "wahs_sheet_q07__marcus_vance.json").read_text())
+    scen_p01 = json.loads((run_res.run_dir / "inputs" / "scenarios" / "wahs_sheet_p01__marcus_vance.json").read_text())
     assert scen_q07["category"] == "Conditions, Labs & Vitals"
     assert scen_p01["category"] == "Third-Party & Bystander Privacy"
 
@@ -176,7 +175,7 @@ def test_lossless_snapshot_hardware_warmup_ceiling_and_categories(tmp_path: Path
     assert run_meta["hardware"]["gpu"] == "NVIDIA H200"
     assert run_meta["hardware"]["vram_gb"] == 141
 
-    _write_judge_prep_artifacts(run_res.run_dir, load_wahs_cases(cases_path), ["wahs-engine-12b-chart@32k"], client, {})
+    _write_judge_prep_artifacts(run_res.run_dir, load_wahs_cases(cases_path), ["wahs-engine-chart:gemma4:12b@32k", "wahs-engine-chart:gemma4:26b@16k"], client, {})
     run_meta_after = json.loads((run_res.run_dir / "run_meta.json").read_text())
     assert run_meta_after["hardware"]["gpu"] == "NVIDIA H200"
 

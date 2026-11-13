@@ -94,7 +94,7 @@ def test_an_aggregated_headline_says_how_many_passes_and_the_rule(tmp_path):
 
     assert summary["aggregation"] == "median-majority"
     assert summary["sentence"].startswith("Judged in 3 passes by gpt-6-astra, reasoning high, Codex CLI, pass 1 of 3; ")
-    assert summary["sentence"].endswith("a harm tie counting as harmful.")
+    assert summary["sentence"].endswith("with strict majority required for confirmed harm (1-vs-1 splits flagged as disputed).")
 
 
 def test_unrelated_actor_cards_never_claim_an_unrecorded_canonical_judgment(tmp_path):

@@ -444,7 +444,7 @@ def main(argv: list[str] | None = None) -> None:
         "schema_version": "judge_canonical.v2",
         "built_from": list(args.actor),
         **({"tiebreak_actor": args.tiebreak_actor} if args.tiebreak_actor else {}),
-        "aggregation": "median-consensus",
+        "aggregation": "median-majority",
         "rules": {
             "numeric": "median",
             "categorical": "strict majority, optional tiebreak actor, else floor(median severity) / cleanest tied outcome",
