@@ -100,6 +100,7 @@ def ensure_scenario_chart_input(
     patient_id: str | None = None,
     response: dict[str, Any] | None = None,
     extra_valid_uuids: list[str] | tuple[str, ...] = (),
+    lossless_stage_a: bool = False,
 ) -> Path | None:
     """Eagerly write or enrich ``inputs/charts/<scenario_id>.json`` during execution."""
     if not scenario_id:
@@ -108,6 +109,7 @@ def ensure_scenario_chart_input(
     env = response if isinstance(response, dict) else {}
     mappings = list(env.get("mappings") or [])
     condensed_text = str(env.get("condensed_text") or "").strip()
+    is_lossless = bool(lossless_stage_a or env.get("lossless_stage_a"))
     valid_list = _collect_valid_uuids(
         mappings,
         extra_valid_uuids=extra_valid_uuids,
@@ -133,18 +135,24 @@ def ensure_scenario_chart_input(
         old_maps = existing.get("mappings") or []
         old_snap = str(existing.get("chart_snapshot") or "").strip()
         old_valid = set(existing.get("valid_uuids") or [])
+        old_lossless = bool(existing.get("lossless_stage_a"))
         new_valid = old_valid | set(valid_list)
-        # Keep the richer chart representation across arms; avoid pointless rewrites when unchanged.
-        keep_old = len(old_snap) >= len(condensed_text) and len(old_maps) >= len(mappings)
+        # Never downgrade a lossless Stage-A snapshot with a budget-condensed response.
+        if old_lossless and not is_lossless:
+            keep_old = bool(old_snap or old_maps)
+        else:
+            keep_old = len(old_snap) >= len(condensed_text) and len(old_maps) >= len(mappings)
         merged_maps = old_maps if keep_old else mappings
         merged_snap = old_snap if keep_old else condensed_text
-        if keep_old and new_valid == old_valid:
+        merged_lossless = old_lossless or is_lossless
+        if keep_old and new_valid == old_valid and old_lossless == merged_lossless:
             return chart_path
         valid_list = sorted(new_valid)
         mappings = list(merged_maps)
         condensed_text = merged_snap
+        is_lossless = merged_lossless
 
-    chart_obj = {
+    chart_obj: dict[str, Any] = {
         "patient": {
             "uuid": scenario_id,
             "name": str(patient_id or scenario_id),
@@ -156,6 +164,8 @@ def ensure_scenario_chart_input(
         "mappings": mappings,
         "chart_snapshot": condensed_text,
     }
+    if is_lossless:
+        chart_obj["lossless_stage_a"] = True
     _atomic_write_json(chart_path, chart_obj, indent=2)
     return chart_path
 

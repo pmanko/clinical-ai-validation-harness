@@ -27,7 +27,9 @@ import math
 import os
 import random
 import re
+import threading
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1596,6 +1598,7 @@ class WahsHubClient:
         self._profiles_cache: dict[str, dict[str, Any]] | None = None
         self._bundle_cache: dict[str, dict[str, Any] | None] = {}
         self._demo_data_cache: dict[str, Any] | None = None
+        self._warned_ceiling_clamps: set[tuple[str, int]] = set()
         self.bundle_dirs: list[Path] = list(bundle_dirs or [])
         env_bdir = os.environ.get("WAHS_BUNDLE_DIR", "").strip()
         if env_bdir:
@@ -2128,6 +2131,29 @@ class WahsHubClient:
                         references.append(ref_entry)
 
                 actual_tokens = int(cond_meta.get("actual_tokens") or 0)
+                eff_chart_budget = cond_meta.get("effective_chart_budget")
+                is_ceiling_clamped = bool(
+                    cond_meta.get("clamped_to_chart_budget_ceiling")
+                    or x_wahs.get("clamped_to_chart_budget_ceiling")
+                    or (
+                        isinstance(eff_chart_budget, (int, float))
+                        and not isinstance(eff_chart_budget, bool)
+                        and int(eff_chart_budget) > 0
+                        and int(budget_tokens) > int(eff_chart_budget) + 2048
+                        and int(budget_tokens) >= 24576
+                    )
+                )
+                if is_ceiling_clamped:
+                    warn_key = (str(profile_id), int(budget_tokens))
+                    if warn_key not in self._warned_ceiling_clamps:
+                        self._warned_ceiling_clamps.add(warn_key)
+                        warnings.warn(
+                            f"WAHS profile {profile_id!r} requested budget_tokens={budget_tokens} "
+                            f"but was clamped to chart_budget_ceiling (effective_chart_budget={eff_chart_budget}); "
+                            "set WAHS_CHART_BUDGET_CEILING=none and WAHS_CONTEXT_WINDOW=65536 for unclamped 32k evals.",
+                            RuntimeWarning,
+                            stacklevel=2,
+                        )
                 privacy_notices = x_wahs.get("privacy_notices") or []
                 redaction_notice = (
                     " ".join(str(p) for p in privacy_notices if p)
@@ -2176,6 +2202,8 @@ class WahsHubClient:
                     },
                     "usage": chat_json.get("usage") or {},
                     "x_wahs": x_wahs,
+                    "clamped_to_chart_budget_ceiling": is_ceiling_clamped,
+                    "effective_chart_budget": eff_chart_budget,
                     "retrieval_strategy": retrieval_strategy,
                     "evaluation_modality": "live_model_and_team_eval",
                     "seed": seed,
@@ -2679,6 +2707,28 @@ class WahsHubClient:
 
         assert last_err is not None
         raise last_err
+
+    def warmup_model(self, model_id: str) -> bool:
+        """Issue a tiny unrecorded 4-token completion to warm GPU weights on model switch."""
+        if not model_id:
+            return False
+        post_fn = getattr(self._session, "post", None)
+        if not callable(post_fn):
+            return False
+        try:
+            resp = post_fn(
+                f"{self.base_url}/v1/chat/completions",
+                json={
+                    "model": model_id,
+                    "messages": [{"role": "user", "content": "ok"}],
+                    "max_tokens": 4,
+                    "stream": False,
+                },
+                timeout=min(self.timeout, 120.0),
+            )
+            return getattr(resp, "status_code", 0) == 200
+        except Exception:
+            return False
 
     def evaluate_case(
         self,
@@ -3426,15 +3476,16 @@ def _write_judge_prep_artifacts(
             "budget_tokens": eff_b,
         }
 
-    run_meta = {
-        "reference_date": "2026-11-11",
-        "backends": backends_meta,
-        "arm_cards": arm_cards_meta,
-    }
-    (run_dir / "run_meta.json").write_text(
-        json.dumps(run_meta, indent=2) + "\n", encoding="utf-8"
+    _write_run_meta_preserving_hardware(
+        run_dir,
+        {
+            "reference_date": "2026-11-11",
+            "backends": backends_meta,
+            "arm_cards": arm_cards_meta,
+        },
+        client=client,
     )
-    _write_scenario_and_chart_inputs(run_dir, cases, observed_envelopes)
+    _write_scenario_and_chart_inputs(run_dir, cases, observed_envelopes, client=client)
 
 
 def _merge_scenario_envelopes(
@@ -3500,6 +3551,210 @@ def _merge_scenario_envelopes(
     return merged
 
 
+_WAHS_CATEGORY_BY_ID = {
+    "q01": "Medication Reconciliation & Conflicts",
+    "q02": "Medication Reconciliation & Conflicts",
+    "q03": "Medication Reconciliation & Conflicts",
+    "q04": "Conditions, Labs & Vitals",
+    "q05": "Conditions, Labs & Vitals",
+    "q06": "Conditions, Labs & Vitals",
+    "q07": "Conditions, Labs & Vitals",
+    "q08": "Conditions, Labs & Vitals",
+    "q09": "Conditions, Labs & Vitals",
+    "q10": "Conditions, Labs & Vitals",
+    "q14": "Conditions, Labs & Vitals",
+    "q11": "Immunizations, Allergies & Devices",
+    "q12": "Immunizations, Allergies & Devices",
+    "q13": "Immunizations, Allergies & Devices",
+    "q15": "Immunizations, Allergies & Devices",
+    "p01": "Third-Party & Bystander Privacy",
+    "p02": "Third-Party & Bystander Privacy",
+    "p05": "Third-Party & Bystander Privacy",
+    "p08": "Third-Party & Bystander Privacy",
+    "p10": "Third-Party & Bystander Privacy",
+    "p03": "Access Control, Sensitivity & Injection",
+    "p04": "Access Control, Sensitivity & Injection",
+    "p06": "Access Control, Sensitivity & Injection",
+    "p07": "Access Control, Sensitivity & Injection",
+    "p09": "Access Control, Sensitivity & Injection",
+}
+_WAHS_CASE_Q_RE = re.compile(r"^(?:wahs_sheet_)?([qp]\d{2})(?:__|$)", re.IGNORECASE)
+
+
+def _scenario_category_for_case(case: WahsEvalCase) -> str:
+    m = _WAHS_CASE_Q_RE.match(str(case.case_id or ""))
+    if m:
+        mapped = _WAHS_CATEGORY_BY_ID.get(m.group(1).lower())
+        if mapped:
+            return mapped
+    raw_cat = str(case.patient_category or case.use_case or "").strip()
+    return raw_cat or "Clinical Q&A"
+
+
+def _probe_live_hardware(client: Any) -> dict[str, Any] | None:
+    """Best-effort probe of upstream Ollama/serving hardware when using a real HTTP session."""
+    if client is None:
+        return None
+    sess = getattr(client, "_session", None)
+    if type(sess) is not requests.Session:
+        return None
+    base = str(getattr(client, "direct_llm_base_url", None) or getattr(client, "base_url", "") or "").rstrip("/")
+    if not base:
+        return None
+    hw: dict[str, Any] = {}
+    if base:
+        hw["inference_endpoint"] = base
+    try:
+        resp = sess.get(f"{base}/api/ps", timeout=0.5)
+        if getattr(resp, "status_code", 0) == 200:
+            models = (resp.json() or {}).get("models") or []
+            if models and isinstance(models[0], dict):
+                det = models[0].get("details") or {}
+                if det.get("quantization_level"):
+                    hw["quantization"] = str(det["quantization_level"])
+                if models[0].get("context_length"):
+                    hw["context_window"] = int(models[0]["context_length"])
+                hw["serving_engine"] = "Ollama"
+    except Exception:
+        pass
+    return hw or None
+
+
+def _write_run_meta_preserving_hardware(
+    run_dir: Path,
+    updates: dict[str, Any],
+    *,
+    client: Any = None,
+) -> dict[str, Any]:
+    """Update `run_meta.json` without discarding existing or env-resolved `hardware` metadata."""
+    from harness.validate.runner import resolve_hardware_metadata
+
+    run_meta_path = run_dir / "run_meta.json"
+    existing: dict[str, Any] = {}
+    if run_meta_path.is_file():
+        try:
+            loaded = json.loads(run_meta_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                existing = loaded
+        except Exception:
+            existing = {}
+
+    merged = {**existing, **updates}
+    hw_merged: dict[str, Any] = {}
+    if isinstance(existing.get("hardware"), dict):
+        hw_merged.update(existing["hardware"])
+    env_hw = resolve_hardware_metadata()
+    if env_hw:
+        for k, v in env_hw.items():
+            hw_merged.setdefault(k, v)
+    probed = _probe_live_hardware(client)
+    if probed and not hw_merged:
+        hw_merged.update(probed)
+    if hw_merged:
+        merged["hardware"] = hw_merged
+    run_meta_path.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
+    return merged
+
+
+def _serialize_bundle_lossless(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Pure-stdlib lossless Stage-A fallback serialization for raw FHIR R4 bundles."""
+    lines: list[str] = []
+    mappings: list[dict[str, Any]] = []
+    uuids: set[str] = set()
+    idx = 1
+    for entry in bundle.get("entry") or []:
+        if not isinstance(entry, dict):
+            continue
+        res = entry.get("resource") if isinstance(entry.get("resource"), dict) else None
+        if not res:
+            continue
+        rtype = str(res.get("resourceType") or "Resource")
+        rid = str(res.get("id") or entry.get("fullUrl") or "").replace("urn:uuid:", "")
+        if rid:
+            uuids.add(rid)
+        date = str(
+            res.get("effectiveDateTime")
+            or res.get("recordedDate")
+            or res.get("onsetDateTime")
+            or res.get("authoredOn")
+            or res.get("occurrenceDateTime")
+            or res.get("date")
+            or (res.get("period") or {}).get("start")
+            or (res.get("meta") or {}).get("lastUpdated")
+            or ""
+        )[:10]
+        code_obj = res.get("code") or res.get("medicationCodeableConcept") or res.get("vaccineCode") or {}
+        label = str(
+            code_obj.get("text")
+            or ((code_obj.get("coding") or [{}])[0].get("display") if isinstance(code_obj.get("coding"), list) else "")
+            or res.get("description")
+            or res.get("status")
+            or rtype
+        )
+        parts = [label]
+        if res.get("status"):
+            parts.append(f"status={res['status']}")
+        val_q = res.get("valueQuantity")
+        if isinstance(val_q, dict) and val_q.get("value") is not None:
+            parts.append(f"value={val_q['value']} {val_q.get('unit') or ''}".strip())
+        elif res.get("valueString"):
+            parts.append(str(res["valueString"]))
+        disp = " | ".join(p for p in parts if p)
+        lines.append(f"[{idx}] {date} {rtype}: {disp}".strip())
+        mappings.append(
+            {
+                "index": idx,
+                "resourceType": rtype,
+                "resourceUuid": rid,
+                "date": date,
+                "display": disp,
+            }
+        )
+        idx += 1
+    return {
+        "condensed_text": "\n".join(lines),
+        "mappings": mappings,
+        "valid_uuids": sorted(uuids),
+        "lossless_stage_a": True,
+    }
+
+
+def _lossless_stage_a_chart_envelope(
+    bundle: dict[str, Any],
+) -> dict[str, Any]:
+    """Produce a Stage-A lossless chart snapshot (0 omitted clinical items) for blind judges."""
+    try:
+        from wahs_core.condenser import condense_bundle_to_budget
+
+        res = condense_bundle_to_budget(
+            bundle,
+            target_tokens=262144,
+            question="",
+            sharing_posture="patient_self",
+        )
+        omitted = getattr(res, "omitted_sections", None) or {}
+        if getattr(res, "condensed_text", "") and not any(int(v or 0) > 0 for v in omitted.values()):
+            raw_maps = []
+            for m in getattr(res, "mappings", []) or []:
+                if isinstance(m, dict):
+                    raw_maps.append(dict(m))
+                elif hasattr(m, "__dict__"):
+                    raw_maps.append({k: v for k, v in vars(m).items() if not k.startswith("_")})
+            return {
+                "condensed_text": str(res.condensed_text),
+                "mappings": raw_maps,
+                "valid_uuids": sorted(
+                    str(u).replace("urn:uuid:", "")
+                    for u in (getattr(res, "valid_uuids", []) or [])
+                    if u
+                ),
+                "lossless_stage_a": True,
+            }
+    except Exception:
+        pass
+    return _serialize_bundle_lossless(bundle)
+
+
 def _write_scenario_input_file(
     scenarios_dir: Path,
     case: WahsEvalCase,
@@ -3554,6 +3809,7 @@ def _write_scenario_input_file(
         **existing_scen,
         "id": scenario_id,
         "title": str(existing_scen.get("title") or default_title),
+        "category": str(existing_scen.get("category") or _scenario_category_for_case(case)),
         "patient_ref": scenario_id,
         "should_abstain": case.must_abstain,
         "what_it_tests": what_it_tests_str,
@@ -3571,26 +3827,45 @@ def _write_scenario_and_chart_inputs(
     run_dir: Path,
     cases: list[WahsEvalCase],
     observed_envelopes: dict[str, dict[str, Any]],
+    *,
+    client: Any = None,
+    scenario_ids: list[str] | None = None,
 ) -> None:
     from harness.validate.context_store import ensure_scenario_chart_input
 
     scenarios_dir = run_dir / "inputs" / "scenarios"
     scenarios_dir.mkdir(parents=True, exist_ok=True)
     cases_by_id = {c.case_id: c for c in cases}
-    for scenario_id, env in observed_envelopes.items():
+    lossless_by_patient: dict[str, dict[str, Any] | None] = {}
+
+    def _lossless_for_case(c: WahsEvalCase) -> dict[str, Any] | None:
+        if c.patient_id in lossless_by_patient:
+            return lossless_by_patient[c.patient_id]
+        resolver = getattr(client, "_resolve_local_bundle", None)
+        bundle = resolver(c.patient_id) if callable(resolver) else None
+        env_out = _lossless_stage_a_chart_envelope(bundle) if isinstance(bundle, dict) else None
+        lossless_by_patient[c.patient_id] = env_out
+        return env_out
+
+    all_sids: list[str] = list(dict.fromkeys([*(scenario_ids or ()), *observed_envelopes.keys()]))
+    for scenario_id in all_sids:
         no_seed_part, _, _ = scenario_id.partition("__s")
         base_cid = no_seed_part.split("__b", 1)[0]
         case = cases_by_id.get(base_cid)
         if case is None:
             continue
         _write_scenario_input_file(scenarios_dir, case, scenario_id)
-        ensure_scenario_chart_input(
-            run_dir,
-            scenario_id,
-            patient_id=case.patient_id,
-            response=env,
-            extra_valid_uuids=[*case.valid_uuids, *case.expected_target_uuids],
-        )
+        lossless_env = _lossless_for_case(case)
+        target_env = lossless_env or observed_envelopes.get(scenario_id)
+        if target_env is not None:
+            ensure_scenario_chart_input(
+                run_dir,
+                scenario_id,
+                patient_id=case.patient_id,
+                response=target_env,
+                extra_valid_uuids=[*case.valid_uuids, *case.expected_target_uuids],
+                lossless_stage_a=bool(lossless_env is not None),
+            )
 
 
 def run_wahs_suite(
@@ -3885,6 +4160,13 @@ def run_wahs_suite(
         scenarios_dir = inputs_dir / "scenarios"
         for sid, case_obj in scen_case_by_sid.items():
             _write_scenario_input_file(scenarios_dir, case_obj, sid)
+        _write_scenario_and_chart_inputs(
+            run_dir,
+            cases,
+            {},
+            client=client,
+            scenario_ids=list(scen_case_by_sid.keys()),
+        )
         active_bids = [str(p) for p in profiles if str(p).strip()]
         for prof_id in active_bids:
             label = _profile_display_label(prof_id, profiles_catalog)
@@ -3896,9 +4178,10 @@ def run_wahs_suite(
                     "label": label,
                 },
             )
-        (run_dir / "run_meta.json").write_text(
-            json.dumps({"arm_cards": {bid: _wahs_arm_card(bid) for bid in active_bids}}, indent=2) + "\n",
-            encoding="utf-8",
+        _write_run_meta_preserving_hardware(
+            run_dir,
+            {"arm_cards": {bid: _wahs_arm_card(bid) for bid in active_bids}},
+            client=client,
         )
 
     results_path = run_dir / "results.jsonl"
@@ -4013,8 +4296,34 @@ def run_wahs_suite(
             cell_meta_list.append({"seed": seed_val, "must_abstain": case.must_abstain})
         return row
 
+    warmup_lock = threading.Lock()
+    last_warmed_model: list[str | None] = [None]
+
+    def _maybe_warmup_model(prof_id: str | None, b_tokens: int) -> None:
+        if prof_id is None or os.environ.get("WAHS_WARMUP_ON_MODEL_SWITCH", "1") == "0":
+            return
+        warmup_fn = getattr(client, "warmup_model", None)
+        if not callable(warmup_fn):
+            return
+        is_live_requests = type(getattr(client, "_session", None)) is requests.Session
+        is_custom_override = hasattr(type(client), "warmup_model") and type(client).warmup_model is not WahsHubClient.warmup_model
+        if not (is_live_requests or is_custom_override or os.environ.get("WAHS_WARMUP_ON_MODEL_SWITCH") == "force"):
+            return
+        _, api_pid, _, _ = _split_profile_budget(prof_id, b_tokens)
+        p_meta = profiles_catalog.get(api_pid) or profiles_catalog.get(prof_id) or {}
+        _, underlying_m, _ = _infer_model_family_and_id(prof_id, p_meta)
+        model_arg = str(p_meta.get("model") or p_meta.get("upstream_model") or underlying_m or "").strip()
+        if not model_arg:
+            return
+        with warmup_lock:
+            if last_warmed_model[0] == model_arg:
+                return
+            warmup_fn(model_arg)
+            last_warmed_model[0] = model_arg
+
     def _exec_cell(item: CellPlanItem) -> dict[str, Any]:
         case, b_tokens, c_arm, c_mode, prof_id, seed_val, scenario_id = item.payload
+        _maybe_warmup_model(prof_id, b_tokens)
         started_iso = datetime.now(timezone.utc).isoformat()
         full_envelope = _invoke_client_evaluate_case(
             client,
@@ -4987,14 +5296,10 @@ def _sync_wahs_run_metadata(
             manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
 
     if backend_ids:
-        run_meta_path = rdir / "run_meta.json"
-        run_meta_data = (
-            json.loads(run_meta_path.read_text(encoding="utf-8"))
-            if run_meta_path.is_file()
-            else {}
+        _write_run_meta_preserving_hardware(
+            rdir,
+            {"arm_cards": {bid: _wahs_arm_card(bid) for bid in backend_ids}},
         )
-        run_meta_data["arm_cards"] = {bid: _wahs_arm_card(bid) for bid in backend_ids}
-        run_meta_path.write_text(json.dumps(run_meta_data, indent=2) + "\n", encoding="utf-8")
 
     guardrails = _build_wahs_domain_guardrails(cases, scores, cell_meta_list)
     if guardrails:
