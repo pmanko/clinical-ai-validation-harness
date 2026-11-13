@@ -186,23 +186,6 @@ def catalyst_expectation(run: Path | str, scenario_id: str) -> dict[str, Any] | 
     }
 
 
-SHARD_CELL_THRESHOLD = 500
-
-
-def _resolved_shard_threshold(shard_threshold: int | None) -> int:
-    if shard_threshold is not None:
-        return max(1, int(shard_threshold))
-    raw = os.environ.get("OPENCLINAI_DASHBOARD_SHARD_THRESHOLD", "").strip()
-    if raw:
-        try:
-            val = int(raw)
-            if val > 0:
-                return val
-        except ValueError:
-            pass
-    return SHARD_CELL_THRESHOLD
-
-
 def _shard_rel_path(idx: int, backend_id: str) -> str:
     safe = re.sub(r"[^a-zA-Z0-9._-]+", "-", str(backend_id or "arm")).strip("-")[:48] or "arm"
     digest = hashlib.sha1(str(backend_id).encode("utf-8")).hexdigest()[:8]
@@ -886,32 +869,29 @@ def build_dashboard_data(run_dir: Path | str) -> dict[str, Any]:
 def write_dashboard_data(
     run_dir: Path | str,
     payload: dict[str, Any] | None = None,
-    *,
-    shard_threshold: int | None = None,
 ) -> Path:
-    """Write `dashboard-data.json` (and sharded `dashboard-details/` packets when large) into `run_dir`."""
+    """Write `dashboard-data.json` and per-arm `dashboard-details/` shards into `run_dir`."""
     run_path = Path(run_dir)
     data = payload if payload is not None else build_dashboard_data(run_path)
-    threshold = _resolved_shard_threshold(shard_threshold)
     details = data.get("details") or {}
     shards_dir = run_path / "dashboard-details"
 
-    if len(details) >= threshold:
-        by_backend: dict[str, dict[str, Any]] = {}
-        for cell_key, cell_obj in details.items():
-            _, _, backend_id = cell_key.partition("|")
-            by_backend.setdefault(backend_id, {})[cell_key] = cell_obj
+    by_backend: dict[str, dict[str, Any]] = {}
+    for cell_key, cell_obj in details.items():
+        _, _, backend_id = cell_key.partition("|")
+        by_backend.setdefault(backend_id, {})[cell_key] = cell_obj
 
-        ordered_backends = list((data.get("status") or {}).get("backends") or [])
-        for b in sorted(by_backend):
-            if b not in ordered_backends:
-                ordered_backends.append(b)
+    ordered_backends = list((data.get("status") or {}).get("backends") or [])
+    for b in sorted(by_backend):
+        if b not in ordered_backends:
+            ordered_backends.append(b)
 
-        if shards_dir.exists():
-            shutil.rmtree(shards_dir)
+    if shards_dir.exists():
+        shutil.rmtree(shards_dir)
+
+    detail_shards: dict[str, str] = {}
+    if by_backend:
         shards_dir.mkdir(parents=True, exist_ok=True)
-
-        detail_shards: dict[str, str] = {}
         for idx, backend_id in enumerate(ordered_backends):
             shard_cells = by_backend.get(backend_id)
             if not shard_cells:
@@ -923,16 +903,11 @@ def write_dashboard_data(
             )
             detail_shards[backend_id] = rel_path
 
-        out_data = {
-            **data,
-            "details": {},
-            "detail_shards": detail_shards,
-        }
-    else:
-        if shards_dir.exists():
-            shutil.rmtree(shards_dir)
-        out_data = dict(data)
-        out_data.pop("detail_shards", None)
+    out_data = {
+        **data,
+        "details": {},
+        "detail_shards": detail_shards,
+    }
 
     out = run_path / "dashboard-data.json"
     out.write_text(json.dumps(out_data, ensure_ascii=False), encoding="utf-8")

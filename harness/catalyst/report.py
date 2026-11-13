@@ -1101,9 +1101,9 @@ def _write_catalyst_dashboard_data(run_dir: Path, packet: dict[str, Any]) -> Pat
         "refs_pool": [],
         "details": details,
     }
-    out = run_dir / "dashboard-data.json"
-    out.write_text(json.dumps(dash, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    return out
+    from harness.validate.dashboard_data import write_dashboard_data
+
+    return write_dashboard_data(run_dir, payload=dash)
 
 
 def build_report(

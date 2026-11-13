@@ -372,7 +372,7 @@ def test_run_index_incremental_delta_partial_line_and_detail(tmp_path: Path) -> 
     assert detail["turns"][0]["sources"]["sources"][0]["record_index"] == 1
 
 
-def test_write_dashboard_data_sharding_threshold_and_inline_roundtrip(tmp_path: Path) -> None:
+def test_write_dashboard_data_always_shards_even_for_single_cell(tmp_path: Path) -> None:
     run_dir = tmp_path / "shard_run"
     run_dir.mkdir()
     (run_dir / "events.jsonl").write_text(
@@ -380,50 +380,49 @@ def test_write_dashboard_data_sharding_threshold_and_inline_roundtrip(tmp_path: 
             {
                 "event_type": "run",
                 "run_id": "shard_run",
-                "backend_ids": ["arm-a", "arm-b"],
-                "scenario_ids": ["s1", "s2"],
-                "cells": [
-                    {"scenario_id": s, "backend_id": b, "turns": 1}
-                    for b in ("arm-a", "arm-b")
-                    for s in ("s1", "s2")
-                ],
+                "backend_ids": ["arm-a"],
+                "scenario_ids": ["s1"],
+                "cells": [{"scenario_id": "s1", "backend_id": "arm-a", "turns": 1}],
             }
         )
         + "\n",
         encoding="utf-8",
     )
     slim = slim_response_envelope(run_dir, "s1", "p", _heavy_envelope("ok [1]."))
-    with (run_dir / "results.jsonl").open("w", encoding="utf-8") as fh:
-        for b in ("arm-a", "arm-b"):
-            for s in ("s1", "s2"):
-                fh.write(
-                    json.dumps(
-                        {
-                            "run_id": "shard_run",
-                            "scenario_id": s,
-                            "backend_id": b,
-                            "turn": 1,
-                            "request": {"patient": "p", "question": "Q?"},
-                            "response": slim,
-                            "metrics": {"http_status": 200, "latency_ms": 50, "answer_chars": 8, "citation_count": 1},
-                        }
-                    )
-                    + "\n"
-                )
+    (run_dir / "results.jsonl").write_text(
+        json.dumps(
+            {
+                "run_id": "shard_run",
+                "scenario_id": "s1",
+                "backend_id": "arm-a",
+                "turn": 1,
+                "request": {"patient": "p", "question": "Q?"},
+                "response": slim,
+                "metrics": {"http_status": 200, "latency_ms": 50, "answer_chars": 8, "citation_count": 1},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
-    out_sharded = write_dashboard_data(run_dir, shard_threshold=3)
+    out_sharded = write_dashboard_data(run_dir)
     sharded_payload = json.loads(out_sharded.read_text(encoding="utf-8"))
     assert sharded_payload["details"] == {}
-    assert set(sharded_payload["detail_shards"].keys()) == {"arm-a", "arm-b"}
-    for b, rel in sharded_payload["detail_shards"].items():
-        shard_obj = json.loads((run_dir / rel).read_text(encoding="utf-8"))
-        assert set(shard_obj.keys()) == {f"s1|{b}", f"s2|{b}"}
+    assert set(sharded_payload["detail_shards"].keys()) == {"arm-a"}
+    shard_obj = json.loads((run_dir / sharded_payload["detail_shards"]["arm-a"]).read_text(encoding="utf-8"))
+    assert set(shard_obj.keys()) == {"s1|arm-a"}
 
-    # Below threshold removes dashboard-details/ and restores inline details.
-    out_inline = write_dashboard_data(run_dir, shard_threshold=100)
-    inline_payload = json.loads(out_inline.read_text(encoding="utf-8"))
-    assert "detail_shards" not in inline_payload
-    assert len(inline_payload["details"]) == 4
+    # Empty details clears stale dashboard-details/ and emits empty detail_shards map.
+    empty_payload = {
+        "schema": "openclinai.dashboard.v2",
+        "schema_version": 2,
+        "status": {"backends": ["arm-a"]},
+        "details": {},
+    }
+    out_empty = write_dashboard_data(run_dir, payload=empty_payload)
+    empty_written = json.loads(out_empty.read_text(encoding="utf-8"))
+    assert empty_written["details"] == {}
+    assert empty_written["detail_shards"] == {}
     assert not (run_dir / "dashboard-details").exists()
 
 
@@ -582,8 +581,27 @@ def test_context_store_edge_guards_and_dashboard_discovery_branches(
     run_dir = tmp_path / "ctx_edge"
     assert slim_response_envelope(run_dir, "s1", None, None) is None
     assert rehydrate_response_envelope(run_dir, None) is None
-    missing = {"answer": "x", "context_ref": "nonexistent_sha"}
-    assert rehydrate_response_envelope(run_dir, missing)["context_ref"] == "nonexistent_sha"
+    missing = {"answer": "x", "context_ref": "deadbeef01234567"}
+    assert rehydrate_response_envelope(run_dir, missing)["context_ref"] == "deadbeef01234567"
+
+    with pytest.raises(ValueError, match="context_ref"):
+        rehydrate_response_envelope(run_dir, {"answer": "x", "context_ref": "../../etc/passwd"})
+    with pytest.raises(ValueError, match="context_ref"):
+        slim_response_envelope(run_dir, "s1", None, {"answer": "x", "context_ref": "../escape"})
+    with pytest.raises(ValueError, match="scenario_id"):
+        slim_response_envelope(run_dir, "../escape", "p", _heavy_envelope("ok [1]."))
+    with pytest.raises(ValueError, match="scenario_id"):
+        slim_response_envelope(run_dir, "..", "p", {"answer": "x", "context_ref": "deadbeef01234567"})
+
+    # Symlink escape inside inputs/contexts must be rejected by resolve().is_relative_to().
+    outside_secret = tmp_path / "outside_secret.json"
+    outside_secret.write_text('{"condensed_text": "secret"}', encoding="utf-8")
+    contexts_dir = run_dir / "inputs" / "contexts"
+    contexts_dir.mkdir(parents=True, exist_ok=True)
+    symlink_ctx = contexts_dir / "0123456789abcdef.json"
+    symlink_ctx.symlink_to(outside_secret)
+    with pytest.raises(ValueError, match="escapes"):
+        rehydrate_response_envelope(run_dir, {"answer": "x", "context_ref": "0123456789abcdef"})
 
     vd = _load_validate_dashboard()
     runs_root = tmp_path / "dash_runs"

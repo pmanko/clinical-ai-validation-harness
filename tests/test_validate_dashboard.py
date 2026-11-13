@@ -376,7 +376,10 @@ def test_the_frozen_snapshot_can_open_every_cell_it_lets_you_click(
         vd._RUN_OVERRIDE = None
 
     payload = json.loads(out.read_text(encoding="utf-8"))
-    embedded = payload["details"]
+    assert payload["details"] == {}
+    embedded: dict[str, Any] = {}
+    for rel in payload["detail_shards"].values():
+        embedded.update(json.loads((run / rel).read_text(encoding="utf-8")))
     clickable = {
         f"{g['scenario']}|{g['backend']}"
         for g in status["grid"]

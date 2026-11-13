@@ -16,12 +16,36 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
 CONTEXT_SCHEMA = "openclinai.context.v1"
+_CONTEXT_REF_RE = re.compile(r"^[0-9a-f]{16}$")
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _validated_safe_id(value: str, label: str = "scenario_id") -> str:
+    if value in {".", ".."} or not _SAFE_ID_RE.fullmatch(value):
+        raise ValueError(f"invalid {label}: {value!r}")
+    return value
+
+
+def _validated_context_ref(ctx_id: Any) -> str:
+    ctx_key = str(ctx_id)
+    if not _CONTEXT_REF_RE.fullmatch(ctx_key):
+        raise ValueError(f"invalid context_ref: {ctx_key!r}")
+    return ctx_key
+
+
+def _safe_child_json(base_dir: Path, stem: str, *, label: str) -> Path:
+    resolved_base = base_dir.resolve()
+    resolved_target = (resolved_base / f"{stem}.json").resolve()
+    if not resolved_target.is_relative_to(resolved_base):
+        raise ValueError(f"{label} escapes {base_dir}: {stem!r}")
+    return resolved_target
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any], *, indent: int | None = None) -> None:
@@ -80,6 +104,7 @@ def ensure_scenario_chart_input(
     """Eagerly write or enrich ``inputs/charts/<scenario_id>.json`` during execution."""
     if not scenario_id:
         return None
+    safe_sid = _validated_safe_id(scenario_id, "scenario_id")
     env = response if isinstance(response, dict) else {}
     mappings = list(env.get("mappings") or [])
     condensed_text = str(env.get("condensed_text") or "").strip()
@@ -93,7 +118,7 @@ def ensure_scenario_chart_input(
         return None
 
     charts_dir = Path(run_dir) / "inputs" / "charts"
-    chart_path = charts_dir / f"{scenario_id}.json"
+    chart_path = _safe_child_json(charts_dir, safe_sid, label="scenario_id")
 
     existing: dict[str, Any] = {}
     if chart_path.is_file():
@@ -150,13 +175,18 @@ def slim_response_envelope(
     """
     if not isinstance(response, dict):
         return response
+    if scenario_id:
+        _validated_safe_id(scenario_id, "scenario_id")
+    existing_ref = response.get("context_ref")
+    if existing_ref is not None and existing_ref != "":
+        _validated_context_ref(existing_ref)
 
     x_wahs = response.get("x_wahs")
     has_x_cit = isinstance(x_wahs, dict) and "citation_map" in x_wahs
     heavy_keys = ("mappings", "condensed_text", "valid_uuids", "retained_uuids")
     has_heavy = any(k in response and response.get(k) not in (None, "", []) for k in heavy_keys)
 
-    if response.get("context_ref") and not has_heavy and not has_x_cit:
+    if existing_ref and not has_heavy and not has_x_cit:
         return dict(response)
     if not has_heavy and not has_x_cit:
         if scenario_id and extra_valid_uuids:
@@ -182,9 +212,9 @@ def slim_response_envelope(
     digest_bytes = json.dumps(
         ctx_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
-    ctx_id = hashlib.sha256(digest_bytes).hexdigest()[:16]
+    ctx_id = _validated_context_ref(hashlib.sha256(digest_bytes).hexdigest()[:16])
 
-    ctx_path = Path(run_dir) / "inputs" / "contexts" / f"{ctx_id}.json"
+    ctx_path = _safe_child_json(Path(run_dir) / "inputs" / "contexts", ctx_id, label="context_ref")
     if not ctx_path.is_file():
         _atomic_write_json(ctx_path, ctx_payload)
 
@@ -220,10 +250,10 @@ def rehydrate_response_envelope(
     ctx_id = response.get("context_ref")
     if not ctx_id:
         return response
-    ctx_key = str(ctx_id)
+    ctx_key = _validated_context_ref(ctx_id)
     ctx_data = cache.get(ctx_key) if cache is not None else None
     if ctx_data is None:
-        ctx_path = Path(run_dir) / "inputs" / "contexts" / f"{ctx_key}.json"
+        ctx_path = _safe_child_json(Path(run_dir) / "inputs" / "contexts", ctx_key, label="context_ref")
         if not ctx_path.is_file():
             return response
         try:
