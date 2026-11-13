@@ -728,6 +728,23 @@ def _evaluate_expected_anomalies(
     return []
 
 
+def _case_has_deterministic_rubric(case: WahsEvalCase) -> bool:
+    """Return True iff the case defines non-zero deterministic rubric or expectation checks."""
+    has_weighted_pos = any(
+        float(it.get("weight", 1.0)) > 0
+        and bool(it.get("required_any") or it.get("required_all") or it.get("required_keywords"))
+        for it in case.positive_rubric_items
+    )
+    return bool(
+        has_weighted_pos
+        or case.expected_facts
+        or case.rubric_criteria
+        or case.negative_penalty_items
+        or case.expected_target_uuids
+        or case.expected_anomaly_ids
+    )
+
+
 def _evaluate_weighted_rubric(
     case: WahsEvalCase,
     answer_text: str,
@@ -789,8 +806,11 @@ def _evaluate_weighted_rubric(
             if item.get("strict", True) and not item.get("optional", False):
                 rubric_failures.append(f"missing required rubric criterion: {crit}")
 
+    has_unweighted_only = bool(effective_positive) and total_weight <= 0
     if total_weight > 0:
         base_score = earned_weight / total_weight
+    elif has_unweighted_only:
+        base_score = 0.0
     else:
         base_score = 1.0 if (ans_low.strip() or case.must_abstain) else 0.0
 
@@ -2193,34 +2213,65 @@ class WahsHubClient:
             raise RuntimeError(
                 f"Local FHIR bundle not found for patient_id={case.patient_id!r} in {self.bundle_dirs}"
             )
-        max_chars = max(1024, int(budget_tokens * 3.6))
+        max_chars = max(256, int(budget_tokens * 3.6))
+        wrapper_overhead = 128
+        entry_budget = max(128, max_chars - wrapper_overhead)
         entries = list(local_bundle.get("entry") or [])
         kept_entries: list[dict[str, Any]] = []
-        used_chars = 60
+        used_chars = wrapper_overhead
         retained_uuids: list[str] = []
         for entry in entries:
             res = entry.get("resource") if isinstance(entry, dict) else None
             if not isinstance(res, dict):
                 continue
             serialized = json.dumps(res, separators=(",", ":"))
-            if used_chars + len(serialized) > max_chars and kept_entries:
+            if used_chars + len(serialized) + 2 > max_chars:
+                if kept_entries:
+                    break
+                # Entry 0 exceeds the entire token budget: truncate deterministically to fit max_chars.
+                slice_cap = max(48, entry_budget - 110)
+                kept_entries.append(
+                    {
+                        "resource": {
+                            "resourceType": str(res.get("resourceType") or "Resource"),
+                            "id": str(res.get("id") or ""),
+                            "_truncated_raw_json": serialized[:slice_cap],
+                        }
+                    }
+                )
+                rid = str(res.get("id") or "").strip()
+                if rid:
+                    retained_uuids.append(rid)
                 break
             kept_entries.append({"resource": res})
             used_chars += len(serialized) + 2
             rid = str(res.get("id") or "").strip()
             if rid:
                 retained_uuids.append(rid)
-        raw_fhir_slice = json.dumps(
-            {
-                "resourceType": "Bundle",
-                "type": "collection",
-                "total_entries_in_bundle": len(entries),
-                "included_entries": len(kept_entries),
-                "entry": kept_entries,
-            },
-            separators=(",", ":"),
-        )
-        approx_tokens = min(int(budget_tokens), max(1, len(raw_fhir_slice) // 4))
+        def _bundle_json(entries_slice: list[dict[str, Any]]) -> str:
+            return json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "type": "collection",
+                    "total_entries_in_bundle": len(entries),
+                    "included_entries": len(entries_slice),
+                    "entry": entries_slice,
+                },
+                separators=(",", ":"),
+            )
+
+        raw_fhir_slice = _bundle_json(kept_entries)
+        if kept_entries and "_truncated_raw_json" in kept_entries[0].get("resource", {}):
+            # Re-shrink slice_cap if JSON-escaping quotes inflated raw_fhir_slice beyond max_chars.
+            while len(raw_fhir_slice) > max_chars:
+                cur = kept_entries[0]["resource"]["_truncated_raw_json"]
+                if not cur:
+                    break
+                excess = len(raw_fhir_slice) - max_chars
+                new_cap = max(0, len(cur) - max(excess, 16))
+                kept_entries[0]["resource"]["_truncated_raw_json"] = cur[:new_cap]
+                raw_fhir_slice = _bundle_json(kept_entries)
+        approx_tokens = max(1, (len(raw_fhir_slice) + 3) // 4)
         user_prompt = (
             f"Raw FHIR R4 Bundle Slice (uncondensed, truncated to <= {budget_tokens} tokens; "
             f"{len(kept_entries)}/{len(entries)} entries fit):\n"
@@ -2369,6 +2420,11 @@ class WahsHubClient:
                 api_profile_id.endswith("-raw") or api_profile_id.startswith("wahs-raw:")
             )
 
+        eff_temp = (
+            float(temperature)
+            if temperature is not None
+            else (0.2 if seed is not None else 0.0)
+        )
         if is_direct_llm:
             _, underlying_model, _ = _infer_model_family_and_id(profile_id, profile_meta)
             target_model = os.environ.get("DIRECT_LLM_MODEL", "").strip() or underlying_model
@@ -2382,8 +2438,10 @@ class WahsHubClient:
                 "model": target_model,
                 "messages": [{"role": "user", "content": user_prompt}],
                 "stream": False,
-                "temperature": 0.0,
+                "temperature": eff_temp,
             }
+            if seed is not None:
+                chat_req["seed"] = int(seed)
         else:
             user_prompt = _build_profile_prompt(
                 case,
@@ -2397,6 +2455,10 @@ class WahsHubClient:
                 "messages": [{"role": "user", "content": user_prompt}],
                 "stream": False,
             }
+            if temperature is not None:
+                chat_req["temperature"] = float(temperature)
+            if seed is not None:
+                chat_req["seed"] = int(seed)
         env_max_tok = os.environ.get("WAHS_EVAL_MAX_TOKENS", "").strip()
         if env_max_tok.isdigit() and int(env_max_tok) > 0:
             chat_req["max_tokens"] = int(env_max_tok)
@@ -2648,6 +2710,8 @@ class WahsHubClient:
         }
         if seed is not None:
             req_body["seed"] = int(seed)
+        if temperature is not None:
+            req_body["temperature"] = float(temperature)
         if context_arm is not None:
             req_body["context_arm"] = context_arm
         if evaluation_modality is not None:
@@ -3650,6 +3714,7 @@ def run_wahs_suite(
                                 )
                             )
 
+    norm_temp = float(temperature) if temperature is not None else None
     prior_rows: dict[tuple[str, int, str | None, str | None, str | None, int | None], dict[str, Any]] = {}
     resumed_run_id: str | None = None
     resume_ancestry: list[str] = []
@@ -3676,6 +3741,13 @@ def run_wahs_suite(
             raise ValueError(
                 f"Cannot resume from {r_dir}: expected_cells mismatch "
                 f"(prior has {len(prior_expected_cells)} cells, current has {len(expected_cells)} cells)"
+            )
+        prior_temp_raw = r_manifest.get("temperature")
+        prior_temp = float(prior_temp_raw) if prior_temp_raw is not None else None
+        if prior_temp != norm_temp:
+            raise ValueError(
+                f"Cannot resume from {r_dir}: temperature mismatch "
+                f"(prior={prior_temp!r}, current={norm_temp!r})"
             )
         resumed_run_id = str(r_manifest.get("run_id") or r_dir.name)
         resume_ancestry = list(r_manifest.get("resumeAncestry") or [])
@@ -3731,6 +3803,7 @@ def run_wahs_suite(
     events_path = run_dir / "events.jsonl"
     manifest_payload = manifest.to_dict()
     manifest_payload["expected_cells"] = expected_cells
+    manifest_payload["temperature"] = norm_temp
     if budgets is not None:
         manifest_payload["budgets"] = [int(b) for b in budgets]
     if context_arms is not None:
@@ -3765,6 +3838,8 @@ def run_wahs_suite(
         "reference_date": "2026-11-11",
         "comparison_set": cases_file.stem,
     }
+    if norm_temp is not None:
+        run_event_payload["temperature"] = norm_temp
     if seeds is not None:
         run_event_payload["seeds"] = [int(s) for s in seeds]
     if profiles:
@@ -3853,6 +3928,8 @@ def run_wahs_suite(
                                 }
                                 if seed_val is not None:
                                     req_meta["seed"] = seed_val
+                                if norm_temp is not None:
+                                    req_meta["temperature"] = norm_temp
                                 if c_arm is not None:
                                     req_meta["context_arm"] = c_arm
                                 if c_mode is not None:
@@ -4571,14 +4648,19 @@ def _build_wahs_domain_guardrails(
             )
         )
 
-    if active_pairs:
+    vf_pairs = [
+        (s, c)
+        for s, c in active_pairs
+        if c is not None and bool(c.citation_entailment_assertions)
+    ]
+    if vf_pairs:
         ent_passed = sum(
             1
-            for s, _ in active_pairs
+            for s, _ in vf_pairs
             if s.atomic_entailment_rate >= 1.0 and s.citation_distortion_count == 0
         )
-        ent_total = len(active_pairs)
-        distortions = sum(s.citation_distortion_count for s, _ in active_pairs)
+        ent_total = len(vf_pairs)
+        distortions = sum(s.citation_distortion_count for s, _ in vf_pairs)
         ent_rate = ent_passed / max(ent_total, 1)
         out.append(
             _guardrail_entry(
@@ -4592,8 +4674,14 @@ def _build_wahs_domain_guardrails(
             )
         )
 
-        rub_passed = sum(1 for s, _ in active_pairs if s.passed)
-        rub_total = len(active_pairs)
+    hb_pairs = [
+        (s, c)
+        for s, c in active_pairs
+        if c is not None and _case_has_deterministic_rubric(c)
+    ]
+    if hb_pairs:
+        rub_passed = sum(1 for s, _ in hb_pairs if s.passed)
+        rub_total = len(hb_pairs)
         rub_rate = rub_passed / max(rub_total, 1)
         out.append(
             _guardrail_entry(
@@ -4607,9 +4695,14 @@ def _build_wahs_domain_guardrails(
             )
         )
 
-    if raw_pairs:
-        raw_passed = sum(1 for s, _ in raw_pairs if s.passed)
-        raw_total = len(raw_pairs)
+    hb_raw = [
+        (s, c)
+        for s, c in raw_pairs
+        if c is not None and _case_has_deterministic_rubric(c)
+    ]
+    if hb_raw:
+        raw_passed = sum(1 for s, _ in hb_raw if s.passed)
+        raw_total = len(hb_raw)
         out.append(
             _guardrail_entry(
                 "healthbench_deterministic_rubric_raw_ablation",

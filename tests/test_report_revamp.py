@@ -433,4 +433,126 @@ def test_build_report_loads_domain_guardrails_and_family_from_manifest(tmp_path:
     assert len(summary_payload["scout"]) == 2
 
 
+def test_multiseed_consolidate_preserves_worst_categorical_and_flags() -> None:
+    rows = [
+        {
+            "scenario_id": "q1__b4096__s42",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 9,
+            "completeness": 9,
+            "relevance": 9,
+            "harm": False,
+            "harm_disputed": False,
+            "privacy_violation": False,
+            "abstention_outcome": "correct",
+            "citation_groundedness": "supported",
+            "citation_resolution": {"n_cited": 2, "n_resolved": 2, "n_unresolved": 0},
+            "temporal_accuracy": {"date_value_mismatch": False, "date_fabricated": False},
+            "temporal_date_accuracy": "ok",
+            "note": "clean s42",
+        },
+        {
+            "scenario_id": "q1__b4096__s43",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 4,
+            "completeness": 5,
+            "relevance": 6,
+            "harm": True,
+            "harm_disputed": True,
+            "privacy_violation": True,
+            "abstention_outcome": "failed-to-abstain",
+            "citation_groundedness": "unsupported",
+            "citation_resolution": {"n_cited": 3, "n_resolved": 1, "n_unresolved": 2},
+            "temporal_accuracy": {"date_value_mismatch": True, "date_fabricated": False},
+            "temporal_date_accuracy": "wrong",
+            "note": "failed s43",
+        },
+    ]
+    pooled = report._consolidate_multiseed_judge_rows(rows, ["q1__b4096"], ["arm-a"])
+    assert len(pooled) == 1
+    row = pooled[0]
+    assert row["abstention_outcome"] == "failed-to-abstain"
+    assert row["citation_groundedness"] == "unsupported"
+    assert row["citation_resolution"] == {"n_cited": 5, "n_resolved": 3, "n_unresolved": 2}
+    assert row["temporal_accuracy"] == {"date_value_mismatch": True, "date_fabricated": False}
+    assert row["temporal_date_accuracy"] == "wrong"
+    assert row["harm"] is True
+    assert row["harm_disputed"] is True
+    assert row["privacy_violation"] is True
+
+
+def test_multiseed_run_blob_seed_replicates_and_actor_flags(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run_multiseed"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps({"run_id": "run-ms-1", "component": "wahs-evaluation", "family": "wahs"}),
+        encoding="utf-8",
+    )
+    (run_dir / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "comparison_set": "ms-test"}) + "\n",
+        encoding="utf-8",
+    )
+    results = [
+        {
+            "scenario_id": f"q1__b4096__s{seed}",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "request": {"question": "What meds?"},
+            "response": {"answer": f"Seed {seed} answer."},
+            "metrics": {"latency_ms": 100 + seed, "http_status": 200},
+        }
+        for seed in (42, 43)
+    ]
+    (run_dir / "results.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in results) + "\n",
+        encoding="utf-8",
+    )
+    jrows = [
+        {
+            "scenario_id": "q1__b4096__s42",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 9,
+            "completeness": 9,
+            "relevance": 9,
+            "harm": False,
+            "harm_disputed": False,
+            "privacy_violation": False,
+            "abstention_outcome": "correct",
+            "citation_groundedness": "supported",
+        },
+        {
+            "scenario_id": "q1__b4096__s43",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 3,
+            "completeness": 4,
+            "relevance": 5,
+            "harm": True,
+            "harm_disputed": True,
+            "privacy_violation": True,
+            "abstention_outcome": "over-abstained",
+            "citation_groundedness": "partly",
+        },
+    ]
+    (run_dir / "judge.jsonl").write_text("\n".join(json.dumps(r) for r in jrows) + "\n", encoding="utf-8")
+    actor_dir = run_dir / "judges" / "judge-1"
+    actor_dir.mkdir(parents=True)
+    (actor_dir / "judge.jsonl").write_text("\n".join(json.dumps(r) for r in jrows) + "\n", encoding="utf-8")
+
+    blob = report._run_blob(run_dir)
+    cell = blob["scenarios"][0]["turns"][0]["cells"]["arm-a"]
+    reps = cell["seed_replicates"]
+    assert [r["abstention_outcome"] for r in reps] == ["correct", "over-abstained"]
+    assert [r["citation_groundedness"] for r in reps] == ["supported", "partly"]
+    assert reps[1]["harm_disputed"] is True
+    assert reps[1]["privacy_violation"] is True
+    ac = blob["judge_actor_cells"]["q1__b4096|arm-a"][0]
+    assert ac["harm_disputed"] is True
+    assert ac["privacy_violation"] is True
+
+
+
 

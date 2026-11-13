@@ -2305,4 +2305,235 @@ def test_stage4_cli_seeds_resume_arm_cards_and_error_paths(tmp_path: Path, monke
     assert called_judge == [str(first_run)]
 
 
+def test_vh212_fixes_raw_fhir_cap_sampling_resume_temp_and_zero_weight_rubric(tmp_path: Path):
+    from harness.wahs.evaluator import (
+        WahsCaseScore,
+        WahsEvalCase,
+        WahsHubClient,
+        _build_wahs_domain_guardrails,
+        _evaluate_weighted_rubric,
+        run_wahs_suite,
+    )
+
+    # VH212-1: Oversized single entry-0 in raw-fhir baseline is bounded & approx_tokens is never clamped.
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    huge_text = "x " * 2500
+    (bundle_dir / "Demo_Patient.json").write_text(
+        json.dumps(
+            {
+                "resourceType": "Bundle",
+                "type": "collection",
+                "entry": [
+                    {
+                        "resource": {
+                            "resourceType": "DocumentReference",
+                            "id": "doc-huge",
+                            "description": huge_text,
+                        }
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    posted: list[tuple[str, dict]] = []
+
+    class CaptureSession:
+        headers: dict = {}
+
+        def get(self, url, **kwargs):
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    return {
+                        "profiles": {
+                            "direct-qwen": {"model": "qwen2.5:14b"},
+                            "hub-med": {"include_kb_findings": False},
+                        }
+                    }
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            posted.append((url, dict(kwargs.get("json") or {})))
+
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    if url.endswith("/wahs/api/analyze"):
+                        return {
+                            "condensed_text": "[1] Lipitor",
+                            "actual_tokens": 50,
+                            "valid_uuids": ["med-1"],
+                            "mappings": [],
+                        }
+                    return {
+                        "choices": [{"message": {"content": "Answer [1]."}}],
+                        "usage": {"total_tokens": 10},
+                        "timings": {},
+                    }
+
+            return Resp()
+
+    client = WahsHubClient(
+        base_url="http://hub.local",
+        direct_llm_base_url="http://llm.local",
+        session=CaptureSession(),
+        bundle_dirs=[bundle_dir],
+        max_retries=0,
+    )
+    case_small = WahsEvalCase(
+        case_id="c_small",
+        patient_id="Demo_Patient",
+        use_case="qa",
+        prompt="Summarize note.",
+    )
+    raw_env = client.evaluate_case(
+        case_small,
+        budget_tokens=256,
+        profile_id="raw-fhir:qwen@256",
+        seed=42,
+        temperature=0.35,
+    )
+    assert raw_env["actual_tokens"] <= 256
+    assert raw_env["actual_tokens"] == max(1, (len(raw_env["condensed_text"]) + 3) // 4)
+    assert "_truncated_raw_json" in raw_env["condensed_text"]
+
+    # Tiny budget where even wrapper exceeds budget_tokens: approx_tokens stays un-clamped (> budget_tokens).
+    tiny_env = client.evaluate_case(
+        case_small,
+        budget_tokens=8,
+        profile_id="raw-fhir:qwen@8",
+        seed=42,
+        temperature=0.35,
+    )
+    assert tiny_env["actual_tokens"] > 8
+
+    # VH212-2: direct:* and legacy Hub profile paths forward temperature & seed.
+    client.evaluate_case(
+        case_small,
+        budget_tokens=512,
+        profile_id="direct-qwen",
+        seed=77,
+        temperature=0.45,
+    )
+    direct_req = posted[-1][1]
+    assert direct_req["temperature"] == pytest.approx(0.45)
+    assert direct_req["seed"] == 77
+
+    client.evaluate_case(
+        case_small,
+        budget_tokens=512,
+        profile_id="hub-med",
+        seed=88,
+        temperature=0.25,
+    )
+    hub_req = posted[-1][1]
+    assert hub_req["temperature"] == pytest.approx(0.25)
+    assert hub_req["seed"] == 88
+
+    # Legacy evaluate_case without profile_id also forwards seed and temperature.
+    client.evaluate_case(
+        case_small,
+        budget_tokens=512,
+        seed=99,
+        temperature=0.15,
+    )
+    legacy_req = posted[-1][1]
+    assert legacy_req["seed"] == 99
+    assert legacy_req["temperature"] == pytest.approx(0.15)
+
+    # VH212-3: run_wahs_suite persists temperature in manifest/events and rejects mismatched resume temperature.
+    cases_path = tmp_path / "temp_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c_t",
+                "patient_id": "Demo_Patient",
+                "use_case": "qa",
+                "prompt": "Check meds.",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class StubClient:
+        def evaluate_case(self, case, *, budget_tokens, seed=None, temperature=None, **_kw):
+            return {"answer": "No meds documented.", "actual_tokens": 50}
+
+    res1 = run_wahs_suite(
+        cases_path,
+        client=StubClient(),
+        output_dir=tmp_path / "runs",
+        budgets=[512],
+        temperature=0.2,
+    )
+    manifest = json.loads((res1.run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["temperature"] == pytest.approx(0.2)
+    events = [json.loads(line) for line in (res1.run_dir / "events.jsonl").read_text().splitlines() if line]
+    assert events[0]["temperature"] == pytest.approx(0.2)
+    res_row = json.loads((res1.run_dir / "results.jsonl").read_text().splitlines()[0])
+    assert res_row["request"]["temperature"] == pytest.approx(0.2)
+
+    with pytest.raises(ValueError, match="temperature mismatch"):
+        run_wahs_suite(
+            cases_path,
+            client=StubClient(),
+            output_dir=tmp_path / "runs",
+            budgets=[512],
+            temperature=0.5,
+            resume_from=res1.run_dir,
+        )
+
+    # VH212-4: weight-0.0 judge-only items do not earn base_score=1.0 or emit fake VeriFact/HealthBench guardrails.
+    zero_case = WahsEvalCase(
+        case_id="c_zero",
+        patient_id="Demo_Patient",
+        use_case="sheet_q01",
+        prompt="What meds?",
+        positive_rubric_items=[
+            {"id": "spreadsheet_expected_answer", "criterion": "Expected answer text", "optional": True, "strict": False, "weight": 0.0}
+        ],
+    )
+    rw_score, rw_fail = _evaluate_weighted_rubric(zero_case, "Arbitrary answer text", "")
+    assert rw_score == 0.0
+    assert rw_fail == []
+    dummy_score = WahsCaseScore(
+        case_id="c_zero",
+        patient_id="Demo_Patient",
+        use_case="sheet_q01",
+        sharing_posture="patient_self",
+        budget_tokens=512,
+        actual_tokens=50,
+        token_budget_ok=True,
+        required_uuid_recall=1.0,
+        citation_resolution_rate=1.0,
+        fabricated_citation_count=0,
+        privacy_zero_leakage=True,
+        leaked_items=[],
+        abstention_ok=True,
+        rubric_weighted_score=0.0,
+        atomic_entailment_rate=1.0,
+        citation_distortion_count=0,
+        flesch_kincaid_grade=7.0,
+        question_horizon="current_active_state",
+        patient_category="meds",
+        passed=True,
+        failures=[],
+    )
+    guardrails = _build_wahs_domain_guardrails(
+        [zero_case],
+        [dummy_score],
+        [{"retrieval_strategy": "condensation_kb"}],
+    )
+    ids = {g["id"] for g in guardrails}
+    assert "verifact_atomic_entailment" not in ids
+    assert "healthbench_deterministic_rubric" not in ids
+
+
+
 
