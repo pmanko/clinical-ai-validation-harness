@@ -3694,14 +3694,18 @@ def _decode_attachment_text(att: dict[str, Any]) -> str:
     if isinstance(raw_b64, str) and raw_b64.strip():
         try:
             raw_bytes = base64.b64decode(raw_b64, validate=True)
-            decoded = raw_bytes.decode("utf-8")
-            printable = sum(1 for ch in decoded if ch.isprintable() or ch in "\n\r\t")
-            if decoded and printable / len(decoded) >= 0.9:
-                meta_bits.append(decoded.strip())
-            else:
-                meta_bits.append(f"binary_bytes={len(raw_bytes)}")
         except Exception:
             meta_bits.append(f"raw_b64_len={len(raw_b64)}")
+        else:
+            try:
+                decoded = raw_bytes.decode("utf-8")
+                printable = sum(1 for ch in decoded if ch.isprintable() or ch in "\n\r\t")
+                if decoded and printable / len(decoded) >= 0.9:
+                    meta_bits.append(decoded.strip())
+                else:
+                    meta_bits.append(f"binary_bytes={len(raw_bytes)}")
+            except UnicodeDecodeError:
+                meta_bits.append(f"binary_bytes={len(raw_bytes)}")
     return " ".join(b for b in meta_bits if b)
 
 

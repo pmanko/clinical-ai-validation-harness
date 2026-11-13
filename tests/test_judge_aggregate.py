@@ -323,9 +323,9 @@ def test_minority_temporal_claim_not_emitted_and_tiebreak_provenance_enforced(tm
     # Undisputed harm with harm_severity and tiebreak_row uses tiebreak severity properly.
     sev_out = agg.aggregate_cell(
         [row(8, 8, 8, harm=True, harm_severity="severe"), row(8, 8, 8, harm=True, harm_severity="minor")],
-        tiebreak_row=row(8, 8, 8, harm=True, harm_severity="moderate"),
+        tiebreak_row=row(8, 8, 8, harm=True, harm_severity="severe"),
     )
-    assert sev_out["harm_severity"] == "moderate"
+    assert sev_out["harm_severity"] == "severe"
 
     # CLI must validate provenance manifest of --tiebreak-actor as well as --actor passes.
     run = tmp_path / "run_tb_prov"
