@@ -412,6 +412,18 @@ def test_write_dashboard_data_always_shards_even_for_single_cell(tmp_path: Path)
     shard_obj = json.loads((run_dir / sharded_payload["detail_shards"]["arm-a"]).read_text(encoding="utf-8"))
     assert set(shard_obj.keys()) == {"s1|arm-a"}
 
+    # Custom payload handles pending backends (no shard) and undeclared detail backends cleanly.
+    mixed_payload = {
+        "schema": "openclinai.dashboard.v2",
+        "schema_version": 2,
+        "status": {"backends": ["arm-pending"]},
+        "details": {"s1|arm-extra": {"turns": []}},
+    }
+    out_mixed = write_dashboard_data(run_dir, payload=mixed_payload)
+    mixed_written = json.loads(out_mixed.read_text(encoding="utf-8"))
+    assert mixed_written["details"] == {}
+    assert set(mixed_written["detail_shards"]) == {"arm-extra"}
+
     # Empty details clears stale dashboard-details/ and emits empty detail_shards map.
     empty_payload = {
         "schema": "openclinai.dashboard.v2",

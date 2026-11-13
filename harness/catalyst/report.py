@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from harness.common.dashboard_shards import write_sharded_dashboard_packet
 from harness.common.jsonl import read_jsonl
 from harness.common.stats import avg, box_stats, ordered_unique, robust_axis_max
 from harness.catalyst.attribution import blame, conformed
@@ -1101,9 +1102,7 @@ def _write_catalyst_dashboard_data(run_dir: Path, packet: dict[str, Any]) -> Pat
         "refs_pool": [],
         "details": details,
     }
-    from harness.validate.dashboard_data import write_dashboard_data
-
-    return write_dashboard_data(run_dir, payload=dash)
+    return write_sharded_dashboard_packet(run_dir, dash)
 
 
 def build_report(

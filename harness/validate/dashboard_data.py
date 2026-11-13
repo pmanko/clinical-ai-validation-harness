@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
-import shutil
 import time
 from pathlib import Path
 from typing import Any
 
+from harness.common.dashboard_shards import write_sharded_dashboard_packet
 from harness.common.jsonl import read_jsonl as _read_jsonl
 from harness.common.text import esc_inline
 from harness.validate.bundle import frozen_arm_cards, load_run_meta, review_results, run_chart
@@ -184,12 +183,6 @@ def catalyst_expectation(run: Path | str, scenario_id: str) -> dict[str, Any] | 
             else None
         ),
     }
-
-
-def _shard_rel_path(idx: int, backend_id: str) -> str:
-    safe = re.sub(r"[^a-zA-Z0-9._-]+", "-", str(backend_id or "arm")).strip("-")[:48] or "arm"
-    digest = hashlib.sha1(str(backend_id).encode("utf-8")).hexdigest()[:8]
-    return f"dashboard-details/{idx:02d}-{safe}-{digest}.json"
 
 
 def _row_conformed(r: dict[str, Any]) -> bool:
@@ -873,42 +866,4 @@ def write_dashboard_data(
     """Write `dashboard-data.json` and per-arm `dashboard-details/` shards into `run_dir`."""
     run_path = Path(run_dir)
     data = payload if payload is not None else build_dashboard_data(run_path)
-    details = data.get("details") or {}
-    shards_dir = run_path / "dashboard-details"
-
-    by_backend: dict[str, dict[str, Any]] = {}
-    for cell_key, cell_obj in details.items():
-        _, _, backend_id = cell_key.partition("|")
-        by_backend.setdefault(backend_id, {})[cell_key] = cell_obj
-
-    ordered_backends = list((data.get("status") or {}).get("backends") or [])
-    for b in sorted(by_backend):
-        if b not in ordered_backends:
-            ordered_backends.append(b)
-
-    if shards_dir.exists():
-        shutil.rmtree(shards_dir)
-
-    detail_shards: dict[str, str] = {}
-    if by_backend:
-        shards_dir.mkdir(parents=True, exist_ok=True)
-        for idx, backend_id in enumerate(ordered_backends):
-            shard_cells = by_backend.get(backend_id)
-            if not shard_cells:
-                continue
-            rel_path = _shard_rel_path(idx, backend_id)
-            (run_path / rel_path).write_text(
-                json.dumps(shard_cells, ensure_ascii=False, separators=(",", ":")),
-                encoding="utf-8",
-            )
-            detail_shards[backend_id] = rel_path
-
-    out_data = {
-        **data,
-        "details": {},
-        "detail_shards": detail_shards,
-    }
-
-    out = run_path / "dashboard-data.json"
-    out.write_text(json.dumps(out_data, ensure_ascii=False), encoding="utf-8")
-    return out
+    return write_sharded_dashboard_packet(run_path, data)
