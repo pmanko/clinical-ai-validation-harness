@@ -217,6 +217,8 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
     rich_bundle = {
         "resourceType": "Bundle",
         "entry": [
+            "skip-non-dict",
+            {"fullUrl": "urn:uuid:skip-no-resource"},
             {
                 "resource": {
                     "resourceType": "Observation",
@@ -224,9 +226,10 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
                     "status": "final",
                     "effectiveDateTime": "2026-02-06",
                     "code": {"coding": [{"display": "Blood pressure panel"}]},
-                    "interpretation": {"text": "High"},
-                    "referenceRange": [{"low": {"value": 90, "unit": "mmHg"}, "high": {"value": 120, "unit": "mmHg"}}, {"text": "Normal <120"}],
+                    "interpretation": [{"text": "High"}],
+                    "referenceRange": ["skip-str", {"low": {"value": 90, "unit": "mmHg"}, "high": {"value": 120, "unit": "mmHg"}}, {"text": "Normal <120"}],
                     "component": [
+                        "skip-str",
                         {"code": {"text": "Systolic BP"}, "valueQuantity": {"value": 146, "unit": "mmHg"}},
                         {"code": {"text": "Diastolic BP"}, "valueQuantity": {"value": 92, "unit": "mmHg"}},
                     ],
@@ -240,7 +243,24 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
                     "effectiveDateTime": "2026-02-07",
                     "code": {"text": "Screening Flags"},
                     "valueCodeableConcept": {"text": "Positive"},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-ratio",
+                    "meta": {"lastUpdated": "2026-02-07T10:00:00Z"},
+                    "code": {"text": "ACR Ratio"},
                     "valueRatio": {"numerator": {"value": 1}, "denominator": {"value": 2}},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-str",
+                    "performedDateTime": "2026-02-07",
+                    "code": {"text": "Tobacco Note"},
+                    "valueString": "Never smoker",
                 }
             },
             {
@@ -250,7 +270,7 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
                     "authoredOn": "2026-01-10",
                     "status": "active",
                     "medicationCodeableConcept": {"text": "Lisinopril 10 MG"},
-                    "dosageInstruction": [{"text": "Take 1 tablet by mouth daily"}],
+                    "dosageInstruction": ["skip-str", {"text": "Take 1 tablet by mouth daily"}],
                     "dispenseRequest": {"numberOfRepeatsAllowed": 3},
                 }
             },
@@ -262,7 +282,7 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
                     "code": {"text": "Penicillin"},
                     "criticality": "high",
                     "clinicalStatus": {"coding": [{"code": "active"}]},
-                    "reaction": [{"manifestation": [{"text": "Anaphylaxis"}], "severity": "severe", "description": "Airway edema"}],
+                    "reaction": ["skip-str", {"manifestation": [{"text": "Anaphylaxis"}], "severity": "severe", "description": "Airway edema"}],
                 }
             },
             {
@@ -296,11 +316,12 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
                     "title": "Discharge Summary",
                     "text": {"div": "<div>Summary &amp; Plan</div>"},
                     "section": [
+                        "skip-str",
                         {
                             "title": "Assessment",
                             "text": {"div": "<p>Stable hypertension</p>"},
                             "section": [{"title": "Follow-up", "text": {"div": "<p>Repeat BMP in 2 weeks</p>"}}],
-                        }
+                        },
                     ],
                 }
             },
@@ -317,6 +338,7 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
     assert "Measured seated after 5m rest." in txt
     assert "value=Positive" in txt
     assert "valueRatio=" in txt
+    assert "value=Never smoker" in txt
     assert "dosage=Take 1 tablet by mouth daily" in txt
     assert "numberOfRepeatsAllowed" in txt
     assert "criticality=high" in txt
@@ -328,4 +350,4 @@ def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_
     assert "Summary & Plan" in txt
     assert "Assessment: Stable hypertension" in txt
     assert "Follow-up: Repeat BMP in 2 weeks" in txt
-    assert set(env["valid_uuids"]) == {"obs-bp", "obs-flags", "med-1", "allergy-1", "doc-1", "dr-1", "comp-1"}
+    assert set(env["valid_uuids"]) == {"obs-bp", "obs-flags", "obs-ratio", "obs-str", "med-1", "allergy-1", "doc-1", "dr-1", "comp-1"}

@@ -308,7 +308,7 @@ def test_minority_temporal_claim_not_emitted_and_tiebreak_provenance_enforced(tm
     assert "temporal_window" not in out_half
     assert "temporal_trend" not in out_half
 
-    # Duplicate or extra cells in tiebreak_rows must fail cleanly.
+    # Duplicate or extra cells in tiebreak_rows must fail cleanly, as does missing tiebreak_actor.
     r1 = row(8, 8, 8)
     with pytest.raises(ValueError, match="duplicate rows"):
         agg.aggregate({"p1": [r1], "p2": [r1]}, tiebreak_rows=[r1, r1])
@@ -317,6 +317,15 @@ def test_minority_temporal_claim_not_emitted_and_tiebreak_provenance_enforced(tm
             {"p1": [r1], "p2": [r1]},
             tiebreak_rows=[{**r1, "scenario_id": "unknown-scen"}],
         )
+    with pytest.raises(ValueError, match="not in actor_rows"):
+        agg.aggregate({"p1": [r1], "p2": [r1]}, tiebreak_actor="missing_actor")
+
+    # Undisputed harm with harm_severity and tiebreak_row uses tiebreak severity properly.
+    sev_out = agg.aggregate_cell(
+        [row(8, 8, 8, harm=True, harm_severity="severe"), row(8, 8, 8, harm=True, harm_severity="minor")],
+        tiebreak_row=row(8, 8, 8, harm=True, harm_severity="moderate"),
+    )
+    assert sev_out["harm_severity"] == "moderate"
 
     # CLI must validate provenance manifest of --tiebreak-actor as well as --actor passes.
     run = tmp_path / "run_tb_prov"
