@@ -56,7 +56,7 @@ def review_results(run_dir: Path | str, *, strict: bool = True) -> list[dict[str
     backends = load_run_meta(run_path).get("backends") or {}
     transport = _run_transport(run_path)
     ctx_cache: dict[str, dict[str, Any]] = {}
-    rows = read_jsonl(run_path / "results.jsonl", strict=strict)
+    rows = [r for r in read_jsonl(run_path / "results.jsonl", strict=strict) if isinstance(r, dict)]
     for row in rows:
         request = row.get("request") or {}
         row["request"] = request

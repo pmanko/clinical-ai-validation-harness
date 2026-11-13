@@ -513,3 +513,123 @@ def test_validate_dashboard_http11_runs_selector_and_sse_stream(tmp_path: Path) 
         vd._WATCH_OUTPUT_DIRS.discard(str(runs_root))
         srv.shutdown()
         srv.server_close()
+
+
+def test_run_index_resets_on_truncation_deletion_and_malformed_lines(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run_edge"
+    comp_dir = run_dir / "inputs" / "comparison_sets"
+    comp_dir.mkdir(parents=True)
+    (comp_dir / "bad.json").write_text("{not json", encoding="utf-8")
+    (comp_dir / "good.json").write_text(json.dumps({"transport": "rest-v2"}), encoding="utf-8")
+    (run_dir / "run_meta.json").write_text("{broken meta", encoding="utf-8")
+    (run_dir / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "run",
+                "run_id": "run_edge",
+                "backend_ids": ["arm-a"],
+                "scenario_ids": ["s1"],
+                "cells": [{"scenario_id": "s1", "backend_id": "arm-a", "turns": 1}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    slim = slim_response_envelope(run_dir, "s1", "pat_99", _heavy_envelope("Ok [1]."))
+    slim_in = slim_response_envelope(run_dir, "s1", "pat_99", _heavy_envelope("In [1]."))
+    row = {
+        "run_id": "run_edge",
+        "scenario_id": "s1",
+        "backend_id": "arm-a",
+        "patient_id": "pat_99",
+        "turn": 1,
+        "request": {"question": "Q?"},
+        "response": slim,
+        "indepth": {"response": slim_in},
+        "metrics": {"http_status": 200, "latency_ms": 12, "answer_chars": 7, "citation_count": 1},
+    }
+    res_path = run_dir / "results.jsonl"
+    res_path.write_text(
+        "\n{not-json}\n[]\n" + json.dumps(row) + "\n",
+        encoding="utf-8",
+    )
+
+    # Empty scenario/backend short-circuits cleanly.
+    idx = RunIndex(run_dir)
+    assert idx.get_detail("", "arm-a") == {"turns": []}
+    det = idx.get_detail("s1", "arm-a")
+    assert det["turns"][0]["answer"] == "Ok [1]."
+    assert det["turns"][0]["sources"]["sources"][0]["record_index"] == 1
+
+    # review_results also populates patient_id, transport, and rehydrates indepth.response.
+    (run_dir / "run_meta.json").write_text("{}", encoding="utf-8")
+    rev = review_results(run_dir, strict=False)
+    assert rev[0]["request"]["patient"] == "pat_99"
+    assert rev[0]["request"]["transport"] == "rest-v2"
+    assert rev[0]["indepth"]["response"]["answer"] == "In [1]."
+
+    # Shrinking results.jsonl triggers clean index reset; removing it resets to 0.
+    res_path.write_text("{bad\n", encoding="utf-8")
+    assert idx.get_status()["done"] == 0
+    res_path.unlink()
+    assert idx.get_status()["done"] == 0
+
+
+def test_context_store_edge_guards_and_dashboard_discovery_branches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_dir = tmp_path / "ctx_edge"
+    assert slim_response_envelope(run_dir, "s1", None, None) is None
+    assert rehydrate_response_envelope(run_dir, None) is None
+    missing = {"answer": "x", "context_ref": "nonexistent_sha"}
+    assert rehydrate_response_envelope(run_dir, missing)["context_ref"] == "nonexistent_sha"
+
+    vd = _load_validate_dashboard()
+    runs_root = tmp_path / "dash_runs"
+    cold_run = runs_root / "run-cold"
+    cold_run.mkdir(parents=True)
+    (cold_run / "run_manifest.json").write_text(
+        json.dumps({"family": "wahs", "total_cells": 3}), encoding="utf-8"
+    )
+    (cold_run / "summary.json").write_text("{corrupt", encoding="utf-8")
+    empty_run = runs_root / "run-empty"
+    empty_run.mkdir()
+
+    monkeypatch.setattr(vd, "_RUN_OVERRIDE", str(cold_run))
+    monkeypatch.setattr(vd, "_WATCH_OUTPUT_DIRS", {str(runs_root)})
+    monkeypatch.setattr(vd, "_WATCH_ARTIFACTS_DIRS", set())
+    monkeypatch.setattr(vd, "_WATCH_RUN_DIRS", set())
+
+    GLOBAL_RUN_INDEX.invalidate(cold_run)
+    assert vd.resolve_run("   ") == str(cold_run)
+    discovered = {r["run_id"]: r for r in vd.discover_runs()}
+    assert discovered["run-cold"]["expected"] == 3
+    assert discovered["run-empty"]["completed"] == 0
+
+    # Invalid since_seq and empty SSE stream shutdown are handled gracefully.
+    srv = vd._Server(("127.0.0.1", 0), vd.H)
+    port = srv.server_address[1]
+    thread = threading.Thread(target=srv.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/api/status?since_seq=notanint")
+        r = conn.getresponse()
+        assert r.status == 200
+        assert json.loads(r.read().decode("utf-8"))["run"] == "run-cold"
+        conn.close()
+
+        # When _discover_run_dirs finds nothing, /api/stream still emits initial empty status.
+        monkeypatch.setattr(vd, "_RUN_OVERRIDE", None)
+        monkeypatch.setattr(vd, "_discover_run_dirs", lambda: [])
+        sse_conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        sse_conn.request("GET", "/api/stream")
+        sse_resp = sse_conn.getresponse()
+        assert sse_resp.status == 200
+        line = sse_resp.fp.readline().decode("utf-8")
+        assert line.startswith("id: 0")
+        sse_conn.close()
+    finally:
+        srv.shutdown()
+        srv.server_close()
