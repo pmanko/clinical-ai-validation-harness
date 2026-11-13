@@ -194,3 +194,138 @@ def test_lossless_snapshot_hardware_warmup_ceiling_and_categories(tmp_path: Path
     lossless_env = _lossless_stage_a_chart_envelope(_sample_bundle("Marcus_Vance"))
     assert lossless_env["lossless_stage_a"] is True
     assert "Discharge Summary" in lossless_env["condensed_text"]
+
+
+def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_fhir(monkeypatch) -> None:
+    import base64
+    import sys
+    import types
+
+    # Inject a poison wahs_core module; Stage-A serializer must never import or invoke it.
+    fake_pkg = types.ModuleType("wahs_core")
+    fake_mod = types.ModuleType("wahs_core.condenser")
+
+    def _forbid(*args, **kwargs):
+        raise AssertionError("harness must not import wahs_core.condenser")
+
+    fake_mod.condense_bundle_to_budget = _forbid  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "wahs_core", fake_pkg)
+    monkeypatch.setitem(sys.modules, "wahs_core.condenser", fake_mod)
+
+    note_b64 = base64.b64encode(b"Patient reports adherence with zero orthostatic dizziness.").decode("ascii")
+    bin_b64 = base64.b64encode(b"\x00\x01\x02\xff\xfe\xfd").decode("ascii")
+    rich_bundle = {
+        "resourceType": "Bundle",
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-bp",
+                    "status": "final",
+                    "effectiveDateTime": "2026-02-06",
+                    "code": {"coding": [{"display": "Blood pressure panel"}]},
+                    "interpretation": {"text": "High"},
+                    "referenceRange": [{"low": {"value": 90, "unit": "mmHg"}, "high": {"value": 120, "unit": "mmHg"}}, {"text": "Normal <120"}],
+                    "component": [
+                        {"code": {"text": "Systolic BP"}, "valueQuantity": {"value": 146, "unit": "mmHg"}},
+                        {"code": {"text": "Diastolic BP"}, "valueQuantity": {"value": 92, "unit": "mmHg"}},
+                    ],
+                    "note": [{"text": "Measured seated after 5m rest."}],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-flags",
+                    "effectiveDateTime": "2026-02-07",
+                    "code": {"text": "Screening Flags"},
+                    "valueCodeableConcept": {"text": "Positive"},
+                    "valueRatio": {"numerator": {"value": 1}, "denominator": {"value": 2}},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationRequest",
+                    "id": "med-1",
+                    "authoredOn": "2026-01-10",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Lisinopril 10 MG"},
+                    "dosageInstruction": [{"text": "Take 1 tablet by mouth daily"}],
+                    "dispenseRequest": {"numberOfRepeatsAllowed": 3},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "AllergyIntolerance",
+                    "id": "allergy-1",
+                    "recordedDate": "2020-05-01",
+                    "code": {"text": "Penicillin"},
+                    "criticality": "high",
+                    "clinicalStatus": {"coding": [{"code": "active"}]},
+                    "reaction": [{"manifestation": [{"text": "Anaphylaxis"}], "severity": "severe", "description": "Airway edema"}],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "DocumentReference",
+                    "id": "doc-1",
+                    "date": "2026-02-08",
+                    "type": {"text": "Progress Note"},
+                    "content": [
+                        {"attachment": {"title": "Note.txt", "contentType": "text/plain", "data": note_b64}},
+                        {"attachment": {"title": "Scan.bin", "contentType": "application/octet-stream", "data": bin_b64}},
+                        {"attachment": {"title": "Bad.txt", "data": "!!!not-base64!!!"}},
+                    ],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "DiagnosticReport",
+                    "id": "dr-1",
+                    "effectiveDateTime": "2026-02-09",
+                    "code": {"text": "Chest X-Ray"},
+                    "conclusion": "Clear lung fields",
+                    "presentedForm": [{"contentType": "text/plain", "data": note_b64}],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Composition",
+                    "id": "comp-1",
+                    "period": {"start": "2026-02-01"},
+                    "title": "Discharge Summary",
+                    "text": {"div": "<div>Summary &amp; Plan</div>"},
+                    "section": [
+                        {
+                            "title": "Assessment",
+                            "text": {"div": "<p>Stable hypertension</p>"},
+                            "section": [{"title": "Follow-up", "text": {"div": "<p>Repeat BMP in 2 weeks</p>"}}],
+                        }
+                    ],
+                }
+            },
+        ],
+    }
+
+    env = _lossless_stage_a_chart_envelope(rich_bundle)
+    txt = env["condensed_text"]
+    assert env["lossless_stage_a"] is True
+    assert "Systolic BP:value=146 mmHg" in txt
+    assert "Diastolic BP:value=92 mmHg" in txt
+    assert "refRange=90..120 mmHg; Normal <120" in txt
+    assert "interpretation=High" in txt
+    assert "Measured seated after 5m rest." in txt
+    assert "value=Positive" in txt
+    assert "valueRatio=" in txt
+    assert "dosage=Take 1 tablet by mouth daily" in txt
+    assert "numberOfRepeatsAllowed" in txt
+    assert "criticality=high" in txt
+    assert "Anaphylaxis (severe) Airway edema" in txt
+    assert "Patient reports adherence with zero orthostatic dizziness." in txt
+    assert "binary_bytes=6" in txt
+    assert "raw_b64_len=" in txt
+    assert "conclusion=Clear lung fields" in txt
+    assert "Summary & Plan" in txt
+    assert "Assessment: Stable hypertension" in txt
+    assert "Follow-up: Repeat BMP in 2 weeks" in txt
+    assert set(env["valid_uuids"]) == {"obs-bp", "obs-flags", "med-1", "allergy-1", "doc-1", "dr-1", "comp-1"}

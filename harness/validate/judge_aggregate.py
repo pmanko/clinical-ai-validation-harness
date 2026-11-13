@@ -260,7 +260,7 @@ def aggregate_cell(
             values = [r.get(axis, "ok") for r in rows]
             tb_val = tiebreak_row.get(axis, "ok") if tiebreak_row is not None else None
             resolved = _resolve_axis(axis, values, SEVERITY[axis], tiebreak=tb_val)
-            if emit_all_temporal or resolved != "ok":
+            if emit_all_temporal:
                 out[axis] = resolved
     first_cr = rows[0].get("citation_resolution") or dict(DEFAULT_CITATION_RESOLUTION)
     for r in rows[1:]:
@@ -304,6 +304,13 @@ def aggregate(
     tb_index: dict[tuple[Any, Any], dict[str, Any]] = {}
     if tiebreak_rows is not None:
         tb_index = {(r["scenario_id"], r["backend_id"]): r for r in tiebreak_rows}
+        if len(tb_index) != len(tiebreak_rows):
+            raise ValueError("tiebreak_rows contains duplicate rows for the same cell")
+        unknown_tb = set(tb_index) - keys
+        if unknown_tb:
+            raise ValueError(
+                f"tiebreak_rows contains cells not present in actor_rows: {sorted(unknown_tb)[:5]}"
+            )
     elif tiebreak_actor:
         if tiebreak_actor not in by_actor:
             raise ValueError(f"tiebreak_actor {tiebreak_actor!r} not in actor_rows")
@@ -422,7 +429,10 @@ def main(argv: list[str] | None = None) -> None:
     if len(set(args.actor)) != len(args.actor):
         parser.error("duplicate --actor ids are not independent passes")
     rd = run_dir(args.run)
-    validate_actor_provenance(rd, args.actor)
+    actors_for_provenance = list(args.actor)
+    if args.tiebreak_actor and args.tiebreak_actor not in actors_for_provenance:
+        actors_for_provenance.append(args.tiebreak_actor)
+    validate_actor_provenance(rd, actors_for_provenance)
     actor_rows = {a: _rows(rd / "judges" / a / "judge.jsonl") for a in args.actor}
     tiebreak_rows: list[dict[str, Any]] | None = None
     if args.tiebreak_actor and args.tiebreak_actor not in actor_rows:

@@ -289,3 +289,57 @@ def test_canonical_benchmark_not_worse_than_both_judges_and_tiebreak_cli(tmp_pat
     assert "harm_disputed" not in resolved
     rule = json.loads((run / "judges" / "canonical.json").read_text())
     assert rule["tiebreak_actor"] == "tb_pass"
+
+
+def test_minority_temporal_claim_not_emitted_and_tiebreak_provenance_enforced(tmp_path):
+    import pytest
+
+    # Even if half of voters (2/4 = 50%, not a strict majority) claim temporal axes and
+    # _resolve_axis might resolve != "ok" on a midpoint/tie, WAHS temporal keys must NOT leak
+    # unless a strict majority claimed temporal axes.
+    out_half = agg.aggregate_cell(
+        [
+            row(8, 8, 8, temporal_window="fabricated"),
+            row(8, 8, 8, temporal_window="fabricated"),
+            row(8, 8, 8),
+            row(8, 8, 8),
+        ]
+    )
+    assert "temporal_window" not in out_half
+    assert "temporal_trend" not in out_half
+
+    # Duplicate or extra cells in tiebreak_rows must fail cleanly.
+    r1 = row(8, 8, 8)
+    with pytest.raises(ValueError, match="duplicate rows"):
+        agg.aggregate({"p1": [r1], "p2": [r1]}, tiebreak_rows=[r1, r1])
+    with pytest.raises(ValueError, match="not present in actor_rows"):
+        agg.aggregate(
+            {"p1": [r1], "p2": [r1]},
+            tiebreak_rows=[{**r1, "scenario_id": "unknown-scen"}],
+        )
+
+    # CLI must validate provenance manifest of --tiebreak-actor as well as --actor passes.
+    run = tmp_path / "run_tb_prov"
+    for actor, sha in (("a1", "a" * 64), ("a2", "a" * 64), ("tb_bad", "b" * 64)):
+        d = run / "judges" / actor
+        d.mkdir(parents=True)
+        (d / "judge.jsonl").write_text(json.dumps(r1) + "\n")
+        (d / "manifest.json").write_text(json.dumps({"actor_id": actor, "source_cells_sha256": sha}))
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "judge-aggregate.py"),
+            str(run),
+            "--actor",
+            "a1",
+            "--actor",
+            "a2",
+            "--tiebreak-actor",
+            "tb_bad",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert res.returncode != 0
+    assert "different source_cells_sha256" in (res.stderr + res.stdout)

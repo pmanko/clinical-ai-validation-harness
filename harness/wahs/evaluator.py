@@ -20,7 +20,9 @@ Med Agent Hub HTTP endpoint without importing product source trees or calling Gi
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import html
 import inspect
 import json
 import math
@@ -3661,8 +3663,87 @@ def _write_run_meta_preserving_hardware(
     return merged
 
 
+_FHIR_BOILERPLATE_KEYS = frozenset({"resourceType", "id", "meta", "implicitRules", "language"})
+
+
+def _fhir_code_text(obj: Any) -> str:
+    if isinstance(obj, dict):
+        if obj.get("text"):
+            return str(obj["text"]).strip()
+        codings = obj.get("coding")
+        if isinstance(codings, list):
+            for c in codings:
+                if isinstance(c, dict) and (c.get("display") or c.get("code")):
+                    return str(c.get("display") or c.get("code")).strip()
+        return ""
+    if isinstance(obj, list):
+        return "; ".join(p for p in (_fhir_code_text(item) for item in obj) if p)
+    return str(obj or "").strip()
+
+
+def _strip_fhir_narrative(div: Any) -> str:
+    raw = str(div or "").strip()
+    if not raw:
+        return ""
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", raw))).strip()
+
+
+def _decode_attachment_text(att: dict[str, Any]) -> str:
+    meta_bits = [str(att.get(k)).strip() for k in ("title", "contentType", "url") if att.get(k)]
+    raw_b64 = att.get("data")
+    if isinstance(raw_b64, str) and raw_b64.strip():
+        try:
+            raw_bytes = base64.b64decode(raw_b64, validate=True)
+            decoded = raw_bytes.decode("utf-8")
+            printable = sum(1 for ch in decoded if ch.isprintable() or ch in "\n\r\t")
+            if decoded and printable / len(decoded) >= 0.9:
+                meta_bits.append(decoded.strip())
+            else:
+                meta_bits.append(f"binary_bytes={len(raw_bytes)}")
+        except Exception:
+            meta_bits.append(f"raw_b64_len={len(raw_b64)}")
+    return " ".join(b for b in meta_bits if b)
+
+
+def _format_obs_value(res: dict[str, Any], handled: set[str]) -> str | None:
+    if isinstance(res.get("valueQuantity"), dict):
+        vq = res["valueQuantity"]
+        handled.add("valueQuantity")
+        if vq.get("value") is not None:
+            return f"value={vq['value']} {vq.get('unit') or ''}".strip()
+    for vk in ("valueString", "valueBoolean", "valueInteger"):
+        if res.get(vk) is not None and res.get(vk) != "":
+            handled.add(vk)
+            return f"value={res[vk]}"
+    if isinstance(res.get("valueCodeableConcept"), dict):
+        handled.add("valueCodeableConcept")
+        txt = _fhir_code_text(res["valueCodeableConcept"])
+        if txt:
+            return f"value={txt}"
+    for comp_k in ("valueRatio", "valueRange"):
+        if isinstance(res.get(comp_k), dict):
+            handled.add(comp_k)
+            return f"{comp_k}={json.dumps(res[comp_k], sort_keys=True, separators=(',', ':'), ensure_ascii=False)}"
+    return None
+
+
+def _collect_composition_sections(sections: list[Any]) -> list[str]:
+    out: list[str] = []
+    for sec in sections:
+        if not isinstance(sec, dict):
+            continue
+        title = str(sec.get("title") or _fhir_code_text(sec.get("code")) or "").strip()
+        narrative = _strip_fhir_narrative((sec.get("text") or {}).get("div") if isinstance(sec.get("text"), dict) else "")
+        sec_str = ": ".join(p for p in (title, narrative) if p)
+        if sec_str:
+            out.append(sec_str)
+        if isinstance(sec.get("section"), list):
+            out.extend(_collect_composition_sections(sec["section"]))
+    return out
+
+
 def _serialize_bundle_lossless(bundle: dict[str, Any]) -> dict[str, Any]:
-    """Pure-stdlib lossless Stage-A fallback serialization for raw FHIR R4 bundles."""
+    """Pure-stdlib lossless Stage-A serialization for raw FHIR R4 bundles."""
     lines: list[str] = []
     mappings: list[dict[str, Any]] = []
     uuids: set[str] = set()
@@ -3677,33 +3758,141 @@ def _serialize_bundle_lossless(bundle: dict[str, Any]) -> dict[str, Any]:
         rid = str(res.get("id") or entry.get("fullUrl") or "").replace("urn:uuid:", "")
         if rid:
             uuids.add(rid)
-        date = str(
-            res.get("effectiveDateTime")
-            or res.get("recordedDate")
-            or res.get("onsetDateTime")
-            or res.get("authoredOn")
-            or res.get("occurrenceDateTime")
-            or res.get("date")
-            or (res.get("period") or {}).get("start")
-            or (res.get("meta") or {}).get("lastUpdated")
-            or ""
-        )[:10]
-        code_obj = res.get("code") or res.get("medicationCodeableConcept") or res.get("vaccineCode") or {}
-        label = str(
-            code_obj.get("text")
-            or ((code_obj.get("coding") or [{}])[0].get("display") if isinstance(code_obj.get("coding"), list) else "")
-            or res.get("description")
-            or res.get("status")
-            or rtype
+        date = ""
+        for dk in (
+            "effectiveDateTime",
+            "recordedDate",
+            "onsetDateTime",
+            "authoredOn",
+            "occurrenceDateTime",
+            "performedDateTime",
+            "date",
+        ):
+            if res.get(dk):
+                date = str(res[dk])[:10]
+                break
+        if not date and isinstance(res.get("period"), dict) and res["period"].get("start"):
+            date = str(res["period"]["start"])[:10]
+        if not date and isinstance(res.get("meta"), dict) and res["meta"].get("lastUpdated"):
+            date = str(res["meta"]["lastUpdated"])[:10]
+
+        code_obj = res.get("code") or res.get("medicationCodeableConcept") or res.get("vaccineCode")
+        label = (
+            _fhir_code_text(code_obj)
+            or str(res.get("title") or res.get("description") or "").strip()
+            or _fhir_code_text(res.get("type"))
+            or str(res.get("status") or rtype)
         )
+        handled: set[str] = set(_FHIR_BOILERPLATE_KEYS) | {
+            "code",
+            "medicationCodeableConcept",
+            "vaccineCode",
+            "title",
+            "description",
+        }
         parts = [label]
-        if res.get("status"):
-            parts.append(f"status={res['status']}")
-        val_q = res.get("valueQuantity")
-        if isinstance(val_q, dict) and val_q.get("value") is not None:
-            parts.append(f"value={val_q['value']} {val_q.get('unit') or ''}".strip())
-        elif res.get("valueString"):
-            parts.append(str(res["valueString"]))
+        for sk in ("status", "clinicalStatus", "verificationStatus", "criticality", "intent"):
+            if res.get(sk):
+                handled.add(sk)
+                sval = _fhir_code_text(res[sk]) if isinstance(res[sk], dict) else str(res[sk])
+                if sval:
+                    parts.append(f"{sk}={sval}")
+        val_str = _format_obs_value(res, handled)
+        if val_str:
+            parts.append(val_str)
+        if res.get("interpretation"):
+            handled.add("interpretation")
+            interp = _fhir_code_text(res["interpretation"])
+            if interp:
+                parts.append(f"interpretation={interp}")
+        if isinstance(res.get("referenceRange"), list) and res["referenceRange"]:
+            handled.add("referenceRange")
+            rr_bits = []
+            for rr in res["referenceRange"]:
+                if not isinstance(rr, dict):
+                    continue
+                if rr.get("text"):
+                    rr_bits.append(str(rr["text"]))
+                else:
+                    lo = (rr.get("low") or {}).get("value") if isinstance(rr.get("low"), dict) else None
+                    hi = (rr.get("high") or {}).get("value") if isinstance(rr.get("high"), dict) else None
+                    unit = (rr.get("low") or rr.get("high") or {}).get("unit") if isinstance(rr.get("low") or rr.get("high"), dict) else ""
+                    if lo is not None or hi is not None:
+                        rr_bits.append(f"{lo or ''}..{hi or ''} {unit or ''}".strip())
+            if rr_bits:
+                parts.append(f"refRange={'; '.join(rr_bits)}")
+        if isinstance(res.get("component"), list) and res["component"]:
+            handled.add("component")
+            comp_bits = []
+            for comp in res["component"]:
+                if not isinstance(comp, dict):
+                    continue
+                clabel = _fhir_code_text(comp.get("code")) or "component"
+                cval = _format_obs_value(comp, set()) or ""
+                comp_bits.append(f"{clabel}:{cval}".strip(":"))
+            if comp_bits:
+                parts.append("components=[" + "; ".join(comp_bits) + "]")
+        for dk in ("dosageInstruction", "dosage"):
+            if isinstance(res.get(dk), list) and res[dk]:
+                handled.add(dk)
+                dosages = []
+                for d in res[dk]:
+                    if not isinstance(d, dict):
+                        continue
+                    d_str = str(d.get("text") or "").strip() or json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+                    dosages.append(d_str)
+                if dosages:
+                    parts.append(f"dosage={'; '.join(dosages)}")
+        if isinstance(res.get("reaction"), list) and res["reaction"]:
+            handled.add("reaction")
+            rx_bits = []
+            for rx in res["reaction"]:
+                if not isinstance(rx, dict):
+                    continue
+                manif = _fhir_code_text(rx.get("manifestation"))
+                sev = str(rx.get("severity") or "").strip()
+                desc = str(rx.get("description") or "").strip()
+                rx_bits.append(" ".join(x for x in (manif, f"({sev})" if sev else "", desc) if x))
+            if any(rx_bits):
+                parts.append("reaction=" + "; ".join(b for b in rx_bits if b))
+        if isinstance(res.get("content"), list) and res["content"]:
+            handled.add("content")
+            att_bits = []
+            for c_item in res["content"]:
+                if isinstance(c_item, dict) and isinstance(c_item.get("attachment"), dict):
+                    att_txt = _decode_attachment_text(c_item["attachment"])
+                    if att_txt:
+                        att_bits.append(att_txt)
+            if att_bits:
+                parts.append("attachment=" + " | ".join(att_bits))
+        if isinstance(res.get("presentedForm"), list) and res["presentedForm"]:
+            handled.add("presentedForm")
+            pf_bits = [_decode_attachment_text(pf) for pf in res["presentedForm"] if isinstance(pf, dict)]
+            if any(pf_bits):
+                parts.append("presentedForm=" + " | ".join(b for b in pf_bits if b))
+        if res.get("conclusion"):
+            handled.add("conclusion")
+            parts.append(f"conclusion={res['conclusion']}")
+        if isinstance(res.get("section"), list) and res["section"]:
+            handled.add("section")
+            secs = _collect_composition_sections(res["section"])
+            if secs:
+                parts.append("sections=[" + " | ".join(secs) + "]")
+        if isinstance(res.get("note"), list) and res["note"]:
+            handled.add("note")
+            notes = [str(n.get("text") or "").strip() for n in res["note"] if isinstance(n, dict) and n.get("text")]
+            if notes:
+                parts.append("note=" + " | ".join(notes))
+        if isinstance(res.get("text"), dict) and res["text"].get("div"):
+            handled.add("text")
+            narr = _strip_fhir_narrative(res["text"]["div"])
+            if narr:
+                parts.append(f"narrative={narr}")
+
+        extra = {k: v for k, v in res.items() if k not in handled and v not in (None, "", [], {})}
+        if extra:
+            parts.append("extra=" + json.dumps(extra, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+
         disp = " | ".join(p for p in parts if p)
         lines.append(f"[{idx}] {date} {rtype}: {disp}".strip())
         mappings.append(
@@ -3728,35 +3917,6 @@ def _lossless_stage_a_chart_envelope(
     bundle: dict[str, Any],
 ) -> dict[str, Any]:
     """Produce a Stage-A lossless chart snapshot (0 omitted clinical items) for blind judges."""
-    try:
-        from wahs_core.condenser import condense_bundle_to_budget
-
-        res = condense_bundle_to_budget(
-            bundle,
-            target_tokens=262144,
-            question="",
-            sharing_posture="patient_self",
-        )
-        omitted = getattr(res, "omitted_sections", None) or {}
-        if getattr(res, "condensed_text", "") and not any(int(v or 0) > 0 for v in omitted.values()):
-            raw_maps = []
-            for m in getattr(res, "mappings", []) or []:
-                if isinstance(m, dict):
-                    raw_maps.append(dict(m))
-                elif hasattr(m, "__dict__"):
-                    raw_maps.append({k: v for k, v in vars(m).items() if not k.startswith("_")})
-            return {
-                "condensed_text": str(res.condensed_text),
-                "mappings": raw_maps,
-                "valid_uuids": sorted(
-                    str(u).replace("urn:uuid:", "")
-                    for u in (getattr(res, "valid_uuids", []) or [])
-                    if u
-                ),
-                "lossless_stage_a": True,
-            }
-    except Exception:
-        pass
     return _serialize_bundle_lossless(bundle)
 
 
