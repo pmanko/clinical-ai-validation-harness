@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
+from urllib.parse import quote
 import urllib.request
 
 
@@ -16,9 +19,18 @@ def _truthy_env(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _status_payload(port: int, timeout: float = 5.0) -> dict[str, Any] | None:
+def _status_payload(
+    port: int,
+    *,
+    run: str | None = None,
+    timeout: float = 5.0,
+) -> dict[str, Any] | None:
+    suffix = f"?run={quote(run)}" if run else ""
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=timeout) as resp:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/api/status{suffix}",
+            timeout=timeout,
+        ) as resp:
             if int(getattr(resp, "status", 200)) != 200:
                 return None
             data = json.loads(resp.read().decode("utf-8"))
@@ -96,7 +108,7 @@ def ensure_live_dashboard(
     port: int | None = None,
     force: bool = False,
 ) -> str | None:
-    """Ensure `scripts/validate-dashboard.py` is serving on `:8099` and watching `run_dir`."""
+    """Ensure `harness.validate.dashboard_server` is serving on `:8099` and watching `run_dir`."""
     if not force and not _truthy_env("HARNESS_FORCE_DASHBOARD"):
         if _truthy_env("CI") or bool(os.environ.get("PYTEST_CURRENT_TEST")):
             return None
@@ -112,14 +124,20 @@ def ensure_live_dashboard(
     )
 
     if not _status_alive(eff_port):
-        script_path = root / "scripts" / "validate-dashboard.py"
-        if not script_path.is_file():
+        if importlib.util.find_spec("harness.validate.dashboard_server") is None:
             raise RuntimeError(
-                f"Live validation dashboard script not found at {script_path}; "
+                "Live validation dashboard module 'harness.validate.dashboard_server' not found; "
                 "evaluation runs cannot execute without a live dashboard."
             )
 
-        runtime_dir = root / "artifacts" / "validate-dashboard"
+        if root.is_dir():
+            runtime_dir = root / "artifacts" / "validate-dashboard"
+            launch_cwd = root
+        else:
+            runtime_dir = (
+                resolved_output_dir or Path(tempfile.gettempdir())
+            ) / "validate-dashboard"
+            launch_cwd = resolved_output_dir if (resolved_output_dir and resolved_output_dir.is_dir()) else Path.cwd()
         log_path = runtime_dir / "dashboard.log"
         try:
             runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -129,13 +147,17 @@ def ensure_live_dashboard(
 
         env = dict(os.environ)
         env["DASH_PORT"] = str(eff_port)
-        existing_pp = env.get("PYTHONPATH", "")
-        env["PYTHONPATH"] = f"{root}{os.pathsep}{existing_pp}" if existing_pp else str(root)
+        env.pop("DASH_RUN", None)
+        if root.is_dir():
+            env["OPENCLINAI_DASHBOARD_ROOT"] = str(root)
+        if (root / "harness").is_dir():
+            existing_pp = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = f"{root}{os.pathsep}{existing_pp}" if existing_pp else str(root)
 
         try:
             proc = subprocess.Popen(
-                [sys.executable, "-u", str(script_path)],
-                cwd=str(root),
+                [sys.executable, "-u", "-m", "harness.validate.dashboard_server"],
+                cwd=str(launch_cwd),
                 env=env,
                 stdin=subprocess.DEVNULL,
                 stdout=log_fh,
@@ -149,7 +171,7 @@ def ensure_live_dashboard(
         except OSError as exc:
             log_fh.close()
             raise RuntimeError(
-                f"Failed to launch live validation dashboard ({script_path}): {exc}"
+                f"Failed to launch live validation dashboard (harness.validate.dashboard_server): {exc}"
             ) from exc
         finally:
             log_fh.close()
@@ -181,11 +203,13 @@ def ensure_live_dashboard(
     )
 
     if resolved_run_dir is not None and resolved_run_dir.is_dir():
-        payload = _status_payload(eff_port)
-        if payload is None or payload.get("run") is None:
+        payload = _status_payload(eff_port, run=resolved_run_dir.name)
+        active_name = payload.get("run") if isinstance(payload, dict) else None
+        if active_name != resolved_run_dir.name:
             raise RuntimeError(
-                f"Live validation dashboard at {url} reported run=None after registering "
-                f"{resolved_run_dir}; restart scripts/validate-dashboard.py so the run is monitored."
+                f"Live validation dashboard at {url} reported run={active_name!r} instead of "
+                f"{resolved_run_dir.name!r} after registering {resolved_run_dir}; "
+                "clear DASH_RUN or restart harness.validate.dashboard_server so the target run is monitored."
             )
 
     suffix = f" (watching {resolved_run_dir.name})" if resolved_run_dir is not None else ""

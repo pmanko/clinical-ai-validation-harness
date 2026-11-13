@@ -8,7 +8,7 @@ from evals.validate._test_shell import dashboard_shell_js
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DASHBOARD_SOURCE = (ROOT / "scripts" / "validate-dashboard.py").read_text(
+DASHBOARD_SOURCE = (ROOT / "harness" / "validate" / "dashboard_server.py").read_text(
     encoding="utf-8"
 )
 
@@ -889,13 +889,16 @@ def test_validate_dashboard_http_routes_with_and_without_viewer_assets(
 def test_wahs_run_discovery_and_ensure_live_dashboard(
     tmp_path: Path, monkeypatch
 ) -> None:
+    import importlib.util
     import os
     import signal
     import socket
     import subprocess
+    import urllib.request
 
     from harness.validate.live_dashboard import (
         _register_watch,
+        _status_payload,
         ensure_live_dashboard,
     )
 
@@ -937,15 +940,15 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
     # HARNESS_NO_DASHBOARD escape hatch must be ignored (still fail-closed).
     monkeypatch.setenv("HARNESS_NO_DASHBOARD", "1")
 
-    # Missing script raises RuntimeError (fail-closed).
-    with pytest.raises(RuntimeError, match="script not found"):
-        ensure_live_dashboard(project_root=tmp_path / "missing_proj", port=free_port)
+    # Missing dashboard module raises RuntimeError (fail-closed).
+    with monkeypatch.context() as mp:
+        mp.setattr(importlib.util, "find_spec", lambda _name: None)
+        with pytest.raises(RuntimeError, match="not found"):
+            ensure_live_dashboard(project_root=tmp_path / "missing_mod", port=free_port)
 
-    fake_root = tmp_path / "proj"
-    (fake_root / "scripts").mkdir(parents=True)
-    (fake_root / "scripts" / "validate-dashboard.py").symlink_to(
-        ROOT / "scripts" / "validate-dashboard.py"
-    )
+    # Wheel install root without scripts/ succeeds using packaged harness.validate.dashboard_server.
+    wheel_root = tmp_path / "wheel_root_no_scripts"
+    wheel_root.mkdir()
 
     # Popen OSError raises RuntimeError (fail-closed).
     def _boom(*_a, **_kw):
@@ -954,18 +957,270 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
     with monkeypatch.context() as mp:
         mp.setattr(subprocess, "Popen", _boom)
         with pytest.raises(RuntimeError, match="Failed to launch live validation dashboard"):
-            ensure_live_dashboard(project_root=fake_root, port=free_port)
+            ensure_live_dashboard(project_root=wheel_root, port=free_port)
+
+    # Mismatched active run (e.g. pre-existing server pinned to DASH_RUN=other_run) fails closed.
+    wrong_run = tmp_path / "wrong_run"
+    wrong_run.mkdir()
+    with monkeypatch.context() as mp:
+        mp.setattr("harness.validate.live_dashboard._status_alive", lambda *_a, **_kw: True)
+        mp.setattr("harness.validate.live_dashboard._register_watch", lambda *_a, **_kw: {"ok": True})
+        mp.setattr("harness.validate.live_dashboard._status_payload", lambda *_a, **_kw: {"run": "other_pinned_run"})
+        with pytest.raises(RuntimeError, match="other_pinned_run"):
+            ensure_live_dashboard(project_root=wheel_root, run_dir=wrong_run, port=free_port)
 
     try:
-        url = ensure_live_dashboard(project_root=fake_root, port=free_port)
+        url = ensure_live_dashboard(
+            project_root=wheel_root,
+            run_dir=wahs_run,
+            port=free_port,
+        )
         assert url == f"http://localhost:{free_port}"
+        # Packaged server handles /api/status?run=<name>, /api/detail?run=<name>, and root HTML.
+        st = _status_payload(free_port, run=wahs_run.name)
+        assert st is not None and st["run"] == wahs_run.name
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{free_port}/api/detail?scenario=s_wahs&backend=wahs-engine-kb:gemma-e4b@4k&run={wahs_run.name}",
+            timeout=2.0,
+        ) as resp:
+            assert resp.status == 200
+        with urllib.request.urlopen(f"http://127.0.0.1:{free_port}/", timeout=2.0) as resp:
+            assert resp.status == 200
         # Second call hits already-alive branch and notifies /api/watch for secondary worktree.
         wt2 = tmp_path / "wt2"
         (wt2 / "artifacts").mkdir(parents=True)
-        url2 = ensure_live_dashboard(project_root=wt2, port=free_port)
+        url2 = ensure_live_dashboard(project_root=wt2, run_dir=wahs_run, port=free_port)
         assert url2 == f"http://localhost:{free_port}"
     finally:
-        pid_file = fake_root / "artifacts" / "validate-dashboard" / "dashboard.pid"
+        pid_file = wheel_root / "artifacts" / "validate-dashboard" / "dashboard.pid"
+        if pid_file.is_file():
+            try:
+                os.kill(int(pid_file.read_text().strip()), signal.SIGTERM)
+            except OSError:
+                pass
+
+    # resolve_run rejects mismatched DASH_RUN pin and mismatched _RUN_OVERRIDE.
+    other_run = tmp_path / "artifacts" / "wahs_stage4" / "run-other"
+    other_run.mkdir(parents=True)
+    with monkeypatch.context() as mp:
+        mp.setenv("DASH_RUN", str(other_run))
+        assert vd.resolve_run(wahs_run.name) is None
+        assert vd.resolve_run(other_run.name) == str(other_run)
+    with monkeypatch.context() as mp:
+        mp.setattr(vd, "_RUN_OVERRIDE", str(other_run))
+        assert vd.resolve_run(wahs_run.name) is None
+        assert vd.resolve_run(other_run.name) == str(other_run)
+
+
+def test_packaged_dashboard_server_module_and_cli_shim(tmp_path: Path, monkeypatch) -> None:
+    import os
+    import signal
+    import socket
+    import subprocess
+    import sys
+
+    from harness.validate import dashboard_server as ds
+    from harness.validate import live_dashboard as ld
+
+    # Exercise live_dashboard helpers (_tail_log, HTTP non-200, _register_watch errors, early-exit poll).
+    assert "no dashboard.log" in ld._tail_log(tmp_path / "missing.log")
+    empty_log = tmp_path / "empty.log"
+    empty_log.write_text("", encoding="utf-8")
+    assert "empty" in ld._tail_log(empty_log)
+    assert ld._status_payload(9, timeout=0.1) is None
+
+    class _MockResp:
+        def __init__(self, status: int, body: bytes):
+            self.status = status
+            self._body = body
+
+        def read(self):
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    with monkeypatch.context() as mp:
+        mp.setattr(ld.urllib.request, "urlopen", lambda *_a, **_kw: _MockResp(500, b"{}"))
+        assert ld._status_payload(8099) is None
+        with pytest.raises(RuntimeError, match="HTTP 500"):
+            ld._register_watch(8099, artifacts_dir=tmp_path)
+        mp.setattr(ld.urllib.request, "urlopen", lambda *_a, **_kw: _MockResp(200, b"{bad"))
+        with pytest.raises(RuntimeError, match="invalid JSON"):
+            ld._register_watch(8099, artifacts_dir=tmp_path)
+        mp.setattr(ld.urllib.request, "urlopen", lambda *_a, **_kw: _MockResp(200, b'{"ok":false}'))
+        with pytest.raises(RuntimeError, match="rejected"):
+            ld._register_watch(8099, artifacts_dir=tmp_path)
+
+    with monkeypatch.context() as mp:
+        mp.setattr("harness.validate.live_dashboard._status_alive", lambda *_a, **_kw: True)
+        mp.setattr("harness.validate.live_dashboard._register_watch", lambda *_a, **_kw: {"ok": True})
+        mp.setattr("harness.validate.live_dashboard._status_payload", lambda *_a, **_kw: {"run": None})
+        assert ld.ensure_live_dashboard(project_root=tmp_path / "nonexistent_wheel_root", port=8099, force=True) == "http://localhost:8099"
+
+    # Exercise harness.validate.dashboard_server directly (resolve_run, status, detail, main).
+    run_dir = tmp_path / "artifacts" / "validate" / "run-pkg"
+    run_dir.mkdir(parents=True)
+    (run_dir / "results.jsonl").write_text(
+        json.dumps(
+            {
+                "scenario_id": "s1",
+                "backend_id": "b1",
+                "turn": 1,
+                "request": {"question": "q"},
+                "response": {"answer": "ok", "references": []},
+                "metrics": {"http_status": 200, "latency_ms": 10},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with monkeypatch.context() as mp:
+        mp.setattr(ds, "ROOT", tmp_path)
+        mp.setattr(ds, "_RUN_OVERRIDE", None)
+        mp.delenv("DASH_RUN", raising=False)
+        assert ds.newest_run() == str(run_dir)
+        assert ds.resolve_run(run_dir.name) == str(run_dir)
+        assert ds.status(run_dir.name)["run"] == run_dir.name
+        assert ds.detail("s1", "b1", run_dir.name)
+
+    with monkeypatch.context() as mp:
+        mp.setattr(ld, "ensure_live_dashboard", lambda *_a, **_kw: "http://localhost:8099")
+        assert ds.main(["--ensure"]) == 0
+        mp.setattr(ld, "ensure_live_dashboard", lambda *_a, **_kw: None)
+        assert ds.main(["--ensure"]) == 1
+
+    seen_serve: list[str | None] = []
+    with monkeypatch.context() as mp:
+        mp.setattr(ds, "serve_dashboard", lambda: seen_serve.append(ds._RUN_OVERRIDE))
+        assert ds.main(["--run", str(run_dir)]) == 0
+        assert seen_serve == [str(run_dir)]
+
+    # Exercise _git_common_repo_root worktree detection & _assets_dir candidate lookup.
+    wt_root = tmp_path / "wt_git"
+    wt_root.mkdir()
+    (wt_root / ".git").write_text("gitdir: ../repo/.git/worktrees/wt1\n", encoding="utf-8")
+    assert ds._git_common_repo_root(wt_root) == (tmp_path / "repo").resolve()
+    (wt_root / ".git").write_text("gitdir: ../plain_repo/.git\n", encoding="utf-8")
+    assert ds._git_common_repo_root(wt_root) == (tmp_path / "plain_repo").resolve()
+    with monkeypatch.context() as mp:
+        mp.setattr(ds, "ROOT", wt_root)
+        mp.delenv("OPENCLINAI_DISABLE_UMBRELLA_ASSETS", raising=False)
+        mp.delenv("OPENCLINAI_ASSETS_DIR", raising=False)
+        _ = ds._assets_dir()
+
+    # Exercise serve_dashboard() normal start + bind-failure SystemExit without keeping real sockets open.
+    closed: list[str] = []
+
+    class _OkSrv:
+        def __init__(self, addr, _h):
+            self.addr = addr
+
+        def serve_forever(self):
+            return None
+
+        def server_close(self):
+            closed.append(self.addr[0])
+
+    with monkeypatch.context() as mp:
+        mp.setattr(ds, "_Server", _OkSrv)
+        mp.setattr(ds, "_ServerV6", _OkSrv)
+        ds.serve_dashboard()
+        assert closed == ["127.0.0.1", "::1"]
+
+    class _FailSrv:
+        def __init__(self, *_a):
+            raise OSError("port busy")
+
+    with monkeypatch.context() as mp:
+        mp.setattr(ds, "_Server", _FailSrv)
+        mp.setattr(ds, "_ServerV6", _FailSrv)
+        with pytest.raises(SystemExit, match="could not bind dashboard"):
+            ds.serve_dashboard()
+
+    # Exercise live_dashboard wheel fallback (missing project_root) & bind timeout failure.
+    alive_seq = iter([False, True])
+
+    class _FakeProc:
+        pid = 12345
+
+        def poll(self):
+            return None
+
+    with monkeypatch.context() as mp:
+        mp.setattr(ld, "_status_alive", lambda *_a, **_kw: next(alive_seq, True))
+        mp.setattr(ld.subprocess, "Popen", lambda *_a, **_kw: _FakeProc())
+        mp.setattr(ld, "_register_watch", lambda *_a, **_kw: {"ok": True})
+        out_wheel = tmp_path / "wheel_out"
+        out_wheel.mkdir()
+        assert (
+            ld.ensure_live_dashboard(
+                project_root=tmp_path / "missing_wheel_root",
+                output_dir=out_wheel,
+                port=8099,
+                force=True,
+            )
+            == "http://localhost:8099"
+        )
+
+    class _EarlyExitProc:
+        pid = 12346
+
+        def poll(self):
+            return 0
+
+    alive_early = iter([False, True])
+    with monkeypatch.context() as mp:
+        mp.setattr(ld, "_status_alive", lambda *_a, **_kw: next(alive_early, True))
+        mp.setattr(ld.subprocess, "Popen", lambda *_a, **_kw: _EarlyExitProc())
+        mp.setattr(ld, "_register_watch", lambda *_a, **_kw: {"ok": True})
+        assert (
+            ld.ensure_live_dashboard(
+                project_root=tmp_path / "missing_wheel_root",
+                output_dir=tmp_path / "wheel_out",
+                port=8099,
+                force=True,
+            )
+            == "http://localhost:8099"
+        )
+
+    mono_seq = iter([0.0, 0.0, 9.0])
+    with monkeypatch.context() as mp:
+        mp.setattr(ld, "_status_alive", lambda *_a, **_kw: False)
+        mp.setattr(ld.subprocess, "Popen", lambda *_a, **_kw: _FakeProc())
+        mp.setattr(ld.time, "monotonic", lambda: next(mono_seq, 9.0))
+        with pytest.raises(RuntimeError, match="failed to bind/respond"):
+            ld.ensure_live_dashboard(
+                project_root=tmp_path / "missing_wheel_root",
+                output_dir=tmp_path / "wheel_out",
+                port=8099,
+                force=True,
+            )
+
+    # Exercise scripts/validate-dashboard.py __main__ CLI shim.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        shim_port = s.getsockname()[1]
+    env = dict(os.environ)
+    env["DASH_PORT"] = str(shim_port)
+    env["OPENCLINAI_DASHBOARD_ROOT"] = str(tmp_path)
+    env["HARNESS_FORCE_DASHBOARD"] = "1"
+    env.pop("PYTEST_CURRENT_TEST", None)
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "validate-dashboard.py"), "--ensure"],
+            cwd=str(tmp_path),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert proc.returncode == 0, proc.stderr
+    finally:
+        pid_file = tmp_path / "artifacts" / "validate-dashboard" / "dashboard.pid"
         if pid_file.is_file():
             try:
                 os.kill(int(pid_file.read_text().strip()), signal.SIGTERM)
