@@ -16,15 +16,19 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import re
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from uuid import uuid4
+
+from harness.common.jsonl import read_jsonl
 
 from ..metadata import RunManifest, append_event, copy_target_provenance, utc_now_iso, write_manifest
 from .bundle import capture_traces, freeze_inputs
+from .context_store import rehydrate_response_envelope
 from .hub_trace import load_traces
 from .client import ChatResult
 from .dataset_provenance import build_dataset_provenance
@@ -130,12 +134,18 @@ def _load_completed(
     """Read a prior run dir and return {(backend_id, scenario_id): good_rows} for every
     scenario×backend whose *every* expected turn has a good row — those are carried over
     on resume. Anything partial/empty/missing is left out, so it gets re-run."""
-    path = Path(resume_from) / "results.jsonl"
+    resume_dir = Path(resume_from)
+    path = resume_dir / "results.jsonl"
     if not path.exists():
         return {}
-    rows = [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    rows = read_jsonl(path, strict=False)
+    ctx_cache: dict[str, dict[str, Any]] = {}
     by_pair: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for r in rows:
+        if isinstance(r.get("response"), dict) and "context_ref" in r["response"]:
+            r["response"] = rehydrate_response_envelope(
+                resume_dir, r["response"], cache=ctx_cache
+            )
         by_pair.setdefault((r.get("backend_id"), r.get("scenario_id")), []).append(r)
     completed: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for (bid, sid), rs in by_pair.items():
@@ -146,6 +156,118 @@ def _load_completed(
         if want <= set(good):
             completed[(bid, sid)] = [good[n] for n in sorted(want)]
     return completed
+
+
+@dataclass(frozen=True)
+class CellPlanItem:
+    """One deterministic unit of execution in ``execute_cell_matrix``."""
+
+    cell_key: Any
+    scenario_id: str
+    backend_id: str
+    turn: int = 1
+    seed: int | None = None
+    payload: Any = None
+
+
+def _extract_http_status_from_error(exc: BaseException, default: int = 0) -> int:
+    msg = str(exc)
+    for pat in (
+        r"\bfailed \[(\d{3})\]",
+        r"\bHTTP\s+(\d{3})\b",
+        r"\b(\d{3})\s+unavailable\b",
+    ):
+        m = re.search(pat, msg, flags=re.IGNORECASE)
+        if m:
+            code = int(m.group(1))
+            if 100 <= code <= 599:
+                return code
+    return default
+
+
+def execute_cell_matrix(
+    items: list[CellPlanItem],
+    *,
+    run_dir: Path | str,
+    output_dir: Path | str,
+    execute_cell: Callable[[CellPlanItem], dict[str, Any]],
+    completed_rows: dict[Any, dict[str, Any]] | None = None,
+    on_resume_cell: Callable[[CellPlanItem, dict[str, Any]], dict[str, Any]] | None = None,
+    on_error_cell: Callable[[CellPlanItem, Exception, int], dict[str, Any]] | None = None,
+    isolate_errors: bool = True,
+    events_path: Path | None = None,
+    run_id: str | None = None,
+) -> int:
+    """Shared cell-execution spine across evaluation suites.
+
+    Enforces fail-closed live dashboard startup (:8099), handles ``--resume``
+    carry-over, streams flushed ``results.jsonl`` rows, emits standard
+    ``evaluation`` events when ``events_path`` is given, and isolates per-cell
+    failures when ``isolate_errors=True``.
+    """
+    from .live_dashboard import ensure_live_dashboard
+
+    rdir = Path(run_dir)
+    rdir.mkdir(parents=True, exist_ok=True)
+    ensure_live_dashboard(run_dir=rdir, output_dir=Path(output_dir))
+
+    results_path = rdir / "results.jsonl"
+    written = 0
+    with results_path.open("w", encoding="utf-8") as fh:
+        for item in items:
+            prior = completed_rows.get(item.cell_key) if completed_rows else None
+            resumed = prior is not None
+            if prior is not None:
+                row = on_resume_cell(item, prior) if on_resume_cell is not None else dict(prior)
+            else:
+                try:
+                    row = execute_cell(item)
+                except Exception as exc:
+                    if not isolate_errors:
+                        raise
+                    http_code = _extract_http_status_from_error(exc, default=0)
+                    if on_error_cell is not None:
+                        row = on_error_cell(item, exc, http_code)
+                    else:
+                        now = utc_now_iso()
+                        row = {
+                            **({"run_id": run_id} if run_id else {}),
+                            "scenario_id": item.scenario_id,
+                            "backend_id": item.backend_id,
+                            "turn": item.turn,
+                            "request": {"question": ""},
+                            "response": None,
+                            "metrics": compute_metrics(
+                                envelope=None,
+                                latency_ms=0,
+                                http_status=http_code,
+                                first_turn=(item.turn == 1),
+                            ),
+                            "error": f"{type(exc).__name__}: {exc}"[:500],
+                            "started_at": now,
+                            "ended_at": now,
+                        }
+            fh.write(json.dumps(row, separators=(",", ":")) + "\n")
+            fh.flush()
+            written += 1
+
+            if events_path is not None and item.scenario_id and item.backend_id:
+                m = row.get("metrics") or {}
+                ev: dict[str, Any] = {
+                    "event_type": "evaluation",
+                    "check": "chat_turn",
+                    "run_id": run_id or row.get("run_id") or rdir.name,
+                    "scenario_id": item.scenario_id,
+                    "backend_id": item.backend_id,
+                    "turn": row.get("turn") or item.turn,
+                    "http_status": m.get("http_status"),
+                    "latency_ms": m.get("latency_ms", 0),
+                    "citation_count": m.get("citation_count", 0),
+                }
+                if resumed:
+                    ev["resumed"] = True
+                append_event(events_path, ev)
+    return written
 
 
 class _Client(Protocol):

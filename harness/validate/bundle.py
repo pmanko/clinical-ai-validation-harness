@@ -13,6 +13,7 @@ from typing import Any
 
 from harness.common.jsonl import read_jsonl
 
+from .context_store import rehydrate_response_envelope
 from .hub_trace import match_trace, trace_model_for_result, trace_transport_for_result
 from .sources import load_scenario_chart
 
@@ -50,14 +51,17 @@ def _run_transport(run_dir: Path) -> str | None:
 
 
 def review_results(run_dir: Path | str, *, strict: bool = True) -> list[dict[str, Any]]:
-    """Resolve routing identity only from the result or frozen connection metadata."""
+    """Resolve routing identity and rehydrate normalized contexts from the run directory."""
     run_path = Path(run_dir)
     backends = load_run_meta(run_path).get("backends") or {}
     transport = _run_transport(run_path)
+    ctx_cache: dict[str, dict[str, Any]] = {}
     rows = read_jsonl(run_path / "results.jsonl", strict=strict)
     for row in rows:
         request = row.get("request") or {}
         row["request"] = request
+        if "patient" not in request and row.get("patient_id"):
+            request["patient"] = str(row["patient_id"])
         backend = backends.get(row.get("backend_id")) or {}
         if "profile" not in request and backend.get("provider") != "bundled":
             model = backend.get("modelName")
@@ -65,6 +69,15 @@ def review_results(run_dir: Path | str, *, strict: bool = True) -> list[dict[str
                 request["profile"] = model
         if "transport" not in request and transport:
             request["transport"] = transport
+        if isinstance(row.get("response"), dict) and "context_ref" in row["response"]:
+            row["response"] = rehydrate_response_envelope(
+                run_path, row["response"], cache=ctx_cache
+            )
+        indepth = row.get("indepth")
+        if isinstance(indepth, dict) and isinstance(indepth.get("response"), dict) and "context_ref" in indepth["response"]:
+            indepth["response"] = rehydrate_response_envelope(
+                run_path, indepth["response"], cache=ctx_cache
+            )
     return rows
 
 
