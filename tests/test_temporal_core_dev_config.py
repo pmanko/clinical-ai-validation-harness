@@ -21,10 +21,10 @@ def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
     cset = load_comparison_set(DATA / "comparison_sets" / "hub-profile-candidate.json")
     assert cset.id == "hub-profile-candidate"
     assert len(cset.scenario_ids) == 12
-    assert cset.backend_ids == ["verified"]
+    assert cset.backend_ids == ["gemma-4-12b"]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
-    assert [backend.model_name for backend in backends] == ["verified"]
+    assert [backend.model_name for backend in backends] == ["gemma-4-12b"]
     assert all(backend.indepth_model is None for backend in backends)
     assert all(backend.execution is None for backend in backends)
     assert not any("team" in backend.id or "2call" in backend.id for backend in backends)
@@ -43,10 +43,10 @@ def test_hub_profile_appointment_smoke_targets_both_appointment_cases():
         "single-upcoming-appointments",
         "am-upcoming-appointments",
     ]
-    assert cset.backend_ids == ["verified"]
+    assert cset.backend_ids == ["gemma-4-12b"]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
-    assert [backend.model_name for backend in backends] == ["verified"]
+    assert [backend.model_name for backend in backends] == ["gemma-4-12b"]
     assert backends[0].indepth_model is None
     assert backends[0].execution is None
 
@@ -104,9 +104,9 @@ def test_backend_registry_has_no_orphans_and_product_ids_are_hub_ids():
         if config.get("kind") == "product_profile"
     }
     assert set(products) == {
-        "quick",
-        "standard",
-        "verified",
+        "gemma-4-12b",
+        "gemma-4-e4b",
+        "qwen-3.5-9b",
     }
     for backend_id, config in products.items():
         assert config["modelName"] == backend_id

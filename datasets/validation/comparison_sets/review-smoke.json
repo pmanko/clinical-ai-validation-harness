@@ -8,6 +8,6 @@
     "abstain-out-of-chart"
   ],
   "backend_ids": [
-    "verified"
+    "gemma-4-12b"
   ]
 }

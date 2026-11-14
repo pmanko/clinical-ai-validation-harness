@@ -21,7 +21,7 @@ def test_substantive_answer_rejects_product_fallback():
 def test_expected_candidate_matrix_is_exactly_12_cells():
     pairs = MODULE._expected_pairs()
     assert len(pairs) == 12
-    assert {backend for _scenario, backend in pairs} == {"verified"}
+    assert {backend for _scenario, backend in pairs} == {"gemma-4-12b"}
 
 
 def test_run_contract_resolves_historical_comparison_set_at_recorded_git_sha(
@@ -101,7 +101,7 @@ def test_evidence_builder_rejects_an_incomplete_run(tmp_path):
                 "comparison_set": MODULE.EXPECTED_SET,
                 "reference_date": MODULE.EXPECTED_REFERENCE_DATE,
                 "scenario_ids": [scenario for scenario, _ in sorted(MODULE._expected_pairs())],
-                "backend_ids": ["verified"],
+                "backend_ids": ["gemma-4-12b"],
             }
         )
         + "\n",
@@ -114,7 +114,7 @@ def test_evidence_builder_rejects_an_incomplete_run(tmp_path):
         json.dumps(
             {
                 "scenario_id": "date-zabella-weight-table",
-                "backend_id": "verified",
+                "backend_id": "gemma-4-12b",
                 "reference_date": "2026-06-20",
             }
         )
@@ -244,7 +244,7 @@ def test_evidence_builder_accepts_the_complete_12_cell_contract(tmp_path):
     assert audit["status"] == "pass"
     assert audit["blockers"] == []
     assert audit["profiles_by_backend"] == {
-        "verified": MODULE.EXPECTED_PRODUCT_PROFILE
+        "gemma-4-12b": MODULE.EXPECTED_PRODUCT_PROFILE
     }
 
 

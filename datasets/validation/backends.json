@@ -7,11 +7,11 @@
     "modelName": "gemma-e4b"
   },
   "engine-parity-hub": {
-    "label": "Med Agent Hub (Quick answer)",
+    "label": "Med Agent Hub (Gemma 4 E4B, 1-call)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "quick"
+    "modelName": "gemma-4-e4b"
   },
   "engine-parity-bundled-12b": {
     "label": "Built-in ChartSearchAI (Gemma 4 12B)",
@@ -21,36 +21,36 @@
     "modelName": "gemma-4-12b"
   },
   "engine-parity-hub-answer-12b": {
-    "label": "Med Agent Hub (Standard answer, 12B)",
+    "label": "Med Agent Hub (Gemma 4 12B, 1-call)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "standard"
+    "modelName": "gemma-4-12b"
   },
   "engine-parity-hub-12b": {
-    "label": "Med Agent Hub (Cross-checked answer, 12B)",
+    "label": "Med Agent Hub (Gemma 4 12B)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "verified"
+    "modelName": "gemma-4-12b"
   },
-  "quick": {
-    "label": "Quick answer",
+  "gemma-4-12b": {
+    "label": "Gemma 4 12B",
     "kind": "product_profile",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "quick"
+    "modelName": "gemma-4-12b"
   },
-  "standard": {
-    "label": "Standard answer",
+  "gemma-4-e4b": {
+    "label": "Gemma 4 E4B (Fast)",
     "kind": "product_profile",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "standard"
+    "modelName": "gemma-4-e4b"
   },
-  "verified": {
-    "label": "Cross-checked answer",
+  "qwen-3.5-9b": {
+    "label": "Qwen 3.5 9B",
     "kind": "product_profile",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "verified"
+    "modelName": "qwen-3.5-9b"
   },
   "hub-e4b-verified": {
     "label": "Verified answer (E4B)",

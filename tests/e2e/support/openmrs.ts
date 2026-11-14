@@ -166,7 +166,7 @@ export async function selectHubProvider(page: Page): Promise<void> {
   await expect(providerButton).toContainText(/Med-Agent Hub/i, { timeout: 30_000 });
 }
 
-export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Standard answer/i): Promise<void> {
+export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Gemma 4 12B/i): Promise<void> {
   await selectHubProvider(page);
   const modelButton = page.getByTestId('chartsearchai-profile-picker');
   await expect(modelButton).toBeVisible({ timeout: 30_000 });
@@ -180,12 +180,12 @@ export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Sta
   await expect(modelButton).toContainText(labelPattern, { timeout: 10_000 });
 }
 
-/** Select the default validated "Standard answer" preset so requests route through med-agent-hub validation. */
+/** Select the default validated "Gemma 4 12B" preset so requests route through med-agent-hub validation. */
 export async function selectSingle12BModel(page: Page): Promise<void> {
-  await selectCheckedModel(page, /Standard answer/i);
+  await selectCheckedModel(page, /Gemma 4 12B/i);
 }
 
-/** Select the fast "Quick answer" preset. */
+/** Select the fast "Gemma 4 E4B (Fast)" preset. */
 export async function selectFastE4BModel(page: Page): Promise<void> {
-  await selectCheckedModel(page, /Quick answer/i);
+  await selectCheckedModel(page, /Gemma 4 E4B/i);
 }
