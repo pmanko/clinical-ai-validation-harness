@@ -9,9 +9,6 @@ from typing import Any
 
 from .evaluator import (
     MAX_TOKEN_BUDGET,
-    VALID_CONDENSE_MODES,
-    VALID_CONTEXT_ARMS,
-    VALID_EVALUATION_MODALITIES,
     WahsHubClient,
     build_wahs_report_packet,
     run_wahs_suite,
@@ -46,28 +43,38 @@ def _parse_seed_list(raw_seeds: list[str] | None) -> list[int] | None:
     return out or None
 
 
+def _add_bundles_dir_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--bundles-dir",
+        action="append",
+        dest="bundle_dirs",
+        default=None,
+        help="Directory containing patient FHIR Bundle JSON files (repeatable; overrides/augments $WAHS_BUNDLES_DIR)",
+    )
+
+
 def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     wahs = parent.add_parser(
         "wahs",
-        help="Run and score WAHS (Washington Health Summary) FHIR R4 condensation & Q&A evaluations",
+        help="Run and score WAHS (Washington Health Summary) evaluations",
     )
     sub = wahs.add_subparsers(dest="wahs_action", required=True)
 
-    run_p = sub.add_parser("run", help="Run a WAHS evaluation suite against WAHS Engine or Med Agent Hub")
+    run_p = sub.add_parser("run", help="Run a WAHS evaluation suite against wahs-engine or raw-fhir")
     run_p.add_argument(
         "--cases",
-        required=True,
-        help="Path to wahs_eval_cases.jsonl",
+        default="datasets/wahs_demo_patients_25x10_testset.jsonl",
+        help="Path to WAHS evaluation cases JSONL (default: datasets/wahs_demo_patients_25x10_testset.jsonl)",
     )
     run_p.add_argument(
         "--hub-url",
         default=None,
-        help="WAHS Engine or Med Agent Hub base URL (default: $MED_AGENT_HUB_BASE_URL or http://127.0.0.1:8000)",
+        help="wahs-engine base URL (default: $MED_AGENT_HUB_BASE_URL or http://127.0.0.1:8000)",
     )
     run_p.add_argument(
         "--direct-llm-url",
         default=None,
-        help="Direct OpenAI /v1 LLM base URL for raw-fhir:* or direct-* baselines (default: $DIRECT_LLM_BASE_URL or --hub-url)",
+        help="Direct OpenAI /v1 LLM base URL for raw-fhir:* baselines (default: $DIRECT_LLM_BASE_URL or --hub-url)",
     )
     run_p.add_argument(
         "--output-dir",
@@ -82,24 +89,11 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         help=f"Target token budget(s) to evaluate in [1, {MAX_TOKEN_BUDGET}] (repeatable; defaults to each case's target_token_budgets)",
     )
     run_p.add_argument(
-        "--context-arm",
-        action="append",
-        choices=VALID_CONTEXT_ARMS,
-        dest="context_arms",
-        help="Context representation arm(s) to evaluate (repeatable)",
-    )
-    run_p.add_argument(
-        "--condense-mode",
-        action="append",
-        choices=VALID_CONDENSE_MODES,
-        dest="condense_modes",
-        help="Condensation mode(s) to evaluate (repeatable)",
-    )
-    run_p.add_argument(
         "--profile",
         action="append",
+        required=True,
         dest="profiles",
-        help="WAHS profile ID(s) (e.g. wahs-engine-kb:gemma-e4b@4k, wahs-engine-rag:qwen3.5-9b@4k, wahs-engine-tools:gemma-26b@4k, raw-fhir:gemma-e4b@4k) (repeatable)",
+        help="WAHS engine profile ID(s) (e.g. wahs-engine-kb:gemma-e4b@4k, wahs-engine-rag:qwen3.5-9b@4k, wahs-engine-tools:gemma-26b@4k, wahs-engine-chart:gemma-12b@16k, raw-fhir:gemma-e4b@4k) (repeatable)",
     )
     run_p.add_argument(
         "--seeds",
@@ -115,12 +109,6 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         help="Optional sampling temperature override (defaults to 0.2 when --seeds is set)",
     )
     run_p.add_argument(
-        "--evaluation-modality",
-        choices=VALID_EVALUATION_MODALITIES,
-        default="deterministic_pipeline",
-        help="Evaluation modality controlling Hub condensation/lookup mode and run metadata",
-    )
-    run_p.add_argument(
         "--resume",
         default=None,
         help="Prior partial WAHS run directory to resume from",
@@ -130,12 +118,14 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         "--target-provenance",
         help="JSON file of caller-supplied target provenance objects",
     )
+    _add_bundles_dir_arg(run_p)
 
     score_p = sub.add_parser(
         "score",
         help="Re-score a completed WAHS run directory offline from its frozen inputs",
     )
     score_p.add_argument("run_dir", help="Completed WAHS run directory")
+    _add_bundles_dir_arg(score_p)
 
     report_p = sub.add_parser(
         "report",
@@ -147,6 +137,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         default=None,
         help="Optional summary label for the patient cohort in run_manifest.json",
     )
+    _add_bundles_dir_arg(report_p)
 
     judge_p = sub.add_parser(
         "judge",
@@ -165,24 +156,27 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     judge_p.add_argument("--add", action="store_true", help="Add judge passes to existing headline rather than replacing")
     judge_p.add_argument("--agent", default="claude", choices=("claude", "codex", "gemini", "human"))
     judge_p.add_argument("--work-dir", help="Working directory for judge prompt/session artifacts")
+    _add_bundles_dir_arg(judge_p)
 
 
 def dispatch(args: argparse.Namespace) -> int:
+    bundle_dirs = getattr(args, "bundle_dirs", None)
     if args.wahs_action == "score":
-        summary = score_wahs_run(Path(args.run_dir))
+        summary = score_wahs_run(Path(args.run_dir), bundle_dirs=bundle_dirs)
         print(json.dumps(summary, indent=2))
         return 0 if (summary["passed_cells"] == summary["total_cells"] and not summary.get("incomplete")) else 1
 
     if args.wahs_action == "judge":
         from harness.validate.judge_runner import run_judge_command
 
-        score_wahs_run(Path(args.run_dir))
+        score_wahs_run(Path(args.run_dir), bundle_dirs=bundle_dirs)
         return run_judge_command(args)
 
     if args.wahs_action == "report":
         packet = build_wahs_report_packet(
             Path(args.run_dir),
             patients_summary=getattr(args, "patients", None),
+            bundle_dirs=bundle_dirs,
         )
         print(json.dumps(packet, indent=2))
         return 0
@@ -197,21 +191,20 @@ def dispatch(args: argparse.Namespace) -> int:
         client = WahsHubClient(
             base_url=args.hub_url,
             direct_llm_base_url=getattr(args, "direct_llm_url", None),
+            bundle_dirs=bundle_dirs,
         )
         result = run_wahs_suite(
             args.cases,
             client=client,
             output_dir=args.output_dir,
             budgets=args.budgets,
-            context_arms=getattr(args, "context_arms", None),
-            condense_modes=getattr(args, "condense_modes", None),
             profiles=getattr(args, "profiles", None),
             seeds=parsed_seeds,
             temperature=getattr(args, "temperature", None),
             git_sha=args.git_sha,
             target_provenance=provenance,
-            evaluation_modality=getattr(args, "evaluation_modality", "deterministic_pipeline"),
             resume_from=getattr(args, "resume", None),
+            bundle_dirs=bundle_dirs,
         )
         print(json.dumps(result.summary, indent=2))
         return 0 if result.passed_cells == result.total_cells else 1
