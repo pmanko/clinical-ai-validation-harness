@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS_DIR = ROOT / "harness"
+LIVE_MONITOR_SERVER = HARNESS_DIR / "validate" / "dashboard_server.py"
 VALIDATE_REPORT = HARNESS_DIR / "validate" / "report.py"
 CATALYST_REPORT = HARNESS_DIR / "catalyst" / "report.py"
 STATS = HARNESS_DIR / "common" / "stats.py"
@@ -21,8 +22,14 @@ def test_stats_helpers_live_in_common_module() -> None:
 def test_harness_producers_emit_pure_v2_json_without_embedded_html_shells() -> None:
     for path in sorted(HARNESS_DIR.rglob("*.py")):
         text = path.read_text(encoding="utf-8")
-        assert "<!doctype html>" not in text.lower(), f"{path} embeds an HTML document shell"
         assert "report-shell.js" not in text, f"{path} references viewer asset report-shell.js"
+        if path == LIVE_MONITOR_SERVER:
+            # The local :8099 live monitor intentionally serves its thin shell over HTTP;
+            # it must never revert to --freeze or emit static openclinai.report.v2 packets.
+            assert "--freeze" not in text, f"{path} must not emit static --freeze snapshots"
+            assert "openclinai.report.v2" not in text, f"{path} must not emit openclinai.report.v2"
+            continue
+        assert "<!doctype html>" not in text.lower(), f"{path} embeds an HTML document shell"
         assert "dashboard-shell.js" not in text, f"{path} references viewer asset dashboard-shell.js"
 
     for report_mod in (VALIDATE_REPORT, CATALYST_REPORT):
