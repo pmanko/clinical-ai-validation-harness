@@ -140,7 +140,6 @@ def test_lossless_snapshot_hardware_warmup_ceiling_and_categories(tmp_path: Path
             cases_path,
             client=client,
             output_dir=out_dir,
-            evaluation_modality="live_model_and_team_eval",
             profiles=["wahs-engine-chart:gemma4:12b@32k", "wahs-engine-chart:gemma4:26b@16k"],
         )
 
