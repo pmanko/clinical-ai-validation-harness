@@ -166,7 +166,7 @@ export async function selectHubProvider(page: Page): Promise<void> {
   await expect(providerButton).toContainText(/Med-Agent Hub/i, { timeout: 30_000 });
 }
 
-export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Checked answer \(12B\)/i): Promise<void> {
+export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Standard answer/i): Promise<void> {
   await selectHubProvider(page);
   const modelButton = page.getByTestId('chartsearchai-profile-picker');
   await expect(modelButton).toBeVisible({ timeout: 30_000 });
@@ -180,12 +180,12 @@ export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Che
   await expect(modelButton).toContainText(labelPattern, { timeout: 10_000 });
 }
 
-/** Select the staged single "Checked answer (12B)" profile so requests route through med-agent-hub validation. */
+/** Select the default validated "Standard answer" preset so requests route through med-agent-hub validation. */
 export async function selectSingle12BModel(page: Page): Promise<void> {
-  await selectCheckedModel(page, /Checked answer \(12B\)/i);
+  await selectCheckedModel(page, /Standard answer/i);
 }
 
-/** Select the default fast checked E4B product profile. */
+/** Select the fast "Quick answer" preset. */
 export async function selectFastE4BModel(page: Page): Promise<void> {
-  await selectCheckedModel(page, /Fast checked answer \(E4B\)|E4B/i);
+  await selectCheckedModel(page, /Quick answer/i);
 }

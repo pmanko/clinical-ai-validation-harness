@@ -610,6 +610,7 @@ class MedAgentHubClient:
         question: str,
         *,
         profile: str | None = None,
+        execution: dict[str, Any] | None = None,
         request_id: str | None = None,
     ) -> ChatResult:
         if not profile:
@@ -624,13 +625,15 @@ class MedAgentHubClient:
 
         request_id = request_id or str(uuid4())
         messages = [*conversation["messages"], {"role": "user", "content": question}]
-        body = {
+        body: dict[str, Any] = {
             "model": profile,
             "stream": False,
             "patient": patient,
             "messages": messages,
             "context": {"session": session, "request_id": request_id},
         }
+        if execution is not None:
+            body["execution"] = dict(execution)
         attempt = 0
         started = time.monotonic()
         while True:

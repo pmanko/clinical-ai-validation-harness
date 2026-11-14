@@ -1,6 +1,7 @@
 {
   "id": "hub-profile-team-focus",
-  "description": "Focused product comparison of the E4B and 12B checked single profiles against one checked medical-team profile on six scenarios that exercise tables, temporal reasoning, evidence breadth, and abstention.",
+  "transport": "med-agent-hub",
+  "description": "Focused Med Agent Hub comparison of E4B and 12B verified single execution modes against the medical-team execution mode on six scenarios that exercise tables, temporal reasoning, evidence breadth, and abstention.",
   "scenario_ids": [
     "date-zabella-weight-table",
     "date-aloice-orders-table",
@@ -10,8 +11,8 @@
     "abstain-out-of-chart"
   ],
   "backend_ids": [
-    "single-e4b-checked",
-    "single-12b-checked",
-    "team-med-checked"
+    "hub-e4b-verified",
+    "hub-12b-verified",
+    "hub-team-med"
   ]
 }
