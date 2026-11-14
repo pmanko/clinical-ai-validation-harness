@@ -12,7 +12,7 @@ import {
   selectCheckedModel,
 } from '../support/openmrs';
 
-const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Fast checked answer (E4B)';
+const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Quick answer';
 const MODEL_PATTERN = new RegExp(MODEL_LABEL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 const STEP_PAUSE_MS = Number.parseInt(process.env.E2E_STEP_PAUSE_MS ?? '900', 10) || 0;
 const EVIDENCE_SLUG = process.env.E2E_EVIDENCE_SLUG ?? 'e4b-multiturn-trivial';

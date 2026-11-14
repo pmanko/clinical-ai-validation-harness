@@ -88,3 +88,29 @@ def test_hub_client_does_not_retry_non_transient_configuration_error():
     assert result.status == 400
     assert len(session.requests) == 1
     assert "product_profile_required" in result.raw_text
+
+
+def test_hub_client_forwards_execution_spec_when_supplied():
+    session = _Session([_Response(200, _completion("Verified")), _Response(200, _completion("Default"))])
+    client = MedAgentHubClient(base_url="http://hub/v1/chat/completions", session=session)
+    chat_session = client.new_session("patient-1")
+
+    first = client.chat(
+        "patient-1",
+        chat_session,
+        "Question one",
+        profile="gemma-4-12b",
+        execution={"mode": "verified", "indepth": False},
+    )
+    second = client.chat(
+        "patient-1",
+        chat_session,
+        "Question two",
+        profile="gemma-4-12b",
+    )
+
+    assert first.status == 200
+    assert second.status == 200
+    assert session.requests[0][1]["model"] == "gemma-4-12b"
+    assert session.requests[0][1]["execution"] == {"mode": "verified", "indepth": False}
+    assert "execution" not in session.requests[1][1]

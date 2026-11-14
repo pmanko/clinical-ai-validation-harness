@@ -33,33 +33,41 @@ def test_small_model_answer_paths_is_a_matched_e4b_12b_matrix():
     assert loaded.backend_ids == [
         "speed-e4b-answer-only",
         "speed-e4b-deterministic-check",
-        "single-e4b-checked",
+        "hub-e4b-verified",
         "speed-12b-answer-only",
         "speed-12b-deterministic-check",
-        "single-12b-checked",
+        "hub-12b-verified",
     ]
 
 
-def test_small_model_answer_paths_select_explicit_hub_profiles():
+def test_small_model_answer_paths_select_explicit_hub_modes():
     backends = resolve_backends(
         [
             "speed-e4b-answer-only",
             "speed-e4b-deterministic-check",
-            "single-e4b-checked",
+            "hub-e4b-verified",
             "speed-12b-answer-only",
             "speed-12b-deterministic-check",
-            "single-12b-checked",
+            "hub-12b-verified",
         ],
         DATA / "backends.json",
     )
 
     assert [backend.model_name for backend in backends] == [
-        "eval-e4b-answer-only",
-        "eval-e4b-temporal-enforce",
-        "single-e4b-checked",
-        "eval-12b-answer-only",
-        "eval-12b-temporal-enforce",
-        "single-12b-checked",
+        "gemma-e4b",
+        "gemma-e4b",
+        "gemma-e4b",
+        "gemma-4-12b",
+        "gemma-4-12b",
+        "gemma-4-12b",
+    ]
+    assert [backend.execution for backend in backends] == [
+        {"mode": "bare_eval", "checks": {"temporal": "off"}},
+        {"mode": "quick"},
+        {"mode": "verified"},
+        {"mode": "bare_eval", "checks": {"temporal": "off"}},
+        {"mode": "quick"},
+        {"mode": "verified"},
     ]
     assert all(
         backend.endpoint_url == "http://med-agent-hub:8080/v1/chat/completions"

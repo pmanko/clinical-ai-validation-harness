@@ -22,7 +22,23 @@ def validate_execution_contract(
                 f"kwarg on client.chat); use transport=chartsearchai for "
                 f"provider_arm backends: {names}"
             )
+        if comparison.transport == "openai-compatible":
+            with_exec = [backend.id for backend in backends if backend.execution is not None]
+            if with_exec:
+                names = ", ".join(with_exec)
+                raise ValueError(
+                    "openai-compatible transport does not accept hub execution specs; "
+                    f"use transport=med-agent-hub: {names}"
+                )
         return
+
+    with_exec = [backend.id for backend in backends if backend.execution is not None]
+    if with_exec:
+        names = ", ".join(with_exec)
+        raise ValueError(
+            "ChartSearchAI comparisons send OpenMRS preset ids and do not accept raw hub "
+            f"execution specs; use transport=med-agent-hub for low-level experiments: {names}"
+        )
 
     invalid = [
         backend.id
