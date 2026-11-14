@@ -5,7 +5,7 @@ from pathlib import Path
 
 def test_dashboard_uses_structured_dashboard_data_and_external_shell() -> None:
     src = (
-        Path(__file__).resolve().parents[2] / "scripts" / "validate-dashboard.py"
+        Path(__file__).resolve().parents[2] / "harness" / "validate" / "dashboard_server.py"
     ).read_text(encoding="utf-8")
     assert "from harness.validate.dashboard_data import" in src
     assert "dashboard-shell.css" in src

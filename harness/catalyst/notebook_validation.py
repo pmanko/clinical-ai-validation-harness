@@ -2982,6 +2982,10 @@ def run_notebook_suite(
             },
         )
 
+    from harness.validate.live_dashboard import ensure_live_dashboard
+
+    ensure_live_dashboard(run_dir=run_dir, output_dir=Path(output_dir))
+
     def record_recovery_imports() -> None:
         if recovery_imports and not (run_dir / "recovery-import.json").exists():
             recorder.json(

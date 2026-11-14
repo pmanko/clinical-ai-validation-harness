@@ -298,6 +298,10 @@ def run_comparison(
         },
     )
 
+    from .live_dashboard import ensure_live_dashboard
+
+    ensure_live_dashboard(run_dir=run_dir, output_dir=Path(output_dir))
+
     repo = JsonlRepository(authored_root=data_root, run_dir=run_dir)
     result_count = 0
 

@@ -713,6 +713,10 @@ def run_suite(
         },
     )
 
+    from harness.validate.live_dashboard import ensure_live_dashboard
+
+    ensure_live_dashboard(run_dir=run_dir, output_dir=Path(output_dir))
+
     try:
         profiles = client.profiles()
     except Exception as error:
