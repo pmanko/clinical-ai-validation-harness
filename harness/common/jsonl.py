@@ -29,13 +29,14 @@ def read_jsonl(path: Path | str, *, strict: bool = True) -> list[dict[str, Any]]
     if not p.exists():
         return []
     rows: list[dict[str, Any]] = []
-    for lineno, line in enumerate(p.read_text(encoding="utf-8").splitlines(), start=1):
-        text = line.strip()
-        if not text:
-            continue
-        try:
-            rows.append(json.loads(text))
-        except json.JSONDecodeError as exc:
-            if strict:
-                raise ValueError(f"{p}: line {lineno}: {exc.msg}") from exc
+    with p.open("r", encoding="utf-8") as fh:
+        for lineno, line in enumerate(fh, start=1):
+            text = line.strip()
+            if not text:
+                continue
+            try:
+                rows.append(json.loads(text))
+            except json.JSONDecodeError as exc:
+                if strict:
+                    raise ValueError(f"{p}: line {lineno}: {exc.msg}") from exc
     return rows

@@ -398,4 +398,7 @@ def test_multi_repetition_preserves_earlier_failure_and_scopes_sql_versions(
     assert run0["summary"][0]["avg_latency_ms"] == 1000
     assert dash["status"]["grid"][0]["passed"] is False
     assert dash["status"]["grid"][0]["turns_total"] == 2
-    assert len(dash["details"]["S1|team-a"]["turns"]) == 2
+    assert dash["details"] == {}
+    shard_rel = dash["detail_shards"]["team-a"]
+    shard_payload = json.loads((run / shard_rel).read_text(encoding="utf-8"))
+    assert len(shard_payload["S1|team-a"]["turns"]) == 2

@@ -136,9 +136,11 @@ def _load_adjudication(run_dir: Path) -> list[dict[str, Any]]:
 
 
 def _trace_for_row(r: dict[str, Any], traces: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    if not traces:
+        return None
     request = r.get("request") or {}
     return match_trace(
-        traces or [],
+        traces,
         trace_model_for_result(r, r.get("backend_id")),
         r.get("started_at"),
         r.get("ended_at"),
@@ -168,9 +170,20 @@ def _summary_rows(
     scenarios: list[dict[str, Any]] | None = None,
     judge_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
+    by_backend: dict[str, list[dict[str, Any]]] = {}
+    for r in results:
+        bid = r.get("backend_id")
+        if bid is not None:
+            by_backend.setdefault(bid, []).append(r)
+    judge_by_backend: dict[str, list[dict[str, Any]]] = {}
+    for jr in judge_rows or []:
+        bid = jr.get("backend_id")
+        if bid is not None:
+            judge_by_backend.setdefault(bid, []).append(jr)
+
     rows = []
     for b in backends:
-        rs = [r for r in results if r.get("backend_id") == b]
+        rs = by_backend.get(b, [])
         lat = [r["metrics"]["latency_ms"] for r in rs if r.get("metrics")]
         cites = sum(
             (r["metrics"].get("citation_count") or r["metrics"].get("chart_ref_count") or 0)
@@ -217,9 +230,7 @@ def _summary_rows(
                     if isinstance(unres_diag, list) and unres_diag and unresolved_refs == 0:
                         unresolved_refs += len(unres_diag)
         if resolved_refs == 0 and unresolved_refs == 0 and judge_rows:
-            for jr in judge_rows:
-                if jr.get("backend_id") != b:
-                    continue
+            for jr in judge_by_backend.get(b, []):
                 cr = jr.get("citation_resolution")
                 if isinstance(cr, dict):
                     resolved_refs += int(cr.get("n_resolved") or 0)
@@ -639,10 +650,14 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     otel = manifest.get("otel", {})
 
     patient_meta = manifest.get("patients", {})
+    results_by_sid: dict[Any, list[dict[str, Any]]] = {}
+    for r in results:
+        results_by_sid.setdefault(r.get("scenario_id"), []).append(r)
+
     raw_scenarios = []
     for sid in scenario_ids:
         chart_fixture = run_chart(run_dir, sid)
-        rs = [r for r in results if r.get("scenario_id") == sid]
+        rs = results_by_sid.get(sid, [])
         if chart_fixture is None and isinstance(patient_meta, dict):
             for r in rs:
                 pt_id = (r.get("request") or {}).get("patient")
@@ -690,8 +705,12 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         profile.setdefault("chart_url", f"{chart_base}/{u}/chart")
         patients.append(profile)
 
-    _ref_dates = _ordered_unique(
-        [(_trace_for_row(r, traces) or {}).get("reference_date") for r in results]
+    _ref_dates = (
+        _ordered_unique(
+            [(_trace_for_row(r, traces) or {}).get("reference_date") for r in results]
+        )
+        if traces
+        else []
     )
     _ref_dates = [d for d in _ref_dates if d]
     if not _ref_dates:

@@ -132,6 +132,14 @@ def render_report_for_test(data_json_path: Path) -> Path:
 def render_dashboard_for_test(data_json_path: Path) -> Path:
     """Wrap a `dashboard-data.json` packet in the canonical `dashboard-shell.{css,js}` for browser/HTML tests."""
     payload = json.loads(data_json_path.read_text(encoding="utf-8"))
+    if payload.get("detail_shards") and not payload.get("details"):
+        hydrated_details: dict[str, Any] = {}
+        for rel_path in payload["detail_shards"].values():
+            shard_file = data_json_path.parent / rel_path
+            if shard_file.is_file():
+                hydrated_details.update(json.loads(shard_file.read_text(encoding="utf-8")))
+        payload["details"] = hydrated_details
+        payload.pop("detail_shards", None)
     css = dashboard_shell_css()
     js = dashboard_shell_js()
     html = (
