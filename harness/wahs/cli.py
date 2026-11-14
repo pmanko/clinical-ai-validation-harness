@@ -31,6 +31,21 @@ def _positive_token_budget(raw: str) -> int:
     return val
 
 
+def _parse_seed_list(raw_seeds: list[str] | None) -> list[int] | None:
+    if not raw_seeds:
+        return None
+    out: list[int] = []
+    for item in raw_seeds:
+        for tok in str(item).split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            val = int(tok)
+            if val not in out:
+                out.append(val)
+    return out or None
+
+
 def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     wahs = parent.add_parser(
         "wahs",
@@ -38,7 +53,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     )
     sub = wahs.add_subparsers(dest="wahs_action", required=True)
 
-    run_p = sub.add_parser("run", help="Run a WAHS evaluation suite against Med Agent Hub")
+    run_p = sub.add_parser("run", help="Run a WAHS evaluation suite against WAHS Engine or Med Agent Hub")
     run_p.add_argument(
         "--cases",
         required=True,
@@ -47,7 +62,12 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     run_p.add_argument(
         "--hub-url",
         default=None,
-        help="Med Agent Hub base URL (default: $MED_AGENT_HUB_BASE_URL or http://127.0.0.1:8000)",
+        help="WAHS Engine or Med Agent Hub base URL (default: $MED_AGENT_HUB_BASE_URL or http://127.0.0.1:8000)",
+    )
+    run_p.add_argument(
+        "--direct-llm-url",
+        default=None,
+        help="Direct OpenAI /v1 LLM base URL for raw-fhir:* or direct-* baselines (default: $DIRECT_LLM_BASE_URL or --hub-url)",
     )
     run_p.add_argument(
         "--output-dir",
@@ -79,7 +99,20 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         "--profile",
         action="append",
         dest="profiles",
-        help="WAHS simple profile ID(s) (optionally @budget, e.g. wahs-12b-kb@64k) to evaluate via /v1/chat/completions (repeatable)",
+        help="WAHS profile ID(s) (e.g. wahs-engine-kb:gemma-e4b@4k, wahs-engine-rag:qwen3.5-9b@4k, wahs-engine-tools:gemma-26b@4k, raw-fhir:gemma-e4b@4k) (repeatable)",
+    )
+    run_p.add_argument(
+        "--seeds",
+        "--seed",
+        action="append",
+        dest="seeds",
+        help="Evaluation seed(s), comma-separated or repeatable (e.g. --seeds 42,43,44)",
+    )
+    run_p.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="Optional sampling temperature override (defaults to 0.2 when --seeds is set)",
     )
     run_p.add_argument(
         "--evaluation-modality",
@@ -106,14 +139,32 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
 
     report_p = sub.add_parser(
         "report",
-        help="Generate a reproducible OpenClinAI report packet (report.html, dashboard.html, meta.json, judge.jsonl) from a WAHS run directory",
+        help="Generate a reproducible OpenClinAI report packet (report-data.json, dashboard-data.json, run-summary.json) from a WAHS run directory",
     )
     report_p.add_argument("run_dir", help="Completed WAHS run directory")
     report_p.add_argument(
         "--patients",
         default=None,
-        help="Optional summary label for the patient cohort in meta.json",
+        help="Optional summary label for the patient cohort in run_manifest.json",
     )
+
+    judge_p = sub.add_parser(
+        "judge",
+        help="Run blind-session or multi-judge evaluation passes over a completed WAHS run and emit its v2 report packet",
+    )
+    judge_p.add_argument("run_dir", help="Completed WAHS run directory")
+    judge_p.add_argument(
+        "--judge",
+        dest="judges",
+        action="append",
+        metavar="AGENT:MODEL:EFFORT[:PASSES]",
+        help="Judge specification (repeatable); default uses --agent with REVIEW_MODEL/REVIEW_REASONING",
+    )
+    judge_p.add_argument("--judge-passes", type=int, default=1, help="Number of passes per judge (default: 1)")
+    judge_p.add_argument("--blind", action="store_true", help="Letter the arms and judge one scenario bundle per session")
+    judge_p.add_argument("--add", action="store_true", help="Add judge passes to existing headline rather than replacing")
+    judge_p.add_argument("--agent", default="claude", choices=("claude", "codex", "gemini", "human"))
+    judge_p.add_argument("--work-dir", help="Working directory for judge prompt/session artifacts")
 
 
 def dispatch(args: argparse.Namespace) -> int:
@@ -121,6 +172,12 @@ def dispatch(args: argparse.Namespace) -> int:
         summary = score_wahs_run(Path(args.run_dir))
         print(json.dumps(summary, indent=2))
         return 0 if (summary["passed_cells"] == summary["total_cells"] and not summary.get("incomplete")) else 1
+
+    if args.wahs_action == "judge":
+        from harness.validate.judge_runner import run_judge_command
+
+        score_wahs_run(Path(args.run_dir))
+        return run_judge_command(args)
 
     if args.wahs_action == "report":
         packet = build_wahs_report_packet(
@@ -136,7 +193,11 @@ def dispatch(args: argparse.Namespace) -> int:
             if args.target_provenance
             else None
         )
-        client = WahsHubClient(base_url=args.hub_url)
+        parsed_seeds = _parse_seed_list(getattr(args, "seeds", None))
+        client = WahsHubClient(
+            base_url=args.hub_url,
+            direct_llm_base_url=getattr(args, "direct_llm_url", None),
+        )
         result = run_wahs_suite(
             args.cases,
             client=client,
@@ -145,6 +206,8 @@ def dispatch(args: argparse.Namespace) -> int:
             context_arms=getattr(args, "context_arms", None),
             condense_modes=getattr(args, "condense_modes", None),
             profiles=getattr(args, "profiles", None),
+            seeds=parsed_seeds,
+            temperature=getattr(args, "temperature", None),
             git_sha=args.git_sha,
             target_provenance=provenance,
             evaluation_modality=getattr(args, "evaluation_modality", "deterministic_pipeline"),

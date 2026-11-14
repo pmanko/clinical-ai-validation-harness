@@ -1412,6 +1412,26 @@ def test_abstention_rejects_contradictory_finding_even_with_bracket_citation():
     assert sc.passed is False
 
 
+def test_abstention_accepts_natural_do_not_have_and_care_team_questions():
+    from harness.wahs.evaluator import _is_clean_abstention
+
+    natural_abstain = (
+        "I do not have the results for your coronary artery calcium CT Agatston score or your "
+        "Factor V Leiden genetic thrombophilia panel documented in the current health summary view.\n\n"
+        "**Coronary Artery Calcium CT Agatston Score:**\n"
+        "This test does not appear to be documented in the records.\n\n"
+        "Questions to ask your care team:\n"
+        '- "Can you confirm if a coronary artery calcium CT scan was performed?"'
+    )
+    assert _is_clean_abstention(natural_abstain, {}) is True
+    # Still rejects unrequested chart condition assertions appended to an abstention
+    unrequested_dump = (
+        "I could not find any results for that test.\n"
+        "You have chronic systolic heart failure [4] and atrial fibrillation [5]."
+    )
+    assert _is_clean_abstention(unrequested_dump, {}) is False
+
+
 def test_build_wahs_report_packet_preserves_caller_context_and_derives_default_from_run(tmp_path: Path):
     from harness.wahs.evaluator import build_wahs_report_packet
 
@@ -1800,11 +1820,719 @@ def test_w29_question_scoped_kb_findings_for_prompt():
     assert "never attach [1] (Demographics) or [2] (Completeness Manifest)" in built
 
 
+def test_stage4_wilson_bootstrap_and_latency_stats():
+    from harness.wahs.evaluator import (
+        bootstrap_mean_ci_95,
+        latency_percentiles,
+        wilson_ci_95,
+    )
+
+    ci_zero = wilson_ci_95(0, 0)
+    assert ci_zero == {"rate": 0.0, "ci95_low": 0.0, "ci95_high": 0.0, "successes": 0, "n": 0}
+
+    ci_all = wilson_ci_95(24, 24)
+    assert ci_all["rate"] == 1.0
+    assert 0.85 < ci_all["ci95_low"] < 1.0
+    assert ci_all["ci95_high"] == 1.0
+
+    b_ci = bootstrap_mean_ci_95([0.8, 0.9, 1.0, 0.85, 0.95])
+    assert b_ci["n"] == 5
+    assert 0.8 <= b_ci["ci95_low"] <= b_ci["mean"] <= b_ci["ci95_high"] <= 1.0
+
+    lp = latency_percentiles([100.0, 200.0, 300.0, 400.0, 1000.0])
+    assert lp["n"] == 5
+    assert lp["p50_ms"] == 300.0
+    assert lp["p95_ms"] >= 400.0
 
 
+def test_stage4_wahs_engine_and_raw_fhir_multiseed_report_packet(tmp_path: Path):
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    sample_bundle = {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {"resource": {"resourceType": "Patient", "id": "pt-1"}},
+            {
+                "resource": {
+                    "resourceType": "MedicationRequest",
+                    "id": "med-lipitor",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Lipitor 40 MG"},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationRequest",
+                    "id": "med-simva",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Simvastatin 20 MG"},
+                }
+            },
+        ],
+    }
+    (bundle_dir / "Demo_Patient.json").write_text(json.dumps(sample_bundle), encoding="utf-8")
+
+    cases_path = tmp_path / "stage4_cases.jsonl"
+    cases_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "case_id": "s4_reconcile",
+                        "patient_id": "Demo_Patient_set_b",
+                        "use_case": "uc1_med_reconcile",
+                        "prompt": "Check my statin medications.",
+                        "expected_target_uuids": ["med-lipitor", "med-simva"],
+                        "positive_rubric_items": [
+                            {
+                                "id": "dup_statin",
+                                "criterion": "Flags Lipitor and Simvastatin.",
+                                "weight": 1.0,
+                                "required_keywords": ["lipitor", "simvastatin"],
+                            }
+                        ],
+                    }
+                ),
+                json.dumps(
+                    {
+                        "case_id": "s4_abstain",
+                        "patient_id": "Demo_Patient_set_b",
+                        "use_case": "uc3_grounded_abstention",
+                        "prompt": "What was my APOE4 genotype?",
+                        "must_abstain": True,
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    recorded_seeds: list[int | None] = []
+    recorded_strategies: list[str] = []
+
+    class Stage4Session:
+        headers: dict = {}
+
+        def get(self, url, **kwargs):
+            class Resp:
+                status_code = 404
+
+                def json(self):
+                    return {}
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            payload = kwargs["json"]
+            if url.endswith("/v1/wahs/context/preview"):
+                class PrevResp:
+                    status_code = 200
+
+                    def json(self):
+                        return {"chart_text": "[1] Lipitor 40 MG\n[2] Simvastatin 20 MG"}
+
+                return PrevResp()
+
+            if "8095/v1/chat/completions" in url:
+                recorded_seeds.append(payload.get("seed"))
+                strat = payload["wahs"]["retrieval_strategy"]
+                recorded_strategies.append(strat)
+                is_abstain = "APOE4" in payload["messages"][0]["content"]
+                ans = (
+                    "Your APOE4 genetic test is not documented in the chart."
+                    if is_abstain
+                    else "You have duplicate statin prescriptions: Lipitor 40 mg [1] and Simvastatin 20 mg [2]."
+                )
+
+                class EngResp:
+                    status_code = 200
+                    text = ""
+
+                    def json(self):
+                        return {
+                            "choices": [{"message": {"role": "assistant", "content": ans}}],
+                            "usage": {"prompt_tokens": 220, "completion_tokens": 32},
+                            "x_wahs": {
+                                "condensation": {"tier": 0, "tier_name": "Tier 0", "actual_tokens": 220},
+                                "citation_map": {
+                                    "1": {"resourceType": "MedicationRequest", "id": "med-lipitor", "display": "Lipitor 40 MG"},
+                                    "2": {"resourceType": "MedicationRequest", "id": "med-simva", "display": "Simvastatin 20 MG"},
+                                },
+                                "privacy_notices": [],
+                                "timings": {
+                                    "engine_prep_ms": 8.5,
+                                    "upstream_llm_ms": 410.0,
+                                    "total_latency_ms": 418.5,
+                                    "prompt_ms": 95.0,
+                                    "predicted_ms": 315.0,
+                                    "prompt_n": 220,
+                                    "predicted_n": 32,
+                                    "prompt_per_second": 2315.0,
+                                    "predicted_per_second": 101.5,
+                                    "llm_rounds": 2 if strat == "dynamic_fhir_tools" else 1,
+                                },
+                            },
+                        }
+
+                return EngResp()
+
+            if "8077/v1/chat/completions" in url:
+                recorded_seeds.append(payload.get("seed"))
+                is_abstain = "APOE4" in payload["messages"][0]["content"]
+                ans = (
+                    "Your APOE4 genetic test is not documented in the chart."
+                    if is_abstain
+                    else "Lipitor 40 MG and Simvastatin 20 MG appear in the JSON."
+                )
+
+                class RawResp:
+                    status_code = 200
+                    text = ""
+
+                    def json(self):
+                        return {
+                            "choices": [{"message": {"role": "assistant", "content": ans}}],
+                            "timings": {"prompt_ms": 140.0, "predicted_ms": 260.0, "prompt_n": 300, "predicted_n": 25},
+                        }
+
+                return RawResp()
+
+            raise AssertionError(f"Unexpected URL: {url}")
+
+    from harness.wahs.evaluator import build_wahs_report_packet
+
+    client = WahsHubClient(
+        base_url="http://127.0.0.1:8095",
+        direct_llm_base_url="http://127.0.0.1:8077/v1",
+        session=Stage4Session(),
+        bundle_dirs=[bundle_dir],
+    )
+    res = run_wahs_suite(
+        cases_path,
+        client=client,
+        output_dir=tmp_path / "runs",
+        profiles=[
+            "wahs-engine-kb:gemma-e4b@4k",
+            "wahs-engine-rag:gemma-e4b@4k",
+            "wahs-engine-tools:gemma-e4b@4k",
+            "raw-fhir:gemma-e4b@4k",
+        ],
+        seeds=[42, 43, 44],
+        evaluation_modality="live_model_and_team_eval",
+    )
+    assert res.total_cells == 24  # 4 profiles * 3 seeds * 2 cases
+    assert res.summary["seeds"] == [42, 43, 44]
+    by_strat = res.summary["by_retrieval_strategy"]
+    assert set(by_strat.keys()) == {
+        "condensation_kb",
+        "note_rag",
+        "dynamic_fhir_tools",
+        "offline_raw_ablation",
+    }
+    assert by_strat["condensation_kb"]["pass_rate"] == 1.0
+    assert by_strat["offline_raw_ablation"]["evaluation_modality"] == "offline_raw_ablation"
+    assert by_strat["condensation_kb"]["latency_stats"]["prefill_prompt_ms"]["p50_ms"] == 95.0
+
+    packet = build_wahs_report_packet(res.run_dir)
+    assert Path(packet["report_data_json"]).is_file()
+    assert Path(packet["dashboard_data_json"]).is_file()
+    run_sum = json.loads(Path(packet["run_summary_json"]).read_text(encoding="utf-8"))
+    assert run_sum["schema"] == "openclinai.summary.v2"
+    assert run_sum["family"] == "wahs"
+    assert run_sum["cells"] == 24
+    assert run_sum["scenarios"] == 2
+    assert run_sum["seeds"] == [42, 43, 44]
+    assert run_sum["scout"] == []
+    assert "statistical_benchmark" not in run_sum
+    assert len(run_sum["domain_guardrails"]) >= 3
+    rep_data = json.loads(Path(packet["report_data_json"]).read_text(encoding="utf-8"))
+    assert rep_data["family"] == "wahs"
+    assert "statistical_benchmark" not in rep_data["runs"][0]
+    assert rep_data["runs"][0]["seeds"] == [42, 43, 44]
+    assert [sc["scenario_id"] for sc in rep_data["runs"][0]["scenarios"]] == [
+        "s4_reconcile",
+        "s4_abstain",
+    ]
+    first_cell = rep_data["runs"][0]["scenarios"][0]["turns"][0]["cells"]["wahs-engine-kb:gemma-e4b@4k"]
+    assert [rep["seed"] for rep in first_cell["seed_replicates"]] == [42, 43, 44]
+
+    # Verify multi-seed judge consolidation preserves n=6 per arm across 24 cells while consolidating scenarios to 2
+    judge_rows_seed = []
+    for line in (res.run_dir / "results.jsonl").read_text(encoding="utf-8").splitlines():
+        r = json.loads(line)
+        is_raw = str(r["backend_id"]).startswith("raw-fhir:")
+        judge_rows_seed.append(
+            {
+                "scenario_id": r["scenario_id"],
+                "backend_id": r["backend_id"],
+                "turn": 1,
+                "accuracy": 5.0 if is_raw else 9.0,
+                "completeness": 5.0 if is_raw else 9.0,
+                "relevance": 6.0 if is_raw else 9.5,
+                "harm": bool(is_raw),
+                "abstention_outcome": "n-a",
+                "citation_groundedness": "unsupported" if is_raw else "supported",
+                "note": f"Seed {r['seed']} note.",
+            }
+        )
+    (res.run_dir / "judge.jsonl").write_text(
+        "\n".join(json.dumps(jr) for jr in judge_rows_seed) + "\n", encoding="utf-8"
+    )
+    actor_dir = res.run_dir / "judges" / "claude-opus-5-5-high-p1"
+    actor_dir.mkdir(parents=True, exist_ok=True)
+    (actor_dir / "judge.jsonl").write_text(
+        "\n".join(json.dumps(jr) for jr in judge_rows_seed) + "\n", encoding="utf-8"
+    )
+    judged_packet = build_wahs_report_packet(res.run_dir)
+    assert len(judged_packet["scout"]) == 4
+    assert all(arm["n"] == 6 for arm in judged_packet["scout"])
+    judged_rep = json.loads(Path(judged_packet["report_data_json"]).read_text(encoding="utf-8"))
+    assert len(judged_rep["runs"][0]["judge_rows"]) == 8  # 2 canonical scenarios * 4 arms
+    assert "s4_reconcile|wahs-engine-kb:gemma-e4b@4k" in judged_rep["runs"][0]["judge_actor_cells"]
 
 
+def test_stage4_cli_seeds_resume_arm_cards_and_error_paths(tmp_path: Path, monkeypatch) -> None:
+    """Covers WAHS CLI seed parsing/dispatch, arm card model families, resume, and engine retry/error branches."""
+    from harness import cli as root_cli
+    from harness.wahs import cli as wahs_cli
+    from harness.wahs.evaluator import (
+        WahsEvalCase,
+        _wahs_arm_card,
+        score_wahs_run,
+    )
 
+    assert wahs_cli._parse_seed_list(None) is None
+    assert wahs_cli._parse_seed_list(["", " , "]) is None
+    assert wahs_cli._parse_seed_list(["42,43", "43, 44"]) == [42, 43, 44]
+
+    expected_models = {
+        "wahs-engine-chart:gemma-4-12b-q4@4k": ("Engine Chart (Gemma 12B Q4 (4k))", "Q4_K_M"),
+        "wahs-engine-kb:qwen3-4b@4k": ("Engine KB (Qwen3 4B (4k))", "Q8_0"),
+        "wahs-engine-rag:qwen3.5-9b@4k": ("Engine Note-RAG (Qwen 3.5 9B (4k))", "Q6_K"),
+        "wahs-engine-tools:qwen3-14b@4k": ("Engine Tools (Qwen3 14B (4k))", "Q8_0"),
+        "wahs-engine-kb:llama32-3b@4k": ("Engine KB (Llama 3.2 3B (4k))", "Q8_0"),
+        "wahs-engine-kb:llama-3.1-8b@4k": ("Engine KB (Llama 3.1 8B (4k))", "Q8_0"),
+        "wahs-engine-kb:hermes3-8b@4k": ("Engine KB (Hermes 3 8B (4k))", "Q8_0"),
+        "wahs-engine-kb:medgemma-1.5-4b@4k": ("Engine KB (MedGemma 4B (4k))", "Q8_0"),
+    }
+    for backend_id, (short_title, quant) in expected_models.items():
+        card = _wahs_arm_card(backend_id)
+        assert card["short_title"] == short_title
+        assert card["models"][0]["quant"] == quant
+
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    (bundle_dir / "Demo_Patient.json").write_text(
+        json.dumps(
+            {
+                "resourceType": "Bundle",
+                "type": "collection",
+                "entry": [{"resource": {"resourceType": "Patient", "id": "pt-1"}}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Engine retry & error branches (preview exception, 503 retry -> 200, transport failure).
+    calls = {"chat": 0}
+
+    class FlakySession:
+        headers: dict = {}
+
+        def post(self, url, **kwargs):
+            if url.endswith("/v1/wahs/context/preview"):
+                raise ConnectionError("preview offline")
+            calls["chat"] += 1
+            if calls["chat"] == 1:
+                class R503:
+                    status_code = 503
+                    text = "busy"
+                return R503()
+
+            class R200:
+                status_code = 200
+                text = ""
+
+                def json(self):
+                    return {
+                        "choices": [{"message": {"content": "Not documented in the chart."}}],
+                        "x_wahs": {"condensation": {"tier": 0, "actual_tokens": 50}, "citation_map": {}},
+                    }
+
+            return R200()
+
+    flaky_client = WahsHubClient(
+        base_url="http://127.0.0.1:8095",
+        session=FlakySession(),
+        bundle_dirs=[bundle_dir],
+        max_retries=1,
+        retry_backoff_s=0.0,
+    )
+    abstain_case = WahsEvalCase(
+        case_id="c_abstain",
+        patient_id="Demo_Patient",
+        use_case="uc3_grounded_abstention",
+        prompt="What is my APOE4 genotype?",
+        must_abstain=True,
+    )
+    env = flaky_client.evaluate_case(
+        abstain_case,
+        budget_tokens=4096,
+        profile_id="wahs-engine-chart:gemma-e4b@4k",
+        seed=42,
+    )
+    assert env["include_kb_findings"] is False
+    assert calls["chat"] == 2
+
+    class DeadSession:
+        headers: dict = {}
+
+        def post(self, url, **kwargs):
+            raise ConnectionError("engine down")
+
+    dead_client = WahsHubClient(
+        base_url="http://127.0.0.1:8095",
+        session=DeadSession(),
+        bundle_dirs=[bundle_dir],
+        max_retries=1,
+        retry_backoff_s=0.0,
+    )
+    with pytest.raises(RuntimeError, match="transport failure"):
+        dead_client.evaluate_case(
+            abstain_case,
+            budget_tokens=4096,
+            profile_id="wahs-engine-kb:gemma-e4b@4k",
+            seed=42,
+        )
+
+    # CLI `wahs run --seeds ... --profile ...`, `--resume`, `wahs score` (fallback manifest), and `wahs report`.
+    cases_path = tmp_path / "cli_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c_abstain",
+                "patient_id": "Demo_Patient",
+                "use_case": "uc3_grounded_abstention",
+                "prompt": "What is my APOE4 genotype?",
+                "must_abstain": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def _fake_client_factory(**kwargs):
+        return WahsHubClient(
+            base_url=kwargs.get("base_url") or "http://127.0.0.1:8095",
+            direct_llm_base_url=kwargs.get("direct_llm_base_url"),
+            session=FlakySession(),
+            bundle_dirs=[bundle_dir],
+            max_retries=2,
+            retry_backoff_s=0.0,
+        )
+
+    monkeypatch.setattr(wahs_cli, "WahsHubClient", _fake_client_factory)
+    out_dir = tmp_path / "cli_out"
+    rc = root_cli.main(
+        [
+            "wahs",
+            "run",
+            "--cases",
+            str(cases_path),
+            "--hub-url",
+            "http://127.0.0.1:8095",
+            "--output-dir",
+            str(out_dir),
+            "--budget",
+            "4096",
+            "--profile",
+            "wahs-engine-kb:gemma-e4b@4k",
+            "--seeds",
+            "42,43",
+            "--evaluation-modality",
+            "live_model_and_team_eval",
+        ]
+    )
+    assert rc == 0
+    run_dirs = [p for p in out_dir.iterdir() if p.is_dir()]
+    assert len(run_dirs) == 1
+    first_run = run_dirs[0]
+
+    # Resume over already-complete run skips live HTTP calls cleanly.
+    out_resume = tmp_path / "cli_resume"
+    rc_res = root_cli.main(
+        [
+            "wahs",
+            "run",
+            "--cases",
+            str(cases_path),
+            "--hub-url",
+            "http://127.0.0.1:8095",
+            "--output-dir",
+            str(out_resume),
+            "--budget",
+            "4096",
+            "--profile",
+            "wahs-engine-kb:gemma-e4b@4k",
+            "--seeds",
+            "42,43",
+            "--evaluation-modality",
+            "live_model_and_team_eval",
+            "--resume",
+            str(first_run),
+        ]
+    )
+    assert rc_res == 0
+
+    # Test manifest fallback without expected_cells during offline score_wahs_run.
+    manifest_path = first_run / "run_manifest.json"
+    manifest_obj = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_obj.pop("expected_cells", None)
+    manifest_path.write_text(json.dumps(manifest_obj), encoding="utf-8")
+    rescored = score_wahs_run(first_run)
+    assert rescored["total_cells"] == 2
+    assert root_cli.main(["wahs", "score", str(first_run)]) == 0
+    assert root_cli.main(["wahs", "report", str(first_run)]) == 0
+
+    called_judge: list[str] = []
+    monkeypatch.setattr(
+        "harness.validate.judge_runner.run_judge_command",
+        lambda a: (called_judge.append(str(a.run_dir)) or 0),
+    )
+    assert root_cli.main(["wahs", "judge", str(first_run), "--blind"]) == 0
+    assert called_judge == [str(first_run)]
+
+
+def test_vh212_fixes_raw_fhir_cap_sampling_resume_temp_and_zero_weight_rubric(tmp_path: Path):
+    from harness.wahs.evaluator import (
+        WahsCaseScore,
+        WahsEvalCase,
+        WahsHubClient,
+        _build_wahs_domain_guardrails,
+        _evaluate_weighted_rubric,
+        run_wahs_suite,
+    )
+
+    # VH212-1: Oversized single entry-0 in raw-fhir baseline is bounded & approx_tokens is never clamped.
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    huge_text = "x " * 2500
+    (bundle_dir / "Demo_Patient.json").write_text(
+        json.dumps(
+            {
+                "resourceType": "Bundle",
+                "type": "collection",
+                "entry": [
+                    {
+                        "resource": {
+                            "resourceType": "DocumentReference",
+                            "id": "doc-huge",
+                            "description": huge_text,
+                        }
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    posted: list[tuple[str, dict]] = []
+
+    class CaptureSession:
+        headers: dict = {}
+
+        def get(self, url, **kwargs):
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    return {
+                        "profiles": {
+                            "direct-qwen": {"model": "qwen2.5:14b"},
+                            "hub-med": {"include_kb_findings": False},
+                        }
+                    }
+
+            return Resp()
+
+        def post(self, url, **kwargs):
+            posted.append((url, dict(kwargs.get("json") or {})))
+
+            class Resp:
+                status_code = 200
+
+                def json(self):
+                    if url.endswith("/wahs/api/analyze"):
+                        return {
+                            "condensed_text": "[1] Lipitor",
+                            "actual_tokens": 50,
+                            "valid_uuids": ["med-1"],
+                            "mappings": [],
+                        }
+                    return {
+                        "choices": [{"message": {"content": "Answer [1]."}}],
+                        "usage": {"total_tokens": 10},
+                        "timings": {},
+                    }
+
+            return Resp()
+
+    client = WahsHubClient(
+        base_url="http://hub.local",
+        direct_llm_base_url="http://llm.local",
+        session=CaptureSession(),
+        bundle_dirs=[bundle_dir],
+        max_retries=0,
+    )
+    case_small = WahsEvalCase(
+        case_id="c_small",
+        patient_id="Demo_Patient",
+        use_case="qa",
+        prompt="Summarize note.",
+    )
+    raw_env = client.evaluate_case(
+        case_small,
+        budget_tokens=256,
+        profile_id="raw-fhir:qwen@256",
+        seed=42,
+        temperature=0.35,
+    )
+    assert raw_env["actual_tokens"] <= 256
+    assert raw_env["actual_tokens"] == max(1, (len(raw_env["condensed_text"]) + 3) // 4)
+    assert "_truncated_raw_json" in raw_env["condensed_text"]
+
+    # Tiny budget where even wrapper exceeds budget_tokens: approx_tokens stays un-clamped (> budget_tokens).
+    tiny_env = client.evaluate_case(
+        case_small,
+        budget_tokens=8,
+        profile_id="raw-fhir:qwen@8",
+        seed=42,
+        temperature=0.35,
+    )
+    assert tiny_env["actual_tokens"] > 8
+
+    # VH212-2: direct:* and legacy Hub profile paths forward temperature & seed.
+    client.evaluate_case(
+        case_small,
+        budget_tokens=512,
+        profile_id="direct-qwen",
+        seed=77,
+        temperature=0.45,
+    )
+    direct_req = posted[-1][1]
+    assert direct_req["temperature"] == pytest.approx(0.45)
+    assert direct_req["seed"] == 77
+
+    client.evaluate_case(
+        case_small,
+        budget_tokens=512,
+        profile_id="hub-med",
+        seed=88,
+        temperature=0.25,
+    )
+    hub_req = posted[-1][1]
+    assert hub_req["temperature"] == pytest.approx(0.25)
+    assert hub_req["seed"] == 88
+
+    # Legacy evaluate_case without profile_id also forwards seed and temperature.
+    client.evaluate_case(
+        case_small,
+        budget_tokens=512,
+        seed=99,
+        temperature=0.15,
+    )
+    legacy_req = posted[-1][1]
+    assert legacy_req["seed"] == 99
+    assert legacy_req["temperature"] == pytest.approx(0.15)
+
+    # VH212-3: run_wahs_suite persists temperature in manifest/events and rejects mismatched resume temperature.
+    cases_path = tmp_path / "temp_cases.jsonl"
+    cases_path.write_text(
+        json.dumps(
+            {
+                "case_id": "c_t",
+                "patient_id": "Demo_Patient",
+                "use_case": "qa",
+                "prompt": "Check meds.",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class StubClient:
+        def evaluate_case(self, case, *, budget_tokens, seed=None, temperature=None, **_kw):
+            return {"answer": "No meds documented.", "actual_tokens": 50}
+
+    res1 = run_wahs_suite(
+        cases_path,
+        client=StubClient(),
+        output_dir=tmp_path / "runs",
+        budgets=[512],
+        temperature=0.2,
+    )
+    manifest = json.loads((res1.run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["temperature"] == pytest.approx(0.2)
+    events = [json.loads(line) for line in (res1.run_dir / "events.jsonl").read_text().splitlines() if line]
+    assert events[0]["temperature"] == pytest.approx(0.2)
+    res_row = json.loads((res1.run_dir / "results.jsonl").read_text().splitlines()[0])
+    assert res_row["request"]["temperature"] == pytest.approx(0.2)
+
+    with pytest.raises(ValueError, match="temperature mismatch"):
+        run_wahs_suite(
+            cases_path,
+            client=StubClient(),
+            output_dir=tmp_path / "runs",
+            budgets=[512],
+            temperature=0.5,
+            resume_from=res1.run_dir,
+        )
+
+    # VH212-4: weight-0.0 judge-only items do not earn base_score=1.0 or emit fake VeriFact/HealthBench guardrails.
+    zero_case = WahsEvalCase(
+        case_id="c_zero",
+        patient_id="Demo_Patient",
+        use_case="sheet_q01",
+        prompt="What meds?",
+        positive_rubric_items=[
+            {"id": "spreadsheet_expected_answer", "criterion": "Expected answer text", "optional": True, "strict": False, "weight": 0.0}
+        ],
+    )
+    rw_score, rw_fail = _evaluate_weighted_rubric(zero_case, "Arbitrary answer text", "")
+    assert rw_score == 0.0
+    assert rw_fail == []
+    dummy_score = WahsCaseScore(
+        case_id="c_zero",
+        patient_id="Demo_Patient",
+        use_case="sheet_q01",
+        sharing_posture="patient_self",
+        budget_tokens=512,
+        actual_tokens=50,
+        token_budget_ok=True,
+        required_uuid_recall=1.0,
+        citation_resolution_rate=1.0,
+        fabricated_citation_count=0,
+        privacy_zero_leakage=True,
+        leaked_items=[],
+        abstention_ok=True,
+        rubric_weighted_score=0.0,
+        atomic_entailment_rate=1.0,
+        citation_distortion_count=0,
+        flesch_kincaid_grade=7.0,
+        question_horizon="current_active_state",
+        patient_category="meds",
+        passed=True,
+        failures=[],
+    )
+    guardrails = _build_wahs_domain_guardrails(
+        [zero_case],
+        [dummy_score],
+        [{"retrieval_strategy": "condensation_kb"}],
+    )
+    ids = {g["id"] for g in guardrails}
+    assert "verifact_atomic_entailment" not in ids
+    assert "healthbench_deterministic_rubric" not in ids
 
 
 

@@ -140,6 +140,9 @@ def run_family(run: Path | str) -> str:
         return "catalyst"
     try:
         manifest = json.loads((run_path / "run_manifest.json").read_text(encoding="utf-8"))
+        explicit = str(manifest.get("family") or manifest.get("report_family") or "").lower()
+        if explicit in ("chartsearchai", "wahs", "catalyst"):
+            return explicit
         comp = str(manifest.get("component") or "").lower()
         if "wahs" in comp:
             return "wahs"
@@ -709,6 +712,7 @@ def build_dashboard_data(run_dir: Path | str) -> dict[str, Any]:
     return {
         "schema": "openclinai.dashboard.v2",
         "schema_version": 2,
+        "family": st.get("family") or "chartsearchai",
         "status": st,
         "record_pool": record_pool,
         "sources_pool": sources_pool,

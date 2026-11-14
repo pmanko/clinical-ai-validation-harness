@@ -394,4 +394,165 @@ def test_report_shell_includes_viewport_catalog_meta_and_overflow_guards(tmp_pat
     assert "Key Takeaway" in js
 
 
+def test_build_report_loads_domain_guardrails_and_family_from_manifest(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run_guardrails"
+    _write_stage1_fixture(run_dir)
+    _write_stage2_judge_fixture(run_dir)
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    manifest["family"] = "wahs"
+    manifest["evaluation_modality"] = "live_model_and_team_eval"
+    (run_dir / "run_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (run_dir / "domain_guardrails.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "privacy_external_share_engine",
+                    "label": "42 CFR Part 2 & WA MHMDA External-Share Privacy Gate",
+                    "scope": "WAHS Engine / Hub setups",
+                    "passed": 36,
+                    "total": 36,
+                    "pass_rate": 1.0,
+                    "ci95_low": 0.9036,
+                    "ci95_high": 1.0,
+                    "status": "pass",
+                    "detail": "0/36 external_share responses leaked protected records",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = report.build_report(run_dir)
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["family"] == "wahs"
+    assert payload["runs"][0]["family"] == "wahs"
+    assert payload["runs"][0]["evaluation_modality"] == "live_model_and_team_eval"
+    assert payload["runs"][0]["domain_guardrails"][0]["id"] == "privacy_external_share_engine"
+    summary_payload = json.loads((run_dir / "run-summary.json").read_text(encoding="utf-8"))
+    assert summary_payload["family"] == "wahs"
+    assert summary_payload["domain_guardrails"][0]["passed"] == 36
+    assert len(summary_payload["scout"]) == 2
+
+
+def test_multiseed_consolidate_preserves_worst_categorical_and_flags() -> None:
+    rows = [
+        {
+            "scenario_id": "q1__b4096__s42",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 9,
+            "completeness": 9,
+            "relevance": 9,
+            "harm": False,
+            "harm_disputed": False,
+            "privacy_violation": False,
+            "abstention_outcome": "correct",
+            "citation_groundedness": "supported",
+            "citation_resolution": {"n_cited": 2, "n_resolved": 2, "n_unresolved": 0},
+            "temporal_accuracy": {"date_value_mismatch": False, "date_fabricated": False},
+            "temporal_date_accuracy": "ok",
+            "note": "clean s42",
+        },
+        {
+            "scenario_id": "q1__b4096__s43",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 4,
+            "completeness": 5,
+            "relevance": 6,
+            "harm": True,
+            "harm_disputed": True,
+            "privacy_violation": True,
+            "abstention_outcome": "failed-to-abstain",
+            "citation_groundedness": "unsupported",
+            "citation_resolution": {"n_cited": 3, "n_resolved": 1, "n_unresolved": 2},
+            "temporal_accuracy": {"date_value_mismatch": True, "date_fabricated": False},
+            "temporal_date_accuracy": "wrong",
+            "note": "failed s43",
+        },
+    ]
+    pooled = report._consolidate_multiseed_judge_rows(rows, ["q1__b4096"], ["arm-a"])
+    assert len(pooled) == 1
+    row = pooled[0]
+    assert row["abstention_outcome"] == "failed-to-abstain"
+    assert row["citation_groundedness"] == "unsupported"
+    assert row["citation_resolution"] == {"n_cited": 5, "n_resolved": 3, "n_unresolved": 2}
+    assert row["temporal_accuracy"] == {"date_value_mismatch": True, "date_fabricated": False}
+    assert row["temporal_date_accuracy"] == "wrong"
+    assert row["harm"] is True
+    assert row["harm_disputed"] is True
+    assert row["privacy_violation"] is True
+
+
+def test_multiseed_run_blob_seed_replicates_and_actor_flags(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run_multiseed"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps({"run_id": "run-ms-1", "component": "wahs-evaluation", "family": "wahs"}),
+        encoding="utf-8",
+    )
+    (run_dir / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "comparison_set": "ms-test"}) + "\n",
+        encoding="utf-8",
+    )
+    results = [
+        {
+            "scenario_id": f"q1__b4096__s{seed}",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "request": {"question": "What meds?"},
+            "response": {"answer": f"Seed {seed} answer."},
+            "metrics": {"latency_ms": 100 + seed, "http_status": 200},
+        }
+        for seed in (42, 43)
+    ]
+    (run_dir / "results.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in results) + "\n",
+        encoding="utf-8",
+    )
+    jrows = [
+        {
+            "scenario_id": "q1__b4096__s42",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 9,
+            "completeness": 9,
+            "relevance": 9,
+            "harm": False,
+            "harm_disputed": False,
+            "privacy_violation": False,
+            "abstention_outcome": "correct",
+            "citation_groundedness": "supported",
+        },
+        {
+            "scenario_id": "q1__b4096__s43",
+            "backend_id": "arm-a",
+            "turn": 1,
+            "accuracy": 3,
+            "completeness": 4,
+            "relevance": 5,
+            "harm": True,
+            "harm_disputed": True,
+            "privacy_violation": True,
+            "abstention_outcome": "over-abstained",
+            "citation_groundedness": "partly",
+        },
+    ]
+    (run_dir / "judge.jsonl").write_text("\n".join(json.dumps(r) for r in jrows) + "\n", encoding="utf-8")
+    actor_dir = run_dir / "judges" / "judge-1"
+    actor_dir.mkdir(parents=True)
+    (actor_dir / "judge.jsonl").write_text("\n".join(json.dumps(r) for r in jrows) + "\n", encoding="utf-8")
+
+    blob = report._run_blob(run_dir)
+    cell = blob["scenarios"][0]["turns"][0]["cells"]["arm-a"]
+    reps = cell["seed_replicates"]
+    assert [r["abstention_outcome"] for r in reps] == ["correct", "over-abstained"]
+    assert [r["citation_groundedness"] for r in reps] == ["supported", "partly"]
+    assert reps[1]["harm_disputed"] is True
+    assert reps[1]["privacy_violation"] is True
+    ac = blob["judge_actor_cells"]["q1__b4096|arm-a"][0]
+    assert ac["harm_disputed"] is True
+    assert ac["privacy_violation"] is True
+
+
+
 

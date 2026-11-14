@@ -281,6 +281,11 @@ def main(
     if args.command == "manifest":
         return _not_yet_implemented(f"manifest {args.manifest_action}")
 
+    if getattr(args, f"{args.command}_action", None) == "run":
+        from .validate.live_dashboard import ensure_live_dashboard
+
+        ensure_live_dashboard(project_root=root)
+
     if args.command == "catalyst":
         from .catalyst.cli import dispatch as dispatch_catalyst
 
