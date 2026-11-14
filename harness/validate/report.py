@@ -184,7 +184,14 @@ def _summary_rows(
     rows = []
     for b in backends:
         rs = by_backend.get(b, [])
-        lat = [r["metrics"]["latency_ms"] for r in rs if r.get("metrics")]
+        lat = [
+            float(r["metrics"]["latency_ms"])
+            for r in rs
+            if r.get("metrics")
+            and isinstance((r.get("metrics") or {}).get("latency_ms"), (int, float))
+            and not isinstance((r.get("metrics") or {}).get("latency_ms"), bool)
+        ]
+        sorted_lat = sorted(lat)
         cites = sum(
             (r["metrics"].get("citation_count") or r["metrics"].get("chart_ref_count") or 0)
             for r in rs
@@ -300,6 +307,8 @@ def _summary_rows(
             "turns": len(rs),
             "valid_turns": valid_turns,
             "avg_latency_ms": _avg(lat),
+            "p50_latency_ms": round(_percentile(sorted_lat, 0.50), 1) if sorted_lat else 0,
+            "p95_latency_ms": round(_percentile(sorted_lat, 0.95), 1) if sorted_lat else 0,
             "max_latency_ms": max(lat) if lat else 0,
             "total_chart_refs": cites,
             "resolved_chart_refs": resolved_refs,
@@ -635,6 +644,54 @@ def _consolidate_multiseed_judge_rows(
     return out
 
 
+_WAHS_CATEGORY_MAP = {
+    "q01": "Medication Reconciliation & Conflicts",
+    "q02": "Medication Reconciliation & Conflicts",
+    "q03": "Medication Reconciliation & Conflicts",
+    "q04": "Conditions, Labs & Vitals",
+    "q05": "Conditions, Labs & Vitals",
+    "q06": "Conditions, Labs & Vitals",
+    "q07": "Conditions, Labs & Vitals",
+    "q08": "Conditions, Labs & Vitals",
+    "q09": "Conditions, Labs & Vitals",
+    "q10": "Conditions, Labs & Vitals",
+    "q14": "Conditions, Labs & Vitals",
+    "q11": "Immunizations, Allergies & Devices",
+    "q12": "Immunizations, Allergies & Devices",
+    "q13": "Immunizations, Allergies & Devices",
+    "q15": "Immunizations, Allergies & Devices",
+    "p01": "Third-Party & Bystander Privacy",
+    "p02": "Third-Party & Bystander Privacy",
+    "p05": "Third-Party & Bystander Privacy",
+    "p08": "Third-Party & Bystander Privacy",
+    "p10": "Third-Party & Bystander Privacy",
+    "p03": "Access Control, Sensitivity & Injection",
+    "p04": "Access Control, Sensitivity & Injection",
+    "p06": "Access Control, Sensitivity & Injection",
+    "p07": "Access Control, Sensitivity & Injection",
+    "p09": "Access Control, Sensitivity & Injection",
+}
+_WAHS_Q_RE = re.compile(r"^(?:wahs_sheet_)?([qp]\d{2})(?:__|$)", re.IGNORECASE)
+
+
+def _scenario_category(run_dir: Path, scenario_id: str) -> str | None:
+    """Resolve explicit scenario capability category from `inputs/scenarios/` or WAHS sheet ID."""
+    base_sid, _ = _split_scenario_seed(scenario_id)
+    for cand_id in (scenario_id, base_sid):
+        spath = run_dir / "inputs" / "scenarios" / f"{cand_id}.json"
+        if spath.is_file():
+            try:
+                cat = str(json.loads(spath.read_text(encoding="utf-8")).get("category") or "").strip()
+                if cat:
+                    return cat
+            except (OSError, ValueError):
+                pass
+    m = _WAHS_Q_RE.match(base_sid)
+    if m:
+        return _WAHS_CATEGORY_MAP.get(m.group(1).lower())
+    return None
+
+
 def _run_blob(run_dir: Path) -> dict[str, Any]:
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
     results = review_results(run_dir)
@@ -676,7 +733,11 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
                 if r is not None:
                     cells[b] = _cell_blob(r, traces, chart_fixture)
             turns.append({"turn": t, "question": questions.get(t, ""), "cells": cells})
-        raw_scenarios.append({"scenario_id": sid, "turns": turns})
+        sc_entry: dict[str, Any] = {"scenario_id": sid, "turns": turns}
+        sc_cat = _scenario_category(run_dir, sid)
+        if sc_cat:
+            sc_entry["category"] = sc_cat
+        raw_scenarios.append(sc_entry)
 
     distinct_seeds = sorted(
         {
@@ -792,7 +853,11 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
                         "cells": consolidated_cells,
                     }
                 )
-            scenarios.append({"scenario_id": b_sid, "turns": consolidated_turns})
+            sc_out: dict[str, Any] = {"scenario_id": b_sid, "turns": consolidated_turns}
+            sc_cat = _scenario_category(run_dir, b_sid) or primary_sc.get("category")
+            if sc_cat:
+                sc_out["category"] = str(sc_cat)
+            scenarios.append(sc_out)
 
         judge_rows = _consolidate_multiseed_judge_rows(judge_rows_raw, base_scenario_ids, backends)
         judge_actor_cells: dict[str, list[dict[str, Any]]] = {}

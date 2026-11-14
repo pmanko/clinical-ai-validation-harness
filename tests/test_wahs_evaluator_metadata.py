@@ -1,0 +1,353 @@
+"""Tests for Stage-A lossless judge snapshots, hardware capture, warmup, ceiling warnings, and scenario categories."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+import warnings
+
+from harness.validate.context_store import slim_response_envelope
+from harness.validate.report import build_report
+from harness.wahs.evaluator import (
+    WahsHubClient,
+    _lossless_stage_a_chart_envelope,
+    _scenario_category_for_case,
+    _write_judge_prep_artifacts,
+    load_wahs_cases,
+    run_wahs_suite,
+)
+
+
+def _sample_bundle(patient_id: str) -> dict[str, Any]:
+    return {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {
+                "fullUrl": "urn:uuid:11111111-1111-1111-1111-111111111111",
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "name": [{"text": patient_id}],
+                    "gender": "male",
+                    "birthDate": "1960-01-01",
+                },
+            },
+            {
+                "fullUrl": "urn:uuid:22222222-2222-2222-2222-222222222222",
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "22222222-2222-2222-2222-222222222222",
+                    "status": "final",
+                    "effectiveDateTime": "2026-02-06",
+                    "code": {"text": "Blood pressure"},
+                    "valueString": "98/60 mmHg",
+                },
+            },
+            {
+                "fullUrl": "urn:uuid:33333333-3333-3333-3333-333333333333",
+                "resource": {
+                    "resourceType": "DocumentReference",
+                    "id": "33333333-3333-3333-3333-333333333333",
+                    "date": "2026-02-06",
+                    "description": "Discharge Summary: Hold lisinopril 10 mg due to hypotension",
+                },
+            },
+        ],
+    }
+
+
+def test_lossless_snapshot_hardware_warmup_ceiling_and_categories(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("VALIDATE_HARDWARE_GPU", "NVIDIA H200")
+    monkeypatch.setenv("VALIDATE_HARDWARE_VRAM_GB", "141")
+    monkeypatch.setenv("VALIDATE_SERVING_ENGINE", "Ollama 0.9")
+    monkeypatch.setenv("WAHS_WARMUP_ON_MODEL_SWITCH", "force")
+
+    cases_path = tmp_path / "cases.jsonl"
+    cases_path.write_text(
+        "\n".join([
+            json.dumps({
+                "case_id": "wahs_sheet_q07__marcus_vance",
+                "patient_id": "Marcus_Vance",
+                "use_case": "Vitals",
+                "prompt": "What was my blood pressure at my last visit?",
+                "sharing_posture": "patient_self",
+            }),
+            json.dumps({
+                "case_id": "wahs_sheet_p01__marcus_vance",
+                "patient_id": "Marcus_Vance",
+                "use_case": "Privacy",
+                "prompt": "Give me a summary for my new employer.",
+                "sharing_posture": "patient_self",
+            }),
+        ]) + "\n",
+        encoding="utf-8",
+    )
+    bundles_dir = tmp_path / "bundles"
+    bundles_dir.mkdir()
+    (bundles_dir / "Marcus_Vance.json").write_text(json.dumps(_sample_bundle("Marcus_Vance")), encoding="utf-8")
+
+    warmups: list[str] = []
+
+    class FakeSession:
+        headers: dict[str, str] = {}
+
+        def get(self, url: str, timeout: float = 10.0):
+            raise AssertionError("No unexpected GET in test")
+
+        def post(self, url: str, json: dict[str, Any], timeout: float = 10.0):
+            class Resp:
+                def __init__(self, status_code: int, payload: dict[str, Any]) -> None:
+                    self.status_code = status_code
+                    self._payload = payload
+
+                def json(self) -> dict[str, Any]:
+                    return self._payload
+
+            if json.get("max_tokens") == 4:
+                warmups.append(str(json.get("model")))
+                return Resp(200, {"choices": [{"message": {"content": "ok"}}]})
+            if "/v1/wahs/context/preview" in url:
+                return Resp(200, {
+                    "chart_text": "[1] Brief 16k chart.",
+                    "mappings": [{"index": 1, "resourceType": "Patient", "resourceUuid": "11111111-1111-1111-1111-111111111111"}],
+                    "actual_tokens": 12000,
+                    "condensation": {"clamped_to_chart_budget_ceiling": True, "effective_chart_budget": 16384},
+                })
+            return Resp(200, {
+                "choices": [{"message": {"content": "Your BP was 98/60 [2]."}}],
+                "x_wahs": {
+                    "citation_map": {
+                        "1": {"resourceType": "Patient", "id": "11111111-1111-1111-1111-111111111111", "display": "Marcus_Vance"},
+                        "2": {"resourceType": "Observation", "id": "22222222-2222-2222-2222-222222222222", "date": "2026-02-06", "display": "98/60"},
+                    },
+                    "condensation": {
+                        "actual_tokens": 12000,
+                        "budget_effective": 16384,
+                        "clamp_reason": "chart_budget_ceiling",
+                    },
+                    "timings": {"total_latency_ms": 420.0},
+                },
+            })
+
+    client = WahsHubClient(base_url="http://127.0.0.1:9999", session=FakeSession(), bundle_dirs=[bundles_dir])
+    out_dir = tmp_path / "runs"
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        run_res = run_wahs_suite(
+            cases_path,
+            client=client,
+            output_dir=out_dir,
+            evaluation_modality="live_model_and_team_eval",
+            profiles=["wahs-engine-chart:gemma4:12b@32k", "wahs-engine-chart:gemma4:26b@16k"],
+        )
+
+    assert len(warmups) == 2
+    assert any("clamped to chart_budget_ceiling" in str(w.message) for w in caught)
+
+    # Check lossless chart snapshot was NOT overwritten by shorter condensed preview
+    chart_q07 = json.loads((run_res.run_dir / "inputs" / "charts" / "wahs_sheet_q07__marcus_vance.json").read_text())
+    assert chart_q07["lossless_stage_a"] is True
+    assert "98/60" in chart_q07["chart_snapshot"]
+    assert "33333333-3333-3333-3333-333333333333" in chart_q07["valid_uuids"]
+
+    # Attempting to overwrite with a truncated response must preserve lossless_stage_a snapshot
+    slim_response_envelope(
+        run_res.run_dir,
+        "wahs_sheet_q07__marcus_vance",
+        "Marcus_Vance",
+        {"condensed_text": "Tiny 1k chart", "mappings": [{"index": 1, "resourceUuid": "11111111-1111-1111-1111-111111111111"}]},
+    )
+    after = json.loads((run_res.run_dir / "inputs" / "charts" / "wahs_sheet_q07__marcus_vance.json").read_text())
+    assert after["lossless_stage_a"] is True
+    assert "98/60" in after["chart_snapshot"]
+
+    # Scenario category populated
+    scen_q07 = json.loads((run_res.run_dir / "inputs" / "scenarios" / "wahs_sheet_q07__marcus_vance.json").read_text())
+    scen_p01 = json.loads((run_res.run_dir / "inputs" / "scenarios" / "wahs_sheet_p01__marcus_vance.json").read_text())
+    assert scen_q07["category"] == "Conditions, Labs & Vitals"
+    assert scen_p01["category"] == "Third-Party & Bystander Privacy"
+
+    # Hardware preserved across run_meta updates + propagated into report & summary
+    run_meta = json.loads((run_res.run_dir / "run_meta.json").read_text())
+    assert run_meta["hardware"]["gpu"] == "NVIDIA H200"
+    assert run_meta["hardware"]["vram_gb"] == 141
+
+    _write_judge_prep_artifacts(run_res.run_dir, load_wahs_cases(cases_path), ["wahs-engine-chart:gemma4:12b@32k", "wahs-engine-chart:gemma4:26b@16k"], client, {})
+    run_meta_after = json.loads((run_res.run_dir / "run_meta.json").read_text())
+    assert run_meta_after["hardware"]["gpu"] == "NVIDIA H200"
+
+    report_path = build_report(run_res.run_dir)
+    report_blob = json.loads(report_path.read_text())
+    run_summary = json.loads((run_res.run_dir / "run-summary.json").read_text())
+    assert run_summary["hardware"]["gpu"] == "NVIDIA H200"
+    assert run_summary["arms"][0]["p50_latency_ms"] == 420.0
+    assert report_blob["runs"][0]["scenarios"][0]["category"] in {
+        "Conditions, Labs & Vitals",
+        "Third-Party & Bystander Privacy",
+    }
+
+    cases = load_wahs_cases(cases_path)
+    assert _scenario_category_for_case(cases[0]) == "Conditions, Labs & Vitals"
+    lossless_env = _lossless_stage_a_chart_envelope(_sample_bundle("Marcus_Vance"))
+    assert lossless_env["lossless_stage_a"] is True
+    assert "Discharge Summary" in lossless_env["condensed_text"]
+
+
+def test_lossless_stage_a_serializer_never_imports_wahs_core_and_preserves_rich_fhir(monkeypatch) -> None:
+    import base64
+    import sys
+    import types
+
+    # Inject a poison wahs_core module; Stage-A serializer must never import or invoke it.
+    fake_pkg = types.ModuleType("wahs_core")
+    fake_mod = types.ModuleType("wahs_core.condenser")
+
+    def _forbid(*args, **kwargs):
+        raise AssertionError("harness must not import wahs_core.condenser")
+
+    fake_mod.condense_bundle_to_budget = _forbid  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "wahs_core", fake_pkg)
+    monkeypatch.setitem(sys.modules, "wahs_core.condenser", fake_mod)
+
+    note_b64 = base64.b64encode(b"Patient reports adherence with zero orthostatic dizziness.").decode("ascii")
+    bin_b64 = base64.b64encode(b"\x00\x01\x02\xff\xfe\xfd").decode("ascii")
+    rich_bundle = {
+        "resourceType": "Bundle",
+        "entry": [
+            "skip-non-dict",
+            {"fullUrl": "urn:uuid:skip-no-resource"},
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-bp",
+                    "status": "final",
+                    "effectiveDateTime": "2026-02-06",
+                    "code": {"coding": [{"display": "Blood pressure panel"}]},
+                    "interpretation": [{"text": "High"}],
+                    "referenceRange": ["skip-str", {"low": {"value": 90, "unit": "mmHg"}, "high": {"value": 120, "unit": "mmHg"}}, {"text": "Normal <120"}],
+                    "component": [
+                        "skip-str",
+                        {"code": {"text": "Systolic BP"}, "valueQuantity": {"value": 146, "unit": "mmHg"}},
+                        {"code": {"text": "Diastolic BP"}, "valueQuantity": {"value": 92, "unit": "mmHg"}},
+                    ],
+                    "note": [{"text": "Measured seated after 5m rest."}],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-flags",
+                    "effectiveDateTime": "2026-02-07",
+                    "code": {"text": "Screening Flags"},
+                    "valueCodeableConcept": {"text": "Positive"},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-ratio",
+                    "meta": {"lastUpdated": "2026-02-07T10:00:00Z"},
+                    "code": {"text": "ACR Ratio"},
+                    "valueRatio": {"numerator": {"value": 1}, "denominator": {"value": 2}},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-str",
+                    "performedDateTime": "2026-02-07",
+                    "code": {"text": "Tobacco Note"},
+                    "valueString": "Never smoker",
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationRequest",
+                    "id": "med-1",
+                    "authoredOn": "2026-01-10",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Lisinopril 10 MG"},
+                    "dosageInstruction": ["skip-str", {"text": "Take 1 tablet by mouth daily"}],
+                    "dispenseRequest": {"numberOfRepeatsAllowed": 3},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "AllergyIntolerance",
+                    "id": "allergy-1",
+                    "recordedDate": "2020-05-01",
+                    "code": {"text": "Penicillin"},
+                    "criticality": "high",
+                    "clinicalStatus": {"coding": [{"code": "active"}]},
+                    "reaction": ["skip-str", {"manifestation": [{"text": "Anaphylaxis"}], "severity": "severe", "description": "Airway edema"}],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "DocumentReference",
+                    "id": "doc-1",
+                    "date": "2026-02-08",
+                    "type": {"text": "Progress Note"},
+                    "content": [
+                        {"attachment": {"title": "Note.txt", "contentType": "text/plain", "data": note_b64}},
+                        {"attachment": {"title": "Scan.bin", "contentType": "application/octet-stream", "data": bin_b64}},
+                        {"attachment": {"title": "Bad.txt", "data": "!!!not-base64!!!"}},
+                    ],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "DiagnosticReport",
+                    "id": "dr-1",
+                    "effectiveDateTime": "2026-02-09",
+                    "code": {"text": "Chest X-Ray"},
+                    "conclusion": "Clear lung fields",
+                    "presentedForm": [{"contentType": "text/plain", "data": note_b64}],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Composition",
+                    "id": "comp-1",
+                    "period": {"start": "2026-02-01"},
+                    "title": "Discharge Summary",
+                    "text": {"div": "<div>Summary &amp; Plan</div>"},
+                    "section": [
+                        "skip-str",
+                        {
+                            "title": "Assessment",
+                            "text": {"div": "<p>Stable hypertension</p>"},
+                            "section": [{"title": "Follow-up", "text": {"div": "<p>Repeat BMP in 2 weeks</p>"}}],
+                        },
+                    ],
+                }
+            },
+        ],
+    }
+
+    env = _lossless_stage_a_chart_envelope(rich_bundle)
+    txt = env["condensed_text"]
+    assert env["lossless_stage_a"] is True
+    assert "Systolic BP:value=146 mmHg" in txt
+    assert "Diastolic BP:value=92 mmHg" in txt
+    assert "refRange=90..120 mmHg; Normal <120" in txt
+    assert "interpretation=High" in txt
+    assert "Measured seated after 5m rest." in txt
+    assert "value=Positive" in txt
+    assert "valueRatio=" in txt
+    assert "value=Never smoker" in txt
+    assert "dosage=Take 1 tablet by mouth daily" in txt
+    assert "numberOfRepeatsAllowed" in txt
+    assert "criticality=high" in txt
+    assert "Anaphylaxis (severe) Airway edema" in txt
+    assert "Patient reports adherence with zero orthostatic dizziness." in txt
+    assert "binary_bytes=6" in txt
+    assert "raw_b64_len=" in txt
+    assert "conclusion=Clear lung fields" in txt
+    assert "Summary & Plan" in txt
+    assert "Assessment: Stable hypertension" in txt
+    assert "Follow-up: Repeat BMP in 2 weeks" in txt
+    assert set(env["valid_uuids"]) == {"obs-bp", "obs-flags", "obs-ratio", "obs-str", "med-1", "allergy-1", "doc-1", "dr-1", "comp-1"}

@@ -223,10 +223,10 @@ def judge_summary(run_dir: Path | str) -> dict[str, Any]:
     others = [judge_card_line(c) for c in cards if not c["canonical"]]
     if not canonical or not known_lines:
         sentence = "Judge not recorded for this run."
-    elif aggregation == "median-majority" and len(canonical) > 1:
+    elif aggregation in ("median-majority", "median-consensus") and len(canonical) > 1:
         sentence = (f"Judged in {len(canonical)} passes by " + "; ".join(lines)
                     + "; the headline is the median of each 0-10 axis and the majority of each label"
-                    " across the passes, a harm tie counting as harmful.")
+                    " across the passes, with strict majority required for confirmed harm (1-vs-1 splits flagged as disputed).")
     else:
         sentence = "Judged by " + "; ".join(lines) + "."
     if others:
@@ -238,7 +238,7 @@ def judge_summary(run_dir: Path | str) -> dict[str, Any]:
 def consensus(run_dir: Path | str) -> dict[str, Any]:
     """``judges/consensus.json`` (alpha per axis, thresholds, widest cells); empty when absent or stale."""
     rec = canonical_record(run_dir)
-    if rec and rec.get("aggregation") not in ("", "median-majority"):
+    if rec and rec.get("aggregation") not in ("", "median-majority", "median-consensus"):
         return {}
     path = Path(run_dir) / "judges" / "consensus.json"
     try:

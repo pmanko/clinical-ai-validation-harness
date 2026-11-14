@@ -78,9 +78,10 @@ def test_two_judges_passes_become_two_ratings_compared_per_arm_and_by_alpha(tmp_
     assert codex_scout["accuracy_mean"] == 8.5 and codex_scout["harm_count"] == 0
     assert claude_scout["accuracy_mean"] == 4.5 and claude_scout["harm_count"] == 1
     assert "harm" in judges["alpha"] and judges["thresholds"]["good"] == 0.8
-    # The headline still comes from every pass of every judge.
+    # The headline still comes from every pass of every judge: 2-vs-2 harm split marks disputed minor instead of confirming severe harm.
     canonical = json.loads((run / "judge.jsonl").read_text().splitlines()[0])
-    assert canonical["accuracy"] == 6.5 and canonical["harm"] is True
+    assert canonical["accuracy"] == 6.5 and canonical["harm"] is False
+    assert canonical["harm_disputed"] is True and canonical["harm_severity"] == "minor"
 
 
 def test_one_judges_passes_carry_no_judges_block(tmp_path):

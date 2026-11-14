@@ -323,6 +323,8 @@ def build_run_summary(blob: dict[str, Any], *, family: str | None = None) -> dic
             "errors": s.get("errors") or 0,
             "degraded": s.get("degraded") or 0,
             "avg_latency_ms": s.get("avg_latency_ms") or 0,
+            "p50_latency_ms": s.get("p50_latency_ms") or s.get("avg_latency_ms") or 0,
+            "p95_latency_ms": s.get("p95_latency_ms") or 0,
             "max_latency_ms": s.get("max_latency_ms") or 0,
             "total_chart_refs": s.get("total_chart_refs") or 0,
             "resolved_chart_refs": s.get("resolved_chart_refs") or 0,
@@ -339,6 +341,8 @@ def build_run_summary(blob: dict[str, Any], *, family: str | None = None) -> dic
             "completeness_mean": j.get("completeness_mean"),
             "relevance_mean": j.get("relevance_mean"),
             "harm_count": j.get("harm_count"),
+            "harm_disputed_count": j.get("harm_disputed_count"),
+            "privacy_violation_count": j.get("privacy_violation_count"),
             "critical_omission_count": j.get("critical_omission_count"),
             "severe_harm_count": j.get("severe_harm_count"),
             "abstention": j.get("abstention") or {},
@@ -429,6 +433,8 @@ def build_run_summary(blob: dict[str, Any], *, family: str | None = None) -> dic
     }
     if run.get("evaluation_modality"):
         out["evaluation_modality"] = str(run["evaluation_modality"])
+    if isinstance(run.get("hardware"), dict) and run.get("hardware"):
+        out["hardware"] = dict(run["hardware"])
     if run.get("seeds"):
         out["seeds"] = list(run["seeds"])
     if run.get("domain_guardrails"):
