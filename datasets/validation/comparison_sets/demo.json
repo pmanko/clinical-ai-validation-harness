@@ -1,5 +1,5 @@
 {
   "id": "demo",
   "scenario_ids": ["meds-zabella", "abstain-out-of-chart"],
-  "backend_ids": ["single-e4b-checked"]
+  "backend_ids": ["quick", "standard"]
 }

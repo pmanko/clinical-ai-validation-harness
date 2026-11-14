@@ -63,6 +63,8 @@ def review_results(run_dir: Path | str, *, strict: bool = True) -> list[dict[str
             model = backend.get("modelName")
             if model:
                 request["profile"] = model
+        if "execution" not in request and backend.get("execution") is not None:
+            request["execution"] = backend.get("execution")
         if "transport" not in request and transport:
             request["transport"] = transport
     return rows

@@ -87,12 +87,15 @@ def write_run_meta(
     }
     frozen_backends: dict[str, Any] = {}
     for backend in backends or []:
-        frozen_backends[backend.id] = {
+        entry: dict[str, Any] = {
             "endpointUrl": backend.endpoint_url,
             "modelName": backend.model_name,
             "provider": backend.provider,
             "kind": backend.kind,
         }
+        if backend.execution is not None:
+            entry["execution"] = dict(backend.execution)
+        frozen_backends[backend.id] = entry
     meta: dict[str, Any] = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -216,6 +219,7 @@ def run_comparison(
         client_takes_request_id = "request_id" in client_chat_parameters
         client_takes_provider = "provider" in client_chat_parameters
         client_takes_endpoint_url = "endpoint_url" in client_chat_parameters
+        client_takes_execution = "execution" in client_chat_parameters
     except (ValueError, TypeError):
         # Best-effort capability probe — a non-introspectable client.chat (C-extension,
         # odd __call__) must NOT abort the run; degrade to record-only.
@@ -223,6 +227,7 @@ def run_comparison(
         client_takes_request_id = False
         client_takes_provider = False
         client_takes_endpoint_url = False
+        client_takes_execution = False
     try:
         session_takes_provider = "provider" in inspect.signature(client.new_session).parameters
     except (ValueError, TypeError):
@@ -321,6 +326,7 @@ def run_comparison(
                 "endpointUrl": backend.endpoint_url,
                 "modelName": backend.model_name,
                 "transport": cset.transport,
+                **({"execution": dict(backend.execution)} if backend.execution is not None else {}),
             },
         )
         for scenario in scenarios:
@@ -386,6 +392,8 @@ def run_comparison(
                     chat_kwargs["request_id"] = request_id
                 if client_takes_endpoint_url and backend.endpoint_url:
                     chat_kwargs["endpoint_url"] = backend.endpoint_url
+                if client_takes_execution and backend.execution is not None:
+                    chat_kwargs["execution"] = dict(backend.execution)
                 try:
                     res = client.chat(
                         scenario.patient_ref, session_sent, turn.question, **chat_kwargs,
@@ -462,6 +470,7 @@ def run_comparison(
                         "question": turn.question,
                         "profile": chat_kwargs.get("profile"),
                         "provider": backend.provider or None,
+                        **({"execution": dict(chat_kwargs["execution"])} if "execution" in chat_kwargs else {}),
                         **({"request_id": request_id} if request_id else {}),
                     },
                     "response": res.envelope,

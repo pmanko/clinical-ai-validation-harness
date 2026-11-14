@@ -290,11 +290,13 @@ def run_concurrency_benchmark(
             takes_request_id = "request_id" in chat_params
             takes_ref_date = "reference_date" in chat_params
             takes_endpoint_url = "endpoint_url" in chat_params
+            takes_execution = "execution" in chat_params
         except (ValueError, TypeError):
             takes_provider = False
             takes_request_id = False
             takes_ref_date = False
             takes_endpoint_url = False
+            takes_execution = False
         try:
             session_takes_provider = "provider" in inspect.signature(client.new_session).parameters
         except (ValueError, TypeError):
@@ -361,6 +363,8 @@ def run_concurrency_benchmark(
                 chat_kwargs["request_id"] = request_id
             if takes_endpoint_url and backend.endpoint_url:
                 chat_kwargs["endpoint_url"] = backend.endpoint_url
+            if takes_execution and backend.execution is not None:
+                chat_kwargs["execution"] = dict(backend.execution)
 
             try:
                 res = client.chat(
@@ -396,6 +400,7 @@ def run_concurrency_benchmark(
                         "question": turn_obj.question,
                         "profile": chat_kwargs.get("profile"),
                         "provider": backend.provider or None,
+                        **({"execution": dict(chat_kwargs["execution"])} if "execution" in chat_kwargs else {}),
                         **({"request_id": request_id} if request_id else {}),
                     },
                     "response": res.envelope,

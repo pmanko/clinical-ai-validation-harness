@@ -22,7 +22,7 @@ from harness.validate.stage_timings import (
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_SET = "hub-profile-candidate"
 EXPECTED_REFERENCE_DATE = "2026-06-20"
-EXPECTED_PRODUCT_PROFILE = "single-12b-checked"
+EXPECTED_PRODUCT_PROFILE = "verified"
 FALLBACK_ANSWER = "I could not produce a complete answer for this turn. Please try again."
 TEMPORAL_FALLBACK_ANSWER = (
     "I cannot safely answer this temporal question because deterministic temporal validation "

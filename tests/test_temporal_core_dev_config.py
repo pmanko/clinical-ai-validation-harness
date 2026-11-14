@@ -21,11 +21,12 @@ def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
     cset = load_comparison_set(DATA / "comparison_sets" / "hub-profile-candidate.json")
     assert cset.id == "hub-profile-candidate"
     assert len(cset.scenario_ids) == 12
-    assert cset.backend_ids == ["single-12b-checked"]
+    assert cset.backend_ids == ["verified"]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
-    assert [backend.model_name for backend in backends] == ["single-12b-checked"]
+    assert [backend.model_name for backend in backends] == ["verified"]
     assert all(backend.indepth_model is None for backend in backends)
+    assert all(backend.execution is None for backend in backends)
     assert not any("team" in backend.id or "2call" in backend.id for backend in backends)
     raw = json.loads(
         (DATA / "comparison_sets" / "hub-profile-candidate.json").read_text()
@@ -42,17 +43,19 @@ def test_hub_profile_appointment_smoke_targets_both_appointment_cases():
         "single-upcoming-appointments",
         "am-upcoming-appointments",
     ]
-    assert cset.backend_ids == ["single-12b-checked"]
+    assert cset.backend_ids == ["verified"]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
-    assert [backend.model_name for backend in backends] == ["single-12b-checked"]
+    assert [backend.model_name for backend in backends] == ["verified"]
     assert backends[0].indepth_model is None
+    assert backends[0].execution is None
 
 
 def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
     cset = load_comparison_set(
         DATA / "comparison_sets" / "hub-profile-team-focus.json"
     )
+    assert cset.transport == "med-agent-hub"
     assert cset.scenario_ids == [
         "date-zabella-weight-table",
         "date-aloice-orders-table",
@@ -62,21 +65,26 @@ def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
         "abstain-out-of-chart",
     ]
     assert cset.backend_ids == [
-        "single-e4b-checked",
-        "single-12b-checked",
-        "team-med-checked",
+        "hub-e4b-verified",
+        "hub-12b-verified",
+        "hub-team-med",
     ]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
     assert [backend.model_name for backend in backends] == [
-        "single-e4b-checked",
-        "single-12b-checked",
-        "team-med-checked",
+        "gemma-e4b",
+        "gemma-4-12b",
+        "gemma-4-12b",
+    ]
+    assert [backend.execution for backend in backends] == [
+        {"mode": "verified"},
+        {"mode": "verified"},
+        {"mode": "team"},
     ]
     assert all(backend.indepth_model is None for backend in backends)
     for backend in backends:
         card = arm_card(backend.id, backend=backend)
-        assert card["kind"] == backend.kind == "product_profile"
+        assert card["kind"] == "unknown"
         assert card["title"] == backend.label
         assert card["models"] == [{"id": backend.model_name}]
         assert card["roles"] == {}
@@ -96,15 +104,16 @@ def test_backend_registry_has_no_orphans_and_product_ids_are_hub_ids():
         if config.get("kind") == "product_profile"
     }
     assert set(products) == {
-        "single-e4b-checked",
-        "single-12b-checked",
-        "team-med-checked",
+        "quick",
+        "standard",
+        "verified",
     }
     for backend_id, config in products.items():
         assert config["modelName"] == backend_id
         assert config["endpointUrl"] == (
             "http://med-agent-hub:8080/v1/chat/completions"
         )
+        assert "execution" not in config
         assert "indepthEndpointUrl" not in config
         assert "indepthModelName" not in config
 
@@ -113,6 +122,8 @@ def test_product_comparison_sets_only_use_product_profiles():
     registry = json.loads((DATA / "backends.json").read_text(encoding="utf-8"))
     for path in (DATA / "comparison_sets").glob("hub-profile-*.json"):
         comparison = json.loads(path.read_text(encoding="utf-8"))
+        if comparison.get("transport", "chartsearchai") != "chartsearchai":
+            continue
         assert comparison["backend_ids"]
         assert all(
             registry[backend_id].get("kind") == "product_profile"
