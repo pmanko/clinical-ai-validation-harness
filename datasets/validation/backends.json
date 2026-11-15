@@ -40,6 +40,12 @@
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "gemma-4-12b"
   },
+  "gemma-4-26b": {
+    "label": "Gemma 4 26B",
+    "kind": "product_profile",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "gemma-4-26b"
+  },
   "gemma-4-e4b": {
     "label": "Gemma 4 E4B (Fast)",
     "kind": "product_profile",

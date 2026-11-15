@@ -105,6 +105,7 @@ def test_backend_registry_has_no_orphans_and_product_ids_are_hub_ids():
     }
     assert set(products) == {
         "gemma-4-12b",
+        "gemma-4-26b",
         "gemma-4-e4b",
         "qwen-3.5-9b",
     }
