@@ -7,11 +7,11 @@
     "modelName": "gemma-e4b"
   },
   "engine-parity-hub": {
-    "label": "Med Agent Hub (Gemma 4 E4B, checked)",
+    "label": "Med Agent Hub (Gemma 4 E4B, 1-call)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "single-e4b-checked"
+    "modelName": "gemma-4-e4b"
   },
   "engine-parity-bundled-12b": {
     "label": "Built-in ChartSearchAI (Gemma 4 12B)",
@@ -21,55 +21,103 @@
     "modelName": "gemma-4-12b"
   },
   "engine-parity-hub-answer-12b": {
-    "label": "Med Agent Hub (Gemma 4 12B, 1-call answer)",
+    "label": "Med Agent Hub (Gemma 4 12B, 1-call)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "single-12b-answer"
+    "modelName": "gemma-4-12b"
   },
   "engine-parity-hub-12b": {
-    "label": "Med Agent Hub (Gemma 4 12B, checked + In-Depth)",
+    "label": "Med Agent Hub (Gemma 4 12B)",
     "kind": "provider_arm",
     "provider": "hub",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "single-12b-checked"
+    "modelName": "gemma-4-12b"
   },
-  "single-e4b-checked": {
-    "label": "Fast checked answer (E4B profile)",
+  "gemma-4-12b": {
+    "label": "Gemma 4 12B",
     "kind": "product_profile",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "single-e4b-checked"
+    "modelName": "gemma-4-12b"
   },
-  "single-12b-checked": {
-    "label": "Checked answer (12B profile)",
+  "gemma-4-26b": {
+    "label": "Gemma 4 26B",
     "kind": "product_profile",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "single-12b-checked"
+    "modelName": "gemma-4-26b"
   },
-  "team-med-checked": {
-    "label": "Checked medical team profile",
+  "gemma-4-e4b": {
+    "label": "Gemma 4 E4B (Fast)",
     "kind": "product_profile",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "team-med-checked"
+    "modelName": "gemma-4-e4b"
+  },
+  "qwen-3.5-9b": {
+    "label": "Qwen 3.5 9B",
+    "kind": "product_profile",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "qwen-3.5-9b"
+  },
+  "hub-e4b-verified": {
+    "label": "Verified answer (E4B)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "gemma-e4b",
+    "execution": {
+      "mode": "verified"
+    }
+  },
+  "hub-12b-verified": {
+    "label": "Verified answer (12B)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "gemma-4-12b",
+    "execution": {
+      "mode": "verified"
+    }
+  },
+  "hub-team-med": {
+    "label": "Cross-checked medical team (12B)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "gemma-4-12b",
+    "execution": {
+      "mode": "team"
+    }
   },
   "speed-e4b-answer-only": {
     "label": "E4B answer only (no temporal enforcement or review)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "eval-e4b-answer-only"
+    "modelName": "gemma-e4b",
+    "execution": {
+      "mode": "bare_eval",
+      "checks": {
+        "temporal": "off"
+      }
+    }
   },
   "speed-e4b-deterministic-check": {
-    "label": "E4B answer with deterministic temporal enforcement",
+    "label": "E4B quick answer (deterministic temporal check, no review)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "eval-e4b-temporal-enforce"
+    "modelName": "gemma-e4b",
+    "execution": {
+      "mode": "quick"
+    }
   },
   "speed-12b-answer-only": {
     "label": "12B answer only (no temporal enforcement or review)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "eval-12b-answer-only"
+    "modelName": "gemma-4-12b",
+    "execution": {
+      "mode": "bare_eval",
+      "checks": {
+        "temporal": "off"
+      }
+    }
   },
   "speed-12b-deterministic-check": {
-    "label": "12B answer with deterministic temporal enforcement",
+    "label": "12B quick answer (deterministic temporal check, no review)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "eval-12b-temporal-enforce"
+    "modelName": "gemma-4-12b",
+    "execution": {
+      "mode": "quick"
+    }
   }
 }

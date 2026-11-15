@@ -14,11 +14,13 @@ import {
   hubCancellationTraceOffset,
   hubTraceOffset,
   hubTraceQuestionsSince,
+  installStagedHubPresets,
   login,
   openAiChatPanel,
   openPatientChart,
   resetChatSession,
-  selectFastE4BModel,
+  restoreHubPresets,
+  selectStagedE4BModel,
 } from '../support/openmrs';
 
 const HEALTH_QUESTION = 'In one short sentence, what was the most recent documented clinical visit?';
@@ -67,6 +69,16 @@ async function findPreemptibleTurn(page: Page): Promise<{ question: string; turn
 }
 
 test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
+  let previousPresets: string | null = null;
+
+  test.beforeAll(async ({ request }) => {
+    previousPresets = await installStagedHubPresets(request);
+  });
+
+  test.afterAll(async ({ request }) => {
+    await restoreHubPresets(request, previousPresets);
+  });
+
   test.beforeEach(async ({ request }) => {
     await resetChatSession(request);
   });
@@ -83,7 +95,7 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
     await login(page);
     await openPatientChart(page);
     await openAiChatPanel(page);
-    await selectFastE4BModel(page);
+    await selectStagedE4BModel(page);
 
     // Q1 reaches a healthy terminal state before the actual preempt assertion. A safety-withheld
     // In-Depth is valid here; a transport/runtime failure is not.

@@ -19,11 +19,13 @@ import {
   hubTraceOffset,
   hubTraceQuestionsSince,
   expandAiChatPanel,
+  installStagedHubPresets,
   login,
   openAiChatPanel,
   openPatientChart,
   resetChatSession,
-  selectFastE4BModel,
+  restoreHubPresets,
+  selectStagedE4BModel,
 } from '../support/openmrs';
 
 test.use({
@@ -123,6 +125,16 @@ async function waitPhase(page: Page, phase: 'in-depth' | 'complete', timeout = I
 }
 
 test.describe('chartsearchai — demo recording', () => {
+  let previousPresets: string | null = null;
+
+  test.beforeAll(async ({ request }) => {
+    previousPresets = await installStagedHubPresets(request);
+  });
+
+  test.afterAll(async ({ request }) => {
+    await restoreHubPresets(request, previousPresets);
+  });
+
   test('interactive-first multi-prompt conversation on the staged E4B path', async ({ page, request }) => {
     test.setTimeout(900_000);
 
@@ -132,7 +144,7 @@ test.describe('chartsearchai — demo recording', () => {
     await login(page);
     await openPatientChart(page);
     await openAiChatPanel(page);
-    await selectFastE4BModel(page);
+    await selectStagedE4BModel(page);
     await caption(page, 'Profile: fast checked E4B, routed through med-agent-hub with staged validation.', 2400);
     await caption(page, 'Expanding the chat so the Answer, checks, and evidence are easy to inspect.', 1200);
     await expandAiChatPanel(page);

@@ -1,5 +1,6 @@
 {
   "id": "context-supply-dev",
+  "transport": "med-agent-hub",
   "scenario_ids": [
     "date-zabella-weight-endpoints",
     "am-allergies",
@@ -9,8 +10,8 @@
     "ek-medications"
   ],
   "backend_ids": [
-    "single-e4b-checked",
-    "single-12b-checked"
+    "hub-e4b-verified",
+    "hub-12b-verified"
   ],
   "context_quality": {
     "schema_version": "context_quality_labels.v1",

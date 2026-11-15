@@ -32,9 +32,9 @@
   "backend_ids": [
     "speed-e4b-answer-only",
     "speed-e4b-deterministic-check",
-    "single-e4b-checked",
+    "hub-e4b-verified",
     "speed-12b-answer-only",
     "speed-12b-deterministic-check",
-    "single-12b-checked"
+    "hub-12b-verified"
   ]
 }

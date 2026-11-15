@@ -98,10 +98,14 @@ class Backend:
     # provider (bundled|hub) per request; the bundled provider takes no product
     # profile, so the runner omits modelName from the chat body for it.
     provider: str = ""
+    execution: dict[str, Any] | None = None
 
     @classmethod
     def from_dict(cls, backend_id: str, data: dict[str, Any]) -> "Backend":
         _require(data, ("endpointUrl", "modelName"), f"backend {backend_id!r}")
+        raw_execution = data.get("execution")
+        if raw_execution is not None and not isinstance(raw_execution, dict):
+            raise ValueError(f"backend {backend_id!r} execution must be an object")
 
         return cls(
             id=backend_id,
@@ -112,6 +116,7 @@ class Backend:
             indepth_model=str(data["indepthModelName"]) if data.get("indepthModelName") else None,
             kind=str(data.get("kind") or ""),
             provider=str(data.get("provider") or ""),
+            execution=dict(raw_execution) if isinstance(raw_execution, dict) else None,
         )
 
 

@@ -25,7 +25,7 @@ Java, Python, TypeScript, and harness tests can report the same failing case.
 | Fixture family | Observed coverage | Owning test destination |
 |---|---|---|
 | `provider_lifecycle` | Required `answer_done` and one terminal event; optional events follow advertised capabilities; a provider change starts a new conversation | ChartSearchAI API tests; ESM reducer tests; hub stream tests |
-| `provider_capabilities` | Bundled is default when configured; picker is absent for one provider; unavailable configured provider remains disabled; no implicit fallback | ChartSearchAI provider/config tests; ESM picker tests |
+| `provider_capabilities` | System-configured active provider is default; `pickerVisible` is always false (single active provider); unavailable configured provider remains disabled; no implicit fallback | ChartSearchAI provider/config tests |
 | `querystore_records` | Existing `date` is preserved; `clinicalDate`, `dateKind`, and `lastModified` are explicit; full pages share a snapshot ID | QueryStore REST/unit tests; hub client tests |
 | `context_policy` | Typed-complete evidence, temporal recency, panel completion, mandatory inclusion, stable ordering, ceiling-not-target, and explicit overflow | QueryStore context-slice tests (selection invariants, per the 2026-07-22 amendment); bundled and hub thin-adapter conformance; harness trace tests |
 | `temporal_gate` | Checked output cannot contain a malformed/non-ledger date, wrong date/value association, false appointment status, wrong last visit, or unsupported trend | Shared Java/Python fixture adapters; existing hub temporal tests |

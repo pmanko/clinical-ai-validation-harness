@@ -1,11 +1,20 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { login, openAiChatPanel, openPatientChart, resetChatSession, selectCheckedModel } from '../support/openmrs';
+import {
+  installStagedHubPresets,
+  login,
+  openAiChatPanel,
+  openPatientChart,
+  resetChatSession,
+  restoreHubPresets,
+  selectCheckedModel,
+} from '../support/openmrs';
 
 const QUESTION = 'In one short sentence, what was the most recent documented clinical visit?';
 const SHOTS = path.resolve(__dirname, '../evidence/staged-validation');
-const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Checked answer \\(12B\\)';
+const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Gemma 4 12B (Verified)';
+const MODEL_PATTERN = new RegExp(MODEL_LABEL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 const STEP_PAUSE_MS = Number.parseInt(process.env.E2E_STEP_PAUSE_MS ?? '900', 10) || 0;
 const FAST_ANSWER_MAX_MS = process.env.E2E_FAST_ANSWER_MAX_MS
   ? Number.parseInt(process.env.E2E_FAST_ANSWER_MAX_MS, 10)
@@ -42,6 +51,20 @@ async function caption(page: Page, text: string, shotName: string): Promise<void
 }
 
 test.describe('chartsearchai — staged single answer validation lifecycle', () => {
+  let previousPresets: string | null = null;
+
+  test.beforeAll(async ({ request }) => {
+    if (!process.env.E2E_MODEL_LABEL) {
+      previousPresets = await installStagedHubPresets(request);
+    }
+  });
+
+  test.afterAll(async ({ request }) => {
+    if (!process.env.E2E_MODEL_LABEL) {
+      await restoreHubPresets(request, previousPresets);
+    }
+  });
+
   test.beforeEach(async ({ request }) => {
     await resetChatSession(request);
   });
@@ -63,7 +86,7 @@ test.describe('chartsearchai — staged single answer validation lifecycle', () 
     });
 
     await test.step('select the staged single checked model', async () => {
-      await selectCheckedModel(page, new RegExp(MODEL_LABEL, 'i'));
+      await selectCheckedModel(page, MODEL_PATTERN);
       await caption(
         page,
         `Single ${MODEL_LABEL} selected; requests route through med-agent-hub with staged validation.`,
