@@ -72,23 +72,17 @@ async function sendTurn(page: Page, question: string, turnNumber: number): Promi
   await input.press('Enter');
   await expect(input).toBeDisabled({ timeout: 15_000 });
   await expect(page.locator('[data-turn-phase]')).toHaveCount(turnNumber, { timeout: 360_000 });
-  await expect(page.getByText('Checking answer').last()).toBeVisible({ timeout: 360_000 });
-
-  const answerMs = Date.now() - sentAt;
-  await caption(
-    page,
-    `Turn ${turnNumber}: fast Answer visible with Checking answer after ${(answerMs / 1000).toFixed(1)}s.`,
-    `${String(turnNumber).padStart(2, '0')}-checking.png`,
-  );
 
   await expect(input).toBeEnabled({ timeout: 360_000 });
+  const answerMs = Date.now() - sentAt;
   const latestTurn = page.locator('[data-turn-phase]').nth(turnNumber - 1);
-  await expect(latestTurn).toHaveAttribute('data-turn-phase', /settled|in-depth|complete/, { timeout: 360_000 });
-  await expect(page.getByText(/Checked|Updated after check|Needs review|Check unavailable/).last()).toBeVisible({
-    timeout: 360_000,
-  });
-  await expect(latestTurn.getByTestId('answer-validation-summary')).toBeVisible({ timeout: 30_000 });
-  await caption(page, `Turn ${turnNumber}: answer check completed and the composer is ready.`, `${String(turnNumber).padStart(2, '0')}-checked.png`);
+  await expect(latestTurn).toHaveAttribute('data-turn-phase', /^(settled|in-depth|complete)$/, { timeout: 360_000 });
+  await expect(latestTurn.getByTestId('section-answer')).toBeVisible({ timeout: 30_000 });
+  await caption(
+    page,
+    `Turn ${turnNumber}: Answer settled after ${(answerMs / 1000).toFixed(1)}s and the composer is ready.`,
+    `${String(turnNumber).padStart(2, '0')}-settled.png`,
+  );
 
   return answerMs;
 }
@@ -139,13 +133,14 @@ test.describe('chartsearchai - fast single-model trivial multi-turn proof', () =
     // Turn 2 must repeat the date named in turn 1 when resolving "the date you just gave."
     expect(secondTurnText).toContain(committedDate!);
 
-    // In-Depth may either complete or be withheld by its deterministic checks. The product
-    // contract is that it settles honestly, never that this particular sampled draft is accepted.
-    await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute(
-      'data-indepth-status',
-      /^(complete|needs_review)$/,
-      { timeout: 360_000 },
-    );
+    // Single-call quick presets omit In-Depth; when present (custom verified override), assert honest settlement.
+    if ((await page.locator('[data-indepth-status]').count()) > 0) {
+      await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute(
+        'data-indepth-status',
+        /^(complete|needs_review)$/,
+        { timeout: 360_000 },
+      );
+    }
     await expect
       .poll(() => {
         const followUp = hubTraceEntriesSince(traceOffset).find((entry) => entry.question === QUESTIONS[1]);

@@ -72,13 +72,192 @@ export function hubCancellationsSince(offset: number): HubCancellation[] {
   return jsonLinesSince<HubCancellation>(HUB_CANCELLATION_TRACE_PATH, offset);
 }
 
+export const HUB_PRESETS_PROPERTY = 'chartsearchai.hub.presets';
+
+type HubPresetDefinition = {
+  id: string;
+  label: string;
+  description: string;
+  default: boolean;
+  model: string;
+  execution: Record<string, unknown>;
+};
+
+const QUICK_CHECKS = {
+  temporal: 'enforce',
+  confidence: 'findings',
+  drug_safety: true,
+};
+
+const VERIFIED_CHECKS = {
+  grounding: 'folded',
+  temporal: 'enforce',
+  confidence: 'levels',
+  drug_safety: true,
+};
+
+const BASELINE_HUB_PRESETS: HubPresetDefinition[] = [
+  {
+    id: 'gemma-4-12b',
+    label: 'Gemma 4 12B',
+    description: 'Balanced clinical chart synthesis (Gemma 4 12B, single pass)',
+    default: true,
+    model: 'gemma-4-12b',
+    execution: { mode: 'quick', preset_id: 'gemma-4-12b', checks: QUICK_CHECKS },
+  },
+  {
+    id: 'gemma-4-26b',
+    label: 'Gemma 4 26B',
+    description: 'High-capacity clinical chart synthesis (Gemma 4 26B, single pass)',
+    default: false,
+    model: 'gemma-26b',
+    execution: { mode: 'quick', preset_id: 'gemma-4-26b', checks: QUICK_CHECKS },
+  },
+  {
+    id: 'gemma-4-e4b',
+    label: 'Gemma 4 E4B (Fast)',
+    description: 'Fast clinical chart synthesis (Gemma 4 E4B, single pass)',
+    default: false,
+    model: 'gemma-e4b',
+    execution: { mode: 'quick', preset_id: 'gemma-4-e4b', checks: QUICK_CHECKS },
+  },
+  {
+    id: 'qwen-3.5-9b',
+    label: 'Qwen 3.5 9B',
+    description: 'Alternative clinical chart synthesis (Qwen 3.5 9B, single pass)',
+    default: false,
+    model: 'qwen3.5-9b',
+    execution: { mode: 'quick', preset_id: 'qwen-3.5-9b', checks: QUICK_CHECKS },
+  },
+];
+
+const STAGED_VERIFIED_PRESETS: HubPresetDefinition[] = [
+  {
+    id: 'gemma-4-12b-verified',
+    label: 'Gemma 4 12B (Verified)',
+    description: 'Verified clinical synthesis with In-Depth (Gemma 4 12B)',
+    default: false,
+    model: 'gemma-4-12b',
+    execution: {
+      mode: 'verified',
+      indepth: true,
+      preset_id: 'gemma-4-12b-verified',
+      checks: VERIFIED_CHECKS,
+    },
+  },
+  {
+    id: 'gemma-4-e4b-verified',
+    label: 'Gemma 4 E4B (Verified)',
+    description: 'Fast verified synthesis with In-Depth (Gemma 4 E4B)',
+    default: false,
+    model: 'gemma-e4b',
+    execution: {
+      mode: 'verified',
+      indepth: true,
+      preset_id: 'gemma-4-e4b-verified',
+      checks: VERIFIED_CHECKS,
+    },
+  },
+];
+
+function adminAuthHeaders(): Record<string, string> {
+  return {
+    Authorization: `Basic ${Buffer.from(`${ADMIN_USER}:${ADMIN_PASSWORD}`).toString('base64')}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+export async function getOpenmrsGlobalProperty(request: APIRequestContext, property: string): Promise<string | null> {
+  const res = await request.get(
+    `/openmrs/ws/rest/v1/systemsetting/${encodeURIComponent(property)}?v=custom:(property,value)`,
+    { headers: adminAuthHeaders() },
+  );
+  if (res.status() === 404) {
+    return null;
+  }
+  expect(res.ok(), `GET systemsetting ${property} failed (${res.status()}): ${await res.text()}`).toBeTruthy();
+  const body = (await res.json()) as { value?: unknown };
+  return typeof body.value === 'string' ? body.value : null;
+}
+
+export async function setOpenmrsGlobalProperty(
+  request: APIRequestContext,
+  property: string,
+  value: string,
+): Promise<void> {
+  const headers = adminAuthHeaders();
+  const updateRes = await request.post(`/openmrs/ws/rest/v1/systemsetting/${encodeURIComponent(property)}`, {
+    headers,
+    data: { value },
+  });
+  if (updateRes.ok()) {
+    return;
+  }
+  if (updateRes.status() === 404) {
+    const createRes = await request.post('/openmrs/ws/rest/v1/systemsetting', {
+      headers,
+      data: { property, value },
+    });
+    expect(
+      createRes.ok(),
+      `POST systemsetting ${property} failed (${createRes.status()}): ${await createRes.text()}`,
+    ).toBeTruthy();
+    return;
+  }
+  expect(
+    updateRes.ok(),
+    `POST systemsetting/${property} failed (${updateRes.status()}): ${await updateRes.text()}`,
+  ).toBeTruthy();
+}
+
+/**
+ * Temporarily append staged (`mode: 'verified'`, `indepth: true`) Hub presets alongside the existing
+ * preset catalog (preserving single-default uniqueness for HubPresetCatalog), returning the prior
+ * Global Property value for restoration in `afterAll`.
+ */
+export async function installStagedHubPresets(request: APIRequestContext): Promise<string | null> {
+  const previous = await getOpenmrsGlobalProperty(request, HUB_PRESETS_PROPERTY);
+  let base: HubPresetDefinition[];
+  if (previous && previous.trim()) {
+    const parsed = JSON.parse(previous) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error(`Expected ${HUB_PRESETS_PROPERTY} to be a non-empty JSON array when set`);
+    }
+    base = parsed as HubPresetDefinition[];
+  } else {
+    base = BASELINE_HUB_PRESETS;
+  }
+
+  const byId = new Map<string, HubPresetDefinition>();
+  for (const preset of base) {
+    byId.set(preset.id, preset);
+  }
+  const hasDefault = Array.from(byId.values()).some((preset) => preset.default === true);
+  for (const staged of STAGED_VERIFIED_PRESETS) {
+    const existing = byId.get(staged.id);
+    byId.set(staged.id, {
+      ...staged,
+      default: existing?.default === true && !hasDefault ? true : existing?.default === true,
+    });
+  }
+  if (!Array.from(byId.values()).some((preset) => preset.default === true)) {
+    const first = Array.from(byId.values())[0];
+    if (first) {
+      byId.set(first.id, { ...first, default: true });
+    }
+  }
+  await setOpenmrsGlobalProperty(request, HUB_PRESETS_PROPERTY, JSON.stringify(Array.from(byId.values())));
+  return previous;
+}
+
+export async function restoreHubPresets(request: APIRequestContext, previousValue: string | null): Promise<void> {
+  await setOpenmrsGlobalProperty(request, HUB_PRESETS_PROPERTY, previousValue ?? '');
+}
+
 /** Reset the server-side chat session for the demo patient (independent of the browser session). */
 export async function resetChatSession(request: APIRequestContext): Promise<void> {
   const res = await request.post('/openmrs/ws/rest/v1/chartsearchai/chat/new', {
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${ADMIN_USER}:${ADMIN_PASSWORD}`).toString('base64')}`,
-      'Content-Type': 'application/json',
-    },
+    headers: adminAuthHeaders(),
     data: { patient: PATIENT_UUID },
   });
   expect(res.ok(), `chat/new should succeed but got ${res.status()} ${await res.text()}`).toBeTruthy();
@@ -148,22 +327,29 @@ export async function expandAiChatPanel(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: /restore/i }).first()).toBeVisible({ timeout: 15_000 });
 }
 
-/** Select med-agent-hub explicitly. The product default may be the bundled provider, in which
- * case hub profiles are intentionally hidden until this provider switch creates a new session. */
+/**
+ * Ensure med-agent-hub is active. Under single system-wide provider mode (`pickerVisible: false`),
+ * the provider picker is intentionally absent and the profile picker is shown directly when Hub
+ * is the active system provider; only click the provider picker when it is actually rendered.
+ */
 export async function selectHubProvider(page: Page): Promise<void> {
   const providerButton = page.getByTestId('chartsearchai-provider-picker');
-  await expect(providerButton).toBeVisible({ timeout: 30_000 });
-  if (await providerButton.getByText(/Med-Agent Hub/i).isVisible().catch(() => false)) {
+  const profileButton = page.getByTestId('chartsearchai-profile-picker');
+  await expect(profileButton.or(providerButton).first()).toBeVisible({ timeout: 30_000 });
+  if (!(await providerButton.isVisible().catch(() => false))) {
+    return;
+  }
+  if (await providerButton.getByText(/Med-Agent Hub|AI Hub/i).isVisible().catch(() => false)) {
     return;
   }
   await providerButton.click();
   const hubOption = page
-    .getByRole('menuitemradio', { name: /Med-Agent Hub/i })
-    .or(page.getByText(/Med-Agent Hub/i))
+    .getByRole('menuitemradio', { name: /Med-Agent Hub|AI Hub/i })
+    .or(page.getByText(/Med-Agent Hub|AI Hub/i))
     .first();
   await expect(hubOption).toBeVisible({ timeout: 30_000 });
   await hubOption.click();
-  await expect(providerButton).toContainText(/Med-Agent Hub/i, { timeout: 30_000 });
+  await expect(providerButton).toContainText(/Med-Agent Hub|AI Hub/i, { timeout: 30_000 });
 }
 
 export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Gemma 4 12B/i): Promise<void> {
@@ -188,4 +374,9 @@ export async function selectSingle12BModel(page: Page): Promise<void> {
 /** Select the fast "Gemma 4 E4B (Fast)" preset. */
 export async function selectFastE4BModel(page: Page): Promise<void> {
   await selectCheckedModel(page, /Gemma 4 E4B/i);
+}
+
+/** Select the verified+in-depth "Gemma 4 E4B (Verified)" preset installed by `installStagedHubPresets`. */
+export async function selectStagedE4BModel(page: Page): Promise<void> {
+  await selectCheckedModel(page, /Gemma 4 E4B \(Verified\)/i);
 }
