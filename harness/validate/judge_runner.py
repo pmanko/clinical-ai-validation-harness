@@ -329,6 +329,53 @@ def _reserve_judge_passes(
         return allocations
 
 
+def _rollback_judge_passes(
+    run_dir: Path,
+    allocations: list[tuple[dict[str, Any], int, int]],
+    done_by_key: dict[tuple[str, str, str], int],
+) -> None:
+    """Roll back unfinalized pass reservations when a judge pass fails mid-run."""
+    with _run_judge_lock(run_dir) as judges_dir:
+        res_file = judges_dir / ".reserved.json"
+        if not res_file.is_file():
+            return
+        try:
+            raw_res = json.loads(res_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if not isinstance(raw_res, dict):
+            return
+        reserved: dict[tuple[str, str, str], int] = {}
+        for k_str, val in raw_res.items():
+            parts = k_str.split("\0")
+            if len(parts) == 3 and isinstance(val, int):
+                reserved[(parts[0], parts[1], parts[2])] = val
+        _, last, _ = run_judges(run_dir)
+        by_key: dict[tuple[str, str, str], tuple[int, int]] = {}
+        for judge, start, end in allocations:
+            key = (str(judge["agent"]), str(judge["model"]), str(judge["effort"]))
+            prev = by_key.get(key)
+            by_key[key] = (
+                start if prev is None else min(prev[0], start),
+                end if prev is None else max(prev[1], end),
+            )
+        changed = False
+        for key, (start, end) in by_key.items():
+            if reserved.get(key) == end:
+                rollback_to = max(last.get(key, 0), start + done_by_key.get(key, 0))
+                if rollback_to != end:
+                    if rollback_to <= 0:
+                        reserved.pop(key, None)
+                    else:
+                        reserved[key] = rollback_to
+                    changed = True
+        if changed:
+            res_file.write_text(
+                json.dumps({"\0".join(k): v for k, v in reserved.items()}, indent=1),
+                encoding="utf-8",
+            )
+
+
 def _expected_session_cells(cells_path: Path) -> list[tuple[str, str]]:
     if not cells_path.is_file():
         return []
@@ -368,15 +415,206 @@ def _validate_session_rows(rows: Any, expected: list[tuple[str, str]]) -> list[d
     return rows
 
 
+def _wrap_long_lines(text: str, limit: int = 1600) -> str:
+    """Split single lines exceeding `limit` characters so read-only viewers never truncate them."""
+    if not text:
+        return text
+    if limit < 16:
+        limit = 16
+    out: list[str] = []
+    cont_prefix = "  ↳ "
+    for raw_line in text.replace("\r\n", "\n").split("\n"):
+        if len(raw_line) <= limit:
+            out.append(raw_line)
+            continue
+        rest = raw_line
+        prefix = ""
+        while rest:
+            avail = limit if not prefix else max(8, limit - len(prefix))
+            if len(rest) <= avail:
+                out.append(prefix + rest)
+                break
+            cut = max(rest.rfind(" ", 1, avail + 1), rest.rfind("\t", 1, avail + 1))
+            if cut > 0 and rest[:cut].strip():
+                out.append(prefix + rest[:cut].rstrip())
+                rest = rest[cut + 1 :].lstrip()
+            else:
+                out.append(prefix + rest[:avail])
+                rest = rest[avail:]
+            prefix = cont_prefix
+    return "\n".join(out)
+
+
+def _safe_cell_stem(backend_id: str, index: int, used: set[str]) -> str:
+    """Build a collision-free filesystem stem preserving blinded arm letters verbatim."""
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", str(backend_id)).strip("_") or f"arm_{index}"
+    if stem in {".", ".."}:
+        stem = f"arm_{index}"
+    candidate = stem
+    if candidate in used:
+        suffix = index
+        candidate = f"{stem}_{suffix}"
+        while candidate in used:
+            suffix += 1
+            candidate = f"{stem}_{suffix}"
+    used.add(candidate)
+    return candidate
+
+
+def _render_cell_markdown(cell: dict[str, Any]) -> str:
+    """Render one judge cell into unescaped multi-line Markdown with short readable lines."""
+    scenario_id = cell.get("scenario_id", "")
+    backend_id = cell.get("backend_id", "")
+    lines = [
+        f"# Cell: scenario_id={scenario_id} | backend_id={backend_id}",
+        "",
+        f"- **scenario_id**: {scenario_id}",
+        f"- **backend_id**: {backend_id}",
+        f"- **reference_date**: {cell.get('reference_date')}",
+        f"- **is_team**: {cell.get('is_team')}",
+        f"- **has_in_depth**: {cell.get('has_in_depth')}",
+        f"- **score_background**: {cell.get('score_background')}",
+        f"- **should_abstain**: {cell.get('should_abstain')}",
+        f"- **n_turns**: {cell.get('n_turns')}",
+        f"- **snapshot_file**: {cell.get('snapshot_file')}",
+        f"- **in_depth_status**: {cell.get('in_depth_status')}",
+        f"- **patient**: {json.dumps(cell.get('patient'), ensure_ascii=False)}",
+    ]
+    if cell.get("what_it_tests"):
+        lines.append(f"- **what_it_tests**: {cell.get('what_it_tests')}")
+    if cell.get("reference_verification_notes"):
+        lines.append(
+            f"- **reference_verification_notes**: {cell.get('reference_verification_notes')}"
+        )
+    if cell.get("temporal_facts_summary") is not None:
+        lines.extend(
+            [
+                "- **temporal_facts_summary**:",
+                "```json",
+                json.dumps(cell.get("temporal_facts_summary"), indent=2, ensure_ascii=False),
+                "```",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Citation Resolution (Deterministic Layer 1)",
+            "",
+            "```json",
+            json.dumps(cell.get("citation_resolution"), indent=2, ensure_ascii=False),
+            "```",
+            "",
+            "### Source Diagnostics",
+            "",
+            "```json",
+            json.dumps(cell.get("source_diagnostics"), indent=2, ensure_ascii=False),
+            "```",
+            "",
+            "## Turns / Questions",
+        ]
+    )
+    turns = cell.get("turns") or []
+    if not turns:
+        lines.append("(none)")
+    else:
+        for t_idx, turn in enumerate(turns, 1):
+            if not isinstance(turn, dict):
+                lines.append(f"- {turn}")
+                continue
+            tn = turn.get("n", t_idx)
+            lines.extend(["", f"### Turn {tn} Question", str(turn.get("question") or "")])
+            if len(turns) > 1 and t_idx < len(turns) and turn.get("answer_section"):
+                lines.extend(
+                    ["", f"### Turn {tn} Answer Section", str(turn.get("answer_section") or "")]
+                )
+
+    lines.extend(["", "## Final Answer Section", str(cell.get("answer_section") or "")])
+    if cell.get("in_depth_section"):
+        lines.extend(["", "## Final In-Depth Section", str(cell.get("in_depth_section") or "")])
+
+    lines.extend(["", "## References"])
+    refs = cell.get("references") or []
+    if not refs:
+        lines.append("(none)")
+    else:
+        for ref in refs:
+            lines.append(f"- {json.dumps(ref, ensure_ascii=False)}")
+
+    lines.extend(["", "## Cited Sources"])
+    sources = cell.get("sources") or []
+    if not sources:
+        lines.append("(none)")
+    else:
+        for s_idx, src in enumerate(sources, 1):
+            if not isinstance(src, dict):
+                lines.append(f"- {src}")
+                continue
+            label = src.get("source_id") or src.get("citation_index") or s_idx
+            lines.extend(
+                [
+                    "",
+                    f"### Source {s_idx}: {label}",
+                    f"- **source_id**: {src.get('source_id')}",
+                    f"- **citation_index**: {src.get('citation_index')}",
+                    f"- **record_index**: {src.get('record_index')}",
+                    f"- **chart_record_index**: {src.get('chart_record_index')}",
+                    f"- **resource_type**: {src.get('resource_type')}",
+                    f"- **resource_uuid**: {src.get('resource_uuid')}",
+                    f"- **date**: {src.get('date')}",
+                    f"- **title**: {src.get('title')}",
+                    f"- **resolution_status**: {src.get('resolution_status')}",
+                    f"- **facts_used**: {json.dumps(src.get('facts_used'), ensure_ascii=False)}",
+                    "",
+                    "**source_text**:",
+                    str(src.get("source_text") or ""),
+                ]
+            )
+
+    return _wrap_long_lines("\n".join(lines).rstrip() + "\n", limit=1600)
+
+
+def _copy_maybe_wrapped_chart_file(src: Path, dst: Path, limit: int = 1600) -> None:
+    """Copy a chart snapshot file, wrapping lines over `limit` chars in `.txt` files."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if src.suffix.lower() == ".txt":
+        raw = src.read_text(encoding="utf-8", errors="replace")
+        if any(len(line) > limit for line in raw.replace("\r\n", "\n").split("\n")):
+            dst.write_text(_wrap_long_lines(raw, limit=limit), encoding="utf-8")
+            return
+    shutil.copy2(src, dst)
+
+
+def _wrap_txt_files_in_dir(root: Path, limit: int = 1600) -> None:
+    """Wrap overly long single lines in staged `.txt` chart files in place."""
+    if not root.exists():
+        return
+    for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
+        dp = Path(dirpath)
+        for fn in filenames:
+            fp = dp / fn
+            if fp.suffix.lower() != ".txt" or not fp.is_file() or fp.is_symlink():
+                continue
+            raw = fp.read_text(encoding="utf-8", errors="replace")
+            if any(len(line) > limit for line in raw.replace("\r\n", "\n").split("\n")):
+                fp.write_text(_wrap_long_lines(raw, limit=limit), encoding="utf-8")
+
+
 def _prepare_blind_session_dir(
     run_dir: Path, out_dir: Path, tag: str, bundle: Path
 ) -> tuple[Path, Path]:
-    """Create a read-only bounded directory with only this session's bundle, rubric, and chart snapshots."""
+    """Create a read-only bounded directory with only this session's bundle, cell Markdown files, rubric, and chart snapshots."""
     if bundle.is_symlink():
         raise SystemExit(f"Refusing symlinked bundle input: {bundle}")
     charts_src = run_dir / "charts"
     if charts_src.is_symlink():
         raise SystemExit(f"Refusing symlinked charts directory in run packet: {charts_src}")
+
+    parsed_cells = [
+        json.loads(line)
+        for line in bundle.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
     session_dir = out_dir / f"{tag}-input-{bundle.stem}"
     if session_dir.exists():
@@ -386,10 +624,62 @@ def _prepare_blind_session_dir(
     staged_bundle = session_dir / bundle.name
     shutil.copy2(bundle, staged_bundle)
     (session_dir / "rubric.md").write_bytes(read_rubric_bytes())
+
+    cells_dir = session_dir / "cells"
+    cells_dir.mkdir(parents=True, exist_ok=True)
+    used_stems: set[str] = set()
+    index_lines = [
+        f"# Cell Index ({len(parsed_cells)} expected rows)",
+        "",
+    ]
+    for idx, cell in enumerate(parsed_cells, 1):
+        stem = _safe_cell_stem(str(cell.get("backend_id") or f"arm_{idx}"), idx, used_stems)
+        cell_file = cells_dir / f"{stem}.md"
+        cell_file.write_text(_render_cell_markdown(cell), encoding="utf-8")
+        index_lines.append(
+            f"- `scenario_id={cell.get('scenario_id')}` | `backend_id={cell.get('backend_id')}` -> `cells/{stem}.md`"
+        )
+    (cells_dir / "INDEX.md").write_text("\n".join(index_lines).rstrip() + "\n", encoding="utf-8")
+
     if charts_src.exists():
         if not charts_src.is_dir():
             raise SystemExit(f"Expected charts to be a real directory inside {run_dir}: {charts_src}")
-        _copy_contained_dir(charts_src, session_dir / "charts", run_dir)
+        targeted_sources: list[tuple[Path, Path]] = []
+        can_target = bool(parsed_cells) and all(
+            isinstance(c.get("snapshot_file"), str) and str(c.get("snapshot_file")).strip()
+            for c in parsed_cells
+        )
+        if can_target:
+            charts_resolved = charts_src.resolve()
+            rel_snapshots = list(
+                dict.fromkeys(str(c["snapshot_file"]).strip() for c in parsed_cells)
+            )
+            for rel_str in rel_snapshots:
+                rel_path = Path(rel_str)
+                if rel_path.is_absolute():
+                    raise SystemExit(f"Refusing chart snapshot outside charts directory: {rel_str}")
+                cur = run_dir
+                for part in rel_path.parts:
+                    cur = cur / part
+                    if cur.is_symlink():
+                        raise SystemExit(f"Refusing symlinked chart snapshot in judge input: {cur}")
+                cand = run_dir / rel_path
+                if not cand.exists() or not cand.is_file():
+                    can_target = False
+                    break
+                cand_resolved = cand.resolve()
+                if not _is_within(cand_resolved, charts_resolved):
+                    raise SystemExit(f"Refusing chart snapshot outside {charts_src}: {rel_str}")
+                targeted_sources.append((cand, cand_resolved.relative_to(charts_resolved)))
+
+        if can_target and targeted_sources:
+            staged_charts = session_dir / "charts"
+            staged_charts.mkdir(parents=True, exist_ok=True)
+            for src_file, rel_inside_charts in targeted_sources:
+                _copy_maybe_wrapped_chart_file(src_file, staged_charts / rel_inside_charts)
+        else:
+            _copy_contained_dir(charts_src, session_dir / "charts", run_dir)
+            _wrap_txt_files_in_dir(session_dir / "charts")
     _chmod_tree_readonly(session_dir)
     return session_dir, staged_bundle
 
@@ -554,6 +844,46 @@ def judge_card(answer: Path, pass_index: int, passes: int) -> Path:
     return card
 
 
+def _resolved_judge_identity(
+    judge: dict[str, Any], env: dict[str, str] | None
+) -> tuple[str, str, str]:
+    agent_name = str(judge.get("agent") or "")
+    eff_env = _minimal_judge_env(agent_name, env)
+    default_model, default_effort = DEFAULT_JUDGE_SETTINGS.get(
+        agent_name, ("gpt-6.1-sol", "medium")
+    )
+    model = eff_env.get("REVIEW_MODEL") or default_model
+    reasoning = eff_env.get("REVIEW_REASONING") or default_effort
+    return agent_name, model, reasoning
+
+
+def _try_reuse_session(
+    out: Path,
+    expected: list[tuple[str, str]],
+    judge: dict[str, Any],
+    env: dict[str, str] | None,
+) -> list[dict[str, Any]] | None:
+    """Return validated rows from an existing cached session output matching this judge identity."""
+    card_path = Path(f"{out}.card.json")
+    if not out.is_file() or not card_path.is_file():
+        return None
+    try:
+        card = json.loads(card_path.read_text(encoding="utf-8"))
+        if not isinstance(card, dict):
+            return None
+        exp_identity = _resolved_judge_identity(judge, env)
+        got_identity = (
+            str(card.get("agent") or ""),
+            str(card.get("model") or ""),
+            str(card.get("reasoning_effort") or ""),
+        )
+        if got_identity != exp_identity:
+            return None
+        return _validate_session_rows(last_json(out.read_text(encoding="utf-8")), expected)
+    except (OSError, json.JSONDecodeError, ValueError, SystemExit):
+        return None
+
+
 def judge_sessions(
     args: Any,
     run_dir: Path,
@@ -588,11 +918,16 @@ def judge_sessions(
                 raise SystemExit(f"Refusing symlinked or escaped bundle file: {b}")
             s_dir, s_bundle = _prepare_blind_session_dir(run_dir, out_dir, tag, b)
             rubric_staged = s_dir / "rubric.md"
+            expected_arms = list(dict.fromkeys(bid for _, bid in _expected_session_cells(s_bundle)))
+            arm_list = ", ".join(expected_arms)
             s_inputs = (
                 f"\n## Inputs\n\n- Session directory (bounded read-only input containing only this scenario's "
-                f"bundle, rubric, and chart snapshots; do not read outside {s_dir}): {s_dir}\n"
+                f"bundle, rubric, per-cell Markdown files, and chart snapshots; do not read outside {s_dir}): {s_dir}\n"
                 f"- Rubric: {rubric_staged}\n"
-                f"- Cells for this session: {s_bundle} (one scenario; its arms are lettered, so score each "
+                f"- Per-cell readable Markdown files (read INDEX.md and each .md file in {s_dir / 'cells'} "
+                f"so long JSONL lines are never truncated; you MUST emit a verdict row for EVERY expected "
+                f"backend_id [{arm_list}]): {s_dir / 'cells'}\n"
+                f"- Cells bundle for this session: {s_bundle} (one scenario; its arms are lettered, so score each "
                 "answer on its own against the chart and keep the letter as backend_id)\n"
             )
             sessions.append((out_dir / f"{tag}-{b.stem}.md", brief + s_inputs, s_dir, s_bundle))
@@ -606,29 +941,50 @@ def judge_sessions(
             raise SystemExit(f"{run_dir}: missing judge-cells.jsonl; run judge_prep first")
         s_dir, s_cells = _prepare_blind_session_dir(run_dir, out_dir, tag, cells_src)
         rubric_staged = s_dir / "rubric.md"
+        expected_arms = list(dict.fromkeys(bid for _, bid in _expected_session_cells(s_cells)))
+        arm_list = ", ".join(expected_arms)
         inputs = (
             f"\n## Inputs\n\n- Session directory (bounded read-only input): {s_dir}\n"
             f"- Rubric: {rubric_staged}\n"
-            f"- Cells for this session: {s_cells}\n"
+            f"- Per-cell readable Markdown files (read INDEX.md and each .md file in {s_dir / 'cells'} "
+            f"so long JSONL lines are never truncated; you MUST emit a verdict row for EVERY expected "
+            f"backend_id [{arm_list}]): {s_dir / 'cells'}\n"
+            f"- Cells bundle for this session: {s_cells}\n"
         )
         sessions = [(base, brief + inputs, s_dir, s_cells)]
 
     attempts = max(1, int(os.environ.get("JUDGE_ATTEMPTS", "4")))
     retry_delay = int(os.environ.get("JUDGE_RETRY_DELAY", "60"))
+    can_resume_cached = bool(getattr(args, "work_dir", None)) and str(judge.get("agent")) != "human"
 
     def one(session: tuple[Path, str, Path, Path]) -> list[dict[str, Any]]:
         out, prompt, workdir, cells_path = session
         expected = _expected_session_cells(cells_path)
+        if can_resume_cached:
+            cached = _try_reuse_session(out, expected, judge, env)
+            if cached is not None:
+                return cached
+        last_error: str | None = None
         for attempt in range(1, attempts + 1):
+            attempt_prompt = prompt
+            if attempt > 1 and last_error:
+                cells_dir = workdir / "cells"
+                attempt_prompt = (
+                    prompt
+                    + f"\n\nIMPORTANT RETRY NOTE (attempt {attempt}/{attempts}): Your previous attempt failed validation ({last_error}). "
+                    f"Read {cells_dir / 'INDEX.md'} and every arm file in {cells_dir} individually, then emit a single ```json array containing ALL {len(expected)} expected (scenario_id, backend_id) rows.\n"
+                )
             try:
-                answer = run_judge_role(args, workdir, prompt, out, agent=str(judge["agent"]), env=env)
+                answer = run_judge_role(args, workdir, attempt_prompt, out, agent=str(judge["agent"]), env=env)
                 return _validate_session_rows(last_json(answer), expected)
             except SystemExit as e:
                 if e.code == 3 or attempt == attempts:
                     raise
+                last_error = str(e)
             except (json.JSONDecodeError, ValueError) as e:
                 if attempt == attempts:
                     raise SystemExit(f"{out}: the judge's verdict block is invalid ({e})")
+                last_error = str(e)
             time.sleep(retry_delay * attempt)
         return []
 
@@ -722,62 +1078,71 @@ def judge_passes(
 
     total_new = sum(int(j["passes"]) for j in judges)
     actors: list[str] = []
-    for k, (judge, start, end) in enumerate(allocations, 1):
-        for i in range(start + 1, end + 1):
-            tag = (
-                "judge"
-                + (f"-j{k}" if len(judges) > 1 else "")
-                + (f"-p{i}" if total_new > 1 or start else "")
-            )
-            if tag in finalized_tags:
-                actors.append(finalized_tags[tag])
-                continue
-            rows, card = judge_sessions(args, run_dir, out_dir, i, end, judge, blind, tag)
-            with _run_judge_lock(run_dir):
-                cmd = [
-                    sys.executable,
-                    "-m",
-                    "harness.validate.judge_finalize",
-                    str(run_dir),
-                    str(rows),
-                    "--card",
-                    str(card),
-                ]
-                if total_new == 1 and not keep:
-                    cmd.append("--promote")
-                done = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
-            m = re.search(r"judges/([^/\s]+)/judge\.jsonl", done)
-            if not m:
-                raise SystemExit(f"finalize named no actor for {tag}:\n{done}")
-            actor_name = m.group(1)
-            actors.append(actor_name)
-            if pending is not None:
-                finalized_tags[tag] = actor_name
-                pending["finalized_tags"] = finalized_tags
-                _save_pending_human(run_dir, pending)
-            manifest = run_dir / "judges" / actor_name / "manifest.json"
-            if manifest.exists() and json.loads(manifest.read_text(encoding="utf-8")).get(
-                "self_preference_risk"
-            ):
-                print(
-                    f"WARNING: {actor_name} is from the same model family as an arm it judged "
-                    f"(self-preference risk); see its manifest"
+    done_by_key: dict[tuple[str, str, str], int] = {}
+    try:
+        for k, (judge, start, end) in enumerate(allocations, 1):
+            key = (str(judge["agent"]), str(judge["model"]), str(judge["effort"]))
+            for i in range(start + 1, end + 1):
+                tag = (
+                    "judge"
+                    + (f"-j{k}" if len(judges) > 1 else "")
+                    + (f"-p{i}" if total_new > 1 or start else "")
                 )
-    headline = keep + [a for a in actors if a not in keep]
-    if len(headline) > 1:
-        with _run_judge_lock(run_dir):
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "harness.validate.judge_aggregate",
-                    str(run_dir),
-                    *[a for actor in headline for a in ("--actor", actor)],
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+                if tag in finalized_tags:
+                    actors.append(finalized_tags[tag])
+                    done_by_key[key] = done_by_key.get(key, 0) + 1
+                    continue
+                rows, card = judge_sessions(args, run_dir, out_dir, i, end, judge, blind, tag)
+                with _run_judge_lock(run_dir):
+                    cmd = [
+                        sys.executable,
+                        "-m",
+                        "harness.validate.judge_finalize",
+                        str(run_dir),
+                        str(rows),
+                        "--card",
+                        str(card),
+                    ]
+                    if total_new == 1 and not keep:
+                        cmd.append("--promote")
+                    done = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
+                m = re.search(r"judges/([^/\s]+)/judge\.jsonl", done)
+                if not m:
+                    raise SystemExit(f"finalize named no actor for {tag}:\n{done}")
+                actor_name = m.group(1)
+                actors.append(actor_name)
+                done_by_key[key] = done_by_key.get(key, 0) + 1
+                if pending is not None:
+                    finalized_tags[tag] = actor_name
+                    pending["finalized_tags"] = finalized_tags
+                    _save_pending_human(run_dir, pending)
+                manifest = run_dir / "judges" / actor_name / "manifest.json"
+                if manifest.exists() and json.loads(manifest.read_text(encoding="utf-8")).get(
+                    "self_preference_risk"
+                ):
+                    print(
+                        f"WARNING: {actor_name} is from the same model family as an arm it judged "
+                        f"(self-preference risk); see its manifest"
+                    )
+        headline = keep + [a for a in actors if a not in keep]
+        if len(headline) > 1:
+            with _run_judge_lock(run_dir):
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "harness.validate.judge_aggregate",
+                        str(run_dir),
+                        *[a for actor in headline for a in ("--actor", actor)],
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+    except BaseException as exc:
+        if not (isinstance(exc, SystemExit) and exc.code == 3):
+            _rollback_judge_passes(run_dir, allocations, done_by_key)
+        raise
     if has_human:
         _clear_pending_human(run_dir)
     return headline

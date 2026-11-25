@@ -639,3 +639,290 @@ def test_wheel_bundles_judge_modules_and_rubric_resources_outside_checkout(
     assert manifest["rubric_sha256"] is not None
 
 
+def test_prepare_blind_session_dir_writes_wrapped_cell_markdown_and_filters_charts(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "run"
+    (run_dir / "charts").mkdir(parents=True)
+    long_chart_line = "Lab " + ("12345 " * 2000)
+    (run_dir / "charts" / "p1.snapshot.txt").write_text(
+        f"[1] Summary\n{long_chart_line}\n", encoding="utf-8"
+    )
+    (run_dir / "charts" / "other_unused.snapshot.txt").write_text(
+        "Other patient chart should not be staged\n", encoding="utf-8"
+    )
+
+    bundle = tmp_path / "s1.jsonl"
+    long_answer_line = "Finding: " + ("abnormal " * 1200)
+    cells = [
+        {
+            "scenario_id": "s1",
+            "backend_id": "A",
+            "reference_date": "2026-11-11",
+            "is_team": False,
+            "has_in_depth": False,
+            "score_background": False,
+            "should_abstain": False,
+            "n_turns": 1,
+            "snapshot_file": "charts/p1.snapshot.txt",
+            "turns": [{"n": 1, "question": "Check creatinine?"}],
+            "answer_section": f"Line 1\nLine 2\n{long_answer_line}",
+            "in_depth_section": "Background details\nSecond line",
+            "references": [{"index": 1, "resourceUuid": "u-1"}],
+            "citation_resolution": {"total_refs": 1, "resolved": 1},
+            "sources": [
+                {
+                    "source_id": "S1",
+                    "citation_index": 1,
+                    "record_index": 1,
+                    "chart_record_index": 1,
+                    "resource_type": "Observation",
+                    "resource_uuid": "u-1",
+                    "date": "2026-11-01",
+                    "title": "Creatinine",
+                    "resolution_status": "resolved",
+                    "facts_used": ["Creatinine 1.4"],
+                    "source_text": "Creatinine 1.4 mg/dL\nReference 0.7-1.3",
+                }
+            ],
+            "source_diagnostics": {"total": 1},
+        },
+        {
+            "scenario_id": "s1",
+            "backend_id": "B",
+            "reference_date": "2026-11-11",
+            "snapshot_file": "charts/p1.snapshot.txt",
+            "turns": [{"n": 1, "question": "Check creatinine?"}],
+            "answer_section": "Short answer.",
+        },
+    ]
+    bundle.write_text("".join(json.dumps(c) + "\n" for c in cells), encoding="utf-8")
+
+    session_dir, staged_bundle = _prepare_blind_session_dir(
+        run_dir, tmp_path / "work", "judge", bundle
+    )
+    assert staged_bundle.is_file()
+    index_md = session_dir / "cells" / "INDEX.md"
+    arm_a_md = session_dir / "cells" / "A.md"
+    arm_b_md = session_dir / "cells" / "B.md"
+    assert index_md.is_file() and arm_a_md.is_file() and arm_b_md.is_file()
+    assert not (arm_a_md.stat().st_mode & stat.S_IWUSR)
+
+    arm_a_text = arm_a_md.read_text(encoding="utf-8")
+    assert "Line 1\nLine 2" in arm_a_text
+    assert "## Citation Resolution (Deterministic Layer 1)" in arm_a_text
+    assert '"resolved": 1' in arm_a_text
+    assert "## Final In-Depth Section" in arm_a_text
+
+    staged_chart = session_dir / "charts" / "p1.snapshot.txt"
+    assert staged_chart.is_file()
+    assert not (staged_chart.stat().st_mode & stat.S_IWUSR)
+    assert not (session_dir / "charts" / "other_unused.snapshot.txt").exists()
+
+    for path in (index_md, arm_a_md, arm_b_md, staged_chart):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            assert len(line) <= 1610, f"line too long ({len(line)}) in {path}"
+
+
+def test_judge_sessions_resumes_valid_work_dir_outputs_and_injects_retry_feedback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_dir = tmp_path / "run"
+    bundles_dir = run_dir / "judge-bundles"
+    bundles_dir.mkdir(parents=True)
+    for sid in ("s1", "s2"):
+        rows = [
+            {
+                "scenario_id": sid,
+                "backend_id": bid,
+                "snapshot_file": f"charts/{sid}.snapshot.txt",
+                "turns": [{"n": 1, "question": "Q?"}],
+                "answer_section": f"Answer {bid}",
+            }
+            for bid in ("A", "B")
+        ]
+        (bundles_dir / f"{sid}.jsonl").write_text(
+            "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
+        )
+    (run_dir / "charts").mkdir(parents=True)
+    (run_dir / "charts" / "s1.snapshot.txt").write_text("Chart s1\n", encoding="utf-8")
+    (run_dir / "charts" / "s2.snapshot.txt").write_text("Chart s2\n", encoding="utf-8")
+
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    cached_rows = [
+        {"scenario_id": "s1", "backend_id": "A", "accuracy": 9, "completeness": 9, "relevance": 9, "harm": False},
+        {"scenario_id": "s1", "backend_id": "B", "accuracy": 8, "completeness": 8, "relevance": 8, "harm": False},
+    ]
+    (work_dir / "judge-s1.md").write_text(
+        "Cached s1.\n```json\n" + json.dumps(cached_rows) + "\n```\n", encoding="utf-8"
+    )
+    (work_dir / "judge-s1.md.card.json").write_text(
+        json.dumps(
+            {
+                "agent": "claude",
+                "agent_version": "2.1.0",
+                "model": "claude-sonnet-5-5",
+                "reasoning_effort": "medium",
+                "sampling": "provider default",
+                "role": "judge",
+                "started_at": "2026-11-16T01:00:00Z",
+                "finished_at": "2026-11-16T01:01:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("JUDGE_ATTEMPTS", "2")
+    monkeypatch.setenv("JUDGE_RETRY_DELAY", "0")
+    calls: list[tuple[str, str]] = []
+
+    def fake_role(_args, workdir: Path, prompt: str, out: Path, *, agent: str, env=None) -> str:
+        assert out.name == "judge-s2.md", "cached s1 should not re-invoke run_judge_role"
+        calls.append((out.name, prompt))
+        if len(calls) == 1:
+            partial = [
+                {"scenario_id": "s2", "backend_id": "A", "accuracy": 8, "completeness": 8, "relevance": 8, "harm": False},
+            ]
+            body = "Partial.\n```json\n" + json.dumps(partial) + "\n```\n"
+        else:
+            assert "IMPORTANT RETRY NOTE" in prompt
+            assert "'B'" in prompt
+            assert "INDEX.md" in prompt
+            full = [
+                {"scenario_id": "s2", "backend_id": "A", "accuracy": 8, "completeness": 8, "relevance": 8, "harm": False},
+                {"scenario_id": "s2", "backend_id": "B", "accuracy": 7, "completeness": 7, "relevance": 7, "harm": False},
+            ]
+            body = "Complete.\n```json\n" + json.dumps(full) + "\n```\n"
+        out.write_text(body, encoding="utf-8")
+        Path(f"{out}.card.json").write_text(
+            json.dumps(
+                {
+                    "agent": agent,
+                    "agent_version": "2.1.0",
+                    "model": "claude-sonnet-5-5",
+                    "reasoning_effort": "medium",
+                    "sampling": "provider default",
+                    "role": "judge",
+                    "started_at": "2026-11-16T01:02:00Z",
+                    "finished_at": "2026-11-16T01:03:00Z",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return body
+
+    monkeypatch.setattr(jr, "run_judge_role", fake_role)
+    rows_path, card_path = jr.judge_sessions(
+        Namespace(work_dir=str(work_dir)),
+        run_dir,
+        work_dir,
+        1,
+        1,
+        {"agent": "claude", "model": "claude-sonnet-5-5", "effort": "medium"},
+        blind=True,
+        tag="judge",
+    )
+    assert len(calls) == 2
+    rows = json.loads(rows_path.read_text(encoding="utf-8"))
+    assert {(r["scenario_id"], r["backend_id"]) for r in rows} == {
+        ("s1", "A"),
+        ("s1", "B"),
+        ("s2", "A"),
+        ("s2", "B"),
+    }
+    assert json.loads(card_path.read_text(encoding="utf-8"))["sessions"] == 2
+
+
+def test_judge_passes_rolls_back_reservation_on_aborted_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_dir = _make_minimal_run(tmp_path, name="abort-run")
+    monkeypatch.setenv("JUDGE_ATTEMPTS", "1")
+    monkeypatch.setenv("JUDGE_RETRY_DELAY", "0")
+
+    def failing_role(_args, _workdir: Path, _prompt: str, _out: Path, *, agent: str, env=None) -> str:
+        raise SystemExit("simulated failure")
+
+    monkeypatch.setattr(jr, "run_judge_role", failing_role)
+    with pytest.raises(SystemExit, match="simulated failure"):
+        run_judge_command(
+            Namespace(
+                run_dir=str(run_dir),
+                output_dir=None,
+                run_id=None,
+                work_dir=str(tmp_path / "work"),
+                judges=["claude:claude-sonnet-5-5:medium:1"],
+                judge_passes=1,
+                agent="claude",
+                blind=False,
+                add=False,
+            )
+        )
+
+    res_file = run_dir / "judges" / ".reserved.json"
+    if res_file.is_file():
+        assert json.loads(res_file.read_text(encoding="utf-8")).get(
+            "claude\0claude-sonnet-5-5\0medium", 0
+        ) == 0
+
+    def succeeding_role(_args, _workdir: Path, _prompt: str, out: Path, *, agent: str, env=None) -> str:
+        verdict = [
+            {
+                "scenario_id": "S1",
+                "backend_id": "arm-a",
+                "accuracy": 9,
+                "completeness": 9,
+                "relevance": 9,
+                "abstention_outcome": "n-a",
+                "citation_groundedness": "supported",
+                "harm": False,
+                "note": "Verified [1].",
+            }
+        ]
+        body = "```json\n" + json.dumps(verdict) + "\n```\n"
+        out.write_text(body, encoding="utf-8")
+        Path(f"{out}.card.json").write_text(
+            json.dumps(
+                {
+                    "agent": agent,
+                    "agent_version": "1.0",
+                    "model": "claude-sonnet-5-5",
+                    "reasoning_effort": "medium",
+                    "sampling": "provider default",
+                    "role": "judge",
+                    "started_at": "2026-11-16T01:00:00Z",
+                    "finished_at": "2026-11-16T01:01:00Z",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return body
+
+    monkeypatch.setattr(jr, "run_judge_role", succeeding_role)
+    assert (
+        run_judge_command(
+            Namespace(
+                run_dir=str(run_dir),
+                output_dir=None,
+                run_id=None,
+                work_dir=str(tmp_path / "work"),
+                judges=["claude:claude-sonnet-5-5:medium:1"],
+                judge_passes=1,
+                agent="claude",
+                blind=False,
+                add=False,
+            )
+        )
+        == 0
+    )
+    manifests = list((run_dir / "judges").glob("*/manifest.json"))
+    assert len(manifests) == 1
+    assert manifests[0].parent.name == "claude-claude-sonnet-5-5-medium-p1"
+    assert json.loads(manifests[0].read_text(encoding="utf-8"))["pass_index"] == 1
+
+
+
