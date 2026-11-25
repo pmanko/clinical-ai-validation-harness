@@ -76,3 +76,271 @@ def test_assert_gpu_engine_safe_rejects_local_mac_router_and_no_bundle_mode() ->
     mod.assert_gpu_engine_safe(
         {"llm_base_url": "https://llm.co.dev.cirg.uw.edu/v1", "allow_local_bundle_mode": True}
     )
+    with pytest.raises(RuntimeError, match="missing llm_base_url"):
+        mod.assert_gpu_engine_safe({})
+    with pytest.raises(RuntimeError, match="expected 'llm.co.dev.cirg.uw.edu'"):
+        mod.assert_gpu_engine_safe(
+            {"llm_base_url": "https://api.example.org/v1", "allow_local_bundle_mode": True}
+        )
+
+
+def test_slice_writer_env_key_probe_and_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import io
+    import json
+    import subprocess
+
+    mod = _load_runner()
+    assert mod.normalize_question_id("") == ""
+    assert mod.normalize_question_id("CUSTOM_ID") == "CUSTOM_ID"
+    with pytest.raises(ValueError, match="Unknown WAHS pathway"):
+        mod.build_profiles(pathways=["invalid"], models=["", "26b"])
+
+    src_cases = tmp_path / "cases.jsonl"
+    rows = [
+        {"case_id": "c1", "patient_id": "Maurice742_Auer97_set_b", "question_id": "Q01"},
+        {"case_id": "c2", "patient_id": "Marcus_Vance_Oncology_Immunotherapy_set_b", "question_id": "P01"},
+    ]
+    src_cases.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+
+    # Full match returns original source path; subset writes hashed slice file
+    assert (
+        mod.write_slice_if_needed(rows, source_cases_path=src_cases, slices_dir=tmp_path / "s", tag="all")
+        == src_cases
+    )
+    sliced = mod.write_slice_if_needed(
+        rows[:1], source_cases_path=src_cases, slices_dir=tmp_path / "s", tag="sub"
+    )
+    assert sliced.is_file() and "__sub__1c_" in sliced.name
+
+    with pytest.raises(ValueError, match="Unknown cohort"):
+        mod.select_cases(src_cases, cohort="nonexistent")
+    with pytest.raises(ValueError, match="matched 0 cases"):
+        mod.select_cases(src_cases, questions=["Q99"])
+
+    # _read_llm_api_key: env var priority, .env file fallback, and missing fallback
+    env_file = tmp_path / ".env"
+    env_file.write_text("OTHER=1\nLLM_API_KEY='file-secret-key'\n", encoding="utf-8")
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    assert mod._read_llm_api_key(env_file) == "file-secret-key"
+    assert mod._read_llm_api_key(tmp_path / "missing.env") == ""
+    monkeypatch.setenv("LLM_API_KEY", "env-override-key")
+    assert mod._read_llm_api_key(env_file) == "env-override-key"
+
+    # probe_engine_health: 200 JSON dict vs exception fallback
+    class _FakeResp(io.BytesIO):
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(
+        mod.urllib.request,
+        "urlopen",
+        lambda url, timeout=4.0: _FakeResp(b'{"status":"ok","allow_local_bundle_mode":true}'),
+    )
+    assert mod.probe_engine_health("http://127.0.0.1:18088") == {
+        "status": "ok",
+        "allow_local_bundle_mode": True,
+    }
+    monkeypatch.setattr(
+        mod.urllib.request,
+        "urlopen",
+        lambda url, timeout=4.0: (_ for _ in ()).throw(OSError("conn refused")),
+    )
+    assert mod.probe_engine_health("http://127.0.0.1:18088") is None
+
+    # _git_sha fallback on bad dir & build_target_provenance
+    assert mod._git_sha(tmp_path / "not-a-git-repo") == "unknown"
+    prov = mod.build_target_provenance(
+        engine_dir=tmp_path / "not-a-git-repo",
+        hub_url="http://127.0.0.1:18088",
+        rationale="unit test",
+    )
+    assert len(prov) == 2 and prov[0]["target_id"] == "wahs-engine"
+
+
+def test_ensure_eval_engine_preflight_and_main_flows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import io
+    import json
+    import subprocess
+    from types import SimpleNamespace
+
+    mod = _load_runner()
+    good_health = {
+        "llm_base_url": "https://llm.co.dev.cirg.uw.edu/v1",
+        "allow_local_bundle_mode": True,
+    }
+
+    # 1. Already healthy engine returns immediately
+    monkeypatch.setattr(mod, "probe_engine_health", lambda *a, **k: good_health)
+    assert (
+        mod.ensure_eval_engine(
+            hub_url="http://127.0.0.1:18088",
+            start_engine=False,
+            engine_dir=tmp_path,
+            env_file=tmp_path / ".env",
+        )
+        == good_health
+    )
+
+    # 2. Unreachable with start_engine=False raises; unsafe health with start_engine=False re-raises
+    monkeypatch.setattr(mod, "probe_engine_health", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="not reachable"):
+        mod.ensure_eval_engine(
+            hub_url="http://127.0.0.1:18088",
+            start_engine=False,
+            engine_dir=tmp_path,
+            env_file=tmp_path / ".env",
+        )
+    monkeypatch.setattr(
+        mod, "probe_engine_health", lambda *a, **k: {"llm_base_url": "http://localhost:8077/v1"}
+    )
+    with pytest.raises(RuntimeError, match="local Mac router"):
+        mod.ensure_eval_engine(
+            hub_url="http://127.0.0.1:18088",
+            start_engine=False,
+            engine_dir=tmp_path,
+            env_file=tmp_path / ".env",
+        )
+
+    # 3. start_engine=True without API key raises; with API key builds image if needed and polls health
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setattr(mod, "probe_engine_health", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="LLM_API_KEY is required"):
+        mod.ensure_eval_engine(
+            hub_url="http://127.0.0.1:18088",
+            start_engine=True,
+            engine_dir=tmp_path,
+            env_file=tmp_path / "missing.env",
+        )
+
+    monkeypatch.setenv("LLM_API_KEY", "test-cirg-key")
+    engine_dir = tmp_path / "engine_src"
+    engine_dir.mkdir()
+    probe_seq = iter([None, None, good_health])
+    monkeypatch.setattr(mod, "probe_engine_health", lambda *a, **k: next(probe_seq))
+    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
+    docker_cmds: list[list[str]] = []
+
+    def fake_subproc_run(cmd, *a, **kw):
+        cmd_l = [str(x) for x in cmd]
+        docker_cmds.append(cmd_l)
+        if cmd_l[:3] == ["docker", "image", "inspect"]:
+            return subprocess.CompletedProcess(cmd_l, 1, stdout="", stderr="missing")
+        return subprocess.CompletedProcess(cmd_l, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subproc_run)
+    started = mod.ensure_eval_engine(
+        hub_url="http://127.0.0.1:18088",
+        start_engine=True,
+        engine_dir=engine_dir,
+        env_file=tmp_path / ".env",
+    )
+    assert started == good_health
+    assert any(c[:2] == ["docker", "build"] for c in docker_cmds)
+    assert any(c[:2] == ["docker", "run"] for c in docker_cmds)
+
+    # 4. verify_four_pathway_preflight: missing bundle, >2048 tools error, and happy path
+    bundles_dir = tmp_path / "bundles"
+    bundles_dir.mkdir()
+    with pytest.raises(RuntimeError, match="Preflight bundle missing"):
+        mod.verify_four_pathway_preflight(hub_url="http://127.0.0.1:18088", bundles_dir=bundles_dir)
+
+    (bundles_dir / "Marcus_Vance_Oncology_Immunotherapy.json").write_text(
+        json.dumps({"resourceType": "Bundle", "entry": []}), encoding="utf-8"
+    )
+
+    class _PreflightResp(io.BytesIO):
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_urlopen_ok(req, timeout=30):
+        body = json.loads(req.data.decode("utf-8"))
+        strat = body["wahs"]["retrieval_strategy"]
+        eff = 2048 if strat == "dynamic_fhir_tools" else 16384
+        return _PreflightResp(
+            json.dumps(
+                {"x_wahs": {"condensation": {"budget_effective": eff, "actual_tokens": 900, "tier": 1}}}
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen_ok)
+    pf_report = mod.verify_four_pathway_preflight(
+        hub_url="http://127.0.0.1:18088", bundles_dir=bundles_dir
+    )
+    assert len(pf_report) == 4
+
+    monkeypatch.setattr(
+        mod.urllib.request,
+        "urlopen",
+        lambda req, timeout=30: _PreflightResp(
+            b'{"x_wahs":{"condensation":{"budget_effective":8192,"actual_tokens":900,"tier":1}}}'
+        ),
+    )
+    with pytest.raises(RuntimeError, match="exceeded 2048 cap"):
+        mod.verify_four_pathway_preflight(hub_url="http://127.0.0.1:18088", bundles_dir=bundles_dir)
+
+    # 5. main(): --dry-run and full mocked --smoke-10 + --judge flow
+    out_dir = tmp_path / "out"
+    assert (
+        mod.main(
+            [
+                "--dry-run",
+                "--patients",
+                "maurice",
+                "--questions",
+                "Q01",
+                "--pathways",
+                "kb,tools",
+                "--models",
+                "26b",
+                "--seeds",
+                "42,43",
+                "--output-dir",
+                str(out_dir),
+            ]
+        )
+        == 0
+    )
+    dry_json = json.loads(capsys.readouterr().out)
+    assert dry_json["total_cells"] == 4
+
+    import harness.wahs.evaluator as eval_mod
+
+    run_dir = out_dir / "run_smoke"
+    run_dir.mkdir(parents=True)
+    monkeypatch.setattr(mod, "ensure_eval_engine", lambda **k: good_health)
+    monkeypatch.setattr(mod, "verify_four_pathway_preflight", lambda **k: pf_report)
+    monkeypatch.setattr(
+        eval_mod,
+        "run_wahs_suite",
+        lambda *a, **k: SimpleNamespace(
+            run_dir=run_dir,
+            summary={"benchmark": 85.0},
+            passed_cells=10,
+            total_cells=10,
+        ),
+    )
+    monkeypatch.setattr(
+        eval_mod,
+        "build_wahs_report_packet",
+        lambda *a, **k: {"run_id": "smoke-run-1"},
+    )
+    rc = mod.main(
+        [
+            "--smoke-10",
+            "--bundles-dir",
+            str(bundles_dir),
+            "--output-dir",
+            str(out_dir),
+            "--judge",
+            "claude:claude-sonnet-5-5:medium:1",
+        ]
+    )
+    assert rc == 0
+    final_out = json.loads(capsys.readouterr().out)
+    assert final_out["packet_run_id"] == "smoke-run-1"
