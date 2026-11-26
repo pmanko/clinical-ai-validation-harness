@@ -35,6 +35,22 @@ def test_build_profiles_pins_tools_to_2k_and_condensed_to_16k() -> None:
     assert "wahs-engine-tools:ollama/gemma4:12b@2k" in profiles
     assert "wahs-engine-tools:ollama/gemma4:e4b@2k" in profiles
 
+    baseline_profiles = mod.build_profiles(
+        pathways=["engine", "direct"],
+        models=["26b", "12b", "e4b"],
+    )
+    assert baseline_profiles == [
+        "wahs-engine-baseline:ollama/gemma4:26b",
+        "raw-fhir:ollama/gemma4:26b",
+        "wahs-engine-baseline:ollama/gemma4:12b",
+        "raw-fhir:ollama/gemma4:12b",
+        "wahs-engine-baseline:ollama/gemma4:e4b",
+        "raw-fhir:ollama/gemma4:e4b",
+    ]
+    assert mod.build_profiles(pathways=["engine"], models=["26b"], budget_override="16k") == [
+        "wahs-engine-baseline:ollama/gemma4:26b@16k"
+    ]
+
 
 def test_select_cases_cohorts_and_smoke10_counts() -> None:
     mod = _load_runner()
@@ -344,3 +360,97 @@ def test_ensure_eval_engine_preflight_and_main_flows(
     assert rc == 0
     final_out = json.loads(capsys.readouterr().out)
     assert final_out["packet_run_id"] == "smoke-run-1"
+
+
+def test_baseline_preflight_and_direct_main(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import io
+    import json
+    from types import SimpleNamespace
+    import harness.wahs.evaluator as eval_mod
+
+    mod = _load_runner()
+    bundles_dir2 = tmp_path / "bundles2"
+    bundles_dir2.mkdir()
+    with pytest.raises(RuntimeError, match="Preflight bundle missing"):
+        mod.verify_baseline_preflight(hub_url="http://127.0.0.1:18088", bundles_dir=bundles_dir2)
+
+    (bundles_dir2 / "Marcus_Vance_Oncology_Immunotherapy.json").write_text(
+        json.dumps({"resourceType": "Bundle", "entry": []}), encoding="utf-8"
+    )
+
+    class _PreflightResp(io.BytesIO):
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(
+        mod.urllib.request,
+        "urlopen",
+        lambda req, timeout=30: _PreflightResp(
+            b'{"x_wahs":{"condensation":{"actual_tokens":0}}}'
+        ),
+    )
+    with pytest.raises(RuntimeError, match="invalid actual_tokens"):
+        mod.verify_baseline_preflight(
+            hub_url="http://127.0.0.1:18088",
+            bundles_dir=bundles_dir2,
+            check_direct=False,
+        )
+
+    def fake_baseline_urlopen(req, timeout=30):
+        if req.full_url.endswith("/models"):
+            return _PreflightResp(b'{"data":[{"id":"ollama/gemma4:26b"}]}')
+        return _PreflightResp(
+            b'{"x_wahs":{"condensation":{"actual_tokens":1400,"budget_effective":31300,"resolution_reason":"context_window_available","tier":1}}}'
+        )
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_baseline_urlopen)
+    bp = mod.verify_baseline_preflight(
+        hub_url="http://127.0.0.1:18088",
+        bundles_dir=bundles_dir2,
+        api_key="test-key",
+    )
+    assert [x["mode"] for x in bp] == ["baseline_condensation", "direct_llm"]
+
+    out_dir = tmp_path / "out"
+    run_dir = out_dir / "run_direct"
+    run_dir.mkdir(parents=True)
+    monkeypatch.setattr(mod, "verify_baseline_preflight", lambda **k: bp)
+    monkeypatch.setattr(mod, "_read_llm_api_key", lambda _p: "test-key")
+    monkeypatch.setattr(
+        eval_mod,
+        "run_wahs_suite",
+        lambda *a, **k: SimpleNamespace(
+            run_dir=run_dir,
+            summary={"benchmark": 88.0},
+            passed_cells=2,
+            total_cells=2,
+        ),
+    )
+    monkeypatch.setattr(
+        eval_mod,
+        "build_wahs_report_packet",
+        lambda *a, **k: {"run_id": "direct-run-1"},
+    )
+    assert (
+        mod.main(
+            [
+                "--patients",
+                "maurice",
+                "--questions",
+                "Q01",
+                "--pathways",
+                "direct",
+                "--models",
+                "26b",
+                "--bundles-dir",
+                str(bundles_dir2),
+                "--output-dir",
+                str(out_dir),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["packet_run_id"] == "direct-run-1"

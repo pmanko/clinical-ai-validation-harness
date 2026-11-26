@@ -77,6 +77,11 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         help="Direct OpenAI /v1 LLM base URL for raw-fhir:* baselines (default: $DIRECT_LLM_BASE_URL or --hub-url)",
     )
     run_p.add_argument(
+        "--direct-llm-api-key",
+        default=None,
+        help="Bearer API key sent only to --direct-llm-url (default: $DIRECT_LLM_API_KEY)",
+    )
+    run_p.add_argument(
         "--output-dir",
         default="artifacts/wahs",
         help="Directory to write the frozen WAHS run directory",
@@ -191,6 +196,7 @@ def dispatch(args: argparse.Namespace) -> int:
         client = WahsHubClient(
             base_url=args.hub_url,
             direct_llm_base_url=getattr(args, "direct_llm_url", None),
+            direct_llm_api_key=getattr(args, "direct_llm_api_key", None),
             bundle_dirs=bundle_dirs,
         )
         result = run_wahs_suite(
