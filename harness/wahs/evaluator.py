@@ -3264,8 +3264,8 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         full_model = "Liquid LFM2 24B"
 
     if b_low.startswith("wahs-engine-baseline:"):
-        title = f"WAHS Engine · Verbatim Condensation & Provenance ({full_model}{budget_suffix or ' · Auto'})"
-        short_title = f"WAHS Engine ({short_model}{short_budget or ' (Auto)'})"
+        title = f"WAHS Engine · Verbatim Condensation & Provenance ({full_model}{budget_suffix})"
+        short_title = f"WAHS Engine ({short_model}{short_budget})"
         path_desc = (
             "Standalone wahs-engine baseline: multi-source FHIR deduplication, continuous "
             "verbatim-first chart condensation within the model context window, and [N] source provenance"

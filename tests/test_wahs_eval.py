@@ -326,6 +326,8 @@ def test_profile_parsing_arm_cards_and_patient_profiles() -> None:
         assert "Med Agent Hub" not in card["title"]
         assert "Direct" not in card["title"]
         assert "\u2014" not in card["title"]
+        assert "Auto" not in card["title"]
+        assert "Auto" not in card["short_title"]
         assert isinstance(_infer_model_family_and_id(pid), tuple)
     assert _infer_model_family_and_id("wahs-engine-baseline:ollama/gemma4:26b")[2] is False
 
