@@ -50,6 +50,15 @@ def test_build_profiles_pins_tools_to_2k_and_condensed_to_16k() -> None:
     assert mod.build_profiles(pathways=["engine"], models=["26b"], budget_override="16k") == [
         "wahs-engine-baseline:ollama/gemma4:26b@16k"
     ]
+    assert mod.build_profiles(
+        pathways=["engine", "direct"], models=["26b"], budget_override="auto,64k,32k,16k"
+    ) == [
+        "wahs-engine-baseline:ollama/gemma4:26b",
+        "wahs-engine-baseline:ollama/gemma4:26b@64k",
+        "wahs-engine-baseline:ollama/gemma4:26b@32k",
+        "wahs-engine-baseline:ollama/gemma4:26b@16k",
+        "raw-fhir:ollama/gemma4:26b",
+    ]
 
 
 def test_select_cases_cohorts_and_smoke10_counts() -> None:

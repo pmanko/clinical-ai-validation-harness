@@ -933,7 +933,7 @@ class WahsHubClient:
                         warnings.warn(
                             f"WAHS profile {profile_id!r} requested budget_tokens={budget_tokens} "
                             f"but was clamped to chart_budget_ceiling (effective_chart_budget={eff_chart_budget}); "
-                            "set WAHS_CHART_BUDGET_CEILING=none and WAHS_CONTEXT_WINDOW=65536 for unclamped 32k evals.",
+                            "set WAHS_CHART_BUDGET_CEILING=none and increase WAHS_CONTEXT_WINDOW for unclamped evals.",
                             RuntimeWarning,
                             stacklevel=2,
                         )
@@ -1098,7 +1098,10 @@ class WahsHubClient:
             if int(budget_tokens) > 4096
             else max(1, (len(raw_fhir_slice) + 3) // 4)
         )
-        if len(kept_entries) == len(entries):
+        is_full_bundle = (len(kept_entries) == len(entries)) and not (
+            kept_entries and "_truncated_raw_json" in kept_entries[0].get("resource", {})
+        )
+        if is_full_bundle:
             header_line = (
                 f"Raw FHIR R4 Bundle (complete uncondensed chart: all {len(kept_entries)}/{len(entries)} entries included"
                 + ("; clinical note attachments decoded to UTF-8" if self.decode_raw_fhir_attachments else "")
@@ -1187,7 +1190,7 @@ class WahsHubClient:
             "budget_tokens": int(budget_tokens),
             "tier_info": {
                 "actual_tokens": eff_actual_tokens,
-                "condense_mode": "raw_fhir_full" if len(kept_entries) == len(entries) else "raw_fhir_truncated",
+                "condense_mode": "raw_fhir_full" if is_full_bundle else "raw_fhir_truncated",
                 "attachments_decoded": self.decode_raw_fhir_attachments,
                 "included_entries": len(kept_entries),
                 "total_entries": len(entries),

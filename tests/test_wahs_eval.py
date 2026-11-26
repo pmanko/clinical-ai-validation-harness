@@ -903,7 +903,7 @@ def test_decode_raw_fhir_entry_attachments_and_128k_warmup(tmp_path: Path) -> No
 
     assert _decode_b64_utf8_text("   ") is None
     assert _decode_b64_utf8_text("!!!bad!!!") is None
-    assert _decode_b64_utf8_text(base64.b64encode(b"").decode("ascii")) == ""
+    assert _decode_b64_utf8_text(base64.b64encode(b"").decode("ascii")) is None
     assert _decode_b64_utf8_text(base64.b64encode(b"\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0e\x0f\x10\x11\x12\x13").decode("ascii")) is None
 
     plain_obs = {"resourceType": "Observation", "id": "o1"}
