@@ -295,7 +295,7 @@ def test_minority_temporal_claim_not_emitted_and_tiebreak_provenance_enforced(tm
     import pytest
 
     # Even if half of voters (2/4 = 50%, not a strict majority) claim temporal axes and
-    # _resolve_axis might resolve != "ok" on a midpoint/tie, WAHS temporal keys must NOT leak
+    # _resolve_axis might resolve != "ok" on a midpoint/tie, optional temporal keys must NOT leak
     # unless a strict majority claimed temporal axes.
     out_half = agg.aggregate_cell(
         [

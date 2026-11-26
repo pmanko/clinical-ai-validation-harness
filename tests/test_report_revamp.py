@@ -399,23 +399,23 @@ def test_build_report_loads_domain_guardrails_and_family_from_manifest(tmp_path:
     _write_stage1_fixture(run_dir)
     _write_stage2_judge_fixture(run_dir)
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
-    manifest["family"] = "wahs"
+    manifest["family"] = "clinical_qa"
     manifest["evaluation_modality"] = "live_model_and_team_eval"
     (run_dir / "run_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (run_dir / "domain_guardrails.json").write_text(
         json.dumps(
             [
                 {
-                    "id": "privacy_external_share_engine",
-                    "label": "42 CFR Part 2 & WA MHMDA External-Share Privacy Gate",
-                    "scope": "WAHS Engine / Hub setups",
+                    "id": "token_budget_compliance",
+                    "label": "Token Budget Compliance Gate",
+                    "scope": "Clinical QA setups",
                     "passed": 36,
                     "total": 36,
                     "pass_rate": 1.0,
                     "ci95_low": 0.9036,
                     "ci95_high": 1.0,
                     "status": "pass",
-                    "detail": "0/36 external_share responses leaked protected records",
+                    "detail": "36/36 responses stayed within target token budget",
                 }
             ]
         ),
@@ -423,14 +423,16 @@ def test_build_report_loads_domain_guardrails_and_family_from_manifest(tmp_path:
     )
     out = report.build_report(run_dir)
     payload = json.loads(out.read_text(encoding="utf-8"))
-    assert payload["family"] == "wahs"
-    assert payload["runs"][0]["family"] == "wahs"
+    assert payload["family"] == "clinical_qa"
+    assert payload["runs"][0]["family"] == "clinical_qa"
     assert payload["runs"][0]["evaluation_modality"] == "live_model_and_team_eval"
-    assert payload["runs"][0]["domain_guardrails"][0]["id"] == "privacy_external_share_engine"
+    assert payload["runs"][0]["domain_guardrails"][0]["id"] == "token_budget_compliance"
     summary_payload = json.loads((run_dir / "run-summary.json").read_text(encoding="utf-8"))
-    assert summary_payload["family"] == "wahs"
+    assert summary_payload["family"] == "clinical_qa"
     assert summary_payload["domain_guardrails"][0]["passed"] == 36
     assert len(summary_payload["scout"]) == 2
+    assert report._load_family_scenario_categories("../escape") == {}
+    assert report._load_family_scenario_categories("nonexistent_family_xyz") == {}
 
 
 def test_multiseed_consolidate_preserves_worst_categorical_and_flags() -> None:
@@ -487,7 +489,7 @@ def test_multiseed_run_blob_seed_replicates_and_actor_flags(tmp_path: Path) -> N
     run_dir = tmp_path / "run_multiseed"
     run_dir.mkdir(parents=True)
     (run_dir / "run_manifest.json").write_text(
-        json.dumps({"run_id": "run-ms-1", "component": "wahs-evaluation", "family": "wahs"}),
+        json.dumps({"run_id": "run-ms-1", "component": "clinical-qa-evaluation", "family": "clinical_qa"}),
         encoding="utf-8",
     )
     (run_dir / "events.jsonl").write_text(

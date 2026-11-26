@@ -1,11 +1,12 @@
 """Content-addressed context normalization for evaluation run artifacts.
 
 Large chart payloads (`mappings`, `condensed_text`, `valid_uuids`, `retained_uuids`,
-and `x_wahs.citation_map`) are identical across arms, prompts, and seeds sharing
-the same condensed patient chart. This module deduplicates those payloads into
-``<run_dir>/inputs/contexts/<sha256_16>.json`` while eagerly materializing
-``<run_dir>/inputs/charts/<scenario_id>.json`` so live detail views resolve `[N]`
-citations immediately during execution and ``results.jsonl`` stays compact (~2-4 KB/row).
+top-level `citation_map`, and extension `x_<ext>.citation_map` maps) are identical
+across arms, prompts, and seeds sharing the same condensed patient chart. This module
+deduplicates those payloads into ``<run_dir>/inputs/contexts/<sha256_16>.json`` while
+eagerly materializing ``<run_dir>/inputs/charts/<scenario_id>.json`` so live detail
+views resolve `[N]` citations immediately during execution and ``results.jsonl`` stays
+compact (~2-4 KB/row).
 
 Older runs with inline payloads ("legacy fat rows") continue to work transparently
 with zero migration required.
@@ -191,14 +192,19 @@ def slim_response_envelope(
     if existing_ref is not None and existing_ref != "":
         _validated_context_ref(existing_ref)
 
-    x_wahs = response.get("x_wahs")
-    has_x_cit = isinstance(x_wahs, dict) and "citation_map" in x_wahs
+    ext_citation_maps: dict[str, Any] = {
+        k: v.get("citation_map")
+        for k, v in response.items()
+        if k.startswith("x_") and isinstance(v, dict) and "citation_map" in v
+    }
+    has_top_cit = "citation_map" in response and response.get("citation_map") not in (None, {})
+    has_ext_cit = bool(ext_citation_maps) or has_top_cit
     heavy_keys = ("mappings", "condensed_text", "valid_uuids", "retained_uuids")
     has_heavy = any(k in response and response.get(k) not in (None, "", []) for k in heavy_keys)
 
-    if existing_ref and not has_heavy and not has_x_cit:
+    if existing_ref and not has_heavy and not has_ext_cit:
         return dict(response)
-    if not has_heavy and not has_x_cit:
+    if not has_heavy and not has_ext_cit:
         if scenario_id and extra_valid_uuids:
             ensure_scenario_chart_input(
                 run_dir,
@@ -216,8 +222,10 @@ def slim_response_envelope(
         "valid_uuids": list(response.get("valid_uuids") or []),
         "retained_uuids": list(response.get("retained_uuids") or []),
     }
-    if has_x_cit:
-        ctx_payload["x_wahs_citation_map"] = x_wahs.get("citation_map")
+    if has_top_cit:
+        ctx_payload["citation_map"] = response.get("citation_map")
+    if ext_citation_maps:
+        ctx_payload["ext_citation_maps"] = ext_citation_maps
 
     digest_bytes = json.dumps(
         ctx_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
@@ -241,10 +249,12 @@ def slim_response_envelope(
     slim["context_ref"] = ctx_id
     for k in heavy_keys:
         slim.pop(k, None)
-    if has_x_cit:
-        xw_copy = dict(x_wahs)
-        xw_copy.pop("citation_map", None)
-        slim["x_wahs"] = xw_copy
+    if has_top_cit:
+        slim.pop("citation_map", None)
+    for ext_key in ext_citation_maps:
+        ext_copy = dict(response[ext_key])
+        ext_copy.pop("citation_map", None)
+        slim[ext_key] = ext_copy
     return slim
 
 
@@ -285,8 +295,21 @@ def rehydrate_response_envelope(
         out["valid_uuids"] = ctx_data["valid_uuids"]
     if "retained_uuids" not in out and ctx_data.get("retained_uuids"):
         out["retained_uuids"] = ctx_data["retained_uuids"]
-    if "x_wahs_citation_map" in ctx_data and isinstance(out.get("x_wahs"), dict):
-        xw = dict(out["x_wahs"])
-        xw.setdefault("citation_map", ctx_data["x_wahs_citation_map"])
-        out["x_wahs"] = xw
+    if "citation_map" not in out and ctx_data.get("citation_map") is not None:
+        out["citation_map"] = ctx_data["citation_map"]
+    ext_maps = ctx_data.get("ext_citation_maps")
+    if isinstance(ext_maps, dict):
+        for ext_key, cmap in ext_maps.items():
+            if isinstance(out.get(ext_key), dict):
+                ext_obj = dict(out[ext_key])
+                ext_obj.setdefault("citation_map", cmap)
+                out[ext_key] = ext_obj
+    # Read-only backwards compatibility for legacy `<ext>_citation_map` context files on disk.
+    for k, cmap in ctx_data.items():
+        if k.startswith("x_") and k.endswith("_citation_map") and len(k) > len("x__citation_map"):
+            ext_key = k[: -len("_citation_map")]
+            if isinstance(out.get(ext_key), dict):
+                ext_obj = dict(out[ext_key])
+                ext_obj.setdefault("citation_map", cmap)
+                out[ext_key] = ext_obj
     return out

@@ -1,10 +1,12 @@
-"""Evaluation runner and mechanical scorer for standalone `wahs-engine` & `raw-fhir` benchmarks.
+"""Evaluation runner and mechanical scorer for standalone `wahs-engine` and `raw-fhir` benchmarks.
 
-Executes profile suites (`wahs-engine-{kb,chart,rag,tools}:<model>` and `raw-fhir:<model>`)
+Executes declarative WAHS profile suites (`wahs:<profile>:<model>[@<budget>]`,
+`wahs+<enricher>[+<enricher>...]:<model>[@<budget>]`, backwards-compatible
+`wahs-engine-baseline:<model>[@<budget>]`, and `raw-fhir:<model>[@<budget>]`)
 against a caller-supplied endpoint, freezes all artifacts (`inputs/cases.jsonl`, lossless
 Stage-A chart snapshots, blinded judge scenarios, `results.jsonl`, `domain_guardrails.json`,
 and OpenClinAI v2 report packets), and applies strictly mechanical checks (token-budget
-compliance and inline `[N]` citation UUID resolution against trusted chart evidence).
+compliance and inline `[N]` / `[K1]..[KM]` citation resolution against trusted evidence).
 Clinical accuracy, completeness, grounding, abstention, and privacy are evaluated by blind
 multi-judge panels via `harness.validate.judge_runner`.
 """
@@ -13,36 +15,166 @@ from __future__ import annotations
 
 import base64
 from collections.abc import Sequence
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import hashlib
 import html
 import inspect
 import json
 import math
 import os
+from pathlib import Path
 import random
 import re
 import threading
 import time
-import warnings
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import requests
+import yaml
 
 from ..metadata import RunManifest, append_event, copy_target_provenance
 
-_CITATION_RE = re.compile(r"\[(\d+)\]")
-VALID_ENGINE_STRATEGIES = (
-    "baseline_condensation",
-    "condensation_kb",
-    "note_rag",
-    "dynamic_fhir_tools",
-    "chart_only",
-    "offline_raw_ablation",
+_CITATION_RE = re.compile(r"\[((?:K)?\d+)\]", re.IGNORECASE)
+_THINK_RE = re.compile(r"<think>[\s\S]*?</think>", re.IGNORECASE)
+_CITE_TOKEN_PAT = r"(?:K)?\d+"
+_MULTI_BRACKET_RE = re.compile(
+    rf"\[({_CITE_TOKEN_PAT}(?:\s*(?:,|;|/|-|\band\b)\s*{_CITE_TOKEN_PAT})+)\]",
+    re.IGNORECASE,
 )
+_LOWER_K_CITE_RE = re.compile(r"\[k(\d+)\]")
+_SAFE_PROMPT_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_PROFILE_SEG_RE = re.compile(r"^([A-Za-z0-9._-]+)(?:\[prompt=([A-Za-z0-9._-]+)\])?$")
+_ADHOC_LHS_RE = re.compile(
+    r"^wahs\+([A-Za-z0-9._+-]+)(?:\[prompt=([A-Za-z0-9._-]+)\])?$",
+    re.IGNORECASE,
+)
+_BASELINE_ALIAS_RE = re.compile(
+    r"^wahs-engine-baseline(?:\[prompt=([A-Za-z0-9._-]+)\])?:(.*)$",
+    re.IGNORECASE,
+)
+_RAW_FHIR_RE = re.compile(
+    r"^raw-fhir(?:\[prompt=([A-Za-z0-9._-]+)\])?:(.*)$",
+    re.IGNORECASE,
+)
+_WAHS_CASE_Q_RE = re.compile(r"^(?:wahs_sheet_)?([qp]\d{2})(?:__|$)", re.IGNORECASE)
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_WAHS_PROFILES_PATH = _REPO_ROOT / "configs" / "wahs" / "profiles.yaml"
+DEFAULT_WAHS_PROMPTS_DIR = _REPO_ROOT / "configs" / "wahs" / "prompts"
+DEFAULT_TOKEN_BUDGETS = (8192, 4096, 2048, 1024, 512)
+MAX_TOKEN_BUDGET = 262144
+
+
+def load_wahs_profiles_config(config_path: Path | str | None = None) -> dict[str, Any]:
+    """Load declarative WAHS harness profiles and scenario categories from YAML."""
+    raw_override = str(config_path or os.environ.get("WAHS_HARNESS_PROFILES_PATH") or "").strip()
+    resolved_path = Path(raw_override).expanduser() if raw_override else DEFAULT_WAHS_PROFILES_PATH
+    if not resolved_path.is_file():
+        raise FileNotFoundError(f"WAHS profiles config not found: {resolved_path}")
+    loaded = yaml.safe_load(resolved_path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise ValueError(f"Invalid WAHS profiles YAML in {resolved_path}: expected mapping")
+    raw_profiles = loaded.get("profiles")
+    if not isinstance(raw_profiles, dict) or not raw_profiles:
+        raise ValueError(f"Invalid WAHS profiles YAML in {resolved_path}: missing non-empty 'profiles'")
+    profiles: dict[str, dict[str, Any]] = {}
+    for k, v in raw_profiles.items():
+        if isinstance(v, dict) and str(k).strip():
+            profiles[str(k).strip()] = dict(v)
+    raw_cats = loaded.get("scenario_categories")
+    scenario_categories = (
+        {
+            str(k).strip().lower(): str(v).strip()
+            for k, v in raw_cats.items()
+            if str(k).strip() and str(v).strip()
+        }
+        if isinstance(raw_cats, dict)
+        else {}
+    )
+    return {
+        "config_path": resolved_path,
+        "default_profile": str(loaded.get("default_profile") or "baseline").strip(),
+        "raw_fhir_prompt": str(loaded.get("raw_fhir_prompt") or "raw-fhir-default").strip(),
+        "profiles": profiles,
+        "scenario_categories": scenario_categories,
+    }
+
+
+def _candidate_prompt_dirs(
+    prompts_dir: Path | str | None = None,
+    config_path: Path | str | None = None,
+) -> list[Path]:
+    dirs: list[Path] = []
+    for raw in (prompts_dir, os.environ.get("WAHS_HARNESS_PROMPTS_DIR")):
+        clean = str(raw or "").strip()
+        if clean:
+            cand = Path(clean).expanduser()
+            if cand not in dirs:
+                dirs.append(cand)
+    if config_path:
+        sibling = Path(config_path).expanduser().parent / "prompts"
+        if sibling.is_dir() and sibling not in dirs:
+            dirs.append(sibling)
+    env_cfg = os.environ.get("WAHS_HARNESS_PROFILES_PATH", "").strip()
+    if env_cfg:
+        env_sibling = Path(env_cfg).expanduser().parent / "prompts"
+        if env_sibling.is_dir() and env_sibling not in dirs:
+            dirs.append(env_sibling)
+    if DEFAULT_WAHS_PROMPTS_DIR not in dirs:
+        dirs.append(DEFAULT_WAHS_PROMPTS_DIR)
+    return dirs
+
+
+def load_raw_fhir_prompt_template(
+    prompt_id: str | None = None,
+    *,
+    prompts_dir: Path | str | None = None,
+    config_path: Path | str | None = None,
+    fallback_to_default: bool = False,
+) -> tuple[str, str, str]:
+    """Load `<prompt_id>.txt` for `raw-fhir` evaluation and return `(prompt_id, template, sha256)`."""
+    cfg = load_wahs_profiles_config(config_path)
+    default_id = cfg["raw_fhir_prompt"]
+    requested_id = str(prompt_id or default_id).strip()
+    if requested_id in {".", ".."} or not _SAFE_PROMPT_ID_RE.fullmatch(requested_id):
+        raise ValueError(f"Invalid WAHS prompt ID: {requested_id!r}")
+    search_dirs = _candidate_prompt_dirs(prompts_dir=prompts_dir, config_path=cfg["config_path"])
+    for d in search_dirs:
+        cand = d / f"{requested_id}.txt"
+        if cand.is_file():
+            raw_bytes = cand.read_bytes()
+            return requested_id, raw_bytes.decode("utf-8"), hashlib.sha256(raw_bytes).hexdigest()
+    if fallback_to_default and requested_id != default_id:
+        for d in search_dirs:
+            cand = d / f"{default_id}.txt"
+            if cand.is_file():
+                raw_bytes = cand.read_bytes()
+                return default_id, raw_bytes.decode("utf-8"), hashlib.sha256(raw_bytes).hexdigest()
+    raise FileNotFoundError(
+        f"Prompt template {requested_id + '.txt'!r} not found in {[str(d) for d in search_dirs]}"
+    )
+
+
+def render_raw_fhir_prompt(
+    template: str,
+    *,
+    header_line: str,
+    raw_fhir_slice: str,
+    question: str,
+) -> str:
+    """Substitute `{header_line}`, `{raw_fhir_slice}`, and `{question}` in a single pass."""
+    replacements = {
+        "header_line": header_line,
+        "raw_fhir_slice": raw_fhir_slice,
+        "question": question,
+    }
+    return re.sub(
+        r"\{(header_line|raw_fhir_slice|question)\}",
+        lambda m: replacements[m.group(1)],
+        template,
+    ).strip()
 
 
 def wilson_ci_95(successes: int, total: int, z: float = 1.959964) -> dict[str, Any]:
@@ -119,7 +251,6 @@ def latency_percentiles(values: list[float]) -> dict[str, Any]:
         "n": n,
     }
 
-DEFAULT_TOKEN_BUDGETS = (8192, 4096, 2048, 1024, 512)
 
 @dataclass(frozen=True)
 class WahsEvalCase:
@@ -127,7 +258,6 @@ class WahsEvalCase:
     patient_id: str
     use_case: str
     prompt: str
-    sharing_posture: str = "patient_self"
     target_token_budgets: list[int] = field(default_factory=lambda: list(DEFAULT_TOKEN_BUDGETS))
     valid_uuids: list[str] = field(default_factory=list)
     must_abstain: bool = False
@@ -182,7 +312,6 @@ class WahsEvalCase:
             patient_id=str(patient_id),
             use_case=str(use_case),
             prompt=str(prompt),
-            sharing_posture=str(data.get("sharing_posture") or "patient_self"),
             target_token_budgets=budgets,
             valid_uuids=valid_uuids,
             must_abstain=must_abstain,
@@ -213,7 +342,6 @@ class WahsCaseScore:
     case_id: str
     patient_id: str
     use_case: str
-    sharing_posture: str
     budget_tokens: int
     actual_tokens: int
     token_budget_ok: bool
@@ -232,7 +360,6 @@ class WahsCaseScore:
             "case_id": self.case_id,
             "patient_id": self.patient_id,
             "use_case": self.use_case,
-            "sharing_posture": self.sharing_posture,
             "budget_tokens": self.budget_tokens,
             "actual_tokens": self.actual_tokens,
             "token_budget_ok": self.token_budget_ok,
@@ -248,10 +375,14 @@ class WahsCaseScore:
         }
 
 
+def _normalize_cite_key(raw_key: Any) -> str:
+    return str(raw_key or "").strip("[] ").upper()
+
+
 def _extract_known_uuids(
     envelope: dict[str, Any],
 ) -> tuple[set[str], dict[str, str], dict[str, set[str]]]:
-    """Return `(all_uuid_set, index_to_primary_uuid_map, index_to_all_uuids_map)` from a WAHS response envelope."""
+    """Return `(all_uuid_set, index_to_primary_id_map, index_to_all_ids_map)` from a WAHS response envelope."""
     uuids: set[str] = set()
     idx_map: dict[str, str] = {}
     idx_all_uuids: dict[str, set[str]] = {}
@@ -265,7 +396,9 @@ def _extract_known_uuids(
         if not isinstance(cmap, dict):
             continue
         for k, v in cmap.items():
-            key_num = str(k).strip("[] ")
+            key_num = _normalize_cite_key(k)
+            if not key_num:
+                continue
             if isinstance(v, str) and v:
                 clean = v.replace("urn:uuid:", "")
                 uuids.add(clean)
@@ -318,7 +451,7 @@ def _extract_known_uuids(
             )
             raw_idx = ref.get("index")
             if raw_idx is not None:
-                c_idx: str | None = str(raw_idx).strip("[] ")
+                c_idx: str | None = _normalize_cite_key(raw_idx)
             elif ref_key == "mappings":
                 c_idx = None
             else:
@@ -353,10 +486,11 @@ def _extract_trusted_uuids(
     envelope: dict[str, Any],
     valid_uuids: list[str] | set[str] | tuple[str, ...] | None = None,
 ) -> set[str]:
-    """Collect trusted record UUIDs from caller/case/chart expectations or condensation mappings.
+    """Collect trusted record UUIDs from caller/case/chart expectations, condensation mappings,
+    or engine `x_wahs.citation_map` `KnowledgeReference` (`[K1]..[KM]`) entries.
 
-    Never trusts self-declared `references`, `citations`, `citation_map`, `valid_uuids`, or
-    `retained_uuids` from the response alone.
+    Never trusts self-declared model `references`, `citations`, `valid_uuids`, or `retained_uuids`
+    from the response alone.
     """
     trusted: set[str] = set()
     for source in (valid_uuids or (), case.valid_uuids):
@@ -391,6 +525,28 @@ def _extract_trusted_uuids(
                 if isinstance(mu, str) and mu.strip():
                     trusted.add(mu.strip().replace("urn:uuid:", ""))
 
+    x_wahs = envelope.get("x_wahs") if isinstance(envelope.get("x_wahs"), dict) else {}
+    for cmap in (x_wahs.get("citation_map"), envelope.get("citation_map")):
+        if not isinstance(cmap, dict):
+            continue
+        for k, v in cmap.items():
+            key_norm = _normalize_cite_key(k)
+            if (
+                key_norm.startswith("K")
+                and key_norm[1:].isdigit()
+                and isinstance(v, dict)
+                and str(v.get("resourceType") or "") == "KnowledgeReference"
+            ):
+                kid = str(
+                    v.get("resourceUuid")
+                    or v.get("resource_uuid")
+                    or v.get("uuid")
+                    or v.get("id")
+                    or ""
+                ).strip().replace("urn:uuid:", "")
+                if kid:
+                    trusted.add(kid)
+
     condensed_text = str(envelope.get("condensed_text") or "")
     if condensed_text:
         for cand in _extract_known_uuids(envelope)[0]:
@@ -400,18 +556,15 @@ def _extract_trusted_uuids(
     return trusted
 
 
-_THINK_RE = re.compile(r"<think>[\s\S]*?</think>", re.IGNORECASE)
-_MULTI_BRACKET_RE = re.compile(r"\[(\d+(?:\s*(?:,|;|/|-|\band\b)\s*\d+)+)\]", re.IGNORECASE)
-
-
 def _normalize_bracket_citations(text: str) -> str:
-    """Expand multi-index bracket citations like `[48, 56]` or `[3, 4, 5]` into `[48] [56]` / `[3] [4] [5]`."""
+    """Expand multi-index bracket citations like `[48, 56]` or `[K1, K2]` into `[48] [56]` / `[K1] [K2]`."""
     def _repl(match: re.Match[str]) -> str:
         raw_inner = match.group(1)
-        nums = re.findall(r"\d+", raw_inner)
-        return " ".join(f"[{n}]" for n in nums)
+        tokens = [t.upper() for t in re.findall(_CITE_TOKEN_PAT, raw_inner, flags=re.IGNORECASE)]
+        return " ".join(f"[{t}]" for t in tokens)
 
-    return _MULTI_BRACKET_RE.sub(_repl, text or "")
+    expanded = _MULTI_BRACKET_RE.sub(_repl, text or "")
+    return _LOWER_K_CITE_RE.sub(r"[K\1]", expanded)
 
 
 def score_wahs_case(
@@ -421,7 +574,7 @@ def score_wahs_case(
     budget_tokens: int = 8192,
     valid_uuids: list[str] | set[str] | tuple[str, ...] | None = None,
 ) -> WahsCaseScore:
-    """Mechanically check token-budget compliance, non-empty output, and inline `[N]` UUID resolution."""
+    """Mechanically check token-budget compliance, non-empty output, and inline `[N]` / `[K1]` resolution."""
     failures: list[str] = []
     tier_info = envelope.get("tier_info") if isinstance(envelope.get("tier_info"), dict) else {}
     condense_stats = (
@@ -474,15 +627,17 @@ def score_wahs_case(
                 primary_u if primary_u in matched_trusted else sorted(matched_trusted)[0]
             )
 
-    inline_nums = _CITATION_RE.findall(answer)
-    citation_count = len(inline_nums)
-    if inline_nums:
+    inline_tokens = [tok.upper() for tok in _CITATION_RE.findall(answer)]
+    citation_count = len(inline_tokens)
+    if inline_tokens:
         resolved_citation_count = sum(
-            1 for n in inline_nums if n in trusted_idx_map and trusted_idx_map[n]
+            1 for tok in inline_tokens if tok in trusted_idx_map and trusted_idx_map[tok]
         )
         fabricated_citation_count = citation_count - resolved_citation_count
         citation_resolution_rate = resolved_citation_count / citation_count
-        unresolved_citations = sorted({f"[{n}]" for n in inline_nums if n not in trusted_idx_map})
+        unresolved_citations = sorted(
+            {f"[{tok}]" for tok in inline_tokens if tok not in trusted_idx_map}
+        )
         if fabricated_citation_count > 0:
             failures.append(f"unresolved inline citation(s): {', '.join(unresolved_citations)}")
     else:
@@ -495,7 +650,6 @@ def score_wahs_case(
         case_id=case.case_id,
         patient_id=case.patient_id,
         use_case=case.use_case,
-        sharing_posture=case.sharing_posture,
         budget_tokens=budget_tokens,
         actual_tokens=actual_tokens,
         token_budget_ok=token_budget_ok,
@@ -511,14 +665,11 @@ def score_wahs_case(
     )
 
 
-MAX_TOKEN_BUDGET = 262144
-
-
 def _split_profile_budget(
     profile_spec: str,
     fallback_budget: int = 8192,
 ) -> tuple[str, str, int, str | None]:
-    """Parse an optional `@<budget>` suffix on a WAHS profile spec (e.g. `wahs-12b-kb@64k`).
+    """Parse an optional `@<budget>` suffix on a WAHS profile spec (e.g. `wahs:baseline:gemma@32k`).
 
     Returns `(backend_id, api_profile_id, budget_tokens, budget_tag)`.
     """
@@ -541,6 +692,219 @@ def _split_profile_budget(
             f"Invalid profile budget {eff_b} in {profile_spec!r}: expected int in [1, {MAX_TOKEN_BUDGET}]"
         )
     return f"{api_prof}@{b_tag}", api_prof, eff_b, b_tag
+
+
+@dataclass(frozen=True)
+class ParsedWahsProfile:
+    backend_id: str
+    api_profile_id: str
+    kind: str
+    wahs_profile: str
+    engine_profile: str
+    model_id: str
+    budget_tokens: int
+    budget_tag: str | None
+    explicit_budget: bool
+    prompt_override: str | None
+    inline_prompt: str | None
+    explicit_enrichers: list[str] | None
+    configured_enrichers: list[str]
+    profile_config: dict[str, Any]
+
+
+def parse_wahs_profile_spec(
+    profile_spec: str | None,
+    fallback_budget: int = 8192,
+    *,
+    config_path: Path | str | None = None,
+    default_prompt: str | None = None,
+    strict: bool = True,
+) -> ParsedWahsProfile:
+    """Resolve a declarative `wahs:*`, `wahs+*`, `wahs-engine-baseline:*`, or `raw-fhir:*` profile spec."""
+    raw_spec = str(profile_spec or "").strip()
+    if not raw_spec:
+        if strict:
+            raise ValueError(
+                "profile_id is required; expected wahs:<profile>:<model>[@<budget>], "
+                "wahs+<enricher>:<model>[@<budget>], or raw-fhir:<model>[@<budget>]"
+            )
+        return ParsedWahsProfile(
+            backend_id="",
+            api_profile_id="",
+            kind="wahs",
+            wahs_profile="baseline",
+            engine_profile="baseline",
+            model_id="",
+            budget_tokens=int(fallback_budget),
+            budget_tag=None,
+            explicit_budget=False,
+            prompt_override=default_prompt,
+            inline_prompt=None,
+            explicit_enrichers=None,
+            configured_enrichers=[],
+            profile_config={},
+        )
+
+    explicit_budget = "@" in raw_spec
+    backend_id, api_profile_id, eff_budget, b_tag = _split_profile_budget(raw_spec, fallback_budget)
+    cfg = load_wahs_profiles_config(config_path)
+    profiles_map = cfg["profiles"]
+    default_eng_profile = cfg["default_profile"]
+    clean_default_prompt = str(default_prompt or "").strip() or None
+
+    m_base = _BASELINE_ALIAS_RE.match(api_profile_id)
+    if m_base:
+        inline_prompt = m_base.group(1)
+        model_id = m_base.group(2).strip()
+        if not model_id:
+            raise ValueError(f"Missing model ID in WAHS profile {profile_spec!r}")
+        prof_cfg = dict(profiles_map.get("baseline") or {})
+        cfg_prompt = str(prof_cfg.get("prompt") or "").strip() or None
+        return ParsedWahsProfile(
+            backend_id=backend_id,
+            api_profile_id=api_profile_id,
+            kind="wahs",
+            wahs_profile="baseline",
+            engine_profile=str(prof_cfg.get("engine_profile") or "baseline"),
+            model_id=model_id,
+            budget_tokens=eff_budget,
+            budget_tag=b_tag,
+            explicit_budget=explicit_budget,
+            prompt_override=inline_prompt or clean_default_prompt or cfg_prompt,
+            inline_prompt=inline_prompt,
+            explicit_enrichers=None,
+            configured_enrichers=[str(e) for e in (prof_cfg.get("enrichers") or [])],
+            profile_config=prof_cfg,
+        )
+
+    if api_profile_id.lower().startswith("wahs:"):
+        rem = api_profile_id[5:]
+        prof_seg, sep, raw_model = rem.partition(":")
+        model_id = raw_model.strip()
+        if not sep or not prof_seg.strip() or not model_id:
+            raise ValueError(
+                f"Invalid WAHS profile {profile_spec!r}: expected wahs:<profile_name>:<model>[@<budget>]"
+            )
+        m_seg = _PROFILE_SEG_RE.fullmatch(prof_seg.strip())
+        if not m_seg:
+            raise ValueError(f"Invalid WAHS profile segment {prof_seg!r} in {profile_spec!r}")
+        prof_name = m_seg.group(1)
+        inline_prompt = m_seg.group(2)
+        prof_cfg = profiles_map.get(prof_name)
+        if prof_cfg is None:
+            lower_lookup = {k.lower(): (k, v) for k, v in profiles_map.items()}
+            if prof_name.lower() in lower_lookup:
+                prof_name, prof_cfg = lower_lookup[prof_name.lower()]
+        if prof_cfg is None:
+            if strict:
+                raise ValueError(
+                    f"Unknown WAHS profile {prof_name!r} in {profile_spec!r}; "
+                    f"available profiles: {sorted(profiles_map)}"
+                )
+            prof_cfg = {}
+        prof_cfg = dict(prof_cfg)
+        cfg_enrichers = [str(e) for e in (prof_cfg.get("enrichers") or [])]
+        if prof_cfg.get("engine_profile") and not prof_cfg.get("override_enrichers"):
+            engine_profile = str(prof_cfg["engine_profile"])
+            explicit_enrichers: list[str] | None = None
+        else:
+            engine_profile = str(prof_cfg.get("engine_profile") or default_eng_profile)
+            explicit_enrichers = list(cfg_enrichers) if prof_cfg else None
+        cfg_prompt = str(prof_cfg.get("prompt") or "").strip() or None
+        return ParsedWahsProfile(
+            backend_id=backend_id,
+            api_profile_id=api_profile_id,
+            kind="wahs",
+            wahs_profile=prof_name,
+            engine_profile=engine_profile,
+            model_id=model_id,
+            budget_tokens=eff_budget,
+            budget_tag=b_tag,
+            explicit_budget=explicit_budget,
+            prompt_override=inline_prompt or clean_default_prompt or cfg_prompt,
+            inline_prompt=inline_prompt,
+            explicit_enrichers=explicit_enrichers,
+            configured_enrichers=cfg_enrichers,
+            profile_config=prof_cfg,
+        )
+
+    if api_profile_id.lower().startswith("wahs+"):
+        lhs, sep, raw_model = api_profile_id.partition(":")
+        model_id = raw_model.strip()
+        if not sep or not model_id:
+            raise ValueError(
+                f"Invalid ad-hoc WAHS profile {profile_spec!r}: expected wahs+<mod1>[+<mod2>...]:<model>[@<budget>]"
+            )
+        m_adhoc = _ADHOC_LHS_RE.fullmatch(lhs.strip())
+        if not m_adhoc:
+            raise ValueError(f"Invalid ad-hoc WAHS enricher spec {lhs!r} in {profile_spec!r}")
+        mods = [tok.strip() for tok in m_adhoc.group(1).split("+") if tok.strip()]
+        if not mods:
+            raise ValueError(f"Empty ad-hoc enricher list in {profile_spec!r}")
+        inline_prompt = m_adhoc.group(2)
+        return ParsedWahsProfile(
+            backend_id=backend_id,
+            api_profile_id=api_profile_id,
+            kind="wahs",
+            wahs_profile="ad-hoc+" + "+".join(mods),
+            engine_profile=default_eng_profile,
+            model_id=model_id,
+            budget_tokens=eff_budget,
+            budget_tag=b_tag,
+            explicit_budget=explicit_budget,
+            prompt_override=inline_prompt or clean_default_prompt,
+            inline_prompt=inline_prompt,
+            explicit_enrichers=mods,
+            configured_enrichers=list(mods),
+            profile_config={},
+        )
+
+    m_raw = _RAW_FHIR_RE.match(api_profile_id)
+    if m_raw:
+        inline_prompt = m_raw.group(1)
+        model_id = m_raw.group(2).strip()
+        if not model_id:
+            raise ValueError(f"Missing model ID in raw-fhir profile {profile_spec!r}")
+        return ParsedWahsProfile(
+            backend_id=backend_id,
+            api_profile_id=api_profile_id,
+            kind="raw-fhir",
+            wahs_profile="raw-fhir",
+            engine_profile="",
+            model_id=model_id,
+            budget_tokens=eff_budget,
+            budget_tag=b_tag,
+            explicit_budget=explicit_budget,
+            prompt_override=inline_prompt or clean_default_prompt,
+            inline_prompt=inline_prompt,
+            explicit_enrichers=None,
+            configured_enrichers=[],
+            profile_config={},
+        )
+
+    if not strict:
+        underlying = api_profile_id.split(":", 1)[1].strip() if ":" in api_profile_id else api_profile_id
+        return ParsedWahsProfile(
+            backend_id=backend_id,
+            api_profile_id=api_profile_id,
+            kind="custom",
+            wahs_profile=api_profile_id.split(":", 1)[0].strip() or "custom",
+            engine_profile="baseline",
+            model_id=underlying,
+            budget_tokens=eff_budget,
+            budget_tag=b_tag,
+            explicit_budget=explicit_budget,
+            prompt_override=clean_default_prompt,
+            inline_prompt=None,
+            explicit_enrichers=None,
+            configured_enrichers=[],
+            profile_config={},
+        )
+
+    raise ValueError(
+        f"Unsupported WAHS profile {profile_spec!r}: expected wahs:<profile>:<model>[@<budget>], "
+        "wahs+<enricher>:<model>[@<budget>], wahs-engine-baseline:<model>[@<budget>], or raw-fhir:<model>[@<budget>]"
+    )
 
 
 def _decode_b64_utf8_text(raw_b64: str) -> str | None:
@@ -606,6 +970,64 @@ def _decode_raw_fhir_entry_attachments(resource: dict[str, Any]) -> dict[str, An
     return out
 
 
+def _extract_provenance_and_enrichment(
+    x_wahs: dict[str, Any],
+    *,
+    fallback_profile: str,
+    fallback_prompt_id: str | None = None,
+    fallback_enrichers: Sequence[str] = (),
+) -> tuple[str, str | None, str | None, list[str], int]:
+    """Extract `(wahs_profile, prompt_id, prompt_sha256, active_enrichers, enrichment_tokens)` from `x_wahs`."""
+    cond = x_wahs.get("condensation") if isinstance(x_wahs.get("condensation"), dict) else {}
+    ai_prov = x_wahs.get("ai_provenance") if isinstance(x_wahs.get("ai_provenance"), dict) else {}
+
+    wahs_profile = str(
+        cond.get("profile_id")
+        or ai_prov.get("profile_id")
+        or x_wahs.get("profile_id")
+        or fallback_profile
+    ).strip()
+    raw_pid = cond.get("prompt_id") or ai_prov.get("prompt_id") or x_wahs.get("prompt_id") or fallback_prompt_id
+    prompt_id = str(raw_pid).strip() if raw_pid else None
+    raw_sha = cond.get("prompt_sha256") or ai_prov.get("prompt_sha256") or x_wahs.get("prompt_sha256")
+    prompt_sha256 = str(raw_sha).strip() if raw_sha else None
+
+    active_enrichers: list[str] = []
+    enricher_sum = 0
+    raw_enrichers = x_wahs.get("enrichers")
+    if isinstance(raw_enrichers, list):
+        for item in raw_enrichers:
+            if isinstance(item, str) and item.strip():
+                eid = item.strip()
+                if eid not in active_enrichers:
+                    active_enrichers.append(eid)
+            elif isinstance(item, dict):
+                raw_eid = item.get("id") or item.get("enricher_id") or item.get("name")
+                if raw_eid and str(raw_eid).strip():
+                    eid = str(raw_eid).strip()
+                    if eid not in active_enrichers:
+                        active_enrichers.append(eid)
+                for tk in ("tokens", "actual_tokens", "enrichment_tokens", "token_count"):
+                    tval = item.get(tk)
+                    if isinstance(tval, int) and not isinstance(tval, bool) and tval > 0:
+                        enricher_sum += tval
+                        break
+    else:
+        for e in fallback_enrichers:
+            if str(e).strip() and str(e).strip() not in active_enrichers:
+                active_enrichers.append(str(e).strip())
+
+    raw_enr_toks = cond.get("enrichment_tokens")
+    if raw_enr_toks is None:
+        raw_enr_toks = x_wahs.get("enrichment_tokens")
+    if isinstance(raw_enr_toks, int) and not isinstance(raw_enr_toks, bool) and raw_enr_toks >= 0:
+        enrichment_tokens = int(raw_enr_toks)
+    else:
+        enrichment_tokens = enricher_sum
+
+    return wahs_profile, prompt_id, prompt_sha256, active_enrichers, enrichment_tokens
+
+
 class WahsHubClient:
     """HTTP client for standalone `wahs-engine` (`/v1/chat/completions`, `/v1/wahs/context/preview`) and `raw-fhir` baselines."""
 
@@ -622,6 +1044,9 @@ class WahsHubClient:
         direct_provider_flavor: str | None = None,
         direct_context_window: int = 32768,
         decode_raw_fhir_attachments: bool = True,
+        profiles_config_path: Path | str | None = None,
+        prompts_dir: Path | str | None = None,
+        prompt_override: str | None = None,
     ) -> None:
         raw_base = (
             base_url or os.environ.get("MED_AGENT_HUB_BASE_URL", "http://127.0.0.1:8000")
@@ -645,6 +1070,9 @@ class WahsHubClient:
         ).strip().lower()
         self.direct_context_window = int(direct_context_window)
         self.decode_raw_fhir_attachments = bool(decode_raw_fhir_attachments)
+        self.profiles_config_path = Path(profiles_config_path).expanduser() if profiles_config_path else None
+        self.prompts_dir = Path(prompts_dir).expanduser() if prompts_dir else None
+        self.prompt_override = str(prompt_override or "").strip() or None
         self.timeout = timeout
         self.max_retries = max(0, int(max_retries))
         self.retry_backoff_s = max(0.0, float(retry_backoff_s))
@@ -652,7 +1080,6 @@ class WahsHubClient:
         self._session.headers.update({"Content-Type": "application/json"})
         self._engine_preview_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
         self._bundle_cache: dict[str, dict[str, Any] | None] = {}
-        self._warned_ceiling_clamps: set[tuple[str, int]] = set()
         self.bundle_dirs: list[Path] = []
         seen_dirs: set[Path] = set()
 
@@ -674,7 +1101,7 @@ class WahsHubClient:
         env_bdir = os.environ.get("WAHS_BUNDLE_DIR", "").strip()
         if env_bdir:
             _append_bundle_dir(env_bdir)
-        repo_bundles = Path(__file__).resolve().parents[2] / "datasets" / "bundles"
+        repo_bundles = _REPO_ROOT / "datasets" / "bundles"
         if repo_bundles.is_dir():
             _append_bundle_dir(repo_bundles)
 
@@ -700,52 +1127,61 @@ class WahsHubClient:
         self._bundle_cache[patient_id] = None
         return None
 
+    @staticmethod
+    def _build_wahs_wire_options(
+        *,
+        local_bundle: dict[str, Any],
+        engine_profile: str,
+        prompt_override: str | None,
+        explicit_enrichers: list[str] | None,
+        budget_tokens: int,
+        explicit_budget: bool,
+    ) -> dict[str, Any]:
+        return {
+            "fhir_bundle": local_bundle,
+            "profile": engine_profile,
+            **({"prompt": prompt_override} if prompt_override else {}),
+            **({"enrichers": explicit_enrichers} if explicit_enrichers is not None else {}),
+            **({"target_budget_tokens": int(budget_tokens)} if explicit_budget else {}),
+        }
+
     def _preview_wahs_engine_context(
         self,
         case: WahsEvalCase,
         *,
         local_bundle: dict[str, Any],
-        budget_tokens: int,
-        retrieval_strategy: str,
-        explicit_budget: bool = True,
-        model_id: str | None = None,
+        parsed: ParsedWahsProfile,
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
-        is_baseline_auto = retrieval_strategy == "baseline_condensation" and not explicit_budget
+        query_dependent = bool(parsed.configured_enrichers or parsed.explicit_enrichers or not parsed.explicit_budget)
         cache_key: tuple[Any, ...] = (
             case.patient_id,
-            int(budget_tokens) if explicit_budget else "auto",
-            "" if retrieval_strategy == "baseline_condensation" else case.sharing_posture,
-            retrieval_strategy,
-            case.case_id if (retrieval_strategy == "note_rag" or is_baseline_auto) else "*",
-            str(model_id or "") if retrieval_strategy == "baseline_condensation" else "",
+            parsed.engine_profile,
+            tuple(parsed.explicit_enrichers or ()),
+            str(parsed.prompt_override or ""),
+            int(parsed.budget_tokens) if parsed.explicit_budget else "auto",
+            case.case_id if query_dependent else "*",
+            parsed.model_id,
         )
         if cache_key in self._engine_preview_cache:
             return self._engine_preview_cache[cache_key]
-        if retrieval_strategy == "baseline_condensation":
-            wahs_opts: dict[str, Any] = {"fhir_bundle": local_bundle}
-            if explicit_budget:
-                wahs_opts["target_budget_tokens"] = int(budget_tokens)
-            req_body: dict[str, Any] = {
-                "messages": [{"role": "user", "content": case.prompt}],
-                "wahs": wahs_opts,
-            }
-            if model_id:
-                req_body["model"] = model_id
-            if max_tokens is not None:
-                req_body["max_tokens"] = int(max_tokens)
-        else:
-            req_body = {
-                "messages": [{"role": "user", "content": case.prompt}],
-                "wahs": {
-                    "fhir_bundle": local_bundle,
-                    "target_budget_tokens": int(budget_tokens),
-                    "sharing_posture": case.sharing_posture,
-                    "retrieval_strategy": retrieval_strategy,
-                    "enable_kb": retrieval_strategy != "chart_only",
-                    "enable_overflow_tools": retrieval_strategy != "chart_only",
-                },
-            }
+
+        wahs_opts = self._build_wahs_wire_options(
+            local_bundle=local_bundle,
+            engine_profile=parsed.engine_profile,
+            prompt_override=parsed.prompt_override,
+            explicit_enrichers=parsed.explicit_enrichers,
+            budget_tokens=parsed.budget_tokens,
+            explicit_budget=parsed.explicit_budget,
+        )
+        req_body: dict[str, Any] = {
+            "model": parsed.model_id,
+            "messages": [{"role": "user", "content": case.prompt}],
+            "wahs": wahs_opts,
+        }
+        if max_tokens is not None:
+            req_body["max_tokens"] = int(max_tokens)
+
         try:
             resp = self._session.post(
                 f"{self.base_url}/v1/wahs/context/preview",
@@ -765,11 +1201,7 @@ class WahsHubClient:
         case: WahsEvalCase,
         *,
         profile_id: str,
-        api_profile_id: str,
-        model_id: str,
-        retrieval_strategy: str,
-        budget_tokens: int,
-        explicit_budget: bool = True,
+        parsed: ParsedWahsProfile,
         seed: int | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:
@@ -788,36 +1220,20 @@ class WahsHubClient:
         preview = self._preview_wahs_engine_context(
             case,
             local_bundle=local_bundle,
-            budget_tokens=budget_tokens,
-            retrieval_strategy=retrieval_strategy,
-            explicit_budget=explicit_budget,
-            model_id=model_id,
+            parsed=parsed,
             max_tokens=max_tok,
         )
-        if retrieval_strategy == "baseline_condensation":
-            user_prompt = case.prompt
-            wahs_opts: dict[str, Any] = {"fhir_bundle": local_bundle}
-            if explicit_budget:
-                wahs_opts["target_budget_tokens"] = int(budget_tokens)
-        else:
-            user_prompt = (
-                f"{case.prompt}\n\n"
-                "GROUNDING & FORMATTING RULES:\n"
-                "1. Cite supporting records inline using [N] bracket numbers on every substantive affirmative claim taken from the chart (e.g., [1] or [1] [2]). Never invent citation numbers, and never attach [1] (Demographics) or [2] (Completeness Manifest) to a statement that a requested test or report is absent.\n"
-                "2. If the question asks about a test, imaging study, biopsy, procedure, or genetic panel that is NOT documented in the chart, explicitly state that it is not documented in the chart (grounded abstention) and do not guess or list unrelated findings.\n"
-                "3. Write in clear, patient-friendly language (6th-to-8th grade reading level) while preserving exact medication names, doses, lab values, dates, and [N] citations."
-            )
-            wahs_opts = {
-                "fhir_bundle": local_bundle,
-                "target_budget_tokens": int(budget_tokens),
-                "sharing_posture": case.sharing_posture,
-                "retrieval_strategy": retrieval_strategy,
-                "enable_kb": retrieval_strategy != "chart_only",
-                "enable_overflow_tools": retrieval_strategy != "chart_only",
-            }
+        wahs_opts = self._build_wahs_wire_options(
+            local_bundle=local_bundle,
+            engine_profile=parsed.engine_profile,
+            prompt_override=parsed.prompt_override,
+            explicit_enrichers=parsed.explicit_enrichers,
+            budget_tokens=parsed.budget_tokens,
+            explicit_budget=parsed.explicit_budget,
+        )
         chat_req: dict[str, Any] = {
-            "model": model_id,
-            "messages": [{"role": "user", "content": user_prompt}],
+            "model": parsed.model_id,
+            "messages": [{"role": "user", "content": case.prompt}],
             "stream": False,
             "temperature": eff_temp,
             "max_tokens": max_tok,
@@ -859,14 +1275,22 @@ class WahsHubClient:
                 cond_meta = x_wahs.get("condensation") if isinstance(x_wahs.get("condensation"), dict) else {}
                 timings = x_wahs.get("timings") if isinstance(x_wahs.get("timings"), dict) else {}
 
-                mappings: list[dict[str, Any]] = []
-                mapping_by_idx: dict[int, dict[str, Any]] = {}
+                sortable_mappings: list[tuple[tuple[int, int, str], dict[str, Any]]] = []
+                mapping_by_key: dict[str, dict[str, Any]] = {}
                 for k_str, v_obj in citation_map.items():
-                    if not str(k_str).isdigit() or not isinstance(v_obj, dict):
+                    if not isinstance(v_obj, dict):
                         continue
-                    idx_i = int(k_str)
+                    norm_key = _normalize_cite_key(k_str)
+                    if norm_key.isdigit():
+                        idx_val: int | str = int(norm_key)
+                        sort_key = (0, int(norm_key), "")
+                    elif norm_key.startswith("K") and norm_key[1:].isdigit():
+                        idx_val = norm_key
+                        sort_key = (1, int(norm_key[1:]), norm_key)
+                    else:
+                        continue
                     norm_m = {
-                        "index": idx_i,
+                        "index": idx_val,
                         "resourceType": v_obj.get("resourceType") or "Resource",
                         "resourceUuid": v_obj.get("id") or v_obj.get("resourceUuid"),
                         "date": v_obj.get("date") or "",
@@ -874,23 +1298,23 @@ class WahsHubClient:
                         "source": v_obj.get("source") or "",
                         "memberUuids": list(v_obj.get("memberIds") or v_obj.get("memberUuids") or []),
                     }
-                    mappings.append(norm_m)
-                    mapping_by_idx[idx_i] = norm_m
-                mappings.sort(key=lambda m: int(m["index"]))
+                    sortable_mappings.append((sort_key, norm_m))
+                    mapping_by_key[norm_key] = norm_m
+                sortable_mappings.sort(key=lambda item: item[0])
+                mappings = [m for _, m in sortable_mappings]
 
-                cited_indices: list[int] = []
-                for num_str in _CITATION_RE.findall(cleaned_answer):
-                    if num_str.isdigit():
-                        idx_val = int(num_str)
-                        if idx_val not in cited_indices:
-                            cited_indices.append(idx_val)
+                cited_keys: list[str] = []
+                for raw_tok in _CITATION_RE.findall(cleaned_answer):
+                    tok_up = raw_tok.upper()
+                    if tok_up not in cited_keys:
+                        cited_keys.append(tok_up)
 
                 references: list[dict[str, Any]] = []
-                for c_idx in cited_indices:
-                    m_obj = mapping_by_idx.get(c_idx)
+                for c_key in cited_keys:
+                    m_obj = mapping_by_key.get(c_key)
                     if m_obj is not None:
                         ref_entry: dict[str, Any] = {
-                            "index": c_idx,
+                            "index": m_obj["index"],
                             "resourceType": m_obj.get("resourceType"),
                             "resourceUuid": m_obj.get("resourceUuid"),
                         }
@@ -908,41 +1332,6 @@ class WahsHubClient:
                     if cond_meta.get("effective_chart_budget") is not None
                     else cond_meta.get("budget_effective")
                 )
-                clamp_reason = str(cond_meta.get("clamp_reason") or "").strip()
-                is_auto_or_window = (
-                    clamp_reason in {"context_window_available", "caller_target_budget_tokens", "model_preferred_chart_tokens"}
-                    or (retrieval_strategy == "baseline_condensation" and not explicit_budget)
-                )
-                is_ceiling_clamped = bool(
-                    cond_meta.get("clamped_to_chart_budget_ceiling")
-                    or clamp_reason == "chart_budget_ceiling"
-                    or x_wahs.get("clamped_to_chart_budget_ceiling")
-                    or (
-                        not is_auto_or_window
-                        and isinstance(eff_chart_budget, (int, float))
-                        and not isinstance(eff_chart_budget, bool)
-                        and int(eff_chart_budget) > 0
-                        and int(budget_tokens) > int(eff_chart_budget) + 2048
-                        and int(budget_tokens) >= 24576
-                    )
-                )
-                if is_ceiling_clamped:
-                    warn_key = (str(profile_id), int(budget_tokens))
-                    if warn_key not in self._warned_ceiling_clamps:
-                        self._warned_ceiling_clamps.add(warn_key)
-                        warnings.warn(
-                            f"WAHS profile {profile_id!r} requested budget_tokens={budget_tokens} "
-                            f"but was clamped to chart_budget_ceiling (effective_chart_budget={eff_chart_budget}); "
-                            "set WAHS_CHART_BUDGET_CEILING=none and increase WAHS_CONTEXT_WINDOW for unclamped evals.",
-                            RuntimeWarning,
-                            stacklevel=2,
-                        )
-                privacy_notices = x_wahs.get("privacy_notices") or []
-                redaction_notice = (
-                    " ".join(str(p) for p in privacy_notices if p)
-                    if case.sharing_posture == "external_share" and privacy_notices
-                    else None
-                )
                 eff_latency = int(round(float(timings.get("total_latency_ms") or wall_latency_ms)))
                 base_chart_text = str(preview.get("chart_text") or "")
                 extra_lines = [
@@ -951,9 +1340,21 @@ class WahsHubClient:
                     if f"[{m['index']}]" not in base_chart_text and m.get("display")
                 ]
                 full_chart_text = (
-                    f"{base_chart_text}\n\n# Retrieved / Tool-Queried Evidence\n" + "\n".join(extra_lines)
+                    f"{base_chart_text}\n\n# Enricher & Knowledge Evidence\n" + "\n".join(extra_lines)
                     if extra_lines and base_chart_text
                     else (base_chart_text or "\n".join(extra_lines))
+                )
+                (
+                    wahs_profile,
+                    prompt_id,
+                    prompt_sha256,
+                    active_enrichers,
+                    enrichment_tokens,
+                ) = _extract_provenance_and_enrichment(
+                    x_wahs,
+                    fallback_profile=parsed.wahs_profile,
+                    fallback_prompt_id=parsed.prompt_override,
+                    fallback_enrichers=parsed.explicit_enrichers or parsed.configured_enrichers,
                 )
                 return {
                     "answer": cleaned_answer,
@@ -961,7 +1362,7 @@ class WahsHubClient:
                     "citations": references,
                     "mappings": mappings,
                     "actual_tokens": actual_tokens,
-                    "budget_tokens": int(budget_tokens),
+                    "budget_tokens": int(parsed.budget_tokens),
                     "tier_info": {
                         "tier_used": cond_meta.get("tier"),
                         "tier_name": cond_meta.get("tier_name"),
@@ -969,7 +1370,6 @@ class WahsHubClient:
                         "condense_mode": "lossless_structural",
                     },
                     "condensed_text": full_chart_text,
-                    "redaction_notice": redaction_notice,
                     "latency_ms": eff_latency,
                     "timings": {
                         "engine_prep_ms": float(timings.get("engine_prep_ms") or 0.0),
@@ -985,13 +1385,15 @@ class WahsHubClient:
                     },
                     "usage": chat_json.get("usage") or {},
                     "x_wahs": x_wahs,
-                    "clamped_to_chart_budget_ceiling": is_ceiling_clamped,
                     "effective_chart_budget": eff_chart_budget,
-                    "retrieval_strategy": retrieval_strategy,
+                    "wahs_profile": wahs_profile,
+                    "prompt_id": prompt_id,
+                    "prompt_sha256": prompt_sha256,
+                    "active_enrichers": active_enrichers,
+                    "enrichment_tokens": enrichment_tokens,
                     "seed": seed,
                     "profile_id": profile_id,
-                    "api_profile_id": api_profile_id,
-                    "include_kb_findings": retrieval_strategy not in {"chart_only", "baseline_condensation"},
+                    "api_profile_id": parsed.api_profile_id,
                 }
 
             err_text = getattr(resp, "text", "")[:300]
@@ -1011,27 +1413,26 @@ class WahsHubClient:
         case: WahsEvalCase,
         *,
         profile_id: str,
-        api_profile_id: str,
-        model_id: str,
-        budget_tokens: int,
+        parsed: ParsedWahsProfile,
         seed: int | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:
-        """Offline Raw Chart Baseline (`offline_raw_ablation`): raw uncondensed/truncated FHIR JSON without `wahs-engine`."""
+        """Offline Raw Chart Baseline (`raw-fhir`): raw uncondensed/truncated FHIR JSON without `wahs-engine`."""
         local_bundle = self._resolve_local_bundle(case.patient_id)
         if local_bundle is None:
             raise ValueError(
                 f"Local FHIR bundle not found for patient_id={case.patient_id!r} in {self.bundle_dirs}"
             )
+        budget_tokens = int(parsed.budget_tokens)
         max_tok = int(os.environ.get("WAHS_EVAL_MAX_TOKENS", "900") or "900")
-        if int(budget_tokens) > 4096:
+        if budget_tokens > 4096:
             effective_slice_budget = min(
-                int(budget_tokens),
+                budget_tokens,
                 max(256, self.direct_context_window - max_tok - 320),
             )
             chars_per_tok = 2.15
         else:
-            effective_slice_budget = int(budget_tokens)
+            effective_slice_budget = budget_tokens
             chars_per_tok = 3.6
         max_chars = max(256, int(effective_slice_budget * chars_per_tok))
         wrapper_overhead = 128
@@ -1050,7 +1451,6 @@ class WahsHubClient:
             if used_chars + len(serialized) + 2 > max_chars:
                 if kept_entries:
                     break
-                # Entry 0 exceeds the entire token budget: truncate deterministically to fit max_chars.
                 slice_cap = max(48, entry_budget - 110)
                 kept_entries.append(
                     {
@@ -1070,6 +1470,7 @@ class WahsHubClient:
             rid = str(res.get("id") or "").strip()
             if rid:
                 retained_uuids.append(rid)
+
         def _bundle_json(entries_slice: list[dict[str, Any]]) -> str:
             return json.dumps(
                 {
@@ -1084,7 +1485,6 @@ class WahsHubClient:
 
         raw_fhir_slice = _bundle_json(kept_entries)
         if kept_entries and "_truncated_raw_json" in kept_entries[0].get("resource", {}):
-            # Re-shrink slice_cap if JSON-escaping quotes inflated raw_fhir_slice beyond max_chars.
             while len(raw_fhir_slice) > max_chars:
                 cur = kept_entries[0]["resource"]["_truncated_raw_json"]
                 if not cur:
@@ -1094,8 +1494,8 @@ class WahsHubClient:
                 kept_entries[0]["resource"]["_truncated_raw_json"] = cur[:new_cap]
                 raw_fhir_slice = _bundle_json(kept_entries)
         approx_tokens = (
-            max(1, min(int(budget_tokens), math.ceil(len(raw_fhir_slice) / chars_per_tok)))
-            if int(budget_tokens) > 4096
+            max(1, min(budget_tokens, math.ceil(len(raw_fhir_slice) / chars_per_tok)))
+            if budget_tokens > 4096
             else max(1, (len(raw_fhir_slice) + 3) // 4)
         )
         is_full_bundle = (len(kept_entries) == len(entries)) and not (
@@ -1112,11 +1512,18 @@ class WahsHubClient:
                 f"Raw FHIR R4 Bundle Slice (uncondensed, truncated to <= {budget_tokens} tokens; "
                 f"{len(kept_entries)}/{len(entries)} entries fit):"
             )
-        user_prompt = (
-            f"{header_line}\n"
-            f"{raw_fhir_slice}\n\n"
-            f"Patient Question:\n{case.prompt}\n\n"
-            "Answer strictly from the FHIR JSON above. Do not fabricate facts not present in the JSON."
+
+        resolved_prompt_id, prompt_tpl, prompt_sha256 = load_raw_fhir_prompt_template(
+            parsed.inline_prompt or parsed.prompt_override,
+            prompts_dir=self.prompts_dir,
+            config_path=self.profiles_config_path,
+            fallback_to_default=(parsed.inline_prompt is None),
+        )
+        user_prompt = render_raw_fhir_prompt(
+            prompt_tpl,
+            header_line=header_line,
+            raw_fhir_slice=raw_fhir_slice,
+            question=case.prompt,
         )
         eff_temp = (
             float(temperature)
@@ -1124,7 +1531,7 @@ class WahsHubClient:
             else (0.2 if seed is not None else 0.1)
         )
         chat_req: dict[str, Any] = {
-            "model": model_id,
+            "model": parsed.model_id,
             "messages": [{"role": "user", "content": user_prompt}],
             "stream": False,
             "temperature": eff_temp,
@@ -1175,7 +1582,7 @@ class WahsHubClient:
         prompt_tok = usage_obj.get("prompt_tokens")
         eff_actual_tokens = (
             int(prompt_tok)
-            if isinstance(prompt_tok, int) and not isinstance(prompt_tok, bool) and 0 < prompt_tok <= int(budget_tokens)
+            if isinstance(prompt_tok, int) and not isinstance(prompt_tok, bool) and 0 < prompt_tok <= budget_tokens
             else approx_tokens
         )
         t_obj = body.get("timings") if isinstance(body.get("timings"), dict) else {}
@@ -1187,7 +1594,7 @@ class WahsHubClient:
             "prompt_retained_uuids": retained_uuids,
             "valid_uuids": retained_uuids,
             "actual_tokens": eff_actual_tokens,
-            "budget_tokens": int(budget_tokens),
+            "budget_tokens": budget_tokens,
             "tier_info": {
                 "actual_tokens": eff_actual_tokens,
                 "condense_mode": "raw_fhir_full" if is_full_bundle else "raw_fhir_truncated",
@@ -1196,7 +1603,6 @@ class WahsHubClient:
                 "total_entries": len(entries),
             },
             "condensed_text": raw_fhir_slice,
-            "redaction_notice": None,
             "latency_ms": wall_latency_ms,
             "timings": {
                 "engine_prep_ms": 0.0,
@@ -1211,11 +1617,14 @@ class WahsHubClient:
                 "llm_rounds": 1,
             },
             "usage": body.get("usage") or {},
-            "retrieval_strategy": "offline_raw_ablation",
+            "wahs_profile": "raw-fhir",
+            "prompt_id": resolved_prompt_id,
+            "prompt_sha256": prompt_sha256,
+            "active_enrichers": [],
+            "enrichment_tokens": 0,
             "seed": seed,
             "profile_id": profile_id,
-            "api_profile_id": api_profile_id,
-            "include_kb_findings": False,
+            "api_profile_id": parsed.api_profile_id,
         }
 
     def warmup_model(self, model_id: str) -> bool:
@@ -1262,55 +1671,28 @@ class WahsHubClient:
         seed: int | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:
-        """Evaluate a case under a standalone `wahs-engine*:<model>` or `raw-fhir:<model>` profile."""
-        if not profile_id or not str(profile_id).strip():
-            raise ValueError(
-                "profile_id is required; supported prefixes are wahs-engine[-baseline|-kb|-chart|-rag|-tools]:<model> and raw-fhir:<model>"
-            )
-        explicit_budget = "@" in str(profile_id)
-        _backend_id, api_profile_id, eff_budget, _b_tag = _split_profile_budget(
-            profile_id, budget_tokens
+        """Evaluate a case under a declarative `wahs:*`, `wahs+*`, `wahs-engine-baseline:*`, or `raw-fhir:*` profile."""
+        parsed = parse_wahs_profile_spec(
+            profile_id,
+            budget_tokens,
+            config_path=self.profiles_config_path,
+            default_prompt=self.prompt_override,
+            strict=True,
         )
-        engine_prefixes = {
-            "wahs-engine-baseline:": "baseline_condensation",
-            "wahs-engine-kb:": "condensation_kb",
-            "wahs-engine:": "condensation_kb",
-            "wahs-engine-rag:": "note_rag",
-            "wahs-engine-tools:": "dynamic_fhir_tools",
-            "wahs-engine-chart:": "chart_only",
-        }
-        api_low = api_profile_id.lower()
-        for pfx, strat in engine_prefixes.items():
-            if api_low.startswith(pfx):
-                model_id = api_profile_id[len(pfx) :].strip()
-                if not model_id:
-                    raise ValueError(f"Missing model ID in WAHS profile {profile_id!r}")
-                return self._evaluate_wahs_engine_case(
-                    case,
-                    profile_id=profile_id,
-                    api_profile_id=api_profile_id,
-                    model_id=model_id,
-                    retrieval_strategy=strat,
-                    budget_tokens=eff_budget,
-                    explicit_budget=explicit_budget,
-                    seed=seed,
-                    temperature=temperature,
-                )
-        if api_low.startswith("raw-fhir:"):
-            model_id = api_profile_id[len("raw-fhir:") :].strip()
-            if not model_id:
-                raise ValueError(f"Missing model ID in raw-fhir profile {profile_id!r}")
+        if parsed.kind == "raw-fhir":
             return self._evaluate_raw_fhir_ablation_case(
                 case,
-                profile_id=profile_id,
-                api_profile_id=api_profile_id,
-                model_id=model_id,
-                budget_tokens=eff_budget,
+                profile_id=str(profile_id),
+                parsed=parsed,
                 seed=seed,
                 temperature=temperature,
             )
-        raise ValueError(
-            f"Unsupported WAHS profile {profile_id!r}: expected wahs-engine[-kb|-chart|-rag|-tools]:<model> or raw-fhir:<model>"
+        return self._evaluate_wahs_engine_case(
+            case,
+            profile_id=str(profile_id),
+            parsed=parsed,
+            seed=seed,
+            temperature=temperature,
         )
 
 
@@ -1334,7 +1716,6 @@ def _missing_cell_score(
         case_id=case.case_id,
         patient_id=case.patient_id,
         use_case=case.use_case,
-        sharing_posture=case.sharing_posture,
         budget_tokens=budget_tokens,
         actual_tokens=0,
         token_budget_ok=False,
@@ -1350,39 +1731,27 @@ def _missing_cell_score(
     )
 
 
-def _infer_retrieval_strategy(profile_id: str | None) -> str:
-    """Return `retrieval_strategy` for a WAHS profile spec."""
+def _infer_wahs_profile(
+    profile_id: str | None,
+    *,
+    config_path: Path | str | None = None,
+) -> str:
+    """Return canonical `wahs_profile` identifier for a profile spec."""
     if not profile_id:
-        return "condensation_kb"
-    _, api_pid, _, _ = _split_profile_budget(profile_id)
-    low = api_pid.lower()
-    if low.startswith("raw-fhir:"):
-        return "offline_raw_ablation"
-    if low.startswith("wahs-engine-baseline:"):
-        return "baseline_condensation"
-    if low.startswith("wahs-engine-rag:"):
-        return "note_rag"
-    if low.startswith("wahs-engine-tools:"):
-        return "dynamic_fhir_tools"
-    if low.startswith("wahs-engine-chart:"):
-        return "chart_only"
-    return "condensation_kb"
+        return "baseline"
+    parsed = parse_wahs_profile_spec(profile_id, config_path=config_path, strict=False)
+    return parsed.wahs_profile
 
 
-def _infer_model_family_and_id(profile_id: str) -> tuple[str, str, bool]:
-    """Return `(model_family, underlying_model_id, include_kb_findings)` for a WAHS profile."""
-    _, api_profile_id, _, _ = _split_profile_budget(profile_id)
-    api_low = api_profile_id.lower()
-    include_kb = not (
-        api_low.startswith("wahs-engine-baseline:")
-        or api_low.startswith("wahs-engine-chart:")
-        or api_low.startswith("raw-fhir:")
-    )
-    if ":" in api_profile_id:
-        underlying = api_profile_id.split(":", 1)[1].strip() or api_profile_id
-    else:
-        underlying = api_profile_id
-
+def _infer_model_family_and_id(
+    profile_id: str,
+    *,
+    config_path: Path | str | None = None,
+) -> tuple[str, str]:
+    """Return `(model_family, underlying_model_id)` for a WAHS profile."""
+    parsed = parse_wahs_profile_spec(profile_id, config_path=config_path, strict=False)
+    underlying = parsed.model_id or parsed.api_profile_id
+    api_low = parsed.api_profile_id.lower()
     u_low = underlying.lower()
     if "medgemma" in u_low or "medgemma" in api_low:
         fam = "medgemma"
@@ -1404,8 +1773,7 @@ def _infer_model_family_and_id(profile_id: str) -> tuple[str, str, bool]:
         fam = "claude"
     else:
         fam = "other"
-
-    return fam, underlying, include_kb
+    return fam, underlying
 
 
 def _finalize_stat_bucket(pb: dict[str, Any]) -> dict[str, Any]:
@@ -1415,6 +1783,7 @@ def _finalize_stat_bucket(pb: dict[str, Any]) -> dict[str, Any]:
         "citation_clean_sum",
         "citation_rate_sum",
         "latency_ms_sum",
+        "enrichment_tokens_sum",
         "lat_vals",
         "prompt_ms_vals",
         "predicted_ms_vals",
@@ -1422,8 +1791,13 @@ def _finalize_stat_bucket(pb: dict[str, Any]) -> dict[str, Any]:
         "prompt_tps_vals",
         "predicted_tps_vals",
         "seeds_seen",
+        "prompt_ids_seen",
+        "prompt_sha256s_seen",
+        "active_enrichers_seen",
     }
     out: dict[str, Any] = {k: v for k, v in pb.items() if k not in skip_keys}
+    prompt_ids = sorted(pb["prompt_ids_seen"])
+    prompt_shas = sorted(pb["prompt_sha256s_seen"])
     out.update(
         {
             "total": pb["total"],
@@ -1437,6 +1811,13 @@ def _finalize_stat_bucket(pb: dict[str, Any]) -> dict[str, Any]:
             "resolved_citations": int(pb["resolved_citations"]),
             "fabricated_citation_count": int(pb["fabricated_citation_count"]),
             "mean_latency_ms": round(pb["latency_ms_sum"] / n, 1),
+            "prompt_id": prompt_ids[0] if len(prompt_ids) == 1 else None,
+            "prompt_ids": prompt_ids,
+            "prompt_sha256": prompt_shas[0] if len(prompt_shas) == 1 else None,
+            "prompt_sha256s": prompt_shas,
+            "active_enrichers": list(pb["active_enrichers_seen"]),
+            "enrichment_tokens": int(pb["enrichment_tokens_sum"]),
+            "mean_enrichment_tokens": round(pb["enrichment_tokens_sum"] / n, 1),
             "latency_stats": {
                 "total_ms": latency_percentiles(pb["lat_vals"]),
                 "prefill_prompt_ms": latency_percentiles(pb["prompt_ms_vals"]),
@@ -1460,16 +1841,21 @@ def _summarize_scores(
     *,
     missing_cells: list[dict[str, Any]] | None = None,
     cell_meta_list: list[dict[str, Any]] | None = None,
+    config_path: Path | str | None = None,
 ) -> dict[str, Any]:
     total = len(scores)
     passed = sum(1 for s in scores if s.passed)
     by_use_case: dict[str, dict[str, Any]] = {}
     by_horizon: dict[str, dict[str, Any]] = {}
     by_profile: dict[str, dict[str, Any]] = {}
-    by_strategy: dict[str, dict[str, Any]] = {}
+    by_wahs_profile: dict[str, dict[str, Any]] = {}
     by_model: dict[str, dict[str, Any]] = {}
     by_family: dict[str, dict[str, Any]] = {}
     all_seeds_seen: set[int] = set()
+    all_wahs_profiles: set[str] = set()
+    all_prompts: dict[str, str | None] = {}
+    all_enrichers: list[str] = []
+    total_enrichment_tokens = 0
 
     for idx, s in enumerate(scores):
         bucket = by_use_case.setdefault(
@@ -1518,17 +1904,25 @@ def _summarize_scores(
         if c_meta.get("seed") is not None:
             all_seeds_seen.add(int(c_meta["seed"]))
         prof_id = c_meta.get("profile_id")
+        enr_toks = int(c_meta.get("enrichment_tokens") or 0)
+        total_enrichment_tokens += enr_toks
+        cell_prompt_id = str(c_meta.get("prompt_id") or "").strip() or None
+        cell_prompt_sha = str(c_meta.get("prompt_sha256") or "").strip() or None
+        if cell_prompt_id:
+            all_prompts.setdefault(cell_prompt_id, cell_prompt_sha)
+        cell_enrichers = [str(x).strip() for x in (c_meta.get("active_enrichers") or []) if str(x).strip()]
+        for eid in cell_enrichers:
+            if eid not in all_enrichers:
+                all_enrichers.append(eid)
+
         if prof_id:
             m_fam = str(c_meta.get("model_family") or "other")
             u_mod = str(c_meta.get("underlying_model") or prof_id)
-            inc_kb = bool(
-                c_meta.get(
-                    "include_kb_findings",
-                    not str(prof_id).lower().startswith(("wahs-engine-baseline:", "wahs-engine-chart:", "raw-fhir:")),
-                )
+            w_prof = str(
+                c_meta.get("wahs_profile")
+                or _infer_wahs_profile(str(prof_id), config_path=config_path)
             )
-            default_strat = _infer_retrieval_strategy(str(prof_id))
-            ret_strat = str(c_meta.get("retrieval_strategy") or default_strat)
+            all_wahs_profiles.add(w_prof)
             lat_ms = float(c_meta.get("latency_ms") or 0.0)
             timings = c_meta.get("timings") if isinstance(c_meta.get("timings"), dict) else {}
             for target_map, group_key, extra_info in (
@@ -1537,18 +1931,14 @@ def _summarize_scores(
                     str(prof_id),
                     {
                         "model_family": m_fam,
-                        "include_kb_findings": inc_kb,
                         "underlying_model": u_mod,
-                        "retrieval_strategy": ret_strat,
+                        "wahs_profile": w_prof,
                     },
                 ),
                 (
-                    by_strategy,
-                    ret_strat,
-                    {
-                        "retrieval_strategy": ret_strat,
-                        "include_kb_findings": ret_strat not in {"baseline_condensation", "chart_only", "offline_raw_ablation"},
-                    },
+                    by_wahs_profile,
+                    w_prof,
+                    {"wahs_profile": w_prof},
                 ),
                 (
                     by_model,
@@ -1570,6 +1960,7 @@ def _summarize_scores(
                         "resolved_citations": 0,
                         "fabricated_citation_count": 0,
                         "latency_ms_sum": 0.0,
+                        "enrichment_tokens_sum": 0,
                         "lat_vals": [],
                         "prompt_ms_vals": [],
                         "predicted_ms_vals": [],
@@ -1577,6 +1968,9 @@ def _summarize_scores(
                         "prompt_tps_vals": [],
                         "predicted_tps_vals": [],
                         "seeds_seen": set(),
+                        "prompt_ids_seen": set(),
+                        "prompt_sha256s_seen": set(),
+                        "active_enrichers_seen": [],
                     },
                 )
                 p_bucket["total"] += 1
@@ -1588,6 +1982,14 @@ def _summarize_scores(
                 p_bucket["resolved_citations"] += s.resolved_citation_count
                 p_bucket["fabricated_citation_count"] += s.fabricated_citation_count
                 p_bucket["latency_ms_sum"] += lat_ms
+                p_bucket["enrichment_tokens_sum"] += enr_toks
+                if cell_prompt_id:
+                    p_bucket["prompt_ids_seen"].add(cell_prompt_id)
+                if cell_prompt_sha:
+                    p_bucket["prompt_sha256s_seen"].add(cell_prompt_sha)
+                for eid in cell_enrichers:
+                    if eid not in p_bucket["active_enrichers_seen"]:
+                        p_bucket["active_enrichers_seen"].append(eid)
                 if lat_ms > 0:
                     p_bucket["lat_vals"].append(lat_ms)
                 if float(timings.get("prompt_ms") or 0.0) > 0:
@@ -1632,10 +2034,20 @@ def _summarize_scores(
             "fabricated_citation_count": hb["fabricated_citation_count"],
         }
 
+    prompt_ids_sorted = sorted(all_prompts.keys())
+    prompt_shas_sorted = sorted({v for v in all_prompts.values() if v})
     summary: dict[str, Any] = {
         "incomplete": bool(missing_cells),
         "missing_cells": list(missing_cells or []),
         "seeds": sorted(all_seeds_seen),
+        "wahs_profiles": sorted(all_wahs_profiles),
+        "wahs_profile": sorted(all_wahs_profiles)[0] if len(all_wahs_profiles) == 1 else None,
+        "prompt_id": prompt_ids_sorted[0] if len(prompt_ids_sorted) == 1 else None,
+        "prompt_sha256": prompt_shas_sorted[0] if len(prompt_shas_sorted) == 1 else None,
+        "prompts": {k: all_prompts[k] for k in prompt_ids_sorted},
+        "active_enrichers": all_enrichers,
+        "enrichment_tokens": total_enrichment_tokens,
+        "mean_enrichment_tokens": round(total_enrichment_tokens / (total or 1), 1),
         "total_cells": total,
         "passed_cells": passed,
         "pass_rate": round(passed / (total or 1), 4),
@@ -1659,9 +2071,9 @@ def _summarize_scores(
         summary["by_profile"] = {
             pid: _finalize_stat_bucket(pb) for pid, pb in sorted(by_profile.items())
         }
-    if by_strategy:
-        summary["by_retrieval_strategy"] = {
-            sid: _finalize_stat_bucket(sb) for sid, sb in sorted(by_strategy.items())
+    if by_wahs_profile:
+        summary["by_wahs_profile"] = {
+            wp: _finalize_stat_bucket(wb) for wp, wb in sorted(by_wahs_profile.items())
         }
     if by_model:
         summary["by_underlying_model"] = {
@@ -1720,8 +2132,8 @@ def _cell_dict(
     return cell
 
 
-def _profile_display_label(pid: str) -> str:
-    return str(_wahs_arm_card(pid).get("title") or pid)
+def _profile_display_label(pid: str, *, config_path: Path | str | None = None) -> str:
+    return str(_wahs_arm_card(pid, config_path=config_path).get("title") or pid)
 
 
 def _write_judge_prep_artifacts(
@@ -1730,10 +2142,10 @@ def _write_judge_prep_artifacts(
     profiles: list[str],
     client: Any,
     observed_envelopes: dict[str, dict[str, Any]],
+    *,
+    config_path: Path | str | None = None,
 ) -> None:
-    """Write `inputs/scenarios/`, `inputs/charts/`, and `run_meta.json` so `scripts/judge-prep.py`
-    and `review/bin/review.py --rejudge <run_dir> --blind` work directly on WAHS profile runs.
-    """
+    """Write `inputs/scenarios/`, `inputs/charts/`, and `run_meta.json` for blind judging."""
     scenarios_dir = run_dir / "inputs" / "scenarios"
     charts_dir = run_dir / "inputs" / "charts"
     scenarios_dir.mkdir(parents=True, exist_ok=True)
@@ -1742,19 +2154,18 @@ def _write_judge_prep_artifacts(
     backends_meta: dict[str, dict[str, Any]] = {}
     arm_cards_meta: dict[str, dict[str, Any]] = {}
     for pid in profiles:
-        _, api_pid, eff_b, _b_tag = _split_profile_budget(pid)
-        fam, underlying, inc_kb = _infer_model_family_and_id(pid)
-        ret_strat = _infer_retrieval_strategy(pid)
-        provider_kind = "raw-fhir" if api_pid.lower().startswith("raw-fhir:") else "wahs-engine"
-        label = _profile_display_label(pid)
+        parsed = parse_wahs_profile_spec(pid, config_path=config_path, strict=False)
+        fam, underlying = _infer_model_family_and_id(pid, config_path=config_path)
+        provider_kind = "raw-fhir" if parsed.kind == "raw-fhir" else "wahs-engine"
+        label = _profile_display_label(pid, config_path=config_path)
         backends_meta[pid] = {
             "label": label,
             "kind": "provider_arm",
             "provider": provider_kind,
             "modelName": underlying,
-            "profile": api_pid,
-            "retrieval_strategy": ret_strat,
-            "budget_tokens": eff_b,
+            "profile": parsed.api_profile_id,
+            "wahs_profile": parsed.wahs_profile,
+            "budget_tokens": parsed.budget_tokens,
             "answer_model": underlying,
         }
         arm_cards_meta[pid] = {
@@ -1764,9 +2175,8 @@ def _write_judge_prep_artifacts(
             "models": [{"id": underlying, "family": fam}],
             "roles": {"synthesizer": {"id": underlying, "family": fam}},
             "answer_model": underlying,
-            "include_kb_findings": inc_kb,
-            "retrieval_strategy": ret_strat,
-            "budget_tokens": eff_b,
+            "wahs_profile": parsed.wahs_profile,
+            "budget_tokens": parsed.budget_tokens,
         }
 
     _write_run_meta_preserving_hardware(
@@ -1778,7 +2188,13 @@ def _write_judge_prep_artifacts(
         },
         client=client,
     )
-    _write_scenario_and_chart_inputs(run_dir, cases, observed_envelopes, client=client)
+    _write_scenario_and_chart_inputs(
+        run_dir,
+        cases,
+        observed_envelopes,
+        client=client,
+        config_path=config_path,
+    )
 
 
 def _merge_scenario_envelopes(
@@ -1802,13 +2218,13 @@ def _merge_scenario_envelopes(
 
         primary_maps = (envelope.get("mappings") or []) if new_is_better else (merged.get("mappings") or [])
         secondary_maps = (merged.get("mappings") or []) if new_is_better else (envelope.get("mappings") or [])
-        by_idx: dict[int, dict[str, Any]] = {}
+        by_idx: dict[Any, dict[str, Any]] = {}
         seen_uuids: set[str] = set()
         extra_maps: list[dict[str, Any]] = []
         for m in primary_maps:
             if isinstance(m, dict):
                 idx = m.get("index")
-                if isinstance(idx, int) and idx not in by_idx:
+                if idx is not None and idx not in by_idx:
                     by_idx[idx] = m
                 ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
                 if ru:
@@ -1817,14 +2233,16 @@ def _merge_scenario_envelopes(
             if isinstance(m, dict):
                 idx = m.get("index")
                 ru = str(m.get("resourceUuid") or "").replace("urn:uuid:", "")
-                if isinstance(idx, int) and idx not in by_idx:
+                if idx is not None and idx not in by_idx:
                     by_idx[idx] = m
                     if ru:
                         seen_uuids.add(ru)
                 elif ru and ru not in seen_uuids:
                     seen_uuids.add(ru)
                     extra_maps.append(m)
-        merged["mappings"] = [by_idx[k] for k in sorted(by_idx)] + extra_maps
+        int_keys = sorted(k for k in by_idx if isinstance(k, int))
+        str_keys = sorted((k for k in by_idx if not isinstance(k, int)), key=str)
+        merged["mappings"] = [by_idx[k] for k in [*int_keys, *str_keys]] + extra_maps
 
     vset: set[str] = set()
     for src in (existing_env or {}, envelope):
@@ -1844,43 +2262,23 @@ def _merge_scenario_envelopes(
     return merged
 
 
-_WAHS_CATEGORY_BY_ID = {
-    "q01": "Medication Reconciliation & Conflicts",
-    "q02": "Medication Reconciliation & Conflicts",
-    "q03": "Medication Reconciliation & Conflicts",
-    "q04": "Conditions, Labs & Vitals",
-    "q05": "Conditions, Labs & Vitals",
-    "q06": "Conditions, Labs & Vitals",
-    "q07": "Conditions, Labs & Vitals",
-    "q08": "Conditions, Labs & Vitals",
-    "q09": "Conditions, Labs & Vitals",
-    "q10": "Conditions, Labs & Vitals",
-    "q14": "Conditions, Labs & Vitals",
-    "q11": "Immunizations, Allergies & Devices",
-    "q12": "Immunizations, Allergies & Devices",
-    "q13": "Immunizations, Allergies & Devices",
-    "q15": "Immunizations, Allergies & Devices",
-    "p01": "Third-Party & Bystander Privacy",
-    "p02": "Third-Party & Bystander Privacy",
-    "p05": "Third-Party & Bystander Privacy",
-    "p08": "Third-Party & Bystander Privacy",
-    "p10": "Third-Party & Bystander Privacy",
-    "p03": "Access Control, Sensitivity & Injection",
-    "p04": "Access Control, Sensitivity & Injection",
-    "p06": "Access Control, Sensitivity & Injection",
-    "p07": "Access Control, Sensitivity & Injection",
-    "p09": "Access Control, Sensitivity & Injection",
-}
-_WAHS_CASE_Q_RE = re.compile(r"^(?:wahs_sheet_)?([qp]\d{2})(?:__|$)", re.IGNORECASE)
-
-
-def _scenario_category_for_case(case: WahsEvalCase) -> str:
-    m = _WAHS_CASE_Q_RE.match(str(case.case_id or ""))
-    if m:
-        mapped = _WAHS_CATEGORY_BY_ID.get(m.group(1).lower())
-        if mapped:
-            return mapped
-    raw_cat = str(case.patient_category or case.use_case or "").strip()
+def _scenario_category_for_case(
+    case: WahsEvalCase,
+    *,
+    config_path: Path | str | None = None,
+) -> str:
+    cfg = load_wahs_profiles_config(config_path)
+    cat_map = cfg["scenario_categories"]
+    for cand in (case.case_id, case.question_id):
+        m = _WAHS_CASE_Q_RE.match(str(cand or "").strip())
+        if m:
+            mapped = cat_map.get(m.group(1).lower())
+            if mapped:
+                return mapped
+        low_cand = str(cand or "").strip().lower()
+        if low_cand in cat_map:
+            return cat_map[low_cand]
+    raw_cat = str(case.category or case.patient_category or case.use_case or "").strip()
     return raw_cat or "Clinical Q&A"
 
 
@@ -1894,9 +2292,7 @@ def _probe_live_hardware(client: Any) -> dict[str, Any] | None:
     base = str(getattr(client, "direct_llm_base_url", None) or getattr(client, "base_url", "") or "").rstrip("/")
     if not base:
         return None
-    hw: dict[str, Any] = {}
-    if base:
-        hw["inference_endpoint"] = base
+    hw: dict[str, Any] = {"inference_endpoint": base}
     try:
         resp = sess.get(f"{base}/api/ps", timeout=0.5)
         if getattr(resp, "status_code", 0) == 200:
@@ -2214,6 +2610,8 @@ def _write_scenario_input_file(
     scenarios_dir: Path,
     case: WahsEvalCase,
     scenario_id: str,
+    *,
+    config_path: Path | str | None = None,
 ) -> None:
     scenarios_dir.mkdir(parents=True, exist_ok=True)
     _, _, seed_part = scenario_id.partition("__s")
@@ -2229,9 +2627,7 @@ def _write_scenario_input_file(
         if seed_part
         else f"{case.use_case}: {case.case_id}"
     )
-    rubric_bits: list[str] = [
-        f"Use case: {case.use_case} (sharing_posture={case.sharing_posture})."
-    ]
+    rubric_bits: list[str] = [f"Use case: {case.use_case}."]
     if case.what_it_tests.strip():
         rubric_bits.append(case.what_it_tests.strip())
     if case.expected_answer.strip():
@@ -2254,11 +2650,15 @@ def _write_scenario_input_file(
     }
     if case.expected_answer.strip():
         expectations_payload["expected_answer"] = case.expected_answer.strip()
+    resolved_category = str(
+        existing_scen.get("category")
+        or _scenario_category_for_case(case, config_path=config_path)
+    )
     scen_obj = {
         **existing_scen,
         "id": scenario_id,
         "title": str(existing_scen.get("title") or default_title),
-        "category": str(existing_scen.get("category") or _scenario_category_for_case(case)),
+        "category": resolved_category,
         "patient_ref": scenario_id,
         "should_abstain": case.must_abstain,
         "what_it_tests": what_it_tests_str,
@@ -2275,6 +2675,7 @@ def _write_scenario_and_chart_inputs(
     *,
     client: Any = None,
     scenario_ids: list[str] | None = None,
+    config_path: Path | str | None = None,
 ) -> None:
     from harness.validate.context_store import ensure_scenario_chart_input
 
@@ -2299,7 +2700,7 @@ def _write_scenario_and_chart_inputs(
         case = cases_by_id.get(base_cid)
         if case is None:
             continue
-        _write_scenario_input_file(scenarios_dir, case, scenario_id)
+        _write_scenario_input_file(scenarios_dir, case, scenario_id, config_path=config_path)
         lossless_env = _lossless_for_case(case)
         target_env = lossless_env or observed_envelopes.get(scenario_id)
         if target_env is not None:
@@ -2328,6 +2729,8 @@ def run_wahs_suite(
     dataset_version: str = "2026.11",
     resume_from: Path | str | None = None,
     bundle_dirs: Sequence[Path | str] | None = None,
+    profiles_config_path: Path | str | None = None,
+    prompt_override: str | None = None,
 ) -> WahsRunResult:
     """Execute a WAHS profile suite against `client` and freeze all artifacts in `<output_dir>/<run_id>`."""
     from harness.validate.context_store import (
@@ -2339,6 +2742,13 @@ def run_wahs_suite(
     active_profiles = [str(p).strip() for p in (profiles or ()) if str(p).strip()]
     if not active_profiles:
         raise ValueError("profiles must contain at least one non-empty WAHS profile ID")
+
+    eff_config_path = profiles_config_path or getattr(client, "profiles_config_path", None)
+    eff_prompt_override = prompt_override or getattr(client, "prompt_override", None)
+    if eff_config_path and hasattr(client, "profiles_config_path") and getattr(client, "profiles_config_path") is None:
+        client.profiles_config_path = Path(eff_config_path).expanduser()
+    if eff_prompt_override and hasattr(client, "prompt_override") and getattr(client, "prompt_override") is None:
+        client.prompt_override = str(eff_prompt_override)
 
     if budgets is not None:
         for b in budgets:
@@ -2455,8 +2865,7 @@ def run_wahs_suite(
     frozen_cases_path.write_bytes(cases_bytes)
 
     uses_wahs_engine = any(
-        p.lower().startswith(("wahs-engine-", "wahs-engine:"))
-        for p in active_profiles
+        not p.lower().startswith("raw-fhir:") for p in active_profiles
     )
     frozen_provenance = copy_target_provenance(target_provenance)
     manifest = RunManifest(
@@ -2485,6 +2894,8 @@ def run_wahs_suite(
     if budgets is not None:
         manifest_payload["budgets"] = [int(b) for b in budgets]
     manifest_payload["profiles"] = active_profiles
+    if eff_prompt_override:
+        manifest_payload["prompt_override"] = eff_prompt_override
     if seeds is not None:
         manifest_payload["seeds"] = [int(s) for s in seeds]
     manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8")
@@ -2545,16 +2956,17 @@ def run_wahs_suite(
 
     scenarios_dir = inputs_dir / "scenarios"
     for sid, case_obj in scen_case_by_sid.items():
-        _write_scenario_input_file(scenarios_dir, case_obj, sid)
+        _write_scenario_input_file(scenarios_dir, case_obj, sid, config_path=eff_config_path)
     _write_scenario_and_chart_inputs(
         run_dir,
         cases,
         {},
         client=client,
         scenario_ids=list(scen_case_by_sid.keys()),
+        config_path=eff_config_path,
     )
     for prof_id in active_profiles:
-        label = _profile_display_label(prof_id)
+        label = _profile_display_label(prof_id, config_path=eff_config_path)
         append_event(
             events_path,
             {
@@ -2565,7 +2977,7 @@ def run_wahs_suite(
         )
     _write_run_meta_preserving_hardware(
         run_dir,
-        {"arm_cards": {bid: _wahs_arm_card(bid) for bid in active_profiles}},
+        {"arm_cards": {bid: _wahs_arm_card(bid, config_path=eff_config_path) for bid in active_profiles}},
         client=client,
     )
 
@@ -2585,8 +2997,22 @@ def run_wahs_suite(
     ) -> dict[str, Any]:
         score = score_wahs_case(case, full_envelope, budget_tokens=b_tokens)
         scores.append(score)
-        default_strat = _infer_retrieval_strategy(prof_id)
-        ret_strat = str(full_envelope.get("retrieval_strategy") or default_strat)
+        parsed_prof = parse_wahs_profile_spec(
+            prof_id,
+            b_tokens,
+            config_path=eff_config_path,
+            default_prompt=eff_prompt_override,
+            strict=False,
+        )
+        wahs_profile = str(full_envelope.get("wahs_profile") or parsed_prof.wahs_profile)
+        prompt_id = full_envelope.get("prompt_id") or parsed_prof.prompt_override
+        prompt_sha256 = full_envelope.get("prompt_sha256")
+        active_enrichers = list(
+            full_envelope.get("active_enrichers")
+            if isinstance(full_envelope.get("active_enrichers"), list)
+            else (parsed_prof.explicit_enrichers or parsed_prof.configured_enrichers)
+        )
+        enrichment_tokens = int(full_envelope.get("enrichment_tokens") or 0)
         slim_envelope = slim_response_envelope(
             run_dir,
             scenario_id,
@@ -2598,16 +3024,17 @@ def run_wahs_suite(
             "patient": case.patient_id,
             "prompt": case.prompt,
             "question": case.prompt,
-            "sharing_posture": case.sharing_posture,
             "budget_tokens": b_tokens,
-            "retrieval_strategy": ret_strat,
+            "wahs_profile": wahs_profile,
             "profile": prof_id,
         }
+        if prompt_id:
+            req_meta["prompt_id"] = prompt_id
         if seed_val is not None:
             req_meta["seed"] = seed_val
         if norm_temp is not None:
             req_meta["temperature"] = norm_temp
-        m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
+        m_fam, underlying_m = _infer_model_family_and_id(prof_id, config_path=eff_config_path)
         lat_ms = int(full_envelope.get("latency_ms") or 0)
         timings_obj = (
             dict(full_envelope["timings"])
@@ -2618,16 +3045,18 @@ def run_wahs_suite(
             "case_id": case.case_id,
             "patient_id": case.patient_id,
             "use_case": case.use_case,
-            "sharing_posture": case.sharing_posture,
             "budget_tokens": b_tokens,
-            "retrieval_strategy": ret_strat,
+            "wahs_profile": wahs_profile,
+            "prompt_id": prompt_id,
+            "prompt_sha256": prompt_sha256,
+            "active_enrichers": active_enrichers,
+            "enrichment_tokens": enrichment_tokens,
             "request": req_meta,
             "response": slim_envelope,
             "score": score.to_dict(),
             "profile_id": prof_id,
             "model_family": m_fam,
             "underlying_model": underlying_m,
-            "include_kb_findings": inc_kb,
             "scenario_id": scenario_id,
             "backend_id": prof_id,
             "turn": 1,
@@ -2649,10 +3078,13 @@ def run_wahs_suite(
         cell_meta_list.append(
             {
                 "profile_id": prof_id,
+                "wahs_profile": wahs_profile,
+                "prompt_id": prompt_id,
+                "prompt_sha256": prompt_sha256,
+                "active_enrichers": active_enrichers,
+                "enrichment_tokens": enrichment_tokens,
                 "model_family": m_fam,
                 "underlying_model": underlying_m,
-                "include_kb_findings": inc_kb,
-                "retrieval_strategy": ret_strat,
                 "seed": seed_val,
                 "latency_ms": lat_ms,
                 "timings": timings_obj,
@@ -2680,7 +3112,7 @@ def run_wahs_suite(
             or os.environ.get("WAHS_WARMUP_ON_MODEL_SWITCH") == "force"
         ):
             return
-        _, underlying_m, _ = _infer_model_family_and_id(prof_id)
+        _, underlying_m = _infer_model_family_and_id(prof_id, config_path=eff_config_path)
         model_arg = str(underlying_m or "").strip()
         if not model_arg:
             return
@@ -2734,28 +3166,36 @@ def run_wahs_suite(
         err_msg = f"{type(exc).__name__}: {exc}"[:500]
         score = _missing_cell_score(case, b_tokens, reason=err_msg)
         scores.append(score)
-        default_strat = _infer_retrieval_strategy(prof_id)
+        parsed_prof = parse_wahs_profile_spec(
+            prof_id,
+            b_tokens,
+            config_path=eff_config_path,
+            default_prompt=eff_prompt_override,
+            strict=False,
+        )
         req_meta: dict[str, Any] = {
             "patient": case.patient_id,
             "prompt": case.prompt,
             "question": case.prompt,
-            "sharing_posture": case.sharing_posture,
             "budget_tokens": b_tokens,
-            "retrieval_strategy": default_strat,
+            "wahs_profile": parsed_prof.wahs_profile,
             "profile": prof_id,
         }
         if seed_val is not None:
             req_meta["seed"] = seed_val
         if norm_temp is not None:
             req_meta["temperature"] = norm_temp
-        m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
+        m_fam, underlying_m = _infer_model_family_and_id(prof_id, config_path=eff_config_path)
         row: dict[str, Any] = {
             "case_id": case.case_id,
             "patient_id": case.patient_id,
             "use_case": case.use_case,
-            "sharing_posture": case.sharing_posture,
             "budget_tokens": b_tokens,
-            "retrieval_strategy": default_strat,
+            "wahs_profile": parsed_prof.wahs_profile,
+            "prompt_id": parsed_prof.prompt_override,
+            "prompt_sha256": None,
+            "active_enrichers": [],
+            "enrichment_tokens": 0,
             "request": req_meta,
             "response": None,
             "error": err_msg,
@@ -2763,7 +3203,6 @@ def run_wahs_suite(
             "profile_id": prof_id,
             "model_family": m_fam,
             "underlying_model": underlying_m,
-            "include_kb_findings": inc_kb,
             "scenario_id": scenario_id,
             "backend_id": prof_id,
             "turn": 1,
@@ -2785,10 +3224,13 @@ def run_wahs_suite(
         cell_meta_list.append(
             {
                 "profile_id": prof_id,
+                "wahs_profile": parsed_prof.wahs_profile,
+                "prompt_id": parsed_prof.prompt_override,
+                "prompt_sha256": None,
+                "active_enrichers": [],
+                "enrichment_tokens": 0,
                 "model_family": m_fam,
                 "underlying_model": underlying_m,
-                "include_kb_findings": inc_kb,
-                "retrieval_strategy": default_strat,
                 "seed": seed_val,
                 "latency_ms": 0,
                 "timings": {},
@@ -2815,11 +3257,13 @@ def run_wahs_suite(
         active_profiles,
         client,
         {},
+        config_path=eff_config_path,
     )
 
     summary = _summarize_scores(
         scores,
         cell_meta_list=cell_meta_list,
+        config_path=eff_config_path,
     )
     summary_path = run_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
@@ -2829,6 +3273,7 @@ def run_wahs_suite(
         scores=scores,
         cell_meta_list=cell_meta_list,
         summary=summary,
+        config_path=eff_config_path,
     )
     append_event(
         events_path,
@@ -2858,13 +3303,9 @@ def score_wahs_run(
     *,
     patients_summary: str | None = None,
     bundle_dirs: Sequence[Path | str] | None = None,
+    profiles_config_path: Path | str | None = None,
 ) -> dict[str, Any]:
-    """Re-score a frozen WAHS run directory offline without network or target access.
-
-    Compares recorded `results.jsonl` rows against the frozen suite's expected
-    `(case_id, budget_tokens[, profile_id, seed])` matrix so interrupted or partial runs
-    are flagged as incomplete and missing/error cells count as failed.
-    """
+    """Re-score a frozen WAHS run directory offline without network or target access."""
     rdir = Path(run_dir)
     cases_path = rdir / "inputs" / "cases.jsonl"
     if not cases_path.is_file():
@@ -2953,7 +3394,7 @@ def score_wahs_run(
         for cid, b_tokens, c_arm, c_mode, prof_id, seed_val in expected_keys:
             case = cases_by_id[cid]
             row = recorded_rows.get((cid, b_tokens, c_arm, c_mode, prof_id, seed_val))
-            default_strat = _infer_retrieval_strategy(prof_id)
+            default_w_prof = _infer_wahs_profile(prof_id, config_path=profiles_config_path)
             if row is None or row.get("error") or not isinstance(row.get("response"), dict):
                 err_msg = (
                     f"evaluation error for cell ({cid}, {b_tokens}): {row.get('error')}"
@@ -2968,14 +3409,19 @@ def score_wahs_run(
                     missing_entry["condense_mode"] = c_mode
                 missing_cells.append(missing_entry)
                 if prof_id:
-                    m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
+                    m_fam, underlying_m = _infer_model_family_and_id(
+                        prof_id, config_path=profiles_config_path
+                    )
                     cell_meta_list.append(
                         {
                             "profile_id": prof_id,
+                            "wahs_profile": default_w_prof,
+                            "prompt_id": row.get("prompt_id") if row else None,
+                            "prompt_sha256": row.get("prompt_sha256") if row else None,
+                            "active_enrichers": [],
+                            "enrichment_tokens": 0,
                             "model_family": m_fam,
                             "underlying_model": underlying_m,
-                            "include_kb_findings": inc_kb,
-                            "retrieval_strategy": default_strat,
                             "seed": seed_val,
                             "latency_ms": 0,
                             "timings": {},
@@ -2999,11 +3445,13 @@ def score_wahs_run(
                     row["request"] = req_d
                 req_d.setdefault("patient", str(row.get("patient_id") or case.patient_id))
                 if prof_id:
-                    m_fam, underlying_m, inc_kb = _infer_model_family_and_id(prof_id)
-                    ret_strat = str(
-                        row.get("retrieval_strategy")
-                        or env.get("retrieval_strategy")
-                        or default_strat
+                    m_fam, underlying_m = _infer_model_family_and_id(
+                        prof_id, config_path=profiles_config_path
+                    )
+                    w_prof = str(
+                        row.get("wahs_profile")
+                        or env.get("wahs_profile")
+                        or default_w_prof
                     )
                     timings_obj = (
                         dict(env["timings"]) if isinstance(env.get("timings"), dict) else {}
@@ -3011,10 +3459,21 @@ def score_wahs_run(
                     cell_meta_list.append(
                         {
                             "profile_id": prof_id,
+                            "wahs_profile": w_prof,
+                            "prompt_id": row.get("prompt_id") or env.get("prompt_id"),
+                            "prompt_sha256": row.get("prompt_sha256") or env.get("prompt_sha256"),
+                            "active_enrichers": list(
+                                row.get("active_enrichers")
+                                or env.get("active_enrichers")
+                                or []
+                            ),
+                            "enrichment_tokens": int(
+                                row.get("enrichment_tokens")
+                                or env.get("enrichment_tokens")
+                                or 0
+                            ),
                             "model_family": str(row.get("model_family") or m_fam),
                             "underlying_model": str(row.get("underlying_model") or underlying_m),
-                            "include_kb_findings": bool(row.get("include_kb_findings", inc_kb)),
-                            "retrieval_strategy": ret_strat,
                             "seed": seed_val,
                             "latency_ms": int(env.get("latency_ms") or 0),
                             "timings": timings_obj,
@@ -3025,8 +3484,6 @@ def score_wahs_run(
             scores.append(score)
             exp_fh.write(json.dumps(score.to_dict()) + "\n")
 
-    # Non-destructive scoring: never rewrite results.jsonl here; only backfill missing
-    # inputs/charts/*.json or inputs/scenarios/*.json when a legacy run lacks them.
     missing_scenario_files = {
         str(row.get("scenario_id") or row.get("case_id") or "")
         for row in recorded_rows.values()
@@ -3050,18 +3507,24 @@ def score_wahs_run(
                     env,
                 )
         if observed_envelopes:
-            resolver_client = WahsHubClient(bundle_dirs=bundle_dirs) if bundle_dirs else None
+            resolver_client = (
+                WahsHubClient(bundle_dirs=bundle_dirs, profiles_config_path=profiles_config_path)
+                if bundle_dirs
+                else None
+            )
             _write_scenario_and_chart_inputs(
                 rdir,
                 cases,
                 observed_envelopes,
                 client=resolver_client,
+                config_path=profiles_config_path,
             )
 
     summary = _summarize_scores(
         scores,
         missing_cells=missing_cells,
         cell_meta_list=cell_meta_list,
+        config_path=profiles_config_path,
     )
     (rdir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     _sync_wahs_run_metadata(
@@ -3071,6 +3534,7 @@ def score_wahs_run(
         cell_meta_list=cell_meta_list,
         summary=summary,
         patients_summary=patients_summary,
+        config_path=profiles_config_path,
     )
     return summary
 
@@ -3078,7 +3542,7 @@ def score_wahs_run(
 _WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
     "Maurice742_Auer97": {
         "badge": "Synthea Longitudinal Chart",
-        "display": "Maurice Auer — Multi-year outpatient & inpatient history (~94k tokens)",
+        "display": "Maurice Auer: Multi-year outpatient & inpatient history (~94k tokens)",
         "medications": [
             "Tacrolimus / cardiovascular longitudinal history",
             "Multi-specialty renal, cardiac & primary care",
@@ -3087,7 +3551,7 @@ _WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
     },
     "Maurice742_Auer97_set_b": {
         "badge": "Synthea Longitudinal Chart",
-        "display": "Maurice Auer — Multi-year outpatient & inpatient history (~94k tokens)",
+        "display": "Maurice Auer: Multi-year outpatient & inpatient history (~94k tokens)",
         "medications": [
             "Tacrolimus (immunosuppression)",
             "Furosemide / Warfarin longitudinal history",
@@ -3107,7 +3571,7 @@ _WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
     },
     "MIMIC_10014354_ICU_Heme_Cardiorenal_set_b": {
         "badge": "MIMIC-IV ICU & Hematology Chart",
-        "display": "Complex ICU, Hematology & Cardiorenal Admission (~128k tokens; 1,100+ records across 2022–2026)",
+        "display": "Complex ICU, Hematology & Cardiorenal Admission (~128k tokens; 1,100+ records across 2022-2026)",
         "medications": [
             "Vancomycin (held for trough 28.4 ug/mL & acute kidney injury)",
             "Apixaban 5 mg BID (active) vs. Warfarin (discontinued)",
@@ -3126,7 +3590,7 @@ _WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
     },
     "Marcus_Vance_Oncology_Immunotherapy": {
         "badge": "Multi-Clinic Oncology & Immunotherapy",
-        "display": "Marcus Vance — Metastatic melanoma on checkpoint immunotherapy across clinics",
+        "display": "Marcus Vance: Metastatic melanoma on checkpoint immunotherapy across clinics",
         "medications": [
             "Pembrolizumab / immune-related colitis & thyroiditis monitoring",
             "Prednisone taper & oncology specialty notes",
@@ -3135,7 +3599,7 @@ _WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
     },
     "Elena_Rostova_Cardiorenal": {
         "badge": "Multi-Clinic Cardiorenal Chart",
-        "display": "Elena Rostova — HFrEF, CKD Stage 3b & hyperkalemia cross-clinic reconciliation",
+        "display": "Elena Rostova: HFrEF, CKD Stage 3b & hyperkalemia cross-clinic reconciliation",
         "medications": [
             "Sacubitril/Valsartan, Empagliflozin, Carvedilol & Spironolactone",
             "Cross-clinic potassium & creatinine longitudinal trends",
@@ -3144,10 +3608,10 @@ _WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
     },
     "Margaret_Chen_Polypharmacy": {
         "badge": "Polypharmacy & 42 CFR Part 2 / MHMDA Privacy",
-        "display": "Margaret Chen — Multi-clinic polypharmacy with protected behavioral health / SDOH records",
+        "display": "Margaret Chen: Multi-clinic polypharmacy with protected behavioral health / SDOH records",
         "medications": [
             "Diabetes, hypertension & geriatric polypharmacy regimen",
-            "Protected SDOH & behavioral health entries gated under external_share",
+            "Protected SDOH & behavioral health entries",
         ],
         "chart_url": "https://wahs-demo.openclinai.org/",
     },
@@ -3193,14 +3657,21 @@ def _wahs_patient_profile(patient_id: str) -> dict[str, Any]:
     }
 
 
-def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
+def _wahs_arm_card(
+    backend_id: str,
+    *,
+    config_path: Path | str | None = None,
+) -> dict[str, Any]:
     raw_id = str(backend_id or "").strip()
-    base_id, _, budget_tag = raw_id.partition("@")
+    parsed = parse_wahs_profile_spec(raw_id, config_path=config_path, strict=False)
+    budget_tag = parsed.budget_tag or ""
     budget_suffix = f" · {budget_tag} chart" if budget_tag else ""
     short_budget = f" ({budget_tag})" if budget_tag else ""
+    prompt_title_tag = f" · prompt={parsed.inline_prompt}" if parsed.inline_prompt else ""
+    prompt_short_tag = f" [{parsed.inline_prompt}]" if parsed.inline_prompt else ""
 
-    m_fam, underlying, inc_kb = _infer_model_family_and_id(raw_id)
-    b_low = base_id.lower()
+    underlying = parsed.model_id or parsed.api_profile_id
+    b_low = parsed.api_profile_id.lower()
     u_low = underlying.lower()
 
     model_info: dict[str, str] = {"family": "Gemma 4", "params": "12B", "quant": "Q8_0"}
@@ -3218,7 +3689,7 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         model_info = {"family": "Qwen 3.5", "params": "9B", "quant": "Q6_K"}
         short_model = "Qwen 3.5 9B"
         full_model = "Qwen 3.5 9B"
-    elif "qwen3-14b" in b_low or "qwen3-14b" in u_low:
+    elif "qwen3-14b" in b_low or "qwen3-14b" in u_low or "qwen3:14b" in u_low:
         model_info = {"family": "Qwen 3", "params": "14B", "quant": "Q8_0"}
         short_model = "Qwen3 14B"
         full_model = "Qwen 3 14B"
@@ -3226,7 +3697,7 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         model_info = {"family": "Llama 3", "params": "3B", "quant": "Q8_0"}
         short_model = "Llama 3.2 3B"
         full_model = "Llama 3.2 3B"
-    elif "llama31-8b" in b_low or "llama-3.1-8b" in u_low:
+    elif "llama31-8b" in b_low or "llama-3.1-8b" in u_low or "llama3.1:8b" in u_low:
         model_info = {"family": "Llama 3", "params": "8B", "quant": "Q8_0"}
         short_model = "Llama 3.1 8B"
         full_model = "Llama 3.1 8B"
@@ -3263,58 +3734,36 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         short_model = "Liquid 24B"
         full_model = "Liquid LFM2 24B"
 
-    if b_low.startswith("wahs-engine-baseline:"):
-        title = f"WAHS Engine · Verbatim Condensation & Provenance ({full_model}{budget_suffix})"
-        short_title = f"WAHS Engine ({short_model}{short_budget})"
-        path_desc = (
-            "Standalone wahs-engine baseline: multi-source FHIR deduplication, continuous "
-            "verbatim-first chart condensation within the model context window, and [N] source provenance"
-        )
-    elif b_low.startswith("wahs-engine-kb:") or b_low.startswith("wahs-engine:"):
-        title = f"WAHS Engine · Condensation + 4-Layer KB ({full_model}{budget_suffix})"
-        short_title = f"Engine KB ({short_model}{short_budget})"
-        path_desc = (
-            "Standalone wahs-engine: multi-source FHIR deduplication + tiered chart condensation "
-            "+ Tier-0 overflow recovery + deterministic 4-Layer Clinical KB"
-        )
-    elif b_low.startswith("wahs-engine-rag:"):
-        title = f"WAHS Engine · Condensation + BM25 Note RAG ({full_model}{budget_suffix})"
-        short_title = f"Engine Note-RAG ({short_model}{short_budget})"
-        path_desc = (
-            "Standalone wahs-engine: condensed chart + single-patient BM25 passage retrieval over "
-            "long clinical notes & diagnostic reports mapped to exact FHIR UUIDs + 4-Layer KB"
-        )
-    elif b_low.startswith("wahs-engine-tools:"):
-        title = f"WAHS Engine · Dynamic FHIR Tool Querying ({full_model}{budget_suffix})"
-        short_title = f"Engine Tools ({short_model}{short_budget})"
-        path_desc = (
-            "Standalone wahs-engine: compact <=2k IPS safety header + active multi-round OpenAI "
-            "tool calling (search_chart_entries, get_lab_history, read_clinical_note)"
-        )
-    elif b_low.startswith("wahs-engine-chart:"):
-        title = f"WAHS Engine · Condensed Chart Only ({full_model}{budget_suffix})"
-        short_title = f"Engine Chart ({short_model}{short_budget})"
-        path_desc = (
-            "Standalone wahs-engine: condensed chart with [N] citation mapping only "
-            "(4-Layer Clinical KB and overflow tools disabled)"
-        )
-    elif b_low.startswith("raw-fhir:"):
-        title = f"Offline Raw FHIR Baseline · No Condensation ({full_model}{budget_suffix})"
-        short_title = f"Raw FHIR ({short_model}{short_budget})"
+    prof_cfg = parsed.profile_config
+    if parsed.kind == "raw-fhir":
+        title = f"Offline Raw FHIR Baseline · No Condensation ({full_model}{budget_suffix}{prompt_title_tag})"
+        short_title = f"Raw FHIR · {short_model}{short_budget}{prompt_short_tag}"
         path_desc = (
             "Offline Raw Chart Baseline: uncondensed raw FHIR R4 Bundle JSON (with UTF-8 decoded clinical note attachments) "
             "without wahs-engine deduplication, condensation, or [N] citation mapping"
         )
-    else:
-        arm_label = base_id or raw_id or "custom"
-        title = f"WAHS Arm · {arm_label} ({full_model}{budget_suffix})"
-        short_title = f"{arm_label} ({short_model}{short_budget})"
-        path_desc = (
-            f"WAHS evaluation arm {raw_id or arm_label}"
-            + (" (with KB findings)" if inc_kb else "")
+    elif parsed.kind == "wahs" and parsed.explicit_enrichers and not prof_cfg:
+        mods_title = " + ".join(parsed.explicit_enrichers)
+        mods_short = "+".join(parsed.explicit_enrichers)
+        title = f"WAHS + {mods_title} ({full_model}{budget_suffix}{prompt_title_tag})"
+        short_title = f"+{mods_short} · {short_model}{short_budget}{prompt_short_tag}"
+        path_desc = f"Standalone wahs-engine verbatim condensation + ad-hoc enrichers ({mods_title})"
+    elif parsed.kind == "wahs" and prof_cfg:
+        title_suffix = str(prof_cfg.get("title_suffix") or f"WAHS {parsed.wahs_profile}")
+        short_suffix = str(prof_cfg.get("short_suffix") or parsed.wahs_profile)
+        title = f"{title_suffix} ({full_model}{budget_suffix}{prompt_title_tag})"
+        short_title = f"{short_suffix} · {short_model}{short_budget}{prompt_short_tag}"
+        path_desc = str(
+            prof_cfg.get("description")
+            or f"Standalone wahs-engine profile {parsed.wahs_profile!r}"
         )
+    else:
+        arm_label = parsed.wahs_profile or parsed.api_profile_id or raw_id or "custom"
+        title = f"WAHS Arm · {arm_label} ({full_model}{budget_suffix}{prompt_title_tag})"
+        short_title = f"{arm_label} · {short_model}{short_budget}{prompt_short_tag}"
+        path_desc = f"WAHS evaluation arm {raw_id or arm_label}"
 
-    model_info["id"] = underlying or base_id
+    model_info["id"] = underlying or raw_id
     return {
         "title": title,
         "short_title": short_title,
@@ -3359,9 +3808,9 @@ def _build_wahs_domain_guardrails(
     raw_pairs: list[tuple[WahsCaseScore, WahsEvalCase | None]] = []
     for idx, s in enumerate(scores):
         meta = cell_meta_list[idx] if idx < len(cell_meta_list) else {}
-        strat = str(meta.get("retrieval_strategy") or "")
+        w_prof = str(meta.get("wahs_profile") or "")
         c_obj = cases_by_id.get(s.case_id)
-        if strat == "offline_raw_ablation":
+        if w_prof == "raw-fhir":
             raw_pairs.append((s, c_obj))
         else:
             engine_pairs.append((s, c_obj))
@@ -3398,13 +3847,13 @@ def _build_wahs_domain_guardrails(
         out.append(
             _guardrail_entry(
                 "citation_uuid_resolution",
-                "Inline [N] Citation UUID Resolution Gate",
+                "Inline [N] / [K] Citation Resolution Gate",
                 engine_scope,
                 c_passed,
                 c_total,
                 status="pass" if unresolved_cites == 0 else ("warn" if rate >= 0.95 else "fail"),
                 detail=(
-                    f"{c_passed}/{c_total} cells had zero unresolved inline [N] citations "
+                    f"{c_passed}/{c_total} cells had zero unresolved inline [N] or [K] citations "
                     f"({resolved_cites}/{total_cites} cited indices resolved; "
                     f"{unresolved_cites} unresolved)"
                 ),
@@ -3427,7 +3876,7 @@ def _build_wahs_domain_guardrails(
                 raw_total,
                 status="ablation",
                 detail=(
-                    "Truncated raw FHIR R4 JSON without WAHS Engine condensation or "
+                    "Uncondensed raw FHIR R4 JSON without WAHS Engine condensation or "
                     f"[N] UUID citation map ({raw_passed}/{raw_total} passed budget & citation checks)"
                 ),
             )
@@ -3444,10 +3893,9 @@ def _sync_wahs_run_metadata(
     cell_meta_list: list[dict[str, Any]],
     summary: dict[str, Any],
     patients_summary: str | None = None,
+    config_path: Path | str | None = None,
 ) -> list[dict[str, Any]]:
-    """Write standardized `run_manifest.json`, `run_meta.json`, and `domain_guardrails.json` so
-    `build_report(run_dir)` and `validate judge` compile WAHS runs identically to all other families.
-    """
+    """Write standardized `run_manifest.json`, `run_meta.json`, and `domain_guardrails.json`."""
     rdir = Path(run_dir)
     rows: list[dict[str, Any]] = []
     results_path = rdir / "results.jsonl"
@@ -3476,10 +3924,11 @@ def _sync_wahs_run_metadata(
             backend_ids.append(bid)
 
     manifest_path = rdir / "run_manifest.json"
-    if manifest_path.is_file():
-        manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    else:
-        manifest_data = {}
+    manifest_data = (
+        json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest_path.is_file()
+        else {}
+    )
 
     if isinstance(manifest_data, dict):
         manifest_data["family"] = "wahs"
@@ -3517,7 +3966,7 @@ def _sync_wahs_run_metadata(
                     f"({len(rows)} total evaluation cells)."
                 ),
                 "url": "https://openclinai.org/wahs/llm-strategy/",
-                "label": "WAHS LLM & Retrieval Strategy →",
+                "label": "WAHS LLM & Retrieval Strategy ->",
             }
         patients_map: dict[str, Any] = {}
         for c in cases:
@@ -3551,7 +4000,7 @@ def _sync_wahs_run_metadata(
     if backend_ids:
         _write_run_meta_preserving_hardware(
             rdir,
-            {"arm_cards": {bid: _wahs_arm_card(bid) for bid in backend_ids}},
+            {"arm_cards": {bid: _wahs_arm_card(bid, config_path=config_path) for bid in backend_ids}},
         )
 
     guardrails = _build_wahs_domain_guardrails(cases, scores, cell_meta_list)
@@ -3571,9 +4020,10 @@ def build_wahs_report_packet(
     *,
     patients_summary: str | None = None,
     bundle_dirs: Sequence[Path | str] | None = None,
+    profiles_config_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Generate a standard OpenClinAI v2 report packet (`report-data.json`, `dashboard-data.json`,
-    `run-summary.json`) for a completed WAHS run directory via the unified `build_report()` compiler.
+    `run-summary.json`) for a completed WAHS run directory via `build_report()`.
     """
     import shutil
     from harness.validate.report import build_report
@@ -3582,7 +4032,12 @@ def build_wahs_report_packet(
     if not (rdir / "results.jsonl").is_file():
         raise FileNotFoundError(f"results.jsonl not found in {rdir}")
 
-    summary = score_wahs_run(rdir, patients_summary=patients_summary, bundle_dirs=bundle_dirs)
+    summary = score_wahs_run(
+        rdir,
+        patients_summary=patients_summary,
+        bundle_dirs=bundle_dirs,
+        profiles_config_path=profiles_config_path,
+    )
 
     judge_path = rdir / "judge.jsonl"
     deterministic_actor_dir = rdir / "judges" / "wahs-deterministic-rubric-p1"

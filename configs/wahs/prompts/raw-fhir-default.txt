@@ -1,0 +1,7 @@
+{header_line}
+{raw_fhir_slice}
+
+Patient Question:
+{question}
+
+Answer strictly from the FHIR JSON above. Do not fabricate facts not present in the JSON.

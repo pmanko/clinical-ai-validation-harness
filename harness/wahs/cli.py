@@ -53,6 +53,14 @@ def _add_bundles_dir_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_profiles_config_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--profiles-config",
+        default=None,
+        help="Path to declarative WAHS profiles YAML (default: $WAHS_HARNESS_PROFILES_PATH or configs/wahs/profiles.yaml)",
+    )
+
+
 def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     wahs = parent.add_parser(
         "wahs",
@@ -98,7 +106,12 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         action="append",
         required=True,
         dest="profiles",
-        help="WAHS engine profile ID(s) (e.g. wahs-engine-kb:gemma-e4b@4k, wahs-engine-rag:qwen3.5-9b@4k, wahs-engine-tools:gemma-26b@4k, wahs-engine-chart:gemma-12b@16k, raw-fhir:gemma-e4b@4k) (repeatable)",
+        help="WAHS profile spec(s) (e.g. wahs:baseline:ollama/gemma4:26b@32k, wahs:core-enriched:ollama/gemma4:12b@32k, wahs+temporal+terminology_kb:ollama/gemma4:26b@32k, raw-fhir:ollama/gemma4:e4b@32k) (repeatable)",
+    )
+    run_p.add_argument(
+        "--prompt",
+        default=None,
+        help="Optional prompt template ID override forwarded to wahs-engine or resolved under $WAHS_HARNESS_PROMPTS_DIR",
     )
     run_p.add_argument(
         "--seeds",
@@ -124,6 +137,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         help="JSON file of caller-supplied target provenance objects",
     )
     _add_bundles_dir_arg(run_p)
+    _add_profiles_config_arg(run_p)
 
     score_p = sub.add_parser(
         "score",
@@ -131,6 +145,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     )
     score_p.add_argument("run_dir", help="Completed WAHS run directory")
     _add_bundles_dir_arg(score_p)
+    _add_profiles_config_arg(score_p)
 
     report_p = sub.add_parser(
         "report",
@@ -143,6 +158,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         help="Optional summary label for the patient cohort in run_manifest.json",
     )
     _add_bundles_dir_arg(report_p)
+    _add_profiles_config_arg(report_p)
 
     judge_p = sub.add_parser(
         "judge",
@@ -162,19 +178,29 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     judge_p.add_argument("--agent", default="claude", choices=("claude", "codex", "gemini", "human"))
     judge_p.add_argument("--work-dir", help="Working directory for judge prompt/session artifacts")
     _add_bundles_dir_arg(judge_p)
+    _add_profiles_config_arg(judge_p)
 
 
 def dispatch(args: argparse.Namespace) -> int:
     bundle_dirs = getattr(args, "bundle_dirs", None)
+    profiles_config = getattr(args, "profiles_config", None)
     if args.wahs_action == "score":
-        summary = score_wahs_run(Path(args.run_dir), bundle_dirs=bundle_dirs)
+        summary = score_wahs_run(
+            Path(args.run_dir),
+            bundle_dirs=bundle_dirs,
+            profiles_config_path=profiles_config,
+        )
         print(json.dumps(summary, indent=2))
         return 0 if (summary["passed_cells"] == summary["total_cells"] and not summary.get("incomplete")) else 1
 
     if args.wahs_action == "judge":
         from harness.validate.judge_runner import run_judge_command
 
-        score_wahs_run(Path(args.run_dir), bundle_dirs=bundle_dirs)
+        score_wahs_run(
+            Path(args.run_dir),
+            bundle_dirs=bundle_dirs,
+            profiles_config_path=profiles_config,
+        )
         return run_judge_command(args)
 
     if args.wahs_action == "report":
@@ -182,6 +208,7 @@ def dispatch(args: argparse.Namespace) -> int:
             Path(args.run_dir),
             patients_summary=getattr(args, "patients", None),
             bundle_dirs=bundle_dirs,
+            profiles_config_path=profiles_config,
         )
         print(json.dumps(packet, indent=2))
         return 0
@@ -193,11 +220,14 @@ def dispatch(args: argparse.Namespace) -> int:
             else None
         )
         parsed_seeds = _parse_seed_list(getattr(args, "seeds", None))
+        prompt_override = getattr(args, "prompt", None)
         client = WahsHubClient(
             base_url=args.hub_url,
             direct_llm_base_url=getattr(args, "direct_llm_url", None),
             direct_llm_api_key=getattr(args, "direct_llm_api_key", None),
             bundle_dirs=bundle_dirs,
+            profiles_config_path=profiles_config,
+            prompt_override=prompt_override,
         )
         result = run_wahs_suite(
             args.cases,
@@ -211,6 +241,8 @@ def dispatch(args: argparse.Namespace) -> int:
             target_provenance=provenance,
             resume_from=getattr(args, "resume", None),
             bundle_dirs=bundle_dirs,
+            profiles_config_path=profiles_config,
+            prompt_override=prompt_override,
         )
         print(json.dumps(result.summary, indent=2))
         return 0 if result.passed_cells == result.total_cells else 1
