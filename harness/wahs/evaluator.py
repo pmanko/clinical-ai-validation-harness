@@ -543,6 +543,69 @@ def _split_profile_budget(
     return f"{api_prof}@{b_tag}", api_prof, eff_b, b_tag
 
 
+def _decode_b64_utf8_text(raw_b64: str) -> str | None:
+    """Decode Base64 attachment text if it is valid UTF-8 with >=90% printable characters."""
+    cleaned = raw_b64.strip()
+    if not cleaned:
+        return None
+    try:
+        raw_bytes = base64.b64decode(cleaned, validate=True)
+        decoded = raw_bytes.decode("utf-8")
+    except Exception:
+        return None
+    if not decoded:
+        return ""
+    printable = sum(1 for ch in decoded if ch.isprintable() or ch in "\n\r\t")
+    if printable / len(decoded) >= 0.9:
+        return decoded
+    return None
+
+
+def _decode_raw_fhir_entry_attachments(resource: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of `resource` with Base64 text attachments decoded to UTF-8 strings."""
+    content = resource.get("content")
+    presented = resource.get("presentedForm")
+    has_content = isinstance(content, list) and bool(content)
+    has_presented = isinstance(presented, list) and bool(presented)
+    if not has_content and not has_presented:
+        return resource
+
+    out = dict(resource)
+    if has_content:
+        new_content: list[Any] = []
+        changed_c = False
+        for item in content:
+            if isinstance(item, dict) and isinstance(item.get("attachment"), dict):
+                att = item["attachment"]
+                raw_data = att.get("data")
+                if isinstance(raw_data, str):
+                    dec = _decode_b64_utf8_text(raw_data)
+                    if dec is not None:
+                        new_att = {**att, "data": dec}
+                        new_content.append({**item, "attachment": new_att})
+                        changed_c = True
+                        continue
+            new_content.append(item)
+        if changed_c:
+            out["content"] = new_content
+
+    if has_presented:
+        new_pf: list[Any] = []
+        changed_p = False
+        for pf in presented:
+            if isinstance(pf, dict) and isinstance(pf.get("data"), str):
+                dec = _decode_b64_utf8_text(pf["data"])
+                if dec is not None:
+                    new_pf.append({**pf, "data": dec})
+                    changed_p = True
+                    continue
+            new_pf.append(pf)
+        if changed_p:
+            out["presentedForm"] = new_pf
+
+    return out
+
+
 class WahsHubClient:
     """HTTP client for standalone `wahs-engine` (`/v1/chat/completions`, `/v1/wahs/context/preview`) and `raw-fhir` baselines."""
 
@@ -558,6 +621,7 @@ class WahsHubClient:
         direct_llm_api_key: str | None = None,
         direct_provider_flavor: str | None = None,
         direct_context_window: int = 32768,
+        decode_raw_fhir_attachments: bool = True,
     ) -> None:
         raw_base = (
             base_url or os.environ.get("MED_AGENT_HUB_BASE_URL", "http://127.0.0.1:8000")
@@ -580,6 +644,7 @@ class WahsHubClient:
             or ""
         ).strip().lower()
         self.direct_context_window = int(direct_context_window)
+        self.decode_raw_fhir_attachments = bool(decode_raw_fhir_attachments)
         self.timeout = timeout
         self.max_retries = max(0, int(max_retries))
         self.retry_backoff_s = max(0.0, float(retry_backoff_s))
@@ -979,6 +1044,8 @@ class WahsHubClient:
             res = entry.get("resource") if isinstance(entry, dict) else None
             if not isinstance(res, dict):
                 continue
+            if self.decode_raw_fhir_attachments:
+                res = _decode_raw_fhir_entry_attachments(res)
             serialized = json.dumps(res, separators=(",", ":"))
             if used_chars + len(serialized) + 2 > max_chars:
                 if kept_entries:
@@ -1031,9 +1098,19 @@ class WahsHubClient:
             if int(budget_tokens) > 4096
             else max(1, (len(raw_fhir_slice) + 3) // 4)
         )
+        if len(kept_entries) == len(entries):
+            header_line = (
+                f"Raw FHIR R4 Bundle (complete uncondensed chart: all {len(kept_entries)}/{len(entries)} entries included"
+                + ("; clinical note attachments decoded to UTF-8" if self.decode_raw_fhir_attachments else "")
+                + "):"
+            )
+        else:
+            header_line = (
+                f"Raw FHIR R4 Bundle Slice (uncondensed, truncated to <= {budget_tokens} tokens; "
+                f"{len(kept_entries)}/{len(entries)} entries fit):"
+            )
         user_prompt = (
-            f"Raw FHIR R4 Bundle Slice (uncondensed, truncated to <= {budget_tokens} tokens; "
-            f"{len(kept_entries)}/{len(entries)} entries fit):\n"
+            f"{header_line}\n"
             f"{raw_fhir_slice}\n\n"
             f"Patient Question:\n{case.prompt}\n\n"
             "Answer strictly from the FHIR JSON above. Do not fabricate facts not present in the JSON."
@@ -1108,7 +1185,13 @@ class WahsHubClient:
             "valid_uuids": retained_uuids,
             "actual_tokens": eff_actual_tokens,
             "budget_tokens": int(budget_tokens),
-            "tier_info": {"actual_tokens": eff_actual_tokens, "condense_mode": "raw_fhir_truncated"},
+            "tier_info": {
+                "actual_tokens": eff_actual_tokens,
+                "condense_mode": "raw_fhir_full" if len(kept_entries) == len(entries) else "raw_fhir_truncated",
+                "attachments_decoded": self.decode_raw_fhir_attachments,
+                "included_entries": len(kept_entries),
+                "total_entries": len(entries),
+            },
             "condensed_text": raw_fhir_slice,
             "redaction_notice": None,
             "latency_ms": wall_latency_ms,
@@ -1141,18 +1224,26 @@ class WahsHubClient:
             return False
         try:
             target_url = f"{self.base_url}/v1/chat/completions"
-            post_kwargs: dict[str, Any] = {"timeout": min(self.timeout, 120.0)}
+            post_kwargs: dict[str, Any] = {"timeout": min(self.timeout, 240.0)}
+            warmup_body: dict[str, Any] = {
+                "model": model_id,
+                "messages": [{"role": "user", "content": "ok"}],
+                "max_tokens": 4,
+                "stream": False,
+            }
             if self._direct_llm_api_key and self.direct_llm_base_url != self.base_url:
                 target_url = f"{self.direct_llm_base_url}/v1/chat/completions"
                 post_kwargs["headers"] = {"Authorization": f"Bearer {self._direct_llm_api_key}"}
+                use_litellm_ollama = (
+                    self.direct_provider_flavor in {"litellm", "ollama"}
+                    or "llm.co.dev.cirg.uw.edu" in self.direct_llm_base_url
+                )
+                if use_litellm_ollama:
+                    warmup_body["num_ctx"] = int(self.direct_context_window)
+                    warmup_body["reasoning_effort"] = "none"
             resp = post_fn(
                 target_url,
-                json={
-                    "model": model_id,
-                    "messages": [{"role": "user", "content": "ok"}],
-                    "max_tokens": 4,
-                    "stream": False,
-                },
+                json=warmup_body,
                 **post_kwargs,
             )
             return getattr(resp, "status_code", 0) == 200
@@ -3059,10 +3150,19 @@ _WAHS_PATIENT_PROFILES: dict[str, dict[str, Any]] = {
     },
     "Arthur_Pendelton_Anticoag": {
         "badge": "Anticoagulation & Cross-Clinic Reconciliation",
-        "display": "Arthur Pendelton — Atrial fibrillation anticoagulation switch & renal dosing",
+        "display": "Arthur Pendelton: Atrial fibrillation anticoagulation switch & renal dosing",
         "medications": [
             "Apixaban vs. Warfarin cross-clinic reconciliation",
             "INR & renal function monitoring",
+        ],
+        "chart_url": "https://wahs-demo.openclinai.org/",
+    },
+    "Sofia_Alvarez_Maternal_Endocrine": {
+        "badge": "Maternal, Endocrine & Privacy Chart",
+        "display": "Sofia Alvarez: Pregnancy-adjacent hypertension, CKD Stage 3a, latex allergy, and sensitive social history",
+        "medications": [
+            "Amlodipine / Norvasc 5 mg duplicate reconciliation",
+            "Ibuprofen NSAID renal and maternal safety review",
         ],
         "chart_url": "https://wahs-demo.openclinai.org/",
     },
@@ -3161,11 +3261,11 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         full_model = "Liquid LFM2 24B"
 
     if b_low.startswith("wahs-engine-baseline:"):
-        title = f"WAHS Engine · Verbatim Condensation & Provenance ({full_model}{budget_suffix or ' · Auto 32k'})"
+        title = f"WAHS Engine · Verbatim Condensation & Provenance ({full_model}{budget_suffix or ' · Auto'})"
         short_title = f"WAHS Engine ({short_model}{short_budget or ' (Auto)'})"
         path_desc = (
             "Standalone wahs-engine baseline: multi-source FHIR deduplication, continuous "
-            "verbatim-first chart condensation within the 32k context window, and [N] source provenance"
+            "verbatim-first chart condensation within the model context window, and [N] source provenance"
         )
     elif b_low.startswith("wahs-engine-kb:") or b_low.startswith("wahs-engine:"):
         title = f"WAHS Engine · Condensation + 4-Layer KB ({full_model}{budget_suffix})"
@@ -3199,7 +3299,7 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         title = f"Offline Raw FHIR Baseline · No Condensation ({full_model}{budget_suffix})"
         short_title = f"Raw FHIR ({short_model}{short_budget})"
         path_desc = (
-            "Offline Raw Chart Ablation: uncondensed raw FHIR R4 JSON truncated to the 32k context window "
+            "Offline Raw Chart Baseline: uncondensed raw FHIR R4 Bundle JSON (with UTF-8 decoded clinical note attachments) "
             "without wahs-engine deduplication, condensation, or [N] citation mapping"
         )
     else:
