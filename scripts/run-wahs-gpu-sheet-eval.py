@@ -148,6 +148,11 @@ def build_profiles(
 ) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
+    override_budgets = (
+        [b.strip() for b in str(budget_override).split(",") if b.strip()]
+        if budget_override
+        else []
+    )
     for m_raw in models:
         m_clean = str(m_raw or "").strip()
         if not m_clean:
@@ -158,11 +163,17 @@ def build_profiles(
             if p_key not in PATHWAY_SPECS:
                 raise ValueError(f"Unknown WAHS pathway {p_raw!r}; expected {tuple(PATHWAY_SPECS)}")
             prefix, default_budget = PATHWAY_SPECS[p_key]
-            budget = tools_budget if p_key == "tools" else (budget_override or default_budget)
-            arm = f"{prefix}:{model_id}" if str(budget).lower() == "auto" else f"{prefix}:{model_id}@{budget}"
-            if arm not in seen:
-                seen.add(arm)
-                out.append(arm)
+            if p_key == "tools":
+                budgets_for_arm = [tools_budget]
+            elif p_key == "direct" and len(override_budgets) > 1:
+                budgets_for_arm = [default_budget]
+            else:
+                budgets_for_arm = override_budgets or [default_budget]
+            for budget in budgets_for_arm:
+                arm = f"{prefix}:{model_id}" if str(budget).lower() == "auto" else f"{prefix}:{model_id}@{budget}"
+                if arm not in seen:
+                    seen.add(arm)
+                    out.append(arm)
     return out
 
 
@@ -295,9 +306,11 @@ def ensure_eval_engine(
     container_name: str = DEFAULT_CONTAINER_NAME,
     image_name: str = DEFAULT_IMAGE_NAME,
     port: int = 18088,
+    context_window: int = 32768,
+    llm_timeout_seconds: int = 300,
 ) -> dict[str, Any]:
     health = probe_engine_health(hub_url)
-    if health is not None:
+    if health is not None and not start_engine:
         try:
             assert_gpu_engine_safe(health)
             return health
@@ -358,11 +371,11 @@ def ensure_eval_engine(
             "-e",
             "WAHS_ENABLED_ENRICHERS=",
             "-e",
-            "WAHS_LLM_TIMEOUT_SECONDS=180",
+            f"WAHS_LLM_TIMEOUT_SECONDS={int(llm_timeout_seconds)}",
             "-e",
             f"WAHS_MODEL_MAP_JSON={json.dumps(DEFAULT_MODEL_MAP, separators=(',', ':'))}",
             "-e",
-            "WAHS_CONTEXT_WINDOW=32768",
+            f"WAHS_CONTEXT_WINDOW={int(context_window)}",
             "-e",
             "WAHS_CACHE_TTL_SECONDS=1800",
             "-e",
@@ -554,7 +567,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p.add_argument("--questions", default=None, help="Comma-separated sheet question IDs (e.g. Q01,Q04,P01)")
     p.add_argument("--pathways", default="engine,direct", help="Comma-separated pathways from {engine,direct,rag,kb,tools,chart}")
     p.add_argument("--models", default="26b,12b,e4b", help="Comma-separated model aliases/IDs (default: 26b,12b,e4b)")
-    p.add_argument("--budget", default=None, help="Optional chart budget override for condensed pathways (default: 16k; tools stays @2k)")
+    p.add_argument("--budget", default=None, help="Optional chart budget override or comma-separated sweep for condensed pathways (e.g. 16k or auto,64k,32k,16k; tools stays @2k)")
+    p.add_argument("--context-window", type=int, default=32768, help="Model context window tokens for both wahs-engine and raw-fhir (e.g. 32768 or 131072)")
     p.add_argument("--seeds", default=None, help="Optional comma-separated seeds (e.g. 42,43,44)")
     p.add_argument("--resume", type=Path, default=None)
     p.add_argument("--judge", action="append", dest="judges", default=None, help="Optional judge spec(s) (opt-in; off by default)")
@@ -606,6 +620,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "cases_file": str(effective_cases),
         "cases_count": len(selected_rows),
         "profiles": profiles,
+        "context_window": int(args.context_window),
         "seeds": parsed_seeds,
         "total_cells": total_cells,
         "hub_url": args.hub_url,
@@ -626,6 +641,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     need_engine = args.smoke_10 or any(p != "direct" for p in pathway_list)
     api_key = _read_llm_api_key(args.env_file)
+    llm_timeout_s = 300
 
     if need_engine or args.start_engine:
         health = ensure_eval_engine(
@@ -633,6 +649,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             start_engine=args.start_engine,
             engine_dir=args.engine_dir,
             env_file=args.env_file,
+            context_window=int(args.context_window),
+            llm_timeout_seconds=llm_timeout_s,
         )
     else:
         health = {"llm_base_url": DEFAULT_LLM_BASE_URL}
@@ -675,13 +693,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         direct_llm_base_url=DEFAULT_LLM_BASE_URL,
         direct_llm_api_key=api_key or None,
         direct_provider_flavor="litellm",
-        timeout=240.0,
+        direct_context_window=int(args.context_window),
+        timeout=float(llm_timeout_s),
         bundle_dirs=[args.bundles_dir],
     )
+    suite_budgets = [int(args.context_window)]
     result = run_wahs_suite(
         effective_cases,
         client=client,
         output_dir=args.output_dir,
+        budgets=suite_budgets,
         profiles=profiles,
         seeds=parsed_seeds,
         git_sha=_git_sha(HARNESS_ROOT),

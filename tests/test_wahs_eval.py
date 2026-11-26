@@ -331,6 +331,8 @@ def test_profile_parsing_arm_cards_and_patient_profiles() -> None:
 
     known_pt = _wahs_patient_profile("Maurice742_Auer97_set_a")
     assert "Maurice Auer" in known_pt["display"]
+    sofia_pt = _wahs_patient_profile("Sofia_Alvarez_Maternal_Endocrine_set_b")
+    assert "Sofia Alvarez" in sofia_pt["display"]
     unknown_pt = _wahs_patient_profile("Synth_Patient_99")
     assert unknown_pt["badge"] == "Clinical Chart"
 
@@ -886,7 +888,86 @@ def test_wahs_baseline_auto_and_direct_litellm_auth_flow(tmp_path: Path) -> None
         profile_id="raw-fhir:ollama/gemma4:26b",
     )
     assert raw_res["actual_tokens"] == 412
+    assert raw_res["tier_info"]["condense_mode"] == "raw_fhir_full"
+    assert raw_res["tier_info"]["attachments_decoded"] is True
     raw_chat_call = [c for c in sess.calls if "llm.co.dev.cirg.uw.edu/v1/chat/completions" in c[0]][-1]
     assert raw_chat_call[2] == {"Authorization": "Bearer secret-cirg-key"}
     assert raw_chat_call[1]["num_ctx"] == 32768
     assert "Sharing Posture:" not in raw_chat_call[1]["messages"][0]["content"]
+    assert "complete uncondensed chart: all 3/3 entries included" in raw_chat_call[1]["messages"][0]["content"]
+
+
+def test_decode_raw_fhir_entry_attachments_and_128k_warmup(tmp_path: Path) -> None:
+    import base64
+    from harness.wahs.evaluator import _decode_b64_utf8_text, _decode_raw_fhir_entry_attachments
+
+    assert _decode_b64_utf8_text("   ") is None
+    assert _decode_b64_utf8_text("!!!bad!!!") is None
+    assert _decode_b64_utf8_text(base64.b64encode(b"").decode("ascii")) is None
+    assert _decode_b64_utf8_text(base64.b64encode(b"\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0e\x0f\x10\x11\x12\x13").decode("ascii")) is None
+
+    plain_obs = {"resourceType": "Observation", "id": "o1"}
+    assert _decode_raw_fhir_entry_attachments(plain_obs) is plain_obs
+
+    note_b64 = base64.b64encode(b"Hold lisinopril 10 mg today.").decode("ascii")
+    rep_b64 = base64.b64encode(b"Impression: mild cardiomegaly.").decode("ascii")
+    bin_b64 = base64.b64encode(b"\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0e\x0f\x10").decode("ascii")
+    doc_res = {
+        "resourceType": "DocumentReference",
+        "id": "d1",
+        "content": [
+            {"attachment": {"contentType": "text/plain", "data": note_b64}},
+            {"attachment": {"contentType": "application/octet-stream", "data": bin_b64}},
+        ],
+    }
+    diag_res = {
+        "resourceType": "DiagnosticReport",
+        "id": "r1",
+        "presentedForm": [
+            {"contentType": "text/plain", "data": rep_b64},
+            {"contentType": "application/octet-stream", "data": bin_b64},
+        ],
+    }
+    doc_dec = _decode_raw_fhir_entry_attachments(doc_res)
+    diag_dec = _decode_raw_fhir_entry_attachments(diag_res)
+    assert doc_dec["content"][0]["attachment"]["data"] == "Hold lisinopril 10 mg today."
+    assert doc_dec["content"][1]["attachment"]["data"] == bin_b64
+    assert doc_res["content"][0]["attachment"]["data"] == note_b64  # original unmutated
+    assert diag_dec["presentedForm"][0]["data"] == "Impression: mild cardiomegaly."
+    assert diag_dec["presentedForm"][1]["data"] == bin_b64
+
+    bundles_dir = tmp_path / "bundles"
+    bundles_dir.mkdir()
+    (bundles_dir / "Sofia_Patient.json").write_text(
+        json.dumps({"resourceType": "Bundle", "type": "collection", "entry": [{"resource": doc_res}, {"resource": diag_res}]}),
+        encoding="utf-8",
+    )
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    class _Sess:
+        headers: dict[str, str] = {}
+
+        def post(self, url: str, json: dict[str, Any], timeout: float = 10.0, headers: dict[str, str] | None = None):
+            calls.append((url, json))
+            return _Resp(200, {"choices": [{"message": {"content": "Lisinopril held."}}], "usage": {"prompt_tokens": 900}})
+
+    client = WahsHubClient(
+        base_url="http://127.0.0.1:18088",
+        direct_llm_base_url="https://llm.co.dev.cirg.uw.edu/v1",
+        direct_llm_api_key="k",
+        direct_provider_flavor="litellm",
+        direct_context_window=131072,
+        bundle_dirs=[bundles_dir],
+        session=_Sess(),
+    )
+    assert client.warmup_model("ollama/gemma4:26b") is True
+    assert calls[-1][1]["num_ctx"] == 131072
+    res = client.evaluate_case(
+        WahsEvalCase(case_id="s_q1", patient_id="Sofia_Patient", use_case="meds", prompt="Meds?"),
+        budget_tokens=131072,
+        profile_id="raw-fhir:ollama/gemma4:26b",
+    )
+    assert res["tier_info"]["included_entries"] == 2
+    assert res["tier_info"]["total_entries"] == 2
+    assert "Hold lisinopril 10 mg today." in calls[-1][1]["messages"][0]["content"]
+    assert "Impression: mild cardiomegaly." in calls[-1][1]["messages"][0]["content"]

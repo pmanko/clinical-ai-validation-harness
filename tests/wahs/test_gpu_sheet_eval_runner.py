@@ -50,6 +50,15 @@ def test_build_profiles_pins_tools_to_2k_and_condensed_to_16k() -> None:
     assert mod.build_profiles(pathways=["engine"], models=["26b"], budget_override="16k") == [
         "wahs-engine-baseline:ollama/gemma4:26b@16k"
     ]
+    assert mod.build_profiles(
+        pathways=["engine", "direct"], models=["26b"], budget_override="auto,64k,32k,16k"
+    ) == [
+        "wahs-engine-baseline:ollama/gemma4:26b",
+        "wahs-engine-baseline:ollama/gemma4:26b@64k",
+        "wahs-engine-baseline:ollama/gemma4:26b@32k",
+        "wahs-engine-baseline:ollama/gemma4:26b@16k",
+        "raw-fhir:ollama/gemma4:26b",
+    ]
 
 
 def test_select_cases_cohorts_and_smoke10_counts() -> None:
@@ -419,16 +428,18 @@ def test_baseline_preflight_and_direct_main(
     run_dir.mkdir(parents=True)
     monkeypatch.setattr(mod, "verify_baseline_preflight", lambda **k: bp)
     monkeypatch.setattr(mod, "_read_llm_api_key", lambda _p: "test-key")
-    monkeypatch.setattr(
-        eval_mod,
-        "run_wahs_suite",
-        lambda *a, **k: SimpleNamespace(
+    seen_suite_calls: list[dict[str, Any]] = []
+
+    def fake_run_suite(*a, **k):
+        seen_suite_calls.append({"client": k.get("client"), "budgets": k.get("budgets")})
+        return SimpleNamespace(
             run_dir=run_dir,
             summary={"benchmark": 88.0},
             passed_cells=2,
             total_cells=2,
-        ),
-    )
+        )
+
+    monkeypatch.setattr(eval_mod, "run_wahs_suite", fake_run_suite)
     monkeypatch.setattr(
         eval_mod,
         "build_wahs_report_packet",
@@ -445,6 +456,8 @@ def test_baseline_preflight_and_direct_main(
                 "direct",
                 "--models",
                 "26b",
+                "--context-window",
+                "131072",
                 "--bundles-dir",
                 str(bundles_dir2),
                 "--output-dir",
@@ -454,3 +467,5 @@ def test_baseline_preflight_and_direct_main(
         == 0
     )
     assert json.loads(capsys.readouterr().out)["packet_run_id"] == "direct-run-1"
+    assert seen_suite_calls[-1]["budgets"] == [131072]
+    assert seen_suite_calls[-1]["client"].direct_context_window == 131072
