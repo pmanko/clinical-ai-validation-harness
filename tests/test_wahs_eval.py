@@ -305,6 +305,7 @@ def test_profile_parsing_arm_cards_and_patient_profiles() -> None:
         _split_profile_budget(f"wahs-engine-kb:gemma@{MAX_TOKEN_BUDGET + 1}")
 
     assert _infer_retrieval_strategy(None) == "condensation_kb"
+    assert _infer_retrieval_strategy("wahs-engine-baseline:m") == "baseline_condensation"
     assert _infer_retrieval_strategy("wahs-engine-kb:m") == "condensation_kb"
     assert _infer_retrieval_strategy("wahs-engine-rag:m") == "note_rag"
     assert _infer_retrieval_strategy("wahs-engine-tools:m") == "dynamic_fhir_tools"
@@ -312,6 +313,7 @@ def test_profile_parsing_arm_cards_and_patient_profiles() -> None:
     assert _infer_retrieval_strategy("raw-fhir:m") == "offline_raw_ablation"
 
     for pid in (
+        "wahs-engine-baseline:ollama/gemma4:26b",
         "wahs-engine-kb:gemma-4-12b-q4@16k",
         "wahs-engine-rag:qwen3.5-9b@4k",
         "wahs-engine-tools:gemma-4-26b@4k",
@@ -323,7 +325,9 @@ def test_profile_parsing_arm_cards_and_patient_profiles() -> None:
         assert card["kind"] == "single" and card["models"]
         assert "Med Agent Hub" not in card["title"]
         assert "Direct" not in card["title"]
+        assert "\u2014" not in card["title"]
         assert isinstance(_infer_model_family_and_id(pid), tuple)
+    assert _infer_model_family_and_id("wahs-engine-baseline:ollama/gemma4:26b")[2] is False
 
     known_pt = _wahs_patient_profile("Maurice742_Auer97_set_a")
     assert "Maurice Auer" in known_pt["display"]
@@ -759,3 +763,130 @@ def test_wahs_cli_parser_and_dispatch(tmp_path: Path, monkeypatch: pytest.Monkey
     judge_args = parser.parse_args(["wahs", "judge", str(run_dir), "--blind", "--bundles-dir", str(bundles_dir)])
     assert dispatch(judge_args) == 0
     assert seen_judge_bundles == [[str(bundles_dir)]]
+
+
+def test_wahs_baseline_auto_and_direct_litellm_auth_flow(tmp_path: Path) -> None:
+    bundles_dir = tmp_path / "bundles"
+    _write_bundle(bundles_dir, "Marcus_Vance")
+    case = WahsEvalCase(
+        case_id="q_p01",
+        patient_id="Marcus_Vance",
+        use_case="privacy",
+        prompt="Give me a summary I can share with my new employer.",
+        sharing_posture="patient_self",
+        target_token_budgets=[32768],
+    )
+
+    class _BaselineDirectSession:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
+            self.calls: list[tuple[str, dict[str, Any], dict[str, str] | None]] = []
+            self._reject_reasoning_once = True
+
+        def post(
+            self,
+            url: str,
+            json: dict[str, Any],
+            timeout: float = 10.0,
+            headers: dict[str, str] | None = None,
+        ) -> _Resp:
+            self.calls.append((url, json, headers))
+            if json.get("max_tokens") == 4:
+                return _Resp(200, {"choices": [{"message": {"content": "ok"}}]})
+            if "/v1/wahs/context/preview" in url:
+                return _Resp(
+                    200,
+                    {
+                        "chart_text": "[1] 2026-02-01 MedicationRequest: Pembrolizumab 200 mg IV",
+                        "x_wahs": {
+                            "condensation": {
+                                "actual_tokens": 900,
+                                "budget_effective": 31300,
+                                "clamp_reason": "context_window_available",
+                            }
+                        },
+                    },
+                )
+            if "wahs" in json:
+                return _Resp(
+                    200,
+                    {
+                        "choices": [{"message": {"content": "Pembrolizumab 200 mg [1]."}}],
+                        "x_wahs": {
+                            "citation_map": {
+                                "1": {"resourceType": "MedicationRequest", "id": UUID_2, "display": "Pembrolizumab"}
+                            },
+                            "condensation": {
+                                "actual_tokens": 900,
+                                "budget_effective": 31300,
+                                "clamp_reason": "context_window_available",
+                            },
+                            "timings": {"total_latency_ms": 150.0},
+                        },
+                    },
+                )
+            if self._reject_reasoning_once and "reasoning_effort" in json:
+                self._reject_reasoning_once = False
+                return _Resp(400, text="unsupported reasoning_effort")
+            return _Resp(
+                200,
+                {
+                    "choices": [{"message": {"content": "Raw summary without citations"}}],
+                    "usage": {"prompt_tokens": 412},
+                },
+            )
+
+    sess = _BaselineDirectSession()
+    client = WahsHubClient(
+        base_url="http://127.0.0.1:18088",
+        direct_llm_base_url="https://llm.co.dev.cirg.uw.edu/v1",
+        direct_llm_api_key="secret-cirg-key",
+        direct_provider_flavor="litellm",
+        bundle_dirs=[bundles_dir],
+        session=sess,
+    )
+    assert client.warmup_model("ollama/gemma4:26b") is True
+    assert sess.calls[-1][0] == "https://llm.co.dev.cirg.uw.edu/v1/chat/completions"
+    assert sess.calls[-1][2] == {"Authorization": "Bearer secret-cirg-key"}
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        eng_res = client.evaluate_case(
+            case,
+            budget_tokens=32768,
+            profile_id="wahs-engine-baseline:ollama/gemma4:26b",
+        )
+    assert caught == []
+    assert eng_res["include_kb_findings"] is False
+    assert eng_res["retrieval_strategy"] == "baseline_condensation"
+    preview_call = [c for c in sess.calls if "/v1/wahs/context/preview" in c[0]][-1]
+    assert preview_call[1]["model"] == "ollama/gemma4:26b"
+    assert "target_budget_tokens" not in preview_call[1]["wahs"]
+    assert preview_call[2] is None
+
+    eng_chat_call = [c for c in sess.calls if "127.0.0.1:18088/v1/chat/completions" in c[0]][-1]
+    assert eng_chat_call[1]["messages"][0]["content"] == case.prompt
+    assert eng_chat_call[1]["wahs"] == {"fhir_bundle": eng_chat_call[1]["wahs"]["fhir_bundle"]}
+    assert eng_chat_call[2] is None
+
+    # Explicit @16k passes target_budget_tokens cleanly
+    eng_16k = client.evaluate_case(
+        case,
+        budget_tokens=32768,
+        profile_id="wahs-engine-baseline:ollama/gemma4:12b@16k",
+    )
+    assert eng_16k["budget_tokens"] == 16384
+    eng_16k_call = [c for c in sess.calls if "127.0.0.1:18088/v1/chat/completions" in c[0]][-1]
+    assert eng_16k_call[1]["wahs"]["target_budget_tokens"] == 16384
+
+    # Direct raw-fhir uses Bearer auth, num_ctx=32768, clean prompt, and usage.prompt_tokens
+    raw_res = client.evaluate_case(
+        case,
+        budget_tokens=32768,
+        profile_id="raw-fhir:ollama/gemma4:26b",
+    )
+    assert raw_res["actual_tokens"] == 412
+    raw_chat_call = [c for c in sess.calls if "llm.co.dev.cirg.uw.edu/v1/chat/completions" in c[0]][-1]
+    assert raw_chat_call[2] == {"Authorization": "Bearer secret-cirg-key"}
+    assert raw_chat_call[1]["num_ctx"] == 32768
+    assert "Sharing Posture:" not in raw_chat_call[1]["messages"][0]["content"]

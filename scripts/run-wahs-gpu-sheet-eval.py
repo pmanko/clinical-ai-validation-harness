@@ -29,12 +29,12 @@ if str(HARNESS_ROOT) not in sys.path:
 
 DEFAULT_CASES_PATH = HARNESS_ROOT / "datasets" / "wahs_demo_patients_25x10_testset.jsonl"
 DEFAULT_BUNDLES_DIR = Path("/Users/pmanko/code/hq/wahs/bundles")
-DEFAULT_ENGINE_DIR = Path("/Users/pmanko/code/worktrees/wahs-engine-s6-12-profiles")
+DEFAULT_ENGINE_DIR = Path("/Users/pmanko/code/wahs-engine")
 DEFAULT_ENV_FILE = Path("/Users/pmanko/code/hq/wahs/.env")
 DEFAULT_HUB_URL = "http://127.0.0.1:18088"
 DEFAULT_LLM_BASE_URL = "https://llm.co.dev.cirg.uw.edu/v1"
 DEFAULT_CONTAINER_NAME = "wahs-engine-eval"
-DEFAULT_IMAGE_NAME = "wahs-engine:dev"
+DEFAULT_IMAGE_NAME = "wahs-engine:baseline-eval"
 
 COHORT_PATIENTS: dict[str, tuple[str, ...]] = {
     "core3": (
@@ -76,6 +76,8 @@ SMOKE_10_PROFILES: tuple[str, ...] = (
 )
 
 PATHWAY_SPECS: dict[str, tuple[str, str]] = {
+    "engine": ("wahs-engine-baseline", "auto"),
+    "direct": ("raw-fhir", "auto"),
     "rag": ("wahs-engine-rag", "16k"),
     "kb": ("wahs-engine-kb", "16k"),
     "tools": ("wahs-engine-tools", "2k"),
@@ -101,6 +103,9 @@ CIRG_HARDWARE_ENV: dict[str, str] = {
 }
 
 DEFAULT_MODEL_MAP: dict[str, str] = {
+    "wahs-26b": "ollama/gemma4:26b",
+    "wahs-12b": "ollama/gemma4:12b",
+    "wahs-e4b": "ollama/gemma4:e4b",
     "wahs-26b-kb": "ollama/gemma4:26b",
     "wahs-26b-raw": "ollama/gemma4:26b",
     "wahs-12b-kb": "ollama/gemma4:12b",
@@ -154,7 +159,7 @@ def build_profiles(
                 raise ValueError(f"Unknown WAHS pathway {p_raw!r}; expected {tuple(PATHWAY_SPECS)}")
             prefix, default_budget = PATHWAY_SPECS[p_key]
             budget = tools_budget if p_key == "tools" else (budget_override or default_budget)
-            arm = f"{prefix}:{model_id}@{budget}"
+            arm = f"{prefix}:{model_id}" if str(budget).lower() == "auto" else f"{prefix}:{model_id}@{budget}"
             if arm not in seen:
                 seen.add(arm)
                 out.append(arm)
@@ -349,15 +354,15 @@ def ensure_eval_engine(
             "-e",
             "WAHS_PROVIDER_FLAVOR=litellm",
             "-e",
-            "WAHS_DEFAULT_MODEL=wahs-26b-kb",
+            "WAHS_DEFAULT_MODEL=wahs-26b",
+            "-e",
+            "WAHS_ENABLED_ENRICHERS=",
             "-e",
             "WAHS_LLM_TIMEOUT_SECONDS=180",
             "-e",
             f"WAHS_MODEL_MAP_JSON={json.dumps(DEFAULT_MODEL_MAP, separators=(',', ':'))}",
             "-e",
             "WAHS_CONTEXT_WINDOW=32768",
-            "-e",
-            "WAHS_CHART_BUDGET_CEILING=16384",
             "-e",
             "WAHS_CACHE_TTL_SECONDS=1800",
             "-e",
@@ -436,6 +441,69 @@ def verify_four_pathway_preflight(
     return report
 
 
+def verify_baseline_preflight(
+    *,
+    hub_url: str,
+    bundles_dir: Path,
+    llm_base_url: str = DEFAULT_LLM_BASE_URL,
+    api_key: str = "",
+    check_engine: bool = True,
+    check_direct: bool = True,
+) -> list[dict[str, Any]]:
+    marcus_path = bundles_dir / "Marcus_Vance_Oncology_Immunotherapy.json"
+    if not marcus_path.is_file():
+        raise RuntimeError(f"Preflight bundle missing: {marcus_path}")
+    bundle = json.loads(marcus_path.read_text(encoding="utf-8"))
+    report: list[dict[str, Any]] = []
+    if check_engine:
+        req = urllib.request.Request(
+            f"{hub_url.rstrip('/')}/v1/wahs/context/preview",
+            data=json.dumps(
+                {
+                    "model": "ollama/gemma4:26b",
+                    "messages": [{"role": "user", "content": "What medicines am I taking right now?"}],
+                    "wahs": {"fhir_bundle": bundle},
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if resp.status != 200:
+                raise RuntimeError(f"Preflight baseline engine returned HTTP {resp.status}")
+            payload = json.loads(resp.read().decode("utf-8"))
+        cond = ((payload.get("x_wahs") or {}).get("condensation")) or {}
+        actual_tok = int(cond.get("actual_tokens") or 0)
+        if actual_tok <= 0:
+            raise RuntimeError(f"Preflight baseline engine returned invalid actual_tokens={actual_tok}")
+        report.append(
+            {
+                "mode": "baseline_condensation",
+                "resolution_reason": cond.get("resolution_reason"),
+                "budget_effective": int(cond.get("budget_effective") or 0),
+                "actual_tokens": actual_tok,
+                "tier": cond.get("tier"),
+            }
+        )
+    if check_direct and api_key:
+        m_req = urllib.request.Request(
+            f"{llm_base_url.rstrip('/')}/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+            method="GET",
+        )
+        with urllib.request.urlopen(m_req, timeout=20) as m_resp:
+            if m_resp.status != 200:
+                raise RuntimeError(f"Preflight direct LLM returned HTTP {m_resp.status}")
+            m_payload = json.loads(m_resp.read().decode("utf-8"))
+        report.append(
+            {
+                "mode": "direct_llm",
+                "models_count": len(m_payload.get("data") or []),
+            }
+        )
+    return report
+
+
 def _git_sha(repo_dir: Path) -> str:
     try:
         return subprocess.check_output(
@@ -484,7 +552,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p.add_argument("--cohort", choices=tuple(COHORT_PATIENTS), default="core3")
     p.add_argument("--patients", default=None, help="Comma-separated patient IDs or short slugs (e.g. maurice,julian,marcus)")
     p.add_argument("--questions", default=None, help="Comma-separated sheet question IDs (e.g. Q01,Q04,P01)")
-    p.add_argument("--pathways", default="rag,kb,tools,chart", help="Comma-separated pathways from {rag,kb,tools,chart}")
+    p.add_argument("--pathways", default="engine,direct", help="Comma-separated pathways from {engine,direct,rag,kb,tools,chart}")
     p.add_argument("--models", default="26b,12b,e4b", help="Comma-separated model aliases/IDs (default: 26b,12b,e4b)")
     p.add_argument("--budget", default=None, help="Optional chart budget override for condensed pathways (default: 16k; tools stays @2k)")
     p.add_argument("--seeds", default=None, help="Optional comma-separated seeds (e.g. 42,43,44)")
@@ -552,14 +620,44 @@ def main(argv: Sequence[str] | None = None) -> int:
     for k, v in CIRG_HARDWARE_ENV.items():
         os.environ[k] = v
 
-    health = ensure_eval_engine(
-        hub_url=args.hub_url,
-        start_engine=args.start_engine,
-        engine_dir=args.engine_dir,
-        env_file=args.env_file,
+    pathway_list = [s.strip().lower() for s in args.pathways.split(",") if s.strip()]
+    use_baseline_preflight = (not args.smoke_10) and all(
+        p in {"engine", "direct"} for p in pathway_list
     )
-    preflight = verify_four_pathway_preflight(hub_url=args.hub_url, bundles_dir=args.bundles_dir)
-    print(f"==> Engine verified ({health.get('llm_base_url')}), 4-pathway preflight OK:", json.dumps(preflight), file=sys.stderr)
+    need_engine = args.smoke_10 or any(p != "direct" for p in pathway_list)
+    api_key = _read_llm_api_key(args.env_file)
+
+    if need_engine or args.start_engine:
+        health = ensure_eval_engine(
+            hub_url=args.hub_url,
+            start_engine=args.start_engine,
+            engine_dir=args.engine_dir,
+            env_file=args.env_file,
+        )
+    else:
+        health = {"llm_base_url": DEFAULT_LLM_BASE_URL}
+
+    if use_baseline_preflight:
+        preflight = verify_baseline_preflight(
+            hub_url=args.hub_url,
+            bundles_dir=args.bundles_dir,
+            llm_base_url=DEFAULT_LLM_BASE_URL,
+            api_key=api_key,
+            check_engine=("engine" in pathway_list),
+            check_direct=("direct" in pathway_list),
+        )
+        print(
+            f"==> Engine/Direct preflight OK ({health.get('llm_base_url')}):",
+            json.dumps(preflight),
+            file=sys.stderr,
+        )
+    else:
+        preflight = verify_four_pathway_preflight(hub_url=args.hub_url, bundles_dir=args.bundles_dir)
+        print(
+            f"==> Engine verified ({health.get('llm_base_url')}), 4-pathway preflight OK:",
+            json.dumps(preflight),
+            file=sys.stderr,
+        )
 
     from harness.wahs.evaluator import WahsHubClient, build_wahs_report_packet, run_wahs_suite
 
@@ -574,6 +672,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     client = WahsHubClient(
         base_url=args.hub_url,
+        direct_llm_base_url=DEFAULT_LLM_BASE_URL,
+        direct_llm_api_key=api_key or None,
+        direct_provider_flavor="litellm",
         timeout=240.0,
         bundle_dirs=[args.bundles_dir],
     )
@@ -628,7 +729,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "packet_run_id": packet.get("run_id"),
         "full_run_command": (
             f"uv --directory {HARNESS_ROOT} run python scripts/run-wahs-gpu-sheet-eval.py "
-            f"--cohort core3 --pathways rag,kb,tools,chart --models 26b,12b,e4b "
+            f"--cohort core3 --pathways engine,direct --models 26b,12b,e4b "
             f"--start-engine --bundles-dir {args.bundles_dir}"
         ),
     }

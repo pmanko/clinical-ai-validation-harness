@@ -36,6 +36,7 @@ from ..metadata import RunManifest, append_event, copy_target_provenance
 
 _CITATION_RE = re.compile(r"\[(\d+)\]")
 VALID_ENGINE_STRATEGIES = (
+    "baseline_condensation",
     "condensation_kb",
     "note_rag",
     "dynamic_fhir_tools",
@@ -554,6 +555,9 @@ class WahsHubClient:
         retry_backoff_s: float = 0.0,
         bundle_dirs: Sequence[Path | str] | None = None,
         direct_llm_base_url: str | None = None,
+        direct_llm_api_key: str | None = None,
+        direct_provider_flavor: str | None = None,
+        direct_context_window: int = 32768,
     ) -> None:
         raw_base = (
             base_url or os.environ.get("MED_AGENT_HUB_BASE_URL", "http://127.0.0.1:8000")
@@ -565,12 +569,23 @@ class WahsHubClient:
             or self.base_url
         ).rstrip("/")
         self.direct_llm_base_url = re.sub(r"/v1$", "", raw_direct)
+        self._direct_llm_api_key = (
+            direct_llm_api_key
+            if direct_llm_api_key is not None
+            else os.environ.get("DIRECT_LLM_API_KEY", "")
+        ).strip()
+        self.direct_provider_flavor = (
+            direct_provider_flavor
+            or os.environ.get("DIRECT_LLM_PROVIDER_FLAVOR")
+            or ""
+        ).strip().lower()
+        self.direct_context_window = int(direct_context_window)
         self.timeout = timeout
         self.max_retries = max(0, int(max_retries))
         self.retry_backoff_s = max(0.0, float(retry_backoff_s))
         self._session = session or requests.Session()
         self._session.headers.update({"Content-Type": "application/json"})
-        self._engine_preview_cache: dict[tuple[str, int, str, str, str], dict[str, Any]] = {}
+        self._engine_preview_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
         self._bundle_cache: dict[str, dict[str, Any] | None] = {}
         self._warned_ceiling_clamps: set[tuple[str, int]] = set()
         self.bundle_dirs: list[Path] = []
@@ -627,30 +642,49 @@ class WahsHubClient:
         local_bundle: dict[str, Any],
         budget_tokens: int,
         retrieval_strategy: str,
+        explicit_budget: bool = True,
+        model_id: str | None = None,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
-        cache_key = (
+        is_baseline_auto = retrieval_strategy == "baseline_condensation" and not explicit_budget
+        cache_key: tuple[Any, ...] = (
             case.patient_id,
-            int(budget_tokens),
-            case.sharing_posture,
+            int(budget_tokens) if explicit_budget else "auto",
+            "" if retrieval_strategy == "baseline_condensation" else case.sharing_posture,
             retrieval_strategy,
-            case.case_id if retrieval_strategy == "note_rag" else "*",
+            case.case_id if (retrieval_strategy == "note_rag" or is_baseline_auto) else "*",
+            str(model_id or "") if retrieval_strategy == "baseline_condensation" else "",
         )
         if cache_key in self._engine_preview_cache:
             return self._engine_preview_cache[cache_key]
+        if retrieval_strategy == "baseline_condensation":
+            wahs_opts: dict[str, Any] = {"fhir_bundle": local_bundle}
+            if explicit_budget:
+                wahs_opts["target_budget_tokens"] = int(budget_tokens)
+            req_body: dict[str, Any] = {
+                "messages": [{"role": "user", "content": case.prompt}],
+                "wahs": wahs_opts,
+            }
+            if model_id:
+                req_body["model"] = model_id
+            if max_tokens is not None:
+                req_body["max_tokens"] = int(max_tokens)
+        else:
+            req_body = {
+                "messages": [{"role": "user", "content": case.prompt}],
+                "wahs": {
+                    "fhir_bundle": local_bundle,
+                    "target_budget_tokens": int(budget_tokens),
+                    "sharing_posture": case.sharing_posture,
+                    "retrieval_strategy": retrieval_strategy,
+                    "enable_kb": retrieval_strategy != "chart_only",
+                    "enable_overflow_tools": retrieval_strategy != "chart_only",
+                },
+            }
         try:
             resp = self._session.post(
                 f"{self.base_url}/v1/wahs/context/preview",
-                json={
-                    "messages": [{"role": "user", "content": case.prompt}],
-                    "wahs": {
-                        "fhir_bundle": local_bundle,
-                        "target_budget_tokens": int(budget_tokens),
-                        "sharing_posture": case.sharing_posture,
-                        "retrieval_strategy": retrieval_strategy,
-                        "enable_kb": retrieval_strategy != "chart_only",
-                        "enable_overflow_tools": retrieval_strategy != "chart_only",
-                    },
-                },
+                json=req_body,
                 timeout=self.timeout,
             )
             if resp.status_code == 200:
@@ -670,6 +704,7 @@ class WahsHubClient:
         model_id: str,
         retrieval_strategy: str,
         budget_tokens: int,
+        explicit_budget: bool = True,
         seed: int | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:
@@ -679,39 +714,49 @@ class WahsHubClient:
             raise ValueError(
                 f"Local FHIR bundle not found for patient_id={case.patient_id!r} in {self.bundle_dirs}"
             )
-        preview = self._preview_wahs_engine_context(
-            case,
-            local_bundle=local_bundle,
-            budget_tokens=budget_tokens,
-            retrieval_strategy=retrieval_strategy,
-        )
-        user_prompt = (
-            f"{case.prompt}\n\n"
-            "GROUNDING & FORMATTING RULES:\n"
-            "1. Cite supporting records inline using [N] bracket numbers on every substantive affirmative claim taken from the chart (e.g., [1] or [1] [2]). Never invent citation numbers, and never attach [1] (Demographics) or [2] (Completeness Manifest) to a statement that a requested test or report is absent.\n"
-            "2. If the question asks about a test, imaging study, biopsy, procedure, or genetic panel that is NOT documented in the chart, explicitly state that it is not documented in the chart (grounded abstention) and do not guess or list unrelated findings.\n"
-            "3. Write in clear, patient-friendly language (6th-to-8th grade reading level) while preserving exact medication names, doses, lab values, dates, and [N] citations."
-        )
         eff_temp = (
             float(temperature)
             if temperature is not None
             else (0.2 if seed is not None else 0.1)
         )
         max_tok = int(os.environ.get("WAHS_EVAL_MAX_TOKENS", "900") or "900")
-        chat_req: dict[str, Any] = {
-            "model": model_id,
-            "messages": [{"role": "user", "content": user_prompt}],
-            "stream": False,
-            "temperature": eff_temp,
-            "max_tokens": max_tok,
-            "wahs": {
+        preview = self._preview_wahs_engine_context(
+            case,
+            local_bundle=local_bundle,
+            budget_tokens=budget_tokens,
+            retrieval_strategy=retrieval_strategy,
+            explicit_budget=explicit_budget,
+            model_id=model_id,
+            max_tokens=max_tok,
+        )
+        if retrieval_strategy == "baseline_condensation":
+            user_prompt = case.prompt
+            wahs_opts: dict[str, Any] = {"fhir_bundle": local_bundle}
+            if explicit_budget:
+                wahs_opts["target_budget_tokens"] = int(budget_tokens)
+        else:
+            user_prompt = (
+                f"{case.prompt}\n\n"
+                "GROUNDING & FORMATTING RULES:\n"
+                "1. Cite supporting records inline using [N] bracket numbers on every substantive affirmative claim taken from the chart (e.g., [1] or [1] [2]). Never invent citation numbers, and never attach [1] (Demographics) or [2] (Completeness Manifest) to a statement that a requested test or report is absent.\n"
+                "2. If the question asks about a test, imaging study, biopsy, procedure, or genetic panel that is NOT documented in the chart, explicitly state that it is not documented in the chart (grounded abstention) and do not guess or list unrelated findings.\n"
+                "3. Write in clear, patient-friendly language (6th-to-8th grade reading level) while preserving exact medication names, doses, lab values, dates, and [N] citations."
+            )
+            wahs_opts = {
                 "fhir_bundle": local_bundle,
                 "target_budget_tokens": int(budget_tokens),
                 "sharing_posture": case.sharing_posture,
                 "retrieval_strategy": retrieval_strategy,
                 "enable_kb": retrieval_strategy != "chart_only",
                 "enable_overflow_tools": retrieval_strategy != "chart_only",
-            },
+            }
+        chat_req: dict[str, Any] = {
+            "model": model_id,
+            "messages": [{"role": "user", "content": user_prompt}],
+            "stream": False,
+            "temperature": eff_temp,
+            "max_tokens": max_tok,
+            "wahs": wahs_opts,
         }
         if seed is not None:
             chat_req["seed"] = int(seed)
@@ -798,12 +843,18 @@ class WahsHubClient:
                     if cond_meta.get("effective_chart_budget") is not None
                     else cond_meta.get("budget_effective")
                 )
+                clamp_reason = str(cond_meta.get("clamp_reason") or "").strip()
+                is_auto_or_window = (
+                    clamp_reason in {"context_window_available", "caller_target_budget_tokens", "model_preferred_chart_tokens"}
+                    or (retrieval_strategy == "baseline_condensation" and not explicit_budget)
+                )
                 is_ceiling_clamped = bool(
                     cond_meta.get("clamped_to_chart_budget_ceiling")
-                    or cond_meta.get("clamp_reason") == "chart_budget_ceiling"
+                    or clamp_reason == "chart_budget_ceiling"
                     or x_wahs.get("clamped_to_chart_budget_ceiling")
                     or (
-                        isinstance(eff_chart_budget, (int, float))
+                        not is_auto_or_window
+                        and isinstance(eff_chart_budget, (int, float))
                         and not isinstance(eff_chart_budget, bool)
                         and int(eff_chart_budget) > 0
                         and int(budget_tokens) > int(eff_chart_budget) + 2048
@@ -875,7 +926,7 @@ class WahsHubClient:
                     "seed": seed,
                     "profile_id": profile_id,
                     "api_profile_id": api_profile_id,
-                    "include_kb_findings": retrieval_strategy != "chart_only",
+                    "include_kb_findings": retrieval_strategy not in {"chart_only", "baseline_condensation"},
                 }
 
             err_text = getattr(resp, "text", "")[:300]
@@ -907,7 +958,17 @@ class WahsHubClient:
             raise ValueError(
                 f"Local FHIR bundle not found for patient_id={case.patient_id!r} in {self.bundle_dirs}"
             )
-        max_chars = max(256, int(budget_tokens * 3.6))
+        max_tok = int(os.environ.get("WAHS_EVAL_MAX_TOKENS", "900") or "900")
+        if int(budget_tokens) > 4096:
+            effective_slice_budget = min(
+                int(budget_tokens),
+                max(256, self.direct_context_window - max_tok - 320),
+            )
+            chars_per_tok = 2.15
+        else:
+            effective_slice_budget = int(budget_tokens)
+            chars_per_tok = 3.6
+        max_chars = max(256, int(effective_slice_budget * chars_per_tok))
         wrapper_overhead = 128
         entry_budget = max(128, max_chars - wrapper_overhead)
         entries = list(local_bundle.get("entry") or [])
@@ -965,12 +1026,16 @@ class WahsHubClient:
                 new_cap = max(0, len(cur) - max(excess, 16))
                 kept_entries[0]["resource"]["_truncated_raw_json"] = cur[:new_cap]
                 raw_fhir_slice = _bundle_json(kept_entries)
-        approx_tokens = max(1, (len(raw_fhir_slice) + 3) // 4)
+        approx_tokens = (
+            max(1, min(int(budget_tokens), math.ceil(len(raw_fhir_slice) / chars_per_tok)))
+            if int(budget_tokens) > 4096
+            else max(1, (len(raw_fhir_slice) + 3) // 4)
+        )
         user_prompt = (
             f"Raw FHIR R4 Bundle Slice (uncondensed, truncated to <= {budget_tokens} tokens; "
             f"{len(kept_entries)}/{len(entries)} entries fit):\n"
             f"{raw_fhir_slice}\n\n"
-            f"Patient Question (Sharing Posture: {case.sharing_posture}):\n{case.prompt}\n\n"
+            f"Patient Question:\n{case.prompt}\n\n"
             "Answer strictly from the FHIR JSON above. Do not fabricate facts not present in the JSON."
         )
         eff_temp = (
@@ -978,30 +1043,42 @@ class WahsHubClient:
             if temperature is not None
             else (0.2 if seed is not None else 0.1)
         )
-        max_tok = int(os.environ.get("WAHS_EVAL_MAX_TOKENS", "900") or "900")
         chat_req: dict[str, Any] = {
             "model": model_id,
             "messages": [{"role": "user", "content": user_prompt}],
             "stream": False,
             "temperature": eff_temp,
             "max_tokens": max_tok,
-            "chat_template_kwargs": {"enable_thinking": False},
         }
+        use_litellm_ollama = (
+            self.direct_provider_flavor in {"litellm", "ollama"}
+            or "llm.co.dev.cirg.uw.edu" in self.direct_llm_base_url
+        )
+        if use_litellm_ollama:
+            chat_req["num_ctx"] = int(self.direct_context_window)
+            chat_req["reasoning_effort"] = "none"
+        else:
+            chat_req["chat_template_kwargs"] = {"enable_thinking": False}
         if seed is not None:
             chat_req["seed"] = int(seed)
+
+        post_kwargs: dict[str, Any] = {"timeout": self.timeout}
+        if self._direct_llm_api_key:
+            post_kwargs["headers"] = {"Authorization": f"Bearer {self._direct_llm_api_key}"}
 
         started = time.monotonic()
         resp = self._session.post(
             f"{self.direct_llm_base_url}/v1/chat/completions",
             json=chat_req,
-            timeout=self.timeout,
+            **post_kwargs,
         )
         if resp.status_code in {400, 422}:
             chat_req.pop("chat_template_kwargs", None)
+            chat_req.pop("reasoning_effort", None)
             resp = self._session.post(
                 f"{self.direct_llm_base_url}/v1/chat/completions",
                 json=chat_req,
-                timeout=self.timeout,
+                **post_kwargs,
             )
         wall_latency_ms = int((time.monotonic() - started) * 1000)
         if resp.status_code != 200:
@@ -1014,6 +1091,13 @@ class WahsHubClient:
         cleaned_answer = _normalize_bracket_citations(
             _THINK_RE.sub("", str(msg.get("content") or "")).strip()
         )
+        usage_obj = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+        prompt_tok = usage_obj.get("prompt_tokens")
+        eff_actual_tokens = (
+            int(prompt_tok)
+            if isinstance(prompt_tok, int) and not isinstance(prompt_tok, bool) and 0 < prompt_tok <= int(budget_tokens)
+            else approx_tokens
+        )
         t_obj = body.get("timings") if isinstance(body.get("timings"), dict) else {}
         return {
             "answer": cleaned_answer,
@@ -1022,9 +1106,9 @@ class WahsHubClient:
             "mappings": [],
             "prompt_retained_uuids": retained_uuids,
             "valid_uuids": retained_uuids,
-            "actual_tokens": approx_tokens,
+            "actual_tokens": eff_actual_tokens,
             "budget_tokens": int(budget_tokens),
-            "tier_info": {"actual_tokens": approx_tokens, "condense_mode": "raw_fhir_truncated"},
+            "tier_info": {"actual_tokens": eff_actual_tokens, "condense_mode": "raw_fhir_truncated"},
             "condensed_text": raw_fhir_slice,
             "redaction_notice": None,
             "latency_ms": wall_latency_ms,
@@ -1056,15 +1140,20 @@ class WahsHubClient:
         if not callable(post_fn):
             return False
         try:
+            target_url = f"{self.base_url}/v1/chat/completions"
+            post_kwargs: dict[str, Any] = {"timeout": min(self.timeout, 120.0)}
+            if self._direct_llm_api_key and self.direct_llm_base_url != self.base_url:
+                target_url = f"{self.direct_llm_base_url}/v1/chat/completions"
+                post_kwargs["headers"] = {"Authorization": f"Bearer {self._direct_llm_api_key}"}
             resp = post_fn(
-                f"{self.base_url}/v1/chat/completions",
+                target_url,
                 json={
                     "model": model_id,
                     "messages": [{"role": "user", "content": "ok"}],
                     "max_tokens": 4,
                     "stream": False,
                 },
-                timeout=min(self.timeout, 120.0),
+                **post_kwargs,
             )
             return getattr(resp, "status_code", 0) == 200
         except Exception:
@@ -1082,12 +1171,14 @@ class WahsHubClient:
         """Evaluate a case under a standalone `wahs-engine*:<model>` or `raw-fhir:<model>` profile."""
         if not profile_id or not str(profile_id).strip():
             raise ValueError(
-                "profile_id is required; supported prefixes are wahs-engine[-kb|-chart|-rag|-tools]:<model> and raw-fhir:<model>"
+                "profile_id is required; supported prefixes are wahs-engine[-baseline|-kb|-chart|-rag|-tools]:<model> and raw-fhir:<model>"
             )
+        explicit_budget = "@" in str(profile_id)
         _backend_id, api_profile_id, eff_budget, _b_tag = _split_profile_budget(
             profile_id, budget_tokens
         )
         engine_prefixes = {
+            "wahs-engine-baseline:": "baseline_condensation",
             "wahs-engine-kb:": "condensation_kb",
             "wahs-engine:": "condensation_kb",
             "wahs-engine-rag:": "note_rag",
@@ -1107,6 +1198,7 @@ class WahsHubClient:
                     model_id=model_id,
                     retrieval_strategy=strat,
                     budget_tokens=eff_budget,
+                    explicit_budget=explicit_budget,
                     seed=seed,
                     temperature=temperature,
                 )
@@ -1172,6 +1264,8 @@ def _infer_retrieval_strategy(profile_id: str | None) -> str:
     low = api_pid.lower()
     if low.startswith("raw-fhir:"):
         return "offline_raw_ablation"
+    if low.startswith("wahs-engine-baseline:"):
+        return "baseline_condensation"
     if low.startswith("wahs-engine-rag:"):
         return "note_rag"
     if low.startswith("wahs-engine-tools:"):
@@ -1186,7 +1280,9 @@ def _infer_model_family_and_id(profile_id: str) -> tuple[str, str, bool]:
     _, api_profile_id, _, _ = _split_profile_budget(profile_id)
     api_low = api_profile_id.lower()
     include_kb = not (
-        api_low.startswith("wahs-engine-chart:") or api_low.startswith("raw-fhir:")
+        api_low.startswith("wahs-engine-baseline:")
+        or api_low.startswith("wahs-engine-chart:")
+        or api_low.startswith("raw-fhir:")
     )
     if ":" in api_profile_id:
         underlying = api_profile_id.split(":", 1)[1].strip() or api_profile_id
@@ -1334,7 +1430,7 @@ def _summarize_scores(
             inc_kb = bool(
                 c_meta.get(
                     "include_kb_findings",
-                    not str(prof_id).lower().startswith(("wahs-engine-chart:", "raw-fhir:")),
+                    not str(prof_id).lower().startswith(("wahs-engine-baseline:", "wahs-engine-chart:", "raw-fhir:")),
                 )
             )
             default_strat = _infer_retrieval_strategy(str(prof_id))
@@ -1357,7 +1453,7 @@ def _summarize_scores(
                     ret_strat,
                     {
                         "retrieval_strategy": ret_strat,
-                        "include_kb_findings": ret_strat not in {"chart_only", "offline_raw_ablation"},
+                        "include_kb_findings": ret_strat not in {"baseline_condensation", "chart_only", "offline_raw_ablation"},
                     },
                 ),
                 (
@@ -3064,7 +3160,14 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
         short_model = "Liquid 24B"
         full_model = "Liquid LFM2 24B"
 
-    if b_low.startswith("wahs-engine-kb:") or b_low.startswith("wahs-engine:"):
+    if b_low.startswith("wahs-engine-baseline:"):
+        title = f"WAHS Engine · Verbatim Condensation & Provenance ({full_model}{budget_suffix or ' · Auto 32k'})"
+        short_title = f"WAHS Engine ({short_model}{short_budget or ' (Auto)'})"
+        path_desc = (
+            "Standalone wahs-engine baseline: multi-source FHIR deduplication, continuous "
+            "verbatim-first chart condensation within the 32k context window, and [N] source provenance"
+        )
+    elif b_low.startswith("wahs-engine-kb:") or b_low.startswith("wahs-engine:"):
         title = f"WAHS Engine · Condensation + 4-Layer KB ({full_model}{budget_suffix})"
         short_title = f"Engine KB ({short_model}{short_budget})"
         path_desc = (
@@ -3093,11 +3196,11 @@ def _wahs_arm_card(backend_id: str) -> dict[str, Any]:
             "(4-Layer Clinical KB and overflow tools disabled)"
         )
     elif b_low.startswith("raw-fhir:"):
-        title = f"Offline Raw FHIR Baseline — No Condensation ({full_model}{budget_suffix})"
+        title = f"Offline Raw FHIR Baseline · No Condensation ({full_model}{budget_suffix})"
         short_title = f"Raw FHIR ({short_model}{short_budget})"
         path_desc = (
-            "Offline Raw Chart Ablation: uncondensed raw FHIR R4 JSON truncated to the token budget "
-            "without wahs-engine deduplication, citation mapping, privacy gating, or Clinical KB"
+            "Offline Raw Chart Ablation: uncondensed raw FHIR R4 JSON truncated to the 32k context window "
+            "without wahs-engine deduplication, condensation, or [N] citation mapping"
         )
     else:
         arm_label = base_id or raw_id or "custom"
