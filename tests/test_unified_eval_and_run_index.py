@@ -25,12 +25,7 @@ from harness.validate.dashboard_data import (
     write_dashboard_data,
 )
 from harness.validate.run_index import GLOBAL_RUN_INDEX, RunIndex
-from harness.wahs.evaluator import (
-    WahsEvalCase,
-    WahsHubClient,
-    run_wahs_suite,
-    score_wahs_run,
-)
+from harness.validate.runner import CellPlanItem, execute_cell_matrix
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,6 +57,7 @@ def _heavy_envelope(answer: str = "Patient takes Lisinopril [1].", *, uuid: str 
         "answer": answer,
         "condensed_text": "[1] (2026-01-15) MedicationStatement Lisinopril 10 MG\n" + ("x " * 1200),
         "mappings": mappings,
+        "citation_map": {"1": {"uuid": uuid, "display": "Lisinopril 10 MG"}},
         "references": [
             {
                 "index": 1,
@@ -76,7 +72,7 @@ def _heavy_envelope(answer: str = "Patient takes Lisinopril [1].", *, uuid: str 
         "retained_uuids": [uuid],
         "actual_tokens": 250,
         "latency_ms": 120.0,
-        "x_wahs": {
+        "x_ext": {
             "citation_map": {"1": {"uuid": uuid, "display": "Lisinopril 10 MG"}},
             "note": "keep-small-meta",
         },
@@ -96,8 +92,9 @@ def test_context_store_dedupes_eagerly_writes_chart_and_rehydrates(tmp_path: Pat
     assert "condensed_text" not in slim1
     assert "valid_uuids" not in slim1
     assert "retained_uuids" not in slim1
-    assert "citation_map" not in slim1["x_wahs"]
-    assert slim1["x_wahs"]["note"] == "keep-small-meta"
+    assert "citation_map" not in slim1
+    assert "citation_map" not in slim1["x_ext"]
+    assert slim1["x_ext"]["note"] == "keep-small-meta"
     assert len(json.dumps(slim1)) < 4096
 
     ctx_files = list((run_dir / "inputs" / "contexts").glob("*.json"))
@@ -114,179 +111,119 @@ def test_context_store_dedupes_eagerly_writes_chart_and_rehydrates(tmp_path: Pat
     assert full1 is not None
     assert full1["answer"] == "Arm A answer [1]."
     assert full1["mappings"][0]["resourceUuid"] == "u-101"
-    assert full1["x_wahs"]["citation_map"]["1"]["uuid"] == "u-101"
+    assert full1["citation_map"]["1"]["uuid"] == "u-101"
+    assert full1["x_ext"]["citation_map"]["1"]["uuid"] == "u-101"
+
+    # Legacy `<ext>_citation_map` context artifact on disk rehydrates cleanly.
+    legacy_ctx_id = "abcdef0123456789"
+    (run_dir / "inputs" / "contexts" / f"{legacy_ctx_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "openclinai.context.v1",
+                "condensed_text": "[1] Legacy record",
+                "mappings": [],
+                "x_vendor_citation_map": {"1": {"uuid": "u-legacy"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    legacy_rehydrated = rehydrate_response_envelope(
+        run_dir,
+        {"answer": "Legacy [1].", "context_ref": legacy_ctx_id, "x_vendor": {"meta": "ok"}},
+    )
+    assert legacy_rehydrated is not None
+    assert legacy_rehydrated["x_vendor"]["citation_map"]["1"]["uuid"] == "u-legacy"
 
     # Legacy inline fat rows pass through unmodified.
     fat = _heavy_envelope("Legacy inline answer [1].")
     assert rehydrate_response_envelope(run_dir, fat, cache=cache) == fat
 
 
-def test_wahs_profile_suite_isolates_failures_resumes_and_non_destructively_scores(tmp_path: Path) -> None:
-    cases_path = tmp_path / "cases.jsonl"
-    cases_path.write_text(
-        "\n".join(
-            [
-                json.dumps(
-                    {
-                        "case_id": "c_ok",
-                        "patient_id": "pat_ok",
-                        "use_case": "qa",
-                        "prompt": "What medication is active?",
-                        "target_token_budgets": [8192],
-                        "expected_uuids": ["u-101"],
-                        "expected_facts": ["Lisinopril"],
-                    }
-                ),
-                json.dumps(
-                    {
-                        "case_id": "c_fail",
-                        "patient_id": "pat_ok",
-                        "use_case": "qa",
-                        "prompt": "Second question?",
-                        "target_token_budgets": [8192],
-                        "expected_uuids": ["u-101"],
-                        "expected_facts": ["Lisinopril"],
-                    }
-                ),
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    class MixedClient:
-        def __init__(self, fail_second: bool) -> None:
-            self.fail_second = fail_second
-            self.calls: list[str] = []
-
-        def evaluate_case(self, case: WahsEvalCase, **_kw: Any) -> dict[str, Any]:
-            self.calls.append(case.case_id)
-            if self.fail_second and case.case_id == "c_fail":
-                raise RuntimeError("wahs-engine failed [500] for c_fail: transient error")
-            return _heavy_envelope(f"Answer for {case.case_id} uses Lisinopril [1].")
-
-    out_dir = tmp_path / "runs"
-    res1 = run_wahs_suite(
-        cases_path,
-        client=MixedClient(fail_second=True),
-        output_dir=out_dir,
-        profiles=["wahs-engine-chart:ollama/gemma4:e4b@16k"],
-    )
-    rdir1 = Path(res1.run_dir)
-    assert res1.total_cells == 2
-
-    # Eager chart & scenario inputs exist before wahs report / score runs.
-    assert (rdir1 / "inputs" / "charts" / "c_ok.json").is_file()
-    assert (rdir1 / "inputs" / "scenarios" / "c_ok.json").is_file()
-    assert (rdir1 / "inputs" / "contexts").is_dir()
-
-    # events.jsonl records cells upfront.
-    ev_rows = [
-        json.loads(line)
-        for line in (rdir1 / "events.jsonl").read_text(encoding="utf-8").splitlines()
-        if line.strip()
+def test_execute_cell_matrix_isolates_failures_and_resumes_cleanly(tmp_path: Path) -> None:
+    plan_items = [
+        CellPlanItem(
+            cell_key=("c_ok", "arm-a"),
+            scenario_id="c_ok",
+            backend_id="arm-a",
+            turn=1,
+            seed=None,
+            payload="c_ok",
+        ),
+        CellPlanItem(
+            cell_key=("c_fail", "arm-a"),
+            scenario_id="c_fail",
+            backend_id="arm-a",
+            turn=1,
+            seed=None,
+            payload="c_fail",
+        ),
     ]
-    run_ev = next(e for e in ev_rows if e.get("event_type") == "run")
-    assert len(run_ev["cells"]) == 2
+    rdir1 = tmp_path / "runs" / "r1"
+    rdir1.mkdir(parents=True)
+    calls1: list[str] = []
 
-    # results.jsonl stayed compact (slim context_ref) and recorded http_status=500 for c_fail.
-    res_path = rdir1 / "results.jsonl"
-    raw_lines = [line for line in res_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    assert len(raw_lines) == 2
-    assert all(len(line.encode("utf-8")) < 4096 for line in raw_lines)
-    rows = [json.loads(line) for line in raw_lines]
-    fail_row = next(r for r in rows if r["case_id"] == "c_fail")
-    assert fail_row["metrics"]["http_status"] == 500
+    def _exec1(item: CellPlanItem) -> dict[str, Any]:
+        calls1.append(str(item.payload))
+        if item.payload == "c_fail":
+            raise RuntimeError("service failed [503] for c_fail")
+        slim = slim_response_envelope(rdir1, item.scenario_id, "pat_1", _heavy_envelope())
+        return {
+            "scenario_id": item.scenario_id,
+            "backend_id": item.backend_id,
+            "turn": 1,
+            "response": slim,
+            "metrics": {"http_status": 200, "latency_ms": 10},
+        }
 
-    # review_results transparently rehydrates context_ref rows.
+    execute_cell_matrix(
+        plan_items,
+        run_dir=rdir1,
+        output_dir=tmp_path / "runs",
+        execute_cell=_exec1,
+        on_error_cell=lambda item, exc, code: {
+            "scenario_id": item.scenario_id,
+            "backend_id": item.backend_id,
+            "turn": 1,
+            "error": str(exc),
+            "metrics": {"http_status": code or 500, "latency_ms": 0},
+        },
+        isolate_errors=True,
+        events_path=rdir1 / "events.jsonl",
+        run_id="r1",
+    )
     reviewed = review_results(rdir1, strict=True)
-    ok_rev = next(r for r in reviewed if r["case_id"] == "c_ok")
-    assert ok_rev["response"]["mappings"][0]["resourceUuid"] == "u-101"
+    assert len(reviewed) == 2
+    ok_row = next(r for r in reviewed if r["scenario_id"] == "c_ok")
+    fail_row = next(r for r in reviewed if r["scenario_id"] == "c_fail")
+    assert ok_row["response"]["mappings"][0]["resourceUuid"] == "u-101"
+    assert fail_row["metrics"]["http_status"] == 503
 
-    # score_wahs_run must NOT rewrite results.jsonl inode or bytes.
-    before_stat = os.stat(res_path)
-    before_bytes = res_path.read_bytes()
-    score_summary = score_wahs_run(rdir1)
-    after_stat = os.stat(res_path)
-    assert after_stat.st_ino == before_stat.st_ino
-    assert res_path.read_bytes() == before_bytes
-    assert score_summary["incomplete"] is True
-
-    # Resume re-runs only c_fail and carries over c_ok.
-    recovered = MixedClient(fail_second=False)
-    res2 = run_wahs_suite(
-        cases_path,
-        client=recovered,
-        output_dir=out_dir,
-        profiles=["wahs-engine-chart:ollama/gemma4:e4b@16k"],
-        resume_from=rdir1,
+    rdir2 = tmp_path / "runs" / "r2"
+    rdir2.mkdir(parents=True)
+    calls2: list[str] = []
+    execute_cell_matrix(
+        plan_items,
+        run_dir=rdir2,
+        output_dir=tmp_path / "runs",
+        execute_cell=lambda item: (
+            calls2.append(str(item.payload))
+            or {
+                "scenario_id": item.scenario_id,
+                "backend_id": item.backend_id,
+                "turn": 1,
+                "response": slim_response_envelope(rdir2, item.scenario_id, "pat_1", _heavy_envelope()),
+                "metrics": {"http_status": 200, "latency_ms": 12},
+            }
+        ),
+        completed_rows={("c_ok", "arm-a"): ok_row},
+        on_resume_cell=lambda _item, prior: {
+            **prior,
+            "response": slim_response_envelope(rdir2, prior["scenario_id"], "pat_1", prior["response"]),
+        },
+        events_path=rdir2 / "events.jsonl",
+        run_id="r2",
     )
-    assert recovered.calls == ["c_fail"]
-    assert res2.passed_cells == 2
-
-
-def test_wahs_hub_client_retries_http_500(tmp_path: Path) -> None:
-    (tmp_path / "p1.json").write_text(
-        json.dumps({"resourceType": "Bundle", "type": "collection", "entry": []}),
-        encoding="utf-8",
-    )
-    chat_calls = 0
-
-    class _FakeResp:
-        def __init__(self, status_code: int, payload: dict[str, Any] | None = None) -> None:
-            self.status_code = status_code
-            self._payload = payload or {}
-            self.text = json.dumps(self._payload)
-
-        def json(self) -> dict[str, Any]:
-            return self._payload
-
-    class _FakeSession:
-        def __init__(self) -> None:
-            self.headers: dict[str, str] = {}
-
-        def post(self, url: str, json: dict[str, Any], timeout: float) -> _FakeResp:  # noqa: A002
-            nonlocal chat_calls
-            if url.endswith("/context/preview"):
-                return _FakeResp(
-                    200,
-                    {"condensed_text": "[1] Lisinopril", "citation_map": {}, "condensation": {}},
-                )
-            chat_calls += 1
-            if chat_calls == 1:
-                return _FakeResp(500, {"detail": "transient gpu blip"})
-            return _FakeResp(
-                200,
-                {
-                    "choices": [{"message": {"content": "Lisinopril active [1]."}}],
-                    "x_wahs": {"condensation": {"actual_tokens": 120}, "timings": {"llm_rounds": 1}},
-                },
-            )
-
-        def get(self, url: str, timeout: float) -> _FakeResp:
-            return _FakeResp(200, {})
-
-    client = WahsHubClient(
-        base_url="http://127.0.0.1:18088",
-        session=_FakeSession(),
-        max_retries=2,
-        retry_backoff_s=0.0,
-        bundle_dirs=[tmp_path],
-    )
-    case = WahsEvalCase(
-        case_id="c1",
-        patient_id="p1",
-        use_case="qa",
-        prompt="Question?",
-        target_token_budgets=[8192],
-    )
-    env = client.evaluate_case(
-        case,
-        budget_tokens=8192,
-        profile_id="wahs-engine-chart:ollama/gemma4:e4b@16k",
-    )
-    assert chat_calls == 2
-    assert "Lisinopril" in env["answer"]
+    assert calls2 == ["c_fail"]
 
 
 def test_run_index_incremental_delta_partial_line_and_detail(tmp_path: Path) -> None:
@@ -620,7 +557,7 @@ def test_context_store_edge_guards_and_dashboard_discovery_branches(
     cold_run = runs_root / "run-cold"
     cold_run.mkdir(parents=True)
     (cold_run / "run_manifest.json").write_text(
-        json.dumps({"family": "wahs", "total_cells": 3}), encoding="utf-8"
+        json.dumps({"family": "clinical_qa", "total_cells": 3}), encoding="utf-8"
     )
     (cold_run / "summary.json").write_text("{corrupt", encoding="utf-8")
     empty_run = runs_root / "run-empty"

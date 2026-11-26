@@ -806,7 +806,7 @@ def test_validate_dashboard_http_routes_with_and_without_viewer_assets(
 
         # 3) POST /api/watch registers extra worktree artifacts dirs; invalid JSON & unknown paths handled.
         wt_artifacts = tmp_path / "wt_artifacts"
-        wt_run = wt_artifacts / "wahs_stage4" / "run-watch-1"
+        wt_run = wt_artifacts / "clinical_eval" / "run-watch-1"
         wt_run.mkdir(parents=True)
         (wt_run / "results.jsonl").write_text(
             json.dumps({"scenario_id": "s1", "backend_id": "b1", "turn": 1}) + "\n",
@@ -889,7 +889,7 @@ def test_validate_dashboard_http_routes_with_and_without_viewer_assets(
         srv.server_close()
 
 
-def test_wahs_run_discovery_and_ensure_live_dashboard(
+def test_generic_run_discovery_and_ensure_live_dashboard(
     tmp_path: Path, monkeypatch
 ) -> None:
     import importlib.util
@@ -911,13 +911,17 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
     with pytest.raises(RuntimeError):
         _register_watch(9, artifacts_dir=tmp_path, timeout=0.2)
 
-    wahs_run = tmp_path / "artifacts" / "wahs_stage4" / "run-123"
-    wahs_run.mkdir(parents=True)
-    (wahs_run / "results.jsonl").write_text(
+    non_run_slices = tmp_path / "artifacts" / "clinical_eval" / "slices"
+    non_run_slices.mkdir(parents=True)
+    (non_run_slices / "slice.jsonl").write_text("{}\n", encoding="utf-8")
+
+    eval_run = tmp_path / "artifacts" / "clinical_eval" / "run-123"
+    eval_run.mkdir(parents=True)
+    (eval_run / "results.jsonl").write_text(
         json.dumps(
             {
-                "scenario_id": "s_wahs",
-                "backend_id": "wahs-engine-kb:gemma-e4b@4k",
+                "scenario_id": "s_clinical",
+                "backend_id": "clinical-qa:gemma-e4b@4k",
                 "turn": 1,
                 "request": {"question": "q"},
                 "response": {"answer": "ok", "references": []},
@@ -932,7 +936,8 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
     vd._RUN_OVERRIDE = None
     monkeypatch.delenv("DASH_RUN", raising=False)
     monkeypatch.setattr(vd, "ROOT", tmp_path)
-    assert vd.newest_run() == str(wahs_run)
+    assert vd.newest_run() == str(eval_run)
+    assert str(non_run_slices) not in vd._discover_run_dirs()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
@@ -975,15 +980,15 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
     try:
         url = ensure_live_dashboard(
             project_root=wheel_root,
-            run_dir=wahs_run,
+            run_dir=eval_run,
             port=free_port,
         )
         assert url == f"http://localhost:{free_port}"
         # Packaged server handles /api/status?run=<name>, /api/detail?run=<name>, and root HTML.
-        st = _status_payload(free_port, run=wahs_run.name)
-        assert st is not None and st["run"] == wahs_run.name
+        st = _status_payload(free_port, run=eval_run.name)
+        assert st is not None and st["run"] == eval_run.name
         with urllib.request.urlopen(
-            f"http://127.0.0.1:{free_port}/api/detail?scenario=s_wahs&backend=wahs-engine-kb:gemma-e4b@4k&run={wahs_run.name}",
+            f"http://127.0.0.1:{free_port}/api/detail?scenario=s_clinical&backend=clinical-qa:gemma-e4b@4k&run={eval_run.name}",
             timeout=2.0,
         ) as resp:
             assert resp.status == 200
@@ -992,7 +997,7 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
         # Second call hits already-alive branch and notifies /api/watch for secondary worktree.
         wt2 = tmp_path / "wt2"
         (wt2 / "artifacts").mkdir(parents=True)
-        url2 = ensure_live_dashboard(project_root=wt2, run_dir=wahs_run, port=free_port)
+        url2 = ensure_live_dashboard(project_root=wt2, run_dir=eval_run, port=free_port)
         assert url2 == f"http://localhost:{free_port}"
     finally:
         pid_file = wheel_root / "artifacts" / "validate-dashboard" / "dashboard.pid"
@@ -1003,15 +1008,15 @@ def test_wahs_run_discovery_and_ensure_live_dashboard(
                 pass
 
     # resolve_run rejects mismatched DASH_RUN pin and mismatched _RUN_OVERRIDE.
-    other_run = tmp_path / "artifacts" / "wahs_stage4" / "run-other"
+    other_run = tmp_path / "artifacts" / "clinical_eval" / "run-other"
     other_run.mkdir(parents=True)
     with monkeypatch.context() as mp:
         mp.setenv("DASH_RUN", str(other_run))
-        assert vd.resolve_run(wahs_run.name) is None
+        assert vd.resolve_run(eval_run.name) is None
         assert vd.resolve_run(other_run.name) == str(other_run)
     with monkeypatch.context() as mp:
         mp.setattr(vd, "_RUN_OVERRIDE", str(other_run))
-        assert vd.resolve_run(wahs_run.name) is None
+        assert vd.resolve_run(eval_run.name) is None
         assert vd.resolve_run(other_run.name) == str(other_run)
 
 
@@ -1240,58 +1245,63 @@ def test_direct_python_runner_outside_artifacts_enforces_live_dashboard(
     import subprocess
     import urllib.request
 
-    from harness.wahs.evaluator import run_wahs_suite
-
-    cases_path = tmp_path / "wahs_cases.jsonl"
-    cases_path.write_text(
-        json.dumps(
-            {
-                "case_id": "wahs_direct_1",
-                "patient_id": "p1",
-                "use_case": "use_case_b1_summary",
-                "prompt": "Summarize active medications.",
-                "sharing_posture": "patient_self",
-                "target_token_budgets": [4096],
-                "expected_target_uuids": ["uuid-med-1"],
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    class _StubClient:
-        def evaluate_case(self, case, *, budget_tokens, **_kw):
-            return {
-                "answer": "Active medication: Atorvastatin 20 mg [1].",
-                "actual_tokens": 120,
-                "references": [
-                    {"index": 1, "resourceUuid": "uuid-med-1", "resourceType": "MedicationRequest"}
-                ],
-                "metrics": {"http_status": 200, "latency_ms": 15},
-            }
+    from harness.metadata import append_event
+    from harness.validate.runner import CellPlanItem, execute_cell_matrix
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         free_port = s.getsockname()[1]
 
     external_runs = tmp_path / "external_runs"
+    run_id = "run-direct-generic-1"
+    run_dir = external_runs / run_id
+    run_dir.mkdir(parents=True)
+    events_path = run_dir / "events.jsonl"
+    append_event(
+        events_path,
+        {
+            "event_type": "run",
+            "run_id": run_id,
+            "scenario_ids": ["s_direct_1"],
+            "backend_ids": ["clinical-qa:stub@4k"],
+            "cells": [{"scenario_id": "s_direct_1", "backend_id": "clinical-qa:stub@4k", "turns": 1}],
+        },
+    )
+    items = [
+        CellPlanItem(
+            cell_key=("s_direct_1", "clinical-qa:stub@4k"),
+            scenario_id="s_direct_1",
+            backend_id="clinical-qa:stub@4k",
+            turn=1,
+            seed=None,
+            payload=None,
+        )
+    ]
     monkeypatch.setenv("HARNESS_FORCE_DASHBOARD", "1")
     monkeypatch.setenv("DASH_PORT", str(free_port))
     monkeypatch.setenv("OPENCLINAI_DISABLE_UMBRELLA_ASSETS", "1")
 
     pid_file = ROOT / "artifacts" / "validate-dashboard" / "dashboard.pid"
     try:
-        res = run_wahs_suite(
-            cases_path,
-            client=_StubClient(),
+        execute_cell_matrix(
+            items,
+            run_dir=run_dir,
             output_dir=external_runs,
-            budgets=[4096],
-            profiles=["wahs-engine-kb:stub@4k"],
+            execute_cell=lambda _item: {
+                "scenario_id": "s_direct_1",
+                "backend_id": "clinical-qa:stub@4k",
+                "turn": 1,
+                "request": {"question": "Summarize active medications."},
+                "response": {"answer": "Active medication: Atorvastatin 20 mg [1].", "references": []},
+                "metrics": {"http_status": 200, "latency_ms": 15, "answer_chars": 40},
+            },
+            events_path=events_path,
+            run_id=run_id,
         )
         with urllib.request.urlopen(f"http://127.0.0.1:{free_port}/api/status", timeout=2.0) as resp:
             assert resp.status == 200
             status_json = json.loads(resp.read().decode("utf-8"))
-        assert status_json["run"] == res.run_id
+        assert status_json["run"] == run_id
         assert status_json["done"] == 1
     finally:
         if pid_file.is_file():
@@ -1312,15 +1322,18 @@ def test_direct_python_runner_outside_artifacts_enforces_live_dashboard(
     def _fail_popen(*_a, **_kw):
         raise OSError("cannot launch dashboard")
 
+    run_dir_fail = external_runs / "run-direct-generic-fail"
+    run_dir_fail.mkdir(parents=True)
     with monkeypatch.context() as mp:
         mp.setattr(subprocess, "Popen", _fail_popen)
         with pytest.raises(RuntimeError, match="Failed to launch live validation dashboard"):
-            run_wahs_suite(
-                cases_path,
-                client=_StubClient(),
+            execute_cell_matrix(
+                items,
+                run_dir=run_dir_fail,
                 output_dir=external_runs,
-                budgets=[4096],
-                profiles=["wahs-engine-kb:stub@4k"],
+                execute_cell=lambda _item: {},
+                events_path=run_dir_fail / "events.jsonl",
+                run_id="run-direct-generic-fail",
             )
 
 

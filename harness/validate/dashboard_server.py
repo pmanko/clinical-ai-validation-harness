@@ -111,18 +111,38 @@ def _assets_available() -> bool:
     ).is_file()
 
 
+_RUN_MARKER_FILES = (
+    "results.jsonl",
+    "events.jsonl",
+    "run_manifest.json",
+    "run_meta.json",
+    "summary.json",
+    "run-summary.json",
+    "dashboard-data.json",
+    "suite.json",
+)
+
+
+def _has_run_marker(run_dir: str) -> bool:
+    return any(os.path.exists(os.path.join(run_dir, name)) for name in _RUN_MARKER_FILES)
+
+
 def _search_bases(artifacts_root: Path) -> list[Path]:
-    wahs_dirs = [
+    discovered = [
         Path(p)
-        for p in glob.glob(str(artifacts_root / "wahs*"))
-        if os.path.isdir(p)
+        for p in sorted(glob.glob(str(artifacts_root / "*")))
+        if os.path.isdir(p) and Path(p).name != "validate-dashboard"
     ]
-    return [
+    defaults = [
         artifacts_root / "validate",
         artifacts_root / "catalyst-validation",
         artifacts_root / "catalyst-notebook-validation",
-        *wahs_dirs,
     ]
+    out = list(defaults)
+    for cand in discovered:
+        if cand not in out:
+            out.append(cand)
+    return out
 
 
 def _all_search_bases() -> list[Path]:
@@ -177,9 +197,14 @@ def _run_activity(d: str) -> float:
 
 def _discover_run_dirs() -> list[str]:
     seen: dict[str, str] = {}
+    artifact_bases = set(_search_bases(ROOT / "artifacts"))
+    for extra in sorted(_WATCH_ARTIFACTS_DIRS):
+        artifact_bases.update(_search_bases(Path(extra)))
+    explicit_output_bases = {Path(od) for od in _WATCH_OUTPUT_DIRS}
     for base in _all_search_bases():
+        require_marker = base in artifact_bases and base not in explicit_output_bases
         for d in glob.glob(str(base / "*")):
-            if os.path.isdir(d):
+            if os.path.isdir(d) and (not require_marker or _has_run_marker(d)):
                 rp = os.path.realpath(d)
                 seen.setdefault(rp, d)
     for rd in sorted(_WATCH_RUN_DIRS):

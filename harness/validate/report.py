@@ -644,40 +644,37 @@ def _consolidate_multiseed_judge_rows(
     return out
 
 
-_WAHS_CATEGORY_MAP = {
-    "q01": "Medication Reconciliation & Conflicts",
-    "q02": "Medication Reconciliation & Conflicts",
-    "q03": "Medication Reconciliation & Conflicts",
-    "q04": "Conditions, Labs & Vitals",
-    "q05": "Conditions, Labs & Vitals",
-    "q06": "Conditions, Labs & Vitals",
-    "q07": "Conditions, Labs & Vitals",
-    "q08": "Conditions, Labs & Vitals",
-    "q09": "Conditions, Labs & Vitals",
-    "q10": "Conditions, Labs & Vitals",
-    "q14": "Conditions, Labs & Vitals",
-    "q11": "Immunizations, Allergies & Devices",
-    "q12": "Immunizations, Allergies & Devices",
-    "q13": "Immunizations, Allergies & Devices",
-    "q15": "Immunizations, Allergies & Devices",
-    "p01": "Third-Party & Bystander Privacy",
-    "p02": "Third-Party & Bystander Privacy",
-    "p05": "Third-Party & Bystander Privacy",
-    "p08": "Third-Party & Bystander Privacy",
-    "p10": "Third-Party & Bystander Privacy",
-    "p03": "Access Control, Sensitivity & Injection",
-    "p04": "Access Control, Sensitivity & Injection",
-    "p06": "Access Control, Sensitivity & Injection",
-    "p07": "Access Control, Sensitivity & Injection",
-    "p09": "Access Control, Sensitivity & Injection",
-}
-_WAHS_Q_RE = re.compile(r"^(?:wahs_sheet_)?([qp]\d{2})(?:__|$)", re.IGNORECASE)
+_SAFE_FAMILY_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
-def _scenario_category(run_dir: Path, scenario_id: str) -> str | None:
-    """Resolve explicit scenario capability category from `inputs/scenarios/` or WAHS sheet ID."""
+def _load_family_scenario_categories(family: str) -> dict[str, str]:
+    clean_family = str(family or "").strip().lower()
+    if not clean_family or clean_family in {".", ".."} or not _SAFE_FAMILY_RE.fullmatch(clean_family):
+        return {}
+    cfg_path = Path(__file__).resolve().parents[2] / "configs" / clean_family / "profiles.yaml"
+    if not cfg_path.is_file():
+        return {}
+    try:
+        import yaml
+
+        loaded = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    raw_map = loaded.get("scenario_categories") if isinstance(loaded, dict) else None
+    if not isinstance(raw_map, dict):
+        return {}
+    return {
+        str(k).strip().lower(): str(v).strip()
+        for k, v in raw_map.items()
+        if str(k).strip() and str(v).strip()
+    }
+
+
+def _scenario_category(run_dir: Path, scenario_id: str, *, family: str = "") -> str | None:
+    """Resolve explicit scenario capability category from `inputs/scenarios/` or family config."""
     base_sid, _ = _split_scenario_seed(scenario_id)
-    for cand_id in (scenario_id, base_sid):
+    base_no_budget = base_sid.split("__b", 1)[0]
+    for cand_id in dict.fromkeys((scenario_id, base_sid, base_no_budget)):
         spath = run_dir / "inputs" / "scenarios" / f"{cand_id}.json"
         if spath.is_file():
             try:
@@ -686,9 +683,12 @@ def _scenario_category(run_dir: Path, scenario_id: str) -> str | None:
                     return cat
             except (OSError, ValueError):
                 pass
-    m = _WAHS_Q_RE.match(base_sid)
-    if m:
-        return _WAHS_CATEGORY_MAP.get(m.group(1).lower())
+    fam_map = _load_family_scenario_categories(family)
+    if fam_map:
+        head = base_no_budget.split("__", 1)[0].lower()
+        for cand_key in (base_no_budget.lower(), head, head.rsplit("_", 1)[-1]):
+            if cand_key in fam_map:
+                return fam_map[cand_key]
     return None
 
 
@@ -734,7 +734,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
                     cells[b] = _cell_blob(r, traces, chart_fixture)
             turns.append({"turn": t, "question": questions.get(t, ""), "cells": cells})
         sc_entry: dict[str, Any] = {"scenario_id": sid, "turns": turns}
-        sc_cat = _scenario_category(run_dir, sid)
+        sc_cat = _scenario_category(run_dir, sid, family=family)
         if sc_cat:
             sc_entry["category"] = sc_cat
         raw_scenarios.append(sc_entry)

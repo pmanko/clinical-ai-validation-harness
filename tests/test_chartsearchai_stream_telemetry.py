@@ -533,7 +533,6 @@ def test_openai_compatible_client_supports_plain_text_and_sse_streaming(monkeypa
         "med-agent-hub",
         "openai-compatible",
         "catalyst",
-        "wahs",
     }
 
     # 1. Non-streaming plain-text completion with usage + endpoint_url override

@@ -1,0 +1,94 @@
+default_profile: baseline
+raw_fhir_prompt: raw-fhir-default
+
+profiles:
+  baseline:
+    engine_profile: baseline
+    title_suffix: "WAHS Verbatim Condensation"
+    short_suffix: "Verbatim"
+    enrichers: []
+    description: "Standalone wahs-engine baseline: multi-source FHIR deduplication, continuous verbatim-first chart condensation within the model context window, and [N] source provenance"
+
+  temporal:
+    engine_profile: temporal
+    title_suffix: "WAHS + Temporal Anchor & Trends"
+    short_suffix: "+Temporal"
+    enrichers:
+      - temporal
+    description: "Standalone wahs-engine verbatim condensation + chart anchor horizon, recency cutoffs, and tie-safe UCUM lab trends"
+
+  terminology:
+    engine_profile: terminology
+    title_suffix: "WAHS + CIEL & Public Standards Terminology KB"
+    short_suffix: "+Terminology KB"
+    enrichers:
+      - terminology_kb
+    description: "Standalone wahs-engine verbatim condensation + offline CIEL v2026-04-28 and RxNorm/ATC/CVX/LOINC terminology resolution"
+
+  temporal-terminology:
+    engine_profile: temporal-terminology
+    title_suffix: "WAHS + Temporal & Terminology KB"
+    short_suffix: "+Temporal +Terminology"
+    enrichers:
+      - temporal
+      - terminology_kb
+    description: "Standalone wahs-engine verbatim condensation + temporal anchor/trends and CIEL + public standards terminology KB"
+
+  rag-overflow:
+    engine_profile: rag-overflow
+    title_suffix: "WAHS + Tier-2 Note RAG & Overflow Recovery"
+    short_suffix: "+Note RAG +Overflow"
+    enrichers:
+      - note_rag
+      - overflow_lookup
+    description: "Standalone wahs-engine verbatim condensation + Tier-2 unseen-span BM25 note retrieval and omitted-record overflow recovery"
+
+  core-enriched:
+    engine_profile: core-enriched
+    title_suffix: "WAHS + Core Enrichers (Temporal, Terminology, RAG, Overflow)"
+    short_suffix: "+Core Enrichers"
+    enrichers:
+      - temporal
+      - terminology_kb
+      - note_rag
+      - overflow_lookup
+    description: "Standalone wahs-engine verbatim condensation + core generalizable enrichers (temporal, terminology_kb, note_rag, overflow_lookup)"
+
+  full-enriched:
+    engine_profile: full-enriched
+    title_suffix: "WAHS + Core Enrichers + Public Guideline Snippets"
+    short_suffix: "+Core +Guidelines"
+    enrichers:
+      - temporal
+      - terminology_kb
+      - note_rag
+      - overflow_lookup
+      - guideline_kb
+    description: "Standalone wahs-engine verbatim condensation + core enrichers + toggleable public clinical guideline reference snippets ([K1]..[KM])"
+
+scenario_categories:
+  q01: "Medication Reconciliation & Conflicts"
+  q02: "Medication Reconciliation & Conflicts"
+  q03: "Medication Reconciliation & Conflicts"
+  q04: "Conditions, Labs & Vitals"
+  q05: "Conditions, Labs & Vitals"
+  q06: "Conditions, Labs & Vitals"
+  q07: "Conditions, Labs & Vitals"
+  q08: "Conditions, Labs & Vitals"
+  q09: "Conditions, Labs & Vitals"
+  q10: "Conditions, Labs & Vitals"
+  q11: "Immunizations, Allergies & Devices"
+  q12: "Immunizations, Allergies & Devices"
+  q13: "Immunizations, Allergies & Devices"
+  q14: "Conditions, Labs & Vitals"
+  q15: "Immunizations, Allergies & Devices"
+  p01: "Third-Party & Bystander Privacy"
+  p02: "Third-Party & Bystander Privacy"
+  p03: "Access Control, Sensitivity & Injection"
+  p04: "Access Control, Sensitivity & Injection"
+  p05: "Third-Party & Bystander Privacy"
+  p06: "Access Control, Sensitivity & Injection"
+  p07: "Access Control, Sensitivity & Injection"
+  p08: "Third-Party & Bystander Privacy"
+  p09: "Access Control, Sensitivity & Injection"
+  p10: "Third-Party & Bystander Privacy"

@@ -1,31 +1,39 @@
 #!/usr/bin/env python3
 """Run and package CIRG H200 GPU WAHS+ evaluations over Google Sheet scenarios.
 
-Benchmarks the current 4-pathway `wahs-engine` architecture (`note_rag`,
-`condensation_kb`, `dynamic_fhir_tools`, `chart_only`) against the frozen
-WAHS+ Google Sheet scenarios (`datasets/wahs_demo_patients_25x10_testset.jsonl`)
-using a dedicated local `wahs-engine` container backed by the UW CIRG H200
-GPU cluster (`https://llm.co.dev.cirg.uw.edu/v1`) and NEVER local Mac `:8077`.
+Benchmarks declarative `wahs-engine` profiles (`configs/wahs/profiles.yaml`:
+`baseline`, `temporal`, `terminology`, `temporal-terminology`, `rag-overflow`,
+`core-enriched`, `full-enriched`, ad-hoc `wahs+<enricher>`, and `raw-fhir`)
+against the frozen WAHS+ Google Sheet scenarios
+(`datasets/wahs_demo_patients_25x10_testset.jsonl`) using a dedicated local
+`wahs-engine` container backed by the UW CIRG H200 GPU cluster
+(`https://llm.co.dev.cirg.uw.edu/v1`) and NEVER local Mac `:8077`.
 """
 
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 import hashlib
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
+from typing import Any
 import urllib.error
 import urllib.request
-from pathlib import Path
-from typing import Any, Sequence
 
 HARNESS_ROOT = Path(__file__).resolve().parents[1]
 if str(HARNESS_ROOT) not in sys.path:
     sys.path.insert(0, str(HARNESS_ROOT))
+
+from harness.wahs.evaluator import (  # noqa: E402
+    load_wahs_profiles_config,
+    parse_wahs_profile_spec,
+)
 
 DEFAULT_CASES_PATH = HARNESS_ROOT / "datasets" / "wahs_demo_patients_25x10_testset.jsonl"
 DEFAULT_BUNDLES_DIR = Path("/Users/pmanko/code/hq/wahs/bundles")
@@ -34,7 +42,7 @@ DEFAULT_ENV_FILE = Path("/Users/pmanko/code/hq/wahs/.env")
 DEFAULT_HUB_URL = "http://127.0.0.1:18088"
 DEFAULT_LLM_BASE_URL = "https://llm.co.dev.cirg.uw.edu/v1"
 DEFAULT_CONTAINER_NAME = "wahs-engine-eval"
-DEFAULT_IMAGE_NAME = "wahs-engine:baseline-eval"
+DEFAULT_IMAGE_NAME = "wahs-engine:modular-eval"
 
 COHORT_PATIENTS: dict[str, tuple[str, ...]] = {
     "core3": (
@@ -62,27 +70,18 @@ PATIENT_ALIASES: dict[str, str] = {
     "sofia": "Sofia_Alvarez_Maternal_Endocrine_set_b",
 }
 
-SMOKE_10_CASE_IDS: tuple[str, ...] = (
+SMOKE_CASE_IDS: tuple[str, ...] = (
     "wahs_sheet_q01__maurice_auer",
-    "wahs_sheet_q01__julian_mercer",
-    "wahs_sheet_q04__marcus_vance",
-    "wahs_sheet_p01__maurice_auer",
-    "wahs_sheet_p02__maurice_auer",
+    "wahs_sheet_q03__margaret_chen",
+    "wahs_sheet_q10__marcus_vance",
+    "wahs_sheet_q12__maurice_auer",
 )
 
-SMOKE_10_PROFILES: tuple[str, ...] = (
-    "wahs-engine-rag:ollama/gemma4:26b@16k",
-    "wahs-engine-tools:ollama/gemma4:26b@2k",
+SMOKE_MODULAR_PROFILES: tuple[str, ...] = (
+    "wahs:baseline:ollama/gemma4:26b@32k",
+    "wahs:core-enriched:ollama/gemma4:26b@32k",
+    "wahs:full-enriched:ollama/gemma4:26b@32k",
 )
-
-PATHWAY_SPECS: dict[str, tuple[str, str]] = {
-    "engine": ("wahs-engine-baseline", "auto"),
-    "direct": ("raw-fhir", "auto"),
-    "rag": ("wahs-engine-rag", "16k"),
-    "kb": ("wahs-engine-kb", "16k"),
-    "tools": ("wahs-engine-tools", "2k"),
-    "chart": ("wahs-engine-chart", "16k"),
-}
 
 MODEL_ALIASES: dict[str, str] = {
     "26b": "ollama/gemma4:26b",
@@ -106,19 +105,13 @@ DEFAULT_MODEL_MAP: dict[str, str] = {
     "wahs-26b": "ollama/gemma4:26b",
     "wahs-12b": "ollama/gemma4:12b",
     "wahs-e4b": "ollama/gemma4:e4b",
-    "wahs-26b-kb": "ollama/gemma4:26b",
-    "wahs-26b-raw": "ollama/gemma4:26b",
-    "wahs-12b-kb": "ollama/gemma4:12b",
-    "wahs-12b-raw": "ollama/gemma4:12b",
-    "wahs-e4b-kb": "ollama/gemma4:e4b",
-    "wahs-e4b-raw": "ollama/gemma4:e4b",
-    "wahs-qwen3-14b-kb": "ollama/qwen3:14b",
-    "wahs-qwen3-8b-kb": "ollama/qwen3:8b",
-    "wahs-llama31-8b-kb": "ollama/llama3.1:8b",
     "gemma-4-e4b": "ollama/gemma4:e4b",
     "gemma4:26b": "ollama/gemma4:26b",
     "gemma4:12b": "ollama/gemma4:12b",
     "gemma4:e4b": "ollama/gemma4:e4b",
+    "ollama/gemma4:26b": "ollama/gemma4:26b",
+    "ollama/gemma4:12b": "ollama/gemma4:12b",
+    "ollama/gemma4:e4b": "ollama/gemma4:e4b",
     "qwen3-14b": "ollama/qwen3:14b",
     "qwen3.5-9b": "ollama/qwen3:8b",
     "llama-3.1-8b": "ollama/llama3.1:8b",
@@ -139,13 +132,45 @@ def resolve_patient_id(raw: str) -> str:
     return PATIENT_ALIASES.get(clean.lower(), clean)
 
 
+def _resolve_pathway_prefix(
+    pathway: str,
+    *,
+    configured_profiles: dict[str, dict[str, Any]],
+    prompt_override: str | None = None,
+) -> tuple[str, str]:
+    """Return `(arm_prefix, default_budget)` for a pathway / profile name."""
+    raw = str(pathway or "").strip()
+    low = raw.lower()
+    prompt_suffix = f"[prompt={prompt_override}]" if prompt_override else ""
+    if low in {"direct", "raw-fhir"}:
+        return "raw-fhir", "auto"
+    if low == "engine":
+        return f"wahs:baseline{prompt_suffix}", "auto"
+    if low.startswith("wahs+"):
+        base_lhs = raw[:-len(raw[raw.index("["):])] if "[" in raw else raw
+        suffix = "" if "[" in raw else prompt_suffix
+        return f"{base_lhs}{suffix}", "32k"
+    prof_lookup = {k.lower(): k for k in configured_profiles}
+    if low in prof_lookup:
+        canon = prof_lookup[low]
+        default_b = "auto" if canon == "baseline" else "32k"
+        return f"wahs:{canon}{prompt_suffix}", default_b
+    raise ValueError(
+        f"Unknown WAHS pathway/profile {pathway!r}; expected one of "
+        f"{('engine', 'direct', 'raw-fhir', *sorted(configured_profiles))} or 'wahs+<enricher>'"
+    )
+
+
 def build_profiles(
     *,
     pathways: Sequence[str],
     models: Sequence[str],
     budget_override: str | None = None,
-    tools_budget: str = "2k",
+    prompt_override: str | None = None,
+    profiles_config_path: Path | str | None = None,
 ) -> list[str]:
+    cfg = load_wahs_profiles_config(profiles_config_path)
+    configured_profiles = cfg["profiles"]
     out: list[str] = []
     seen: set[str] = set()
     override_budgets = (
@@ -153,24 +178,52 @@ def build_profiles(
         if budget_override
         else []
     )
+    clean_prompt = str(prompt_override or "").strip() or None
+
+    # Allow full profile specs (e.g. `wahs:baseline:ollama/gemma4:26b@32k`) directly in `pathways`.
+    expanded_pathways: list[str] = []
+    for p_raw in pathways:
+        p_clean = str(p_raw or "").strip()
+        if not p_clean:
+            continue
+        if ":" in p_clean and p_clean.lower().startswith(("wahs:", "wahs+", "wahs-engine-baseline:", "raw-fhir:")):
+            parse_wahs_profile_spec(
+                p_clean,
+                config_path=profiles_config_path,
+                default_prompt=clean_prompt,
+                strict=True,
+            )
+            if p_clean not in seen:
+                seen.add(p_clean)
+                out.append(p_clean)
+        else:
+            expanded_pathways.append(p_clean)
+
+    if not expanded_pathways:
+        return out
+
     for m_raw in models:
         m_clean = str(m_raw or "").strip()
         if not m_clean:
             continue
         model_id = MODEL_ALIASES.get(m_clean.lower(), m_clean)
-        for p_raw in pathways:
-            p_key = str(p_raw or "").strip().lower()
-            if p_key not in PATHWAY_SPECS:
-                raise ValueError(f"Unknown WAHS pathway {p_raw!r}; expected {tuple(PATHWAY_SPECS)}")
-            prefix, default_budget = PATHWAY_SPECS[p_key]
-            if p_key == "tools":
-                budgets_for_arm = [tools_budget]
-            elif p_key == "direct" and len(override_budgets) > 1:
+        for p_raw in expanded_pathways:
+            prefix, default_budget = _resolve_pathway_prefix(
+                p_raw,
+                configured_profiles=configured_profiles,
+                prompt_override=clean_prompt,
+            )
+            is_raw = prefix == "raw-fhir"
+            if is_raw and len(override_budgets) > 1:
                 budgets_for_arm = [default_budget]
             else:
                 budgets_for_arm = override_budgets or [default_budget]
             for budget in budgets_for_arm:
-                arm = f"{prefix}:{model_id}" if str(budget).lower() == "auto" else f"{prefix}:{model_id}@{budget}"
+                arm = (
+                    f"{prefix}:{model_id}"
+                    if str(budget).lower() == "auto"
+                    else f"{prefix}:{model_id}@{budget}"
+                )
                 if arm not in seen:
                     seen.add(arm)
                     out.append(arm)
@@ -276,6 +329,24 @@ def probe_engine_health(hub_url: str, *, timeout: float = 4.0) -> dict[str, Any]
     return None
 
 
+def probe_engine_profiles(hub_url: str, *, timeout: float = 4.0) -> dict[str, Any] | None:
+    """Query `GET /v1/wahs/profiles` when supported by `wahs-engine`."""
+    url = f"{hub_url.rstrip('/')}/v1/wahs/profiles"
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data if isinstance(data, dict) else None
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise RuntimeError(f"wahs-engine /v1/wahs/profiles failed with HTTP {exc.code}") from exc
+    except Exception:
+        return None
+    return None
+
+
 def assert_gpu_engine_safe(health: dict[str, Any], *, expected_llm_host: str = "llm.co.dev.cirg.uw.edu") -> None:
     llm_url = str(health.get("llm_base_url") or "").strip().lower()
     if not llm_url:
@@ -311,12 +382,8 @@ def ensure_eval_engine(
 ) -> dict[str, Any]:
     health = probe_engine_health(hub_url)
     if health is not None and not start_engine:
-        try:
-            assert_gpu_engine_safe(health)
-            return health
-        except RuntimeError:
-            if not start_engine:
-                raise
+        assert_gpu_engine_safe(health)
+        return health
 
     if not start_engine:
         raise RuntimeError(
@@ -396,109 +463,118 @@ def ensure_eval_engine(
     raise RuntimeError(f"Timed out waiting for {container_name} at {hub_url}/healthz")
 
 
-def verify_four_pathway_preflight(
+def verify_modular_preflight(
     *,
     hub_url: str,
     bundles_dir: Path,
-) -> list[dict[str, Any]]:
-    marcus_path = bundles_dir / "Marcus_Vance_Oncology_Immunotherapy.json"
-    if not marcus_path.is_file():
-        raise RuntimeError(f"Preflight bundle missing: {marcus_path}")
-    bundle = json.loads(marcus_path.read_text(encoding="utf-8"))
-    checks = [
-        ("note_rag", 16384),
-        ("condensation_kb", 16384),
-        ("dynamic_fhir_tools", 2048),
-        ("chart_only", 16384),
-    ]
-    report: list[dict[str, Any]] = []
-    for strategy, target_budget in checks:
-        req = urllib.request.Request(
-            f"{hub_url.rstrip('/')}/v1/wahs/context/preview",
-            data=json.dumps(
-                {
-                    "model": "wahs-26b-kb",
-                    "messages": [{"role": "user", "content": "What medicines am I taking right now?"}],
-                    "wahs": {
-                        "fhir_bundle": bundle,
-                        "target_budget_tokens": target_budget,
-                        "sharing_posture": "patient_self",
-                        "retrieval_strategy": strategy,
-                        "enable_kb": strategy != "chart_only",
-                        "enable_overflow_tools": strategy != "chart_only",
-                    },
-                }
-            ).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"Preflight {strategy} returned HTTP {resp.status}")
-            payload = json.loads(resp.read().decode("utf-8"))
-        cond = ((payload.get("x_wahs") or {}).get("condensation")) or {}
-        eff_b = int(cond.get("budget_effective") or cond.get("budget_requested") or 0)
-        if strategy == "dynamic_fhir_tools" and eff_b > 2048:
-            raise RuntimeError(
-                f"Preflight dynamic_fhir_tools budget_effective={eff_b} exceeded 2048 cap"
-            )
-        report.append(
-            {
-                "retrieval_strategy": strategy,
-                "target_budget_tokens": target_budget,
-                "budget_effective": eff_b,
-                "actual_tokens": int(cond.get("actual_tokens") or 0),
-                "tier": cond.get("tier"),
-            }
-        )
-    return report
-
-
-def verify_baseline_preflight(
-    *,
-    hub_url: str,
-    bundles_dir: Path,
+    requested_profiles: Sequence[str],
     llm_base_url: str = DEFAULT_LLM_BASE_URL,
     api_key: str = "",
-    check_engine: bool = True,
-    check_direct: bool = True,
+    prompt_override: str | None = None,
+    profiles_config_path: Path | str | None = None,
+    default_budget: int = 32768,
 ) -> list[dict[str, Any]]:
-    marcus_path = bundles_dir / "Marcus_Vance_Oncology_Immunotherapy.json"
-    if not marcus_path.is_file():
-        raise RuntimeError(f"Preflight bundle missing: {marcus_path}")
-    bundle = json.loads(marcus_path.read_text(encoding="utf-8"))
+    """Verify `/v1/wahs/profiles` (when available), `/v1/wahs/context/preview` for each requested
+    WAHS profile configuration, and `/models` for `raw-fhir` direct LLM baselines.
+    """
+    parsed_list = [
+        parse_wahs_profile_spec(
+            p,
+            default_budget,
+            config_path=profiles_config_path,
+            default_prompt=prompt_override,
+            strict=True,
+        )
+        for p in requested_profiles
+    ]
+    engine_specs = [p for p in parsed_list if p.kind == "wahs"]
+    has_raw_fhir = any(p.kind == "raw-fhir" for p in parsed_list)
     report: list[dict[str, Any]] = []
-    if check_engine:
-        req = urllib.request.Request(
-            f"{hub_url.rstrip('/')}/v1/wahs/context/preview",
-            data=json.dumps(
+
+    if engine_specs:
+        marcus_path = bundles_dir / "Marcus_Vance_Oncology_Immunotherapy.json"
+        if not marcus_path.is_file():
+            raise RuntimeError(f"Preflight bundle missing: {marcus_path}")
+        bundle = json.loads(marcus_path.read_text(encoding="utf-8"))
+
+        adv_profiles = probe_engine_profiles(hub_url)
+        if adv_profiles is not None:
+            prof_entries = adv_profiles.get("profiles")
+            adv_names = (
+                sorted(prof_entries.keys())
+                if isinstance(prof_entries, dict)
+                else [str(x.get("id") or x) for x in (prof_entries or []) if isinstance(x, (dict, str))]
+            )
+            report.append(
                 {
-                    "model": "ollama/gemma4:26b",
-                    "messages": [{"role": "user", "content": "What medicines am I taking right now?"}],
-                    "wahs": {"fhir_bundle": bundle},
+                    "mode": "engine_profiles_catalog",
+                    "default_profile": adv_profiles.get("default_profile"),
+                    "available_profiles": adv_names,
                 }
-            ).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"Preflight baseline engine returned HTTP {resp.status}")
-            payload = json.loads(resp.read().decode("utf-8"))
-        cond = ((payload.get("x_wahs") or {}).get("condensation")) or {}
-        actual_tok = int(cond.get("actual_tokens") or 0)
-        if actual_tok <= 0:
-            raise RuntimeError(f"Preflight baseline engine returned invalid actual_tokens={actual_tok}")
-        report.append(
-            {
-                "mode": "baseline_condensation",
-                "resolution_reason": cond.get("resolution_reason"),
-                "budget_effective": int(cond.get("budget_effective") or 0),
-                "actual_tokens": actual_tok,
-                "tier": cond.get("tier"),
+            )
+
+        seen_preview_keys: set[tuple[Any, ...]] = set()
+        for spec in engine_specs:
+            pkey = (
+                spec.wahs_profile,
+                spec.engine_profile,
+                tuple(spec.explicit_enrichers or ()),
+                spec.prompt_override or "",
+                spec.budget_tokens if spec.explicit_budget else "auto",
+            )
+            if pkey in seen_preview_keys:
+                continue
+            seen_preview_keys.add(pkey)
+
+            wahs_opts: dict[str, Any] = {
+                "fhir_bundle": bundle,
+                "profile": spec.engine_profile,
+                **({"prompt": spec.prompt_override} if spec.prompt_override else {}),
+                **({"enrichers": spec.explicit_enrichers} if spec.explicit_enrichers is not None else {}),
+                **({"target_budget_tokens": int(spec.budget_tokens)} if spec.explicit_budget else {}),
             }
-        )
-    if check_direct and api_key:
+            req = urllib.request.Request(
+                f"{hub_url.rstrip('/')}/v1/wahs/context/preview",
+                data=json.dumps(
+                    {
+                        "model": spec.model_id,
+                        "messages": [{"role": "user", "content": "What medicines am I taking right now?"}],
+                        "wahs": wahs_opts,
+                    }
+                ).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                if resp.status != 200:
+                    raise RuntimeError(f"Preflight {spec.wahs_profile} returned HTTP {resp.status}")
+                payload = json.loads(resp.read().decode("utf-8"))
+            x_wahs = payload.get("x_wahs") if isinstance(payload.get("x_wahs"), dict) else {}
+            cond = x_wahs.get("condensation") if isinstance(x_wahs.get("condensation"), dict) else {}
+            actual_tok = int(cond.get("actual_tokens") or 0)
+            if actual_tok <= 0:
+                raise RuntimeError(
+                    f"Preflight {spec.wahs_profile} returned invalid actual_tokens={actual_tok}"
+                )
+            if spec.explicit_budget and actual_tok > int(spec.budget_tokens):
+                raise RuntimeError(
+                    f"Preflight {spec.wahs_profile} actual_tokens={actual_tok} exceeded budget={spec.budget_tokens}"
+                )
+            report.append(
+                {
+                    "mode": "wahs_preview",
+                    "wahs_profile": spec.wahs_profile,
+                    "engine_profile": spec.engine_profile,
+                    "prompt_id": cond.get("prompt_id") or spec.prompt_override,
+                    "prompt_sha256": cond.get("prompt_sha256"),
+                    "budget_effective": int(cond.get("budget_effective") or 0),
+                    "actual_tokens": actual_tok,
+                    "tier": cond.get("tier"),
+                    "enrichers_count": len(x_wahs.get("enrichers") or []),
+                }
+            )
+
+    if has_raw_fhir and api_key:
         m_req = urllib.request.Request(
             f"{llm_base_url.rstrip('/')}/models",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -514,6 +590,7 @@ def verify_baseline_preflight(
                 "models_count": len(m_payload.get("data") or []),
             }
         )
+
     return report
 
 
@@ -561,13 +638,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p.add_argument("--engine-dir", type=Path, default=DEFAULT_ENGINE_DIR)
     p.add_argument("--env-file", type=Path, default=DEFAULT_ENV_FILE)
     p.add_argument("--start-engine", action="store_true")
-    p.add_argument("--smoke-10", action="store_true", help="Run only the 5-scenario x 2-arm (10-cell) GPU smoke slice + 4-pathway preflight")
+    p.add_argument(
+        "--smoke",
+        "--smoke-12",
+        dest="smoke",
+        action="store_true",
+        help="Run the 4-scenario x 3-arm (12-cell) modular GPU smoke gate + preflight",
+    )
     p.add_argument("--cohort", choices=tuple(COHORT_PATIENTS), default="core3")
-    p.add_argument("--patients", default=None, help="Comma-separated patient IDs or short slugs (e.g. maurice,julian,marcus)")
-    p.add_argument("--questions", default=None, help="Comma-separated sheet question IDs (e.g. Q01,Q04,P01)")
-    p.add_argument("--pathways", default="engine,direct", help="Comma-separated pathways from {engine,direct,rag,kb,tools,chart}")
+    p.add_argument("--patients", default=None, help="Comma-separated patient IDs or short slugs (e.g. maurice,julian,marcus,margaret)")
+    p.add_argument("--questions", default=None, help="Comma-separated sheet question IDs (e.g. Q01,Q03,Q10,Q12)")
+    p.add_argument(
+        "--pathways",
+        default="baseline,raw-fhir",
+        help="Comma-separated profile names from configs/wahs/profiles.yaml (baseline/engine, temporal, terminology, temporal-terminology, rag-overflow, core-enriched, full-enriched, direct/raw-fhir, or wahs+<enricher>)",
+    )
+    p.add_argument(
+        "--profiles",
+        default=None,
+        help="Optional comma-separated profile names or full profile specs overriding --pathways",
+    )
     p.add_argument("--models", default="26b,12b,e4b", help="Comma-separated model aliases/IDs (default: 26b,12b,e4b)")
-    p.add_argument("--budget", default=None, help="Optional chart budget override or comma-separated sweep for condensed pathways (e.g. 16k or auto,64k,32k,16k; tools stays @2k)")
+    p.add_argument("--budget", default=None, help="Optional chart budget override or comma-separated sweep (e.g. 32k or auto,64k,32k,16k)")
+    p.add_argument("--prompt", default=None, help="Optional prompt template ID override")
+    p.add_argument("--profiles-config", type=Path, default=None, help="Optional path to custom profiles.yaml")
     p.add_argument("--context-window", type=int, default=32768, help="Model context window tokens for both wahs-engine and raw-fhir (e.g. 32768 or 131072)")
     p.add_argument("--seeds", default=None, help="Optional comma-separated seeds (e.g. 42,43,44)")
     p.add_argument("--resume", type=Path, default=None)
@@ -579,11 +673,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
 
-    if args.smoke_10:
-        selected_rows = select_cases(args.cases, case_ids=SMOKE_10_CASE_IDS)
-        profiles = list(SMOKE_10_PROFILES)
-        slice_tag = "smoke10"
-        patients_label = "3 complex patients (5 smoke Google Sheet scenarios) · 2 flagship 26B arms"
+    if args.smoke:
+        selected_rows = select_cases(args.cases, case_ids=SMOKE_CASE_IDS)
+        if args.prompt:
+            profiles = build_profiles(
+                pathways=["baseline", "core-enriched", "full-enriched"],
+                models=["26b"],
+                budget_override="32k",
+                prompt_override=args.prompt,
+                profiles_config_path=args.profiles_config,
+            )
+        else:
+            profiles = list(SMOKE_MODULAR_PROFILES)
+        slice_tag = "smoke12"
+        patients_label = "3 complex patients (4 smoke Google Sheet scenarios) · 3 modular 26B@32k arms"
     else:
         patients_arg = [s for s in (args.patients or "").split(",") if s.strip()] or None
         questions_arg = [s for s in (args.questions or "").split(",") if s.strip()] or None
@@ -593,10 +696,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             patients=patients_arg,
             questions=questions_arg,
         )
+        raw_pathway_str = args.profiles if args.profiles else args.pathways
         profiles = build_profiles(
-            pathways=[s for s in args.pathways.split(",") if s.strip()],
+            pathways=[s for s in raw_pathway_str.split(",") if s.strip()],
             models=[s for s in args.models.split(",") if s.strip()],
             budget_override=args.budget,
+            prompt_override=args.prompt,
+            profiles_config_path=args.profiles_config,
         )
         slice_tag = args.cohort if not patients_arg and not questions_arg else "custom"
         unique_patients = len({r.get("patient_id") for r in selected_rows})
@@ -616,10 +722,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     total_cells = len(selected_rows) * len(profiles) * (len(parsed_seeds) if parsed_seeds else 1)
 
     plan_summary = {
-        "mode": "smoke-10" if args.smoke_10 else slice_tag,
+        "mode": "smoke-12" if args.smoke else slice_tag,
         "cases_file": str(effective_cases),
         "cases_count": len(selected_rows),
         "profiles": profiles,
+        "prompt_override": args.prompt,
         "context_window": int(args.context_window),
         "seeds": parsed_seeds,
         "total_cells": total_cells,
@@ -635,11 +742,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for k, v in CIRG_HARDWARE_ENV.items():
         os.environ[k] = v
 
-    pathway_list = [s.strip().lower() for s in args.pathways.split(",") if s.strip()]
-    use_baseline_preflight = (not args.smoke_10) and all(
-        p in {"engine", "direct"} for p in pathway_list
-    )
-    need_engine = args.smoke_10 or any(p != "direct" for p in pathway_list)
+    need_engine = any(not p.lower().startswith("raw-fhir:") for p in profiles)
     api_key = _read_llm_api_key(args.env_file)
     llm_timeout_s = 300
 
@@ -655,27 +758,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         health = {"llm_base_url": DEFAULT_LLM_BASE_URL}
 
-    if use_baseline_preflight:
-        preflight = verify_baseline_preflight(
-            hub_url=args.hub_url,
-            bundles_dir=args.bundles_dir,
-            llm_base_url=DEFAULT_LLM_BASE_URL,
-            api_key=api_key,
-            check_engine=("engine" in pathway_list),
-            check_direct=("direct" in pathway_list),
-        )
-        print(
-            f"==> Engine/Direct preflight OK ({health.get('llm_base_url')}):",
-            json.dumps(preflight),
-            file=sys.stderr,
-        )
-    else:
-        preflight = verify_four_pathway_preflight(hub_url=args.hub_url, bundles_dir=args.bundles_dir)
-        print(
-            f"==> Engine verified ({health.get('llm_base_url')}), 4-pathway preflight OK:",
-            json.dumps(preflight),
-            file=sys.stderr,
-        )
+    preflight = verify_modular_preflight(
+        hub_url=args.hub_url,
+        bundles_dir=args.bundles_dir,
+        requested_profiles=profiles,
+        llm_base_url=DEFAULT_LLM_BASE_URL,
+        api_key=api_key,
+        prompt_override=args.prompt,
+        profiles_config_path=args.profiles_config,
+        default_budget=int(args.context_window),
+    )
+    print(
+        f"==> Modular preflight OK ({health.get('llm_base_url')}):",
+        json.dumps(preflight),
+        file=sys.stderr,
+    )
 
     from harness.wahs.evaluator import WahsHubClient, build_wahs_report_packet, run_wahs_suite
 
@@ -683,9 +780,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         engine_dir=args.engine_dir,
         hub_url=args.hub_url,
         rationale=(
-            "Google Sheet scenarios CIRG H200 GPU evaluation (10-cell smoke)"
-            if args.smoke_10
-            else "Google Sheet scenarios CIRG H200 GPU benchmark"
+            "Google Sheet scenarios CIRG H200 GPU evaluation (12-cell modular smoke)"
+            if args.smoke
+            else "Google Sheet scenarios CIRG H200 GPU modular benchmark"
         ),
     )
     client = WahsHubClient(
@@ -696,6 +793,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         direct_context_window=int(args.context_window),
         timeout=float(llm_timeout_s),
         bundle_dirs=[args.bundles_dir],
+        profiles_config_path=args.profiles_config,
+        prompt_override=args.prompt,
     )
     suite_budgets = [int(args.context_window)]
     result = run_wahs_suite(
@@ -709,11 +808,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         target_provenance=provenance,
         resume_from=args.resume,
         bundle_dirs=[args.bundles_dir],
+        profiles_config_path=args.profiles_config,
+        prompt_override=args.prompt,
     )
     packet = build_wahs_report_packet(
         result.run_dir,
         patients_summary=patients_label,
         bundle_dirs=[args.bundles_dir],
+        profiles_config_path=args.profiles_config,
     )
 
     if args.judges:
@@ -728,6 +830,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "--bundles-dir",
             str(args.bundles_dir),
         ]
+        if args.profiles_config:
+            judge_cmd.extend(["--profiles-config", str(args.profiles_config)])
         for j in args.judges:
             judge_cmd.extend(["--judge", j])
         subprocess.run(judge_cmd, cwd=HARNESS_ROOT, check=True)
@@ -735,6 +839,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             result.run_dir,
             patients_summary=patients_label,
             bundle_dirs=[args.bundles_dir],
+            profiles_config_path=args.profiles_config,
         )
 
     out = {
@@ -750,8 +855,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "packet_run_id": packet.get("run_id"),
         "full_run_command": (
             f"uv --directory {HARNESS_ROOT} run python scripts/run-wahs-gpu-sheet-eval.py "
-            f"--cohort core3 --pathways engine,direct --models 26b,12b,e4b "
-            f"--start-engine --bundles-dir {args.bundles_dir}"
+            f"--cohort core3 --pathways baseline,core-enriched,full-enriched --budget 32k "
+            f"--models 26b,12b,e4b --start-engine --bundles-dir {args.bundles_dir}"
         ),
     }
     print(json.dumps(out, indent=2))
